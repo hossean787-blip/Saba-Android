@@ -19,3 +19,9 @@ The separate Asterisk telephony archive is excluded.
 - Do not execute third-party scripts or expose keys while importing.
 - Keep all originals out of `app/src/main` and Gradle build inputs until compatible licensing, security review, and functional tests are complete.
 - Production API schema, signature, encryption, tax-ID check digit, retry idempotency and status reconciliation remain to be verified against official documentation.
+
+## Transfer progress (2026-10-28)
+
+Reference-source text files for all five source trees have been staged under `third_party/reference/` on the integration branch from the authors' upstream GitHub repositories. The only untransferred archive member is the Odoo PNG icon (`oe_moadian-19.0/static/description/icon.png`), which is a non-executable graphic asset. Original ZIP archives are not themselves committed. Five representative uploaded-ZIP blobs were compared against their staged Git blob SHA-1 identifiers and matched. This is not a byte-for-byte verification of every file.
+
+**Do not add the reference directories to Android Gradle source sets or ship this tree inside the APK.** The two orally permitted libraries have user-reported commercial-use permission; redistributing source and sublicensing permissions remain undocumented. For the three Python libraries, the LICENSE files in the uploaded ZIPs contain GPL version 3 text, regardless of inconsistent MIT classifier metadata in some pyproject files.
