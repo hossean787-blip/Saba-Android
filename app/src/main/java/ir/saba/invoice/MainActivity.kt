@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
@@ -61,6 +62,8 @@ class MainActivity : ComponentActivity() {
         var customers by remember { mutableStateOf(listOf<Customer>()) }
         var selectedCompanyId by remember { mutableStateOf<Long?>(null) }
         var notice by remember { mutableStateOf("") }
+        var customerSearch by remember { mutableStateOf("") }
+        var companyMenuExpanded by remember { mutableStateOf(false) }
         var companyName by remember { mutableStateOf("") }
         var companyNationalId by remember { mutableStateOf("") }
         var purchaserId by remember { mutableStateOf("owner-1") }
@@ -129,9 +132,21 @@ class MainActivity : ComponentActivity() {
                                     color = premiumPurple, fontWeight = FontWeight.ExtraBold)
                                 Text("مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.labelMedium)
                             }
-                            Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب شرکت",
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(top = 12.dp))
+                            Box {
+                                TextButton(onClick = { companyMenuExpanded = true }) {
+                                    Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب شرکت",
+                                        style = MaterialTheme.typography.labelLarge)
+                                }
+                                DropdownMenu(expanded = companyMenuExpanded,
+                                    onDismissRequest = { companyMenuExpanded = false }) {
+                                    companies.forEach { company ->
+                                        DropdownMenuItem(text = { Text(company.name) }, onClick = {
+                                            selectedCompanyId = company.id
+                                            companyMenuExpanded = false
+                                        })
+                                    }
+                                }
+                            }
                         }
                     }
                 },
@@ -265,8 +280,9 @@ class MainActivity : ComponentActivity() {
                                 }) { Text("ذخیره مشتری") }
                                 Spacer(Modifier.height(16.dp))
                                 Text("فهرست مشتریان", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                OutlinedTextField(value = customerSearch, onValueChange = { customerSearch = it }, label = { Text("جستجوی مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    items(customers, key = { it.id }) { customer ->
+                                    items(customers.filter { customerSearch.isBlank() || it.name.contains(customerSearch, ignoreCase = true) || it.nationalId.contains(customerSearch) }, key = { it.id }) { customer ->
                                         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                                             Column(Modifier.padding(14.dp)) {
                                                 Text(customer.name, fontWeight = FontWeight.SemiBold)
@@ -459,7 +475,7 @@ class MainActivity : ComponentActivity() {
                             Text("وضعیت اتصال سامانه مؤدیان", style = MaterialTheme.typography.titleMedium)
                             Text("پیکربندی نشده؛ هیچ فاکتوری از این نسخه به سامانه واقعی ارسال نمی‌شود.")
                             Spacer(Modifier.height(8.dp))
-                            Text("وضعیت نسخه: نمونه اولیه محلی؛ ساخت APK و آزمون روی دستگاه هنوز تأیید نشده است.")
+                            Text("وضعیت نسخه: آزمایشی؛ ساخت APK در GitHub تأیید شده، ولی آزمون نصب روی دستگاه هنوز ثبت نشده است.")
                         }
                     }
 
