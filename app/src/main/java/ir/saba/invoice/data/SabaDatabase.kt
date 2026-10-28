@@ -43,7 +43,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class], version = 2, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+        internal val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `moadian_simulations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `companyId` INTEGER NOT NULL, `invoiceId` INTEGER NOT NULL, `requestId` TEXT NOT NULL, `payloadHash` TEXT NOT NULL, `localStatus` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_moadian_simulations_companyId` ON `moadian_simulations` (`companyId`)")
