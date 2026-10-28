@@ -15,6 +15,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Add
 import androidx.lifecycle.lifecycleScope
 import ir.saba.invoice.data.Company
 import ir.saba.invoice.data.Customer
@@ -91,30 +105,107 @@ class MainActivity : ComponentActivity() {
             companyQuota = id?.let { db.quotaDao().companyQuota(it) }
         }
 
-        MaterialTheme {
+        val premiumPurple = Color(0xFF6246AE)
+        val premiumScheme = lightColorScheme(
+            primary = premiumPurple, onPrimary = Color.White,
+            primaryContainer = Color(0xFFECE5FB), onPrimaryContainer = Color(0xFF25184D),
+            background = Color(0xFFF8F7FC), surface = Color.White,
+            onBackground = Color(0xFF1D1834), onSurface = Color(0xFF1D1834)
+        )
+        MaterialTheme(colorScheme = premiumScheme, shapes = Shapes(
+            small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp),
+            large = RoundedCornerShape(24.dp))) {
             val baseDensity = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(baseDensity.density, fontScale)) {
-            Scaffold(topBar = { TopAppBar(title = { Text("صبا | مدیریت فاکتور") }) }) { padding ->
-                Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                    Text("سامانه مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(10.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Button(onClick = { page = Page.DASHBOARD }) { Text("خانه") }
-                        Button(onClick = { page = Page.COMPANIES }) { Text("شرکت‌ها") }
-                        Button(onClick = { page = Page.CUSTOMERS }) { Text("مشتریان") }
-                        Button(onClick = { page = Page.INVOICES }) { Text("فاکتورها") }
-                        Button(onClick = { page = Page.QUOTA }) { Text("سهمیه") }
-                        Button(onClick = { page = Page.SIMULATION }) { Text("آزمایش مؤدیان") }
-                        Button(onClick = { page = Page.SETTINGS }) { Text("تنظیمات") }
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                topBar = {
+                    Surface(color = Color.White, shadowElevation = 2.dp) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text("صبا", style = MaterialTheme.typography.headlineSmall,
+                                    color = premiumPurple, fontWeight = FontWeight.ExtraBold)
+                                Text("مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.labelMedium)
+                            }
+                            Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب شرکت",
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(top = 12.dp))
+                        }
                     }
-                    Spacer(Modifier.height(10.dp))
+                },
+                bottomBar = {
+                    NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
+                        listOf(
+                            Triple(Page.DASHBOARD, "خانه", Icons.Default.Home),
+                            Triple(Page.COMPANIES, "شرکت‌ها", Icons.Default.AccountCircle),
+                            Triple(Page.INVOICES, "فاکتورها", Icons.Default.List),
+                            Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
+                            Triple(Page.SETTINGS, "تنظیمات", Icons.Default.Settings)
+                        ).forEach { (destination, title, icon) ->
+                            NavigationBarItem(selected = page == destination,
+                                onClick = { page = destination },
+                                icon = { Icon(icon, contentDescription = title) },
+                                label = { Text(title, maxLines = 1) })
+                        }
+                    }
+                },
+                snackbarHost = {
+                    if (notice.isNotBlank()) {
+                        SnackbarHost(hostState = remember { SnackbarHostState() }) {
+                            Snackbar(
+                                action = { TextButton(onClick = { notice = "" }) { Text("بستن") } },
+                                modifier = Modifier.padding(12.dp)
+                            ) { Text(notice) }
+                        }
+                    }
+                }
+            ) { padding ->
+                Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)) {
                     when (page) {
+
                         Page.DASHBOARD -> {
-                            Text("شرکت‌های ثبت‌شده: ${companies.size}")
-                            Text("مشتریان شرکت انتخاب‌شده: ${customers.size}")
-                            Spacer(Modifier.height(8.dp))
-                            Text("این نسخه آزمایشی است؛ هنوز کامپایل و روی دستگاه اجرا نشده است.")
-                            Button(onClick = { page = Page.COMPANIES }) { Text("ثبت شرکت") }
+                            ElevatedCard(
+                                colors = CardDefaults.elevatedCardColors(containerColor = premiumPurple),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("صورتحساب الکترونیکی", color = Color.White,
+                                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                    Text("صدور، پیگیری و مدیریت صورتحساب‌ها", color = Color.White)
+                                    Button(onClick = { page = Page.INVOICES },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = premiumPurple)) {
+                                        Icon(Icons.Default.Add, null)
+                                        Text("صدور فاکتور جدید")
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                listOf(
+                                    Triple("شرکت‌ها", companies.size.toString(), Page.COMPANIES),
+                                    Triple("مشتریان", customers.size.toString(), Page.CUSTOMERS),
+                                    Triple("فاکتورها", invoices.size.toString(), Page.INVOICES)
+                                ).forEach { (label, amount, destination) ->
+                                    ElevatedCard(onClick = { page = destination }, modifier = Modifier.weight(1f)) {
+                                        Column(Modifier.padding(14.dp)) {
+                                            Text(amount, style = MaterialTheme.typography.headlineSmall, color = premiumPurple)
+                                            Text(label, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            ElevatedCard(onClick = { page = Page.SIMULATION },
+                                modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text("آزمایش سامانه مؤدیان", fontWeight = FontWeight.Bold)
+                                    Text("ارسال آزمایشی آفلاین؛ ارسال واقعی غیرفعال است.")
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            OutlinedButton(onClick = { page = Page.QUOTA }) { Text("مدیریت سهمیه‌ها") }
                         }
                         Page.COMPANIES -> {
                             Text("ثبت شرکت / مؤدی", style = MaterialTheme.typography.titleLarge)
@@ -146,17 +237,19 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         Page.CUSTOMERS -> {
-                            Text("مدیریت مشتریان", style = MaterialTheme.typography.titleLarge)
+                            Text("مشتریان", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             if (companies.isEmpty()) {
                                 Text("ابتدا از بخش شرکت‌ها، یک شرکت ثبت کنید.")
                             } else {
-                                Text("شرکت:")
+                                Text("شرکت انتخاب‌شده", style = MaterialTheme.typography.labelLarge)
+                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 companies.forEach { company ->
-                                    Row(Modifier.fillMaxWidth()) {
-                                        RadioButton(selected = selectedCompanyId == company.id, onClick = { selectedCompanyId = company.id })
-                                        Text(company.name, modifier = Modifier.padding(top = 12.dp))
-                                    }
+                                    FilterChip(selected = selectedCompanyId == company.id, onClick = { selectedCompanyId = company.id }, label = { Text(company.name) })
                                 }
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                Text("افزودن مشتری جدید", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.height(8.dp))
                                 OutlinedTextField(value = customerName, onValueChange = { customerName = it }, label = { Text("نام مشتری") }, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(value = customerNationalId, onValueChange = { customerNationalId = it }, label = { Text("شناسه ملی مشتری (اختیاری)") }, modifier = Modifier.fillMaxWidth())
                                 Button(onClick = {
@@ -170,9 +263,16 @@ class MainActivity : ComponentActivity() {
                                         } catch (e: Exception) { notice = e.message ?: "ثبت مشتری انجام نشد." }
                                     }
                                 }) { Text("ذخیره مشتری") }
+                                Spacer(Modifier.height(16.dp))
+                                Text("فهرست مشتریان", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     items(customers, key = { it.id }) { customer ->
-                                        ListItem(headlineContent = { Text(customer.name) }, supportingContent = { Text("شناسه ملی: ${customer.nationalId.ifBlank { "ثبت نشده" }}") })
+                                        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                                            Column(Modifier.padding(14.dp)) {
+                                                Text(customer.name, fontWeight = FontWeight.SemiBold)
+                                                Text("شناسه ملی: ${customer.nationalId.ifBlank { "ثبت نشده" }}", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -362,11 +462,9 @@ class MainActivity : ComponentActivity() {
                             Text("وضعیت نسخه: نمونه اولیه محلی؛ ساخت APK و آزمون روی دستگاه هنوز تأیید نشده است.")
                         }
                     }
-                    if (notice.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(notice, color = MaterialTheme.colorScheme.primary)
-                    }
+
                 }
+            }
             }
             }
         }
