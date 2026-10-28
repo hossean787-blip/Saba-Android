@@ -1,0 +1,12 @@
+{
+  "name": "saba-offline-v19-clean",
+  "version": "19.0.1",
+  "private": true,
+  "scripts": {
+    "build": "python tools/build.py",
+    "test": "node tests/regression.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
