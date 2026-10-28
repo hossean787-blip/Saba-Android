@@ -4,82 +4,324 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
-import ir.saba.invoice.data.*
+import ir.saba.invoice.data.Company
+import ir.saba.invoice.data.Customer
+import ir.saba.invoice.data.Invoice
+import ir.saba.invoice.data.InvoiceLine
+import ir.saba.invoice.data.InvoiceRepository
+import ir.saba.invoice.data.QuotaRepository
+import ir.saba.invoice.data.QuotaWallet
+import ir.saba.invoice.data.CompanyQuota
+import ir.saba.invoice.data.SabaDatabase
 import kotlinx.coroutines.launch
 
-/** Basic functional shell. Original v21 advanced UI is not yet completely imported. */
+private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SETTINGS }
+
 class MainActivity : ComponentActivity() {
     private val db by lazy { SabaDatabase.getInstance(applicationContext) }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { SabaScreen() }
+        setContent { SabaApp() }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    private fun SabaScreen() {
-        var companies by remember { mutableStateOf(emptyList<Company>()) }
-        var selectedCompany by remember { mutableStateOf<Long?>(null) }
-        var invoices by remember { mutableStateOf(emptyList<Invoice>()) }
-        var name by remember { mutableStateOf("") }
-        var nationalId by remember { mutableStateOf("") }
+    private fun SabaApp() {
+        var page by remember { mutableStateOf(Page.DASHBOARD) }
+        var fontScale by remember { mutableFloatStateOf(1.0f) }
+        var companies by remember { mutableStateOf(listOf<Company>()) }
+        var customers by remember { mutableStateOf(listOf<Customer>()) }
+        var selectedCompanyId by remember { mutableStateOf<Long?>(null) }
         var notice by remember { mutableStateOf("") }
+        var companyName by remember { mutableStateOf("") }
+        var companyNationalId by remember { mutableStateOf("") }
+        var purchaserId by remember { mutableStateOf("owner-1") }
+        var customerName by remember { mutableStateOf("") }
+        var customerNationalId by remember { mutableStateOf("") }
+        var invoices by remember { mutableStateOf(listOf<Invoice>()) }
+        var invoiceNumber by remember { mutableStateOf("") }
+        var invoiceDate by remember { mutableStateOf("") }
+        var invoiceCustomerId by remember { mutableStateOf<Long?>(null) }
+        var itemDescription by remember { mutableStateOf("") }
+        var itemQuantity by remember { mutableStateOf("1") }
+        var itemPrice by remember { mutableStateOf("") }
+        var itemTax by remember { mutableStateOf("10") }
+        var customerMenuExpanded by remember { mutableStateOf(false) }
+        var purchasedQuotaInput by remember { mutableStateOf("50") }
+        var transferQuotaInput by remember { mutableStateOf("10") }
+        var wallet by remember { mutableStateOf<QuotaWallet?>(null) }
+        var companyQuota by remember { mutableStateOf<CompanyQuota?>(null) }
 
-        fun refresh() {
+        fun reload() {
             lifecycleScope.launch {
                 companies = db.companyDao().all()
-                selectedCompany = selectedCompany?.takeIf { id -> companies.any { it.id == id } }
-                    ?: companies.firstOrNull()?.id
-                invoices = selectedCompany?.let { db.invoiceDao().forCompany(it) } ?: emptyList()
+                selectedCompanyId = selectedCompanyId?.takeIf { id -> companies.any { it.id == id } } ?: companies.firstOrNull()?.id
+                customers = selectedCompanyId?.let { db.customerDao().forCompany(it) } ?: emptyList()
+                invoices = selectedCompanyId?.let { db.invoiceDao().forCompany(it) } ?: emptyList()
+                val company = companies.firstOrNull { it.id == selectedCompanyId }
+                wallet = company?.let { db.quotaDao().wallet(it.purchaserId) }
+                companyQuota = selectedCompanyId?.let { db.quotaDao().companyQuota(it) }
             }
         }
-        LaunchedEffect(Unit) { refresh() }
-        LaunchedEffect(selectedCompany) {
-            invoices = selectedCompany?.let { db.invoiceDao().forCompany(it) } ?: emptyList()
+        LaunchedEffect(Unit) { reload() }
+        LaunchedEffect(selectedCompanyId) {
+            val id = selectedCompanyId
+            customers = if (id == null) emptyList() else db.customerDao().forCompany(id)
+            invoices = if (id == null) emptyList() else db.invoiceDao().forCompany(id)
+            invoiceCustomerId = customers.firstOrNull()?.id
+            val company = companies.firstOrNull { it.id == id }
+            wallet = company?.let { db.quotaDao().wallet(it.purchaserId) }
+            companyQuota = id?.let { db.quotaDao().companyQuota(it) }
         }
 
         MaterialTheme {
-            Surface(modifier = Modifier.fillMaxSize()) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("فاکتور صبا", style = MaterialTheme.typography.headlineMedium)
-                    Text("نسخه توسعه‌ای — اتصال سامانه مؤدیان هنوز فعال نیست")
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("نام شرکت") })
-                    OutlinedTextField(value = nationalId, onValueChange = { nationalId = it }, label = { Text("شناسه ملی") })
-                    Button(onClick = {
-                        lifecycleScope.launch {
-                            try {
-                                require(name.isNotBlank() && nationalId.isNotBlank())
-                                db.companyDao().insert(Company(
-                                    purchaserId = "local-owner", name = name.trim(), nationalId = nationalId.trim()
-                                ))
-                                name = ""
-                                nationalId = ""
-                                notice = "شرکت ثبت شد"
-                                refresh()
-                            } catch (e: Exception) {
-                                notice = e.message ?: "خطا در ثبت"
+            val baseDensity = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides baseDensity.copy(fontScale = fontScale)) {
+            Scaffold(topBar = { TopAppBar(title = { Text("صبا | مدیریت فاکتور") }) }) { padding ->
+                Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+                    Text("سامانه مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Button(onClick = { page = Page.DASHBOARD }) { Text("خانه") }
+                        Button(onClick = { page = Page.COMPANIES }) { Text("شرکت‌ها") }
+                        Button(onClick = { page = Page.CUSTOMERS }) { Text("مشتریان") }
+                        Button(onClick = { page = Page.INVOICES }) { Text("فاکتورها") }
+                        Button(onClick = { page = Page.QUOTA }) { Text("سهمیه") }
+                        Button(onClick = { page = Page.SETTINGS }) { Text("تنظیمات") }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    when (page) {
+                        Page.DASHBOARD -> {
+                            Text("شرکت‌های ثبت‌شده: ${companies.size}")
+                            Text("مشتریان شرکت انتخاب‌شده: ${customers.size}")
+                            Spacer(Modifier.height(8.dp))
+                            Text("این نسخه آزمایشی است؛ هنوز کامپایل و روی دستگاه اجرا نشده است.")
+                            Button(onClick = { page = Page.COMPANIES }) { Text("ثبت شرکت") }
+                        }
+                        Page.COMPANIES -> {
+                            Text("ثبت شرکت / مؤدی", style = MaterialTheme.typography.titleLarge)
+                            OutlinedTextField(value = companyName, onValueChange = { companyName = it }, label = { Text("نام شرکت") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(value = companyNationalId, onValueChange = { companyNationalId = it }, label = { Text("شناسه ملی") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(value = purchaserId, onValueChange = { purchaserId = it }, label = { Text("شناسه خریدار اصلی") }, modifier = Modifier.fillMaxWidth())
+                            Button(onClick = {
+                                lifecycleScope.launch {
+                                    try {
+                                        require(companyName.isNotBlank()) { "نام شرکت الزامی است." }
+                                        require(companyNationalId.isNotBlank()) { "شناسه ملی الزامی است." }
+                                        require(companyNationalId.trim().all { it.isDigit() }) { "شناسه ملی باید فقط شامل رقم باشد." }
+                                        require(purchaserId.isNotBlank()) { "شناسه خریدار الزامی است." }
+                                        db.companyDao().insert(Company(purchaserId = purchaserId.trim(), name = companyName.trim(), nationalId = companyNationalId.trim()))
+                                        companyName = ""; companyNationalId = ""; notice = "شرکت ثبت شد."; reload()
+                                    } catch (e: Exception) { notice = e.message ?: "ثبت شرکت انجام نشد." }
+                                }
+                            }) { Text("ذخیره شرکت") }
+                            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(companies, key = { it.id }) { company ->
+                                    ElevatedCard(onClick = { selectedCompanyId = company.id; page = Page.CUSTOMERS }, modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(12.dp)) {
+                                            Text(company.name, fontWeight = FontWeight.SemiBold)
+                                            Text("شناسه ملی: ${company.nationalId}")
+                                            Text("برای مشاهده مشتریان انتخاب کنید")
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }) { Text("ثبت شرکت") }
-                    if (notice.isNotBlank()) Text(notice)
-                    Text("شرکت‌ها", style = MaterialTheme.typography.titleMedium)
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(companies, key = { it.id }) { company ->
-                            TextButton(onClick = { selectedCompany = company.id }) {
-                                Text((if (company.id == selectedCompany) "✓ " else "") + company.name)
+                        Page.CUSTOMERS -> {
+                            Text("مدیریت مشتریان", style = MaterialTheme.typography.titleLarge)
+                            if (companies.isEmpty()) {
+                                Text("ابتدا از بخش شرکت‌ها، یک شرکت ثبت کنید.")
+                            } else {
+                                Text("شرکت:")
+                                companies.forEach { company ->
+                                    Row(Modifier.fillMaxWidth()) {
+                                        RadioButton(selected = selectedCompanyId == company.id, onClick = { selectedCompanyId = company.id })
+                                        Text(company.name, modifier = Modifier.padding(top = 12.dp))
+                                    }
+                                }
+                                OutlinedTextField(value = customerName, onValueChange = { customerName = it }, label = { Text("نام مشتری") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(value = customerNationalId, onValueChange = { customerNationalId = it }, label = { Text("شناسه ملی مشتری (اختیاری)") }, modifier = Modifier.fillMaxWidth())
+                                Button(onClick = {
+                                    lifecycleScope.launch {
+                                        try {
+                                            val companyId = selectedCompanyId ?: error("ابتدا شرکت را انتخاب کنید.")
+                                            require(customerName.isNotBlank()) { "نام مشتری الزامی است." }
+                                            db.customerDao().insert(Customer(companyId = companyId, name = customerName.trim(), nationalId = customerNationalId.trim()))
+                                            customerName = ""; customerNationalId = ""; notice = "مشتری ثبت شد."
+                                            customers = db.customerDao().forCompany(companyId)
+                                        } catch (e: Exception) { notice = e.message ?: "ثبت مشتری انجام نشد." }
+                                    }
+                                }) { Text("ذخیره مشتری") }
+                                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    items(customers, key = { it.id }) { customer ->
+                                        ListItem(headlineContent = { Text(customer.name) }, supportingContent = { Text("شناسه ملی: ${customer.nationalId.ifBlank { "ثبت نشده" }}") })
+                                    }
+                                }
                             }
+                        }
+                        Page.INVOICES -> {
+                            Text("صدور فاکتور | پیش‌نویس", style = MaterialTheme.typography.titleLarge)
+                            if (selectedCompanyId == null) {
+                                Text("ابتدا یک شرکت ثبت کنید.")
+                            } else {
+                                OutlinedTextField(value = invoiceNumber, onValueChange = { invoiceNumber = it }, label = { Text("شماره فاکتور") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(value = invoiceDate, onValueChange = { invoiceDate = it }, label = { Text("تاریخ فاکتور (مثلاً ۱۴۰۵/۰۷/۰۲)") }, modifier = Modifier.fillMaxWidth())
+                                Box {
+                                    OutlinedButton(onClick = { customerMenuExpanded = true }, enabled = customers.isNotEmpty()) {
+                                        Text(customers.firstOrNull { it.id == invoiceCustomerId }?.name ?: "انتخاب مشتری")
+                                    }
+                                    DropdownMenu(expanded = customerMenuExpanded, onDismissRequest = { customerMenuExpanded = false }) {
+                                        customers.forEach { customer ->
+                                            DropdownMenuItem(text = { Text(customer.name) }, onClick = {
+                                                invoiceCustomerId = customer.id
+                                                customerMenuExpanded = false
+                                            })
+                                        }
+                                    }
+                                }
+                                OutlinedTextField(value = itemDescription, onValueChange = { itemDescription = it }, label = { Text("شرح کالا یا خدمت") }, modifier = Modifier.fillMaxWidth())
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(value = itemQuantity, onValueChange = { itemQuantity = it.filter(Char::isDigit) }, label = { Text("تعداد") }, modifier = Modifier.weight(1f))
+                                    OutlinedTextField(value = itemPrice, onValueChange = { itemPrice = it.filter(Char::isDigit) }, label = { Text("قیمت واحد (ریال)") }, modifier = Modifier.weight(2f))
+                                }
+                                OutlinedTextField(value = itemTax, onValueChange = { itemTax = it.filter(Char::isDigit).take(3) }, label = { Text("درصد مالیات (موقت)") }, modifier = Modifier.fillMaxWidth())
+                                Button(onClick = {
+                                    lifecycleScope.launch {
+                                        try {
+                                            val companyId = selectedCompanyId ?: error("شرکت را انتخاب کنید.")
+                                            val customerId = invoiceCustomerId ?: error("مشتری را انتخاب کنید.")
+                                            val qty = itemQuantity.toLongOrNull() ?: error("تعداد نامعتبر است.")
+                                            val price = itemPrice.toLongOrNull() ?: error("قیمت نامعتبر است.")
+                                            val tax = itemTax.toIntOrNull() ?: error("درصد مالیات نامعتبر است.")
+                                            require(itemDescription.isNotBlank()) { "شرح کالا یا خدمت الزامی است." }
+                                            require(qty > 0) { "تعداد باید بیشتر از صفر باشد." }
+                                            require(price >= 0) { "قیمت نمی‌تواند منفی باشد." }
+                                            require(tax in 0..100) { "درصد مالیات باید بین صفر و صد باشد." }
+                                            val repo = InvoiceRepository(db)
+                                            repo.saveDraft(
+                                                companyId = companyId,
+                                                customerId = customerId,
+                                                invoiceNumber = invoiceNumber,
+                                                issueDate = invoiceDate,
+                                                lines = listOf(InvoiceLine(invoiceId = 0, description = itemDescription.trim(), quantity = qty, unitPriceRial = price, taxRatePercent = tax))
+                                            )
+                                            invoiceNumber = ""; invoiceDate = ""; itemDescription = ""; itemQuantity = "1"; itemPrice = ""
+                                            invoices = db.invoiceDao().forCompany(companyId)
+                                            notice = "پیش‌نویس فاکتور ذخیره شد. هنوز به سامانه مؤدیان ارسال نشده است."
+                                        } catch (e: Exception) { notice = e.message ?: "ذخیره فاکتور انجام نشد." }
+                                    }
+                                }, enabled = customers.isNotEmpty()) { Text("ذخیره پیش‌نویس") }
+                                Spacer(Modifier.height(8.dp))
+                                Text("فاکتورهای شرکت انتخاب‌شده", style = MaterialTheme.typography.titleMedium)
+                                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    items(invoices, key = { it.id }) { invoice ->
+                                        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                                            Column(Modifier.padding(12.dp)) {
+                                                Text("فاکتور ${invoice.invoiceNumber}", fontWeight = FontWeight.SemiBold)
+                                                Text("تاریخ: ${invoice.issueDate} | وضعیت: ${if (invoice.status == "DRAFT") "پیش‌نویس" else invoice.status}")
+                                                Text("مبلغ کل: ${invoice.totalAmountRial} ریال")
+                                                if (invoice.status == "DRAFT") {
+                                                    Button(onClick = {
+                                                        lifecycleScope.launch {
+                                                            try {
+                                                                InvoiceRepository(db).finalizeDraft(invoice.id)
+                                                                invoices = selectedCompanyId?.let { db.invoiceDao().forCompany(it) } ?: emptyList()
+                                                                companyQuota = selectedCompanyId?.let { db.quotaDao().companyQuota(it) }
+                                                                notice = "فاکتور نهایی شد و یک سهمیه مصرف شد. ارسال به سامانه مؤدیان انجام نشده است."
+                                                            } catch (e: Exception) {
+                                                                notice = e.message ?: "نهایی‌سازی فاکتور انجام نشد."
+                                                            }
+                                                        }
+                                                    }) { Text("نهایی‌سازی و مصرف سهمیه") }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Page.QUOTA -> {
+                            Text("مدیریت سهمیه", style = MaterialTheme.typography.titleLarge)
+                            val selectedCompany = companies.firstOrNull { it.id == selectedCompanyId }
+                            if (selectedCompany == null) {
+                                Text("ابتدا یک شرکت ثبت و انتخاب کنید.")
+                            } else {
+                                Text("شرکت انتخاب‌شده: ${selectedCompany.name}")
+                                Text("شناسه خریدار اصلی: ${selectedCompany.purchaserId}")
+                                Text("سهمیه آزاد حساب اصلی: ${wallet?.available?.toString() ?: "ایجاد نشده"}")
+                                Text("سهمیه تخصیص‌یافته به شرکت: ${companyQuota?.allocatedTotal ?: 0}")
+                                Text("سهمیه باقی‌مانده شرکت: ${companyQuota?.available ?: 0}")
+                                Spacer(Modifier.height(8.dp))
+                                Text("ایجاد کیف سهمیه خریدار اصلی")
+                                OutlinedTextField(value = purchasedQuotaInput, onValueChange = { purchasedQuotaInput = it.filter(Char::isDigit) }, label = { Text("تعداد سهمیه خریداری‌شده") }, modifier = Modifier.fillMaxWidth())
+                                Button(onClick = {
+                                    lifecycleScope.launch {
+                                        try {
+                                            val amount = purchasedQuotaInput.toLongOrNull() ?: error("تعداد سهمیه معتبر نیست.")
+                                            QuotaRepository(db).initializeWallet(selectedCompany.purchaserId, amount)
+                                            wallet = db.quotaDao().wallet(selectedCompany.purchaserId)
+                                            notice = "کیف سهمیه ایجاد شد. این کار فقط یک‌بار برای هر خریدار انجام می‌شود."
+                                        } catch (e: Exception) { notice = e.message ?: "ایجاد کیف سهمیه انجام نشد." }
+                                    }
+                                }, enabled = wallet == null) { Text(if (wallet == null) "ایجاد کیف سهمیه" else "کیف سهمیه قبلاً ایجاد شده") }
+                                Spacer(Modifier.height(8.dp))
+                                Text("انتقال سهمیه از خریدار اصلی به شرکت انتخاب‌شده")
+                                OutlinedTextField(value = transferQuotaInput, onValueChange = { transferQuotaInput = it.filter(Char::isDigit) }, label = { Text("تعداد برای انتقال") }, modifier = Modifier.fillMaxWidth())
+                                Button(onClick = {
+                                    lifecycleScope.launch {
+                                        try {
+                                            val amount = transferQuotaInput.toLongOrNull() ?: error("تعداد انتقال معتبر نیست.")
+                                            QuotaRepository(db).transferFromMaster(
+                                                purchaserId = selectedCompany.purchaserId,
+                                                companyId = selectedCompany.id,
+                                                amount = amount,
+                                                operationId = java.util.UUID.randomUUID().toString()
+                                            )
+                                            wallet = db.quotaDao().wallet(selectedCompany.purchaserId)
+                                            companyQuota = db.quotaDao().companyQuota(selectedCompany.id)
+                                            notice = "انتقال سهمیه ثبت شد."
+                                        } catch (e: Exception) { notice = e.message ?: "انتقال سهمیه انجام نشد." }
+                                    }
+                                }, enabled = wallet != null) { Text("انتقال سهمیه") }
+                                Text("هشدار: این نسخه برای آزمایش محلی است؛ خرید واقعی، مجوز تجاری و کنترل دسترسی سمت سرور پیاده‌سازی نشده است.")
+                            }
+                        }
+                        Page.SETTINGS -> {
+                            Text("تنظیمات نمایش", style = MaterialTheme.typography.titleLarge)
+                            Text("اندازه نوشته‌ها: ${(fontScale * 100).toInt()}٪")
+                            Slider(
+                                value = fontScale,
+                                onValueChange = { fontScale = it },
+                                valueRange = 0.85f..1.35f,
+                                steps = 9
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { fontScale = 1.0f }) { Text("اندازه پیش‌فرض") }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Text("وضعیت اتصال سامانه مؤدیان", style = MaterialTheme.typography.titleMedium)
+                            Text("پیکربندی نشده؛ هیچ فاکتوری از این نسخه به سامانه واقعی ارسال نمی‌شود.")
+                            Spacer(Modifier.height(8.dp))
+                            Text("وضعیت نسخه: نمونه اولیه محلی؛ ساخت APK و آزمون روی دستگاه هنوز تأیید نشده است.")
                         }
                     }
-                    Text("صورتحساب‌های شرکت: ${invoices.size}")
-                    Text("صدور و ارسال واقعی در نسخه بعدی تکمیل می‌شود.")
+                    if (notice.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(notice, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
+            }
             }
         }
     }

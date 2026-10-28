@@ -68,20 +68,22 @@ data class InvoiceLine(
     val taxRatePercent: Int
 )
 
+/** Master purchaser's remaining invoice quota. One row per purchaser account. */
 @Entity(tableName = "quota_wallets")
 data class QuotaWallet(
-    @PrimaryKey val purchaserId: String,
+    @androidx.room.PrimaryKey val purchaserId: String,
     val purchasedTotal: Long,
     val available: Long
 )
 
+/** Allocation belongs to one company and cannot be transferred onward by that company. */
 @Entity(
     tableName = "company_quotas",
     foreignKeys = [ForeignKey(entity = Company::class, parentColumns = ["id"], childColumns = ["companyId"], onDelete = ForeignKey.RESTRICT)],
     indices = [Index("purchaserId")]
 )
 data class CompanyQuota(
-    @PrimaryKey val companyId: Long,
+    @androidx.room.PrimaryKey val companyId: Long,
     val purchaserId: String,
     val allocatedTotal: Long,
     val available: Long
@@ -89,10 +91,19 @@ data class CompanyQuota(
 
 @Entity(tableName = "quota_transfers", indices = [Index(value = ["operationId"], unique = true), Index("purchaserId"), Index("companyId")])
 data class QuotaTransfer(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val operationId: String,
     val purchaserId: String,
     val companyId: Long,
     val amount: Long,
     val transferredAtEpochMillis: Long
+)
+
+@Entity(tableName = "invoice_quota_uses", indices = [Index(value = ["invoiceId"], unique = true), Index("purchaserId"), Index("companyId")])
+data class InvoiceQuotaUse(
+    @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val invoiceId: Long,
+    val purchaserId: String,
+    val companyId: Long,
+    val usedAtEpochMillis: Long
 )

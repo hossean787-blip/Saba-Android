@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#112b3c">
+<title>صبا | مدیریت فاکتور</title>
+<style>
+/* SABA_STYLES */
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+<div class="brand">
+<div class="logo">ص</div>
+<div>
+<h1>صبا</h1>
+<small>مدیریت هوشمند فاکتور</small>
+</div>
+</div>
+<nav class="nav">
+<button class="active" data-page="dashboard">◫　داشبورد</button>
+<button data-page="companies">▦　شرکت‌ها</button>
+<button data-page="customers">♙　مشتریان</button>
+<button data-page="invoices">▤　فاکتورها</button>
+<button data-page="quota">◉　سهمیه و مجوز</button>
+<button data-page="settings">⚙　تنظیمات</button>
+<button data-page="products">کالا و خدمات</button>
+<button data-page="tracking">پیگیری ارسال</button>
+<button data-page="printing">تنظیمات چاپ</button>
+<button data-page="integration">اتصال و امضا</button>
+<button data-page="owner">حساب مالک</button>
+</nav>
+<div class="side-note">نسخه آفلاین آزمایشی<br>اطلاعات فقط در همین مرورگر ذخیره می‌شود.<br>اتصال به سامانه مؤدیان فعال نیست.</div>
+</aside>
+<main class="main">
+<header class="top">
+<div>
+<div class="eyebrow">پنل مدیریت کسب‌وکار</div>
+<h2 id="pageTitle">داشبورد</h2>
+</div>
+<div class="top-actions">
+<select id="activeCompany" class="company-select" aria-label="شرکت فعال">
+</select>
+<button class="gold" onclick="go('invoices')">＋ فاکتور جدید</button>
+</div>
+</header>
+<div id="notice" class="notice" role="status">
+</div>
+<section class="panel active" id="dashboard">
+<div class="grid">
+<div class="metric">
+<div class="label">شرکت‌ها</div>
+<div class="num" id="mCompanies">۰</div>
+<div class="hint">مودیان ثبت‌شده</div>
+</div>
+<div class="metric">
+<div class="label">مشتریان این شرکت</div>
+<div class="num" id="mCustomers">۰</div>
+<div class="hint">مشتریان شرکت فعال</div>
+</div>
+<div class="metric">
+<div class="label">فاکتورهای این شرکت</div>
+<div class="num" id="mInvoices">۰</div>
+<div class="hint">پیش‌نویس و نهایی</div>
+</div>
+<div class="metric">
+<div class="label">سهمیه باقی‌مانده</div>
+<div class="num" id="mQuota">۰</div>
+<div class="hint">فاکتور قابل استفاده</div>
+</div>
+</div>
+<div class="section-head">
+<h3>نمای کلی</h3>
+<span class="tag">ذخیره محلی</span>
+</div>
+<div class="two">
+<div class="card">
+<h3>آخرین فاکتورها</h3>
+<div id="recent" class="activity">
+<div class="empty">هنوز فاکتوری ثبت نشده است.</div>
+</div>
+</div>
+<div class="card">
+<h3>وضعیت سهمیه</h3>
+<div style="display:flex;justify-content:space-between;gap:10px">
+<span>مصرف‌شده</span>
+<strong id="quotaUsed">۰ از ۰</strong>
+</div>
+<div class="quota-bar">
+<span id="quotaBar">
+</span>
+</div>
+<p class="footer-note">برای ارسال واقعی صورتحساب به سامانه مؤدیان، اتصال رسمی و تنظیمات معتبر لازم است. این نسخه هیچ داده‌ای ارسال نمی‌کند.</p>
+<button class="secondary" onclick="go('quota')">مدیریت سهمیه</button>
+</div>
+</div>
+</section>
+<section class="panel" id="companies">
+<div class="card">
+<div class="section-head" style="margin-top:0">
+<h3>ثبت شرکت / مؤدی</h3>
+<span class="tag">تفکیک داده بر اساس شرکت</span>
+</div>
+<form id="companyForm">
+<div class="form-grid">
+<div class="field">
+<label for="companyName">نام شرکت *</label>
+<input id="companyName" required maxlength="120" placeholder="مثلاً شرکت صبا">
+</div>
+<div class="field">
+<label for="companyNational">شناسه ملی *</label>
+<input id="companyNational" required inputmode="numeric" pattern="[0-9۰-۹]{1,20}" placeholder="شناسه ملی">
+</div>
+</div>
+<div class="actions">
+<button>ذخیره شرکت</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>شرکت‌های ثبت‌شده</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نام شرکت</th>
+<th>شناسه ملی</th>
+<th>سهمیه تخصیص‌یافته</th>
+<th>عملیات</th>
+</tr>
+</thead>
+<tbody id="companiesRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="customers">
+<div class="card">
+<div class="section-head" style="margin-top:0">
+<h3>ثبت مشتری</h3>
+<span class="tag">وابسته به شرکت فعال</span>
+</div>
+<form id="customerForm">
+<div class="form-grid">
+<div class="field">
+<label for="customerName">نام مشتری *</label>
+<input id="customerName" required maxlength="120" placeholder="نام شخص یا شرکت">
+</div>
+<div class="field">
+<label for="customerNational">شناسه ملی / اقتصادی</label>
+<input id="customerNational" maxlength="30" placeholder="اختیاری">
+</div>
+</div>
+<div class="actions">
+<button>ذخیره مشتری</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>مشتریان شرکت فعال</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نام</th>
+<th>شناسه</th>
+<th>تاریخ ثبت</th>
+</tr>
+</thead>
+<tbody id="customersRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="invoices">
+<div class="card">
+<div class="section-head" style="margin-top:0">
+<h3>صدور فاکتور</h3>
+<span class="tag">ریال</span>
+</div>
+<form id="invoiceForm">
+<div class="form-grid">
+<div class="field">
+<label for="invoiceNumber">شماره فاکتور *</label>
+<input id="invoiceNumber" required maxlength="40" placeholder="INV-0001">
+</div>
+<div class="field">
+<label for="invoiceDate">تاریخ *</label>
+<input id="invoiceDate" required placeholder="۱۴۰۵/۰۷/۰۴">
+</div>
+<div class="field">
+<label for="invoiceCustomer">مشتری *</label>
+<select id="invoiceCustomer" required>
+</select>
+</div>
+<div class="field">
+<label for="itemDescription">شرح کالا / خدمت *</label>
+<input id="itemDescription" required maxlength="200" placeholder="شرح کالا یا خدمت">
+</div>
+<div class="field">
+<label for="itemQuantity">تعداد *</label>
+<input id="itemQuantity" required type="number" min="1" step="1" value="1">
+</div>
+<div class="field">
+<label for="itemPrice">قیمت واحد (ریال) *</label>
+<input id="itemPrice" required type="number" min="0" step="1" placeholder="۰">
+</div>
+<div class="field">
+<label for="itemTax">درصد مالیات</label>
+<input id="itemTax" type="number" min="0" max="100" step="0.01" value="10">
+</div>
+<div class="field">
+<label>مبلغ قابل پرداخت</label>
+<div class="invoice-total" id="invoicePreview">۰ ریال</div>
+</div>
+</div>
+<div class="actions">
+<button type="button" class="secondary" onclick="previewInvoice()">محاسبه مبلغ</button>
+<button type="submit">ذخیره پیش‌نویس</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>فاکتورهای شرکت فعال</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>شماره</th>
+<th>تاریخ</th>
+<th>مشتری</th>
+<th>مبلغ کل</th>
+<th>وضعیت</th>
+<th>عملیات</th>
+</tr>
+</thead>
+<tbody id="invoicesRows">
+</tbody>
+</table>
+</div>
+<p class="footer-note">«نهایی‌سازی» در این نمونه یک سهمیه محلی مصرف می‌کند؛ به معنی تأیید یا ارسال به سامانه مؤدیان نیست.</p>
+</section>
+<section class="panel" id="quota">
+<div class="grid">
+<div class="metric">
+<div class="label">کل خریداری‌شده</div>
+<div class="num" id="qPurchased">۰</div>
+</div>
+<div class="metric">
+<div class="label">در کیف خریدار اصلی</div>
+<div class="num" id="qMaster">۰</div>
+</div>
+<div class="metric">
+<div class="label">تخصیص به شرکت‌ها</div>
+<div class="num" id="qAllocated">۰</div>
+</div>
+<div class="metric">
+<div class="label">مصرف‌شده</div>
+<div class="num" id="qUsed">۰</div>
+</div>
+</div>
+<div class="two" style="margin-top:15px">
+<div class="card">
+<h3>ثبت سهمیه خریداری‌شده</h3>
+<form id="purchaseForm">
+<div class="field">
+<label for="purchaseCount">تعداد فاکتور</label>
+<input id="purchaseCount" type="number" min="1" step="1" required value="50">
+</div>
+<div class="actions">
+<button>افزودن سهمیه آزمایشی</button>
+</div>
+</form>
+<p class="footer-note">این عملیات آزمایشی است و خرید یا پرداخت واقعی انجام نمی‌شود.</p>
+</div>
+<div class="card">
+<h3>تخصیص سهمیه به شرکت</h3>
+<form id="transferForm">
+<div class="field">
+<label for="transferCompany">شرکت مقصد</label>
+<select id="transferCompany">
+</select>
+</div>
+<div class="field" style="margin-top:12px">
+<label for="transferCount">تعداد فاکتور</label>
+<input id="transferCount" type="number" min="1" step="1" required value="10">
+</div>
+<div class="actions">
+<button>تخصیص سهمیه</button>
+</div>
+</form>
+<p class="footer-note">سهمیه تخصیص‌یافته از موجودی خریدار اصلی کم می‌شود و شرکت مقصد امکان انتقال مجدد ندارد.</p>
+</div>
+</div>
+<div class="section-head">
+<h3>سهمیه شرکت‌ها</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>شرکت</th>
+<th>تخصیص‌یافته</th>
+<th>مصرف‌شده</th>
+<th>باقی‌مانده</th>
+</tr>
+</thead>
+<tbody id="quotaRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="settings">
+<div class="card">
+<h3>تنظیمات برنامه</h3>
+<div class="form-grid">
+<div class="field">
+<label for="fontScale">اندازه نوشته</label>
+<select id="fontScale">
+<option value="0.85">کوچک — ۸۵٪</option>
+<option value="1">معمولی — ۱۰۰٪</option>
+<option value="1.15">بزرگ — ۱۱۵٪</option>
+<option value="1.3">خیلی بزرگ — ۱۳۰٪</option>
+</select>
+</div>
+<div class="field">
+<label>وضعیت اتصال سامانه مؤدیان</label>
+<input disabled value="غیرفعال — درگاه رسمی پیکربندی نشده">
+</div>
+</div>
+<div class="actions">
+<button id="saveSettings" type="button">ذخیره تنظیمات</button>
+<button class="secondary" type="button" onclick="exportData()">خروجی پشتیبان JSON</button>
+<button class="secondary" type="button" onclick="document.getElementById('importFile').click()">بازیابی پشتیبان</button>
+<input id="importFile" class="hidden" type="file" accept="application/json">
+</div>
+<p class="footer-note">پشتیبان شامل داده‌های ذخیره‌شده در این نمونه است. آن را در اختیار افراد دیگر قرار ندهید. داده‌ها فقط روی همین مرورگر/دستگاه قرار دارند.</p>
+</div>
+<div class="card" style="margin-top:15px">
+<h3>درباره نسخه</h3>
+<p>صبا — نمونه آفلاین قابل‌آزمایش</p>
+<p class="footer-note">این فایل، نسخه وب آفلاین برای بررسی گردش‌کارهاست؛ APK اندروید نیست. برای استفاده تجاری به بک‌اند امن، احراز هویت، مجوزدهی سرور و اتصال رسمی نیاز است.</p>
+<button class="danger" onclick="resetData()">پاک‌کردن تمام داده‌های محلی</button>
+</div>
+</section>
+
+<section class="panel" id="products">
+<div class="card">
+<h3>تعریف کالا و خدمات</h3>
+<form id="productForm" class="form-grid">
+<div class="field">
+<label for="productName">نام کالا یا خدمت</label>
+<input id="productName" required maxlength="140">
+</div>
+<div class="field">
+<label for="productCode">شناسه کالا/خدمت (اختیاری)</label>
+<input id="productCode" maxlength="60">
+</div>
+<div class="field">
+<label for="productKind">نوع</label>
+<select id="productKind">
+<option>کالا</option>
+<option>خدمت</option>
+</select>
+</div>
+<div class="field">
+<label for="productUnit">واحد</label>
+<input id="productUnit" placeholder="عدد، ساعت، کیلوگرم" maxlength="40">
+</div>
+<div class="field full">
+<button>ذخیره کالا/خدمت</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>فهرست کالا و خدمات شرکت فعال</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نام</th>
+<th>شناسه</th>
+<th>نوع</th>
+<th>واحد</th>
+</tr>
+</thead>
+<tbody id="productsRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="tracking">
+<div class="card">
+<h3>پیگیری صورتحساب‌ها</h3>
+<p class="footer-note">این جدول وضعیت واقعی سامانه مؤدیان را دریافت نمی‌کند؛ تا زمان فعال‌سازی اتصال رسمی، هیچ صورتحسابی «ارسال‌شده» نمایش داده نمی‌شود.</p>
+<div class="field">
+<label for="trackingSearch">جست‌وجو بر اساس شماره فاکتور</label>
+<input id="trackingSearch" placeholder="شماره صورتحساب">
+</div>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>شماره</th>
+<th>موضوع</th>
+<th>الگو</th>
+<th>وضعیت محلی</th>
+<th>وضعیت ارسال</th>
+</tr>
+</thead>
+<tbody id="trackingRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="printing">
+<div class="card">
+<h3>تنظیمات چاپ صورتحساب</h3>
+<div class="form-grid">
+<div class="field">
+<label for="printTitle">عنوان سربرگ</label>
+<input id="printTitle" maxlength="120" placeholder="صورتحساب فروش کالا و خدمات">
+</div>
+<div class="field">
+<label for="printFooter">متن پایین فاکتور</label>
+<input id="printFooter" maxlength="240">
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printSeller"> نمایش اطلاعات فروشنده</label>
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printBuyer"> نمایش اطلاعات خریدار</label>
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printSignature"> جایگاه امضا</label>
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printStamp"> جایگاه مهر</label>
+</div>
+</div>
+<div class="actions">
+<button id="savePrint" type="button">ذخیره تنظیمات چاپ</button>
+<button id="printPreview" class="secondary" type="button">پیش‌نمایش چاپ آخرین فاکتور</button>
+</div>
+<p class="footer-note">چاپ از امکانات مرورگر استفاده می‌کند؛ تصویر مهر یا امضای واقعی ذخیره نمی‌شود.</p>
+</div>
+</section>
+<section class="panel" id="integration">
+<div class="card">
+<h3>کلیدها، گواهی امضا و ارتباط مالیاتی</h3>
+<p class="footer-note">وضعیت: اتصال رسمی پیکربندی نشده است. کلید خصوصی، رمز، توکن یا گواهی حساس را در این نمونه مرورگری وارد نکنید. تولید CSR و امضای دیجیتال باید در پیاده‌سازی امن اندروید انجام شود.</p>
+<div class="table-wrap">
+<table>
+<tbody>
+<tr>
+<th>محیط</th>
+<td>آفلاین / آزمایشی</td>
+</tr>
+<tr>
+<th>ارسال صورتحساب</th>
+<td>غیرفعال</td>
+</tr>
+<tr>
+<th>استعلام وضعیت</th>
+<td>غیرفعال</td>
+</tr>
+<tr>
+<th>کلید خصوصی</th>
+<td>ذخیره نمی‌شود</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="panel" id="owner">
+<div class="card">
+<h3>اطلاعات مالک و وب‌سرویس</h3>
+<p class="footer-note">این بخش صرفاً نمای آماده‌سازی است. احراز هویت چندکاربره، سرویس صدور مجوز، پرداخت واقعی و API تجاری هنوز پیاده‌سازی نشده‌اند.</p>
+<div class="table-wrap">
+<table>
+<tbody>
+<tr>
+<th>نوع حساب</th>
+<td>نمونه محلی تک‌کاربره</td>
+</tr>
+<tr>
+<th>مدیریت شارژ</th>
+<td>آزمایشی؛ بدون خرید واقعی</td>
+</tr>
+<tr>
+<th>وب‌سرویس</th>
+<td>غیرفعال</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</main>
+</div>
+<script>
+/* SABA_SCRIPT */
+</script>
+</body>
+</html>

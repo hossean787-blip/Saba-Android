@@ -1,18 +1,57 @@
 {
   "results": [
-    {"name":"preserves selected customer on refresh","pass":true},
-    {"name":"rejects malformed backup without replacing data","pass":true},
-    {"name":"rejects inconsistent financial backup","pass":true},
-    {"name":"quota purchase rejects integer overflow","pass":true},
-    {"name":"valid invoice workflow, isolation and idempotent finalization","pass":true},
-    {"name":"valid backup can be cancelled or restored","pass":true},
-    {"name":"rejects injected identifiers, foreign customers, invalid statuses and totals","pass":true},
-    {"name":"storage failure rolls back data without success message","pass":true},
-    {"name":"persists invoice after browser reload","pass":true},
-    {"name":"preserves transfer target and isolates product catalog","pass":true},
-    {"name":"all navigation panels open without page errors","pass":true},
-    {"name":"prints a zero-value invoice without losing its total","pass":true},
-    {"name":"corrupt storage is preserved until explicit restore or reset","pass":true}
+    {
+      "name": "preserves selected customer on refresh",
+      "pass": true
+    },
+    {
+      "name": "rejects malformed backup without replacing data",
+      "pass": true
+    },
+    {
+      "name": "rejects inconsistent financial backup",
+      "pass": true
+    },
+    {
+      "name": "quota purchase rejects integer overflow",
+      "pass": true
+    },
+    {
+      "name": "valid invoice workflow, isolation and idempotent finalization",
+      "pass": true
+    },
+    {
+      "name": "valid backup can be cancelled or restored",
+      "pass": true
+    },
+    {
+      "name": "rejects injected identifiers, foreign customers, invalid statuses and totals",
+      "pass": true
+    },
+    {
+      "name": "storage failure rolls back data without success message",
+      "pass": true
+    },
+    {
+      "name": "persists invoice after browser reload",
+      "pass": true
+    },
+    {
+      "name": "preserves transfer target and isolates product catalog",
+      "pass": true
+    },
+    {
+      "name": "all navigation panels open without page errors",
+      "pass": true
+    },
+    {
+      "name": "prints a zero-value invoice without losing its total",
+      "pass": true
+    },
+    {
+      "name": "corrupt storage is preserved until explicit restore or reset",
+      "pass": true
+    }
   ],
   "pageErrors": []
 }

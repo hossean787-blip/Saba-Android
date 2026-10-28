@@ -13,14 +13,16 @@ class InvoiceCalculatorTest {
         assertEquals(180L, result.taxAmountRial)
         assertEquals(1980L, result.totalAmountRial)
     }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsZeroQuantity() {
         InvoiceCalculator.calculate(listOf(
             InvoiceLine(invoiceId = 1, description = "خدمت", quantity = 0, unitPriceRial = 1000, taxRatePercent = 10)
         ))
     }
+
     @Test(expected = IllegalArgumentException::class)
-    fun rejectsExcessDiscount() {
+    fun rejectsDiscountAboveLineAmount() {
         InvoiceCalculator.calculate(listOf(
             InvoiceLine(invoiceId = 1, description = "خدمت", quantity = 1, unitPriceRial = 1000, discountRial = 1001, taxRatePercent = 10)
         ))

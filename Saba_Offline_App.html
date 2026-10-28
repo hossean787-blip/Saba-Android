@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#112b3c">
+<title>صبا | مدیریت فاکتور</title>
+<style>
+:root {
+  --navy:#112b3c;
+  --teal:#0e9f8a;
+  --gold:#d9b56d;
+  --bg:#f3f6f8;
+  --ink:#1b2a34;
+  --muted:#6b7a86;
+  --line:#e4eaee;
+  --white:#fff;
+  --red:#c34747;
+  --radius:18px;
+  font-size:15px
+}
+* {
+  box-sizing:border-box
+}
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:Tahoma,"Segoe UI",sans-serif
+}
+button,input,select {
+  font:inherit
+}
+button {
+  cursor:pointer;
+  border:0;
+  border-radius:12px;
+  padding:11px 15px;
+  background:var(--navy);
+  color:#fff;
+  font-weight:600
+}
+button.secondary {
+  background:#e9f1f3;
+  color:var(--navy)
+}
+button.gold {
+  background:var(--gold);
+  color:#172a36
+}
+button.danger {
+  background:#fff0f0;
+  color:var(--red)
+}
+button:disabled {
+  opacity:.45;
+  cursor:not-allowed
+}
+.app {
+  display:grid;
+  grid-template-columns:245px 1fr;
+  min-height:100vh
+}
+.side {
+  background:var(--navy);
+  color:#fff;
+  padding:24px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:20px
+}
+.brand {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:4px 8px 20px;
+  border-bottom:1px solid #ffffff20
+}
+.logo {
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  background:linear-gradient(135deg,var(--gold),#f0dca9);
+  color:var(--navy);
+  display:grid;
+  place-items:center;
+  font-size:24px;
+  font-weight:900
+}
+.brand h1 {
+  font-size:23px;
+  margin:0
+}
+.brand small {
+  color:#b7c8d2
+}
+.nav {
+  display:grid;
+  gap:7px
+}
+.nav button {
+  background:transparent;
+  text-align:right;
+  color:#c8d5dd;
+  font-weight:500
+}
+.nav button.active,.nav button:hover {
+  background:#ffffff15;
+  color:white
+}
+.side-note {
+  margin-top:auto;
+  background:#ffffff0d;
+  border:1px solid #ffffff1a;
+  border-radius:14px;
+  padding:13px;
+  font-size:12px;
+  line-height:1.9;
+  color:#d6e0e6
+}
+.main {
+  padding:26px;
+  min-width:0
+}
+.top {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+  margin-bottom:24px
+}
+.eyebrow {
+  font-size:12px;
+  color:var(--teal);
+  font-weight:bold
+}
+.top h2 {
+  margin:6px 0 0;
+  font-size:25px
+}
+.top-actions {
+  display:flex;
+  gap:8px;
+  align-items:center
+}
+.company-select {
+  max-width:210px;
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:white
+}
+.panel {
+  display:none
+}
+.panel.active {
+  display:block
+}
+.grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px
+}
+.metric,.card {
+  background:white;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:18px;
+  box-shadow:0 5px 18px #122c3c05
+}
+.metric .label {
+  font-size:13px;
+  color:var(--muted)
+}
+.metric .num {
+  font-size:25px;
+  font-weight:800;
+  margin:13px 0 6px
+}
+.metric .hint {
+  font-size:12px;
+  color:var(--muted)
+}
+.section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:26px 0 13px;
+  gap:10px
+}
+.section-head h3 {
+  margin:0;
+  font-size:17px
+}
+.two {
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:15px
+}
+.activity {
+  display:grid;
+  gap:12px
+}
+.activity-row {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 0;
+  border-bottom:1px solid var(--line)
+}
+.activity-row:last-child {
+  border:0
+}
+.status {
+  display:inline-block;
+  padding:5px 9px;
+  border-radius:99px;
+  background:#fff3da;
+  color:#916a20;
+  font-size:11px;
+  white-space:nowrap
+}
+.status.ok {
+  background:#e3f7ef;
+  color:#167653
+}
+.status.bad {
+  background:#fff0f0;
+  color:#b54141
+}
+.form-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:13px
+}
+.field {
+  display:grid;
+  gap:7px
+}
+.field.full {
+  grid-column:1/-1
+}
+.field label {
+  font-size:13px;
+  color:#51616d
+}
+.field input,.field select {
+  width:100%;
+  border:1px solid #dce4e9;
+  background:#fff;
+  border-radius:11px;
+  padding:12px;
+  color:var(--ink);
+  outline:none
+}
+.field input:focus,.field select:focus {
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px #0e9f8a15
+}
+.actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:15px
+}
+.table-wrap {
+  overflow:auto;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:15px
+}
+table {
+  width:100%;
+  border-collapse:collapse;
+  min-width:650px
+}
+th,td {
+  text-align:right;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line);
+  font-size:13px
+}
+th {
+  background:#f8fafb;
+  color:#64737d;
+  font-weight:600
+}
+tr:last-child td {
+  border-bottom:0
+}
+.empty {
+  text-align:center;
+  padding:28px;
+  color:var(--muted)
+}
+.notice {
+  padding:12px 15px;
+  border-radius:12px;
+  background:#e5f6f0;
+  color:#176d54;
+  margin-bottom:15px;
+  display:none
+}
+.notice.show {
+  display:block
+}
+.quota-bar {
+  height:10px;
+  background:#edf1f3;
+  border-radius:99px;
+  overflow:hidden;
+  margin:12px 0
+}
+.quota-bar span {
+  display:block;
+  height:100%;
+  background:var(--teal);
+  width:0
+}
+.footer-note {
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.9;
+  margin-top:18px
+}
+.tag {
+  font-size:11px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:5px 8px;
+  color:var(--muted)
+}
+.invoice-total {
+  font-size:22px;
+  font-weight:bold;
+  color:var(--teal)
+}
+.hidden {
+  display:none!important
+}
+@media(max-width:900px) {
+  .app {
+  grid-template-columns:1fr
+}
+.side {
+  padding:12px;
+  gap:10px
+}
+.brand {
+  padding:4px 6px 10px
+}
+.brand h1 {
+  font-size:19px
+}
+.nav {
+  display:flex;
+  overflow:auto
+}
+.nav button {
+  white-space:nowrap;
+  padding:10px
+}
+.side-note {
+  display:none
+}
+.main {
+  padding:17px
+}
+.grid {
+  grid-template-columns:repeat(2,minmax(0,1fr))
+}
+.two {
+  grid-template-columns:1fr
+}
+.top h2 {
+  font-size:21px
+}
+
+}
+@media(max-width:520px) {
+  .top {
+  align-items:flex-start;
+  flex-direction:column
+}
+.top-actions {
+  width:100%;
+  flex-wrap:wrap
+}
+.company-select {
+  flex:1;
+  max-width:none
+}
+.form-grid {
+  grid-template-columns:1fr
+}
+.field.full {
+  grid-column:auto
+}
+.metric {
+  padding:14px
+}
+.metric .num {
+  font-size:21px
+}
+.main {
+  padding:13px
+}
+
+}
+
+
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+<div class="brand">
+<div class="logo">ص</div>
+<div>
+<h1>صبا</h1>
+<small>مدیریت هوشمند فاکتور</small>
+</div>
+</div>
+<nav class="nav">
+<button class="active" data-page="dashboard">◫　داشبورد</button>
+<button data-page="companies">▦　شرکت‌ها</button>
+<button data-page="customers">♙　مشتریان</button>
+<button data-page="invoices">▤　فاکتورها</button>
+<button data-page="quota">◉　سهمیه و مجوز</button>
+<button data-page="settings">⚙　تنظیمات</button>
+<button data-page="products">کالا و خدمات</button>
+<button data-page="tracking">پیگیری ارسال</button>
+<button data-page="printing">تنظیمات چاپ</button>
+<button data-page="integration">اتصال و امضا</button>
+<button data-page="owner">حساب مالک</button>
+</nav>
+<div class="side-note">نسخه آفلاین آزمایشی<br>اطلاعات فقط در همین مرورگر ذخیره می‌شود.<br>اتصال به سامانه مؤدیان فعال نیست.</div>
+</aside>
+<main class="main">
+<header class="top">
+<div>
+<div class="eyebrow">پنل مدیریت کسب‌وکار</div>
+<h2 id="pageTitle">داشبورد</h2>
+</div>
+<div class="top-actions">
+<select id="activeCompany" class="company-select" aria-label="شرکت فعال">
+</select>
+<button class="gold" onclick="go('invoices')">＋ فاکتور جدید</button>
+</div>
+</header>
+<div id="notice" class="notice" role="status">
+</div>
+<section class="panel active" id="dashboard">
+<div class="grid">
+<div class="metric">
+<div class="label">شرکت‌ها</div>
+<div class="num" id="mCompanies">۰</div>
+<div class="hint">مودیان ثبت‌شده</div>
+</div>
+<div class="metric">
+<div class="label">مشتریان این شرکت</div>
+<div class="num" id="mCustomers">۰</div>
+<div class="hint">مشتریان شرکت فعال</div>
+</div>
+<div class="metric">
+<div class="label">فاکتورهای این شرکت</div>
+<div class="num" id="mInvoices">۰</div>
+<div class="hint">پیش‌نویس و نهایی</div>
+</div>
+<div class="metric">
+<div class="label">سهمیه باقی‌مانده</div>
+<div class="num" id="mQuota">۰</div>
+<div class="hint">فاکتور قابل استفاده</div>
+</div>
+</div>
+<div class="section-head">
+<h3>نمای کلی</h3>
+<span class="tag">ذخیره محلی</span>
+</div>
+<div class="two">
+<div class="card">
+<h3>آخرین فاکتورها</h3>
+<div id="recent" class="activity">
+<div class="empty">هنوز فاکتوری ثبت نشده است.</div>
+</div>
+</div>
+<div class="card">
+<h3>وضعیت سهمیه</h3>
+<div style="display:flex;justify-content:space-between;gap:10px">
+<span>مصرف‌شده</span>
+<strong id="quotaUsed">۰ از ۰</strong>
+</div>
+<div class="quota-bar">
+<span id="quotaBar">
+</span>
+</div>
+<p class="footer-note">برای ارسال واقعی صورتحساب به سامانه مؤدیان، اتصال رسمی و تنظیمات معتبر لازم است. این نسخه هیچ داده‌ای ارسال نمی‌کند.</p>
+<button class="secondary" onclick="go('quota')">مدیریت سهمیه</button>
+</div>
+</div>
+</section>
+<section class="panel" id="companies">
+<div class="card">
+<div class="section-head" style="margin-top:0">
+<h3>ثبت شرکت / مؤدی</h3>
+<span class="tag">تفکیک داده بر اساس شرکت</span>
+</div>
+<form id="companyForm">
+<div class="form-grid">
+<div class="field">
+<label for="companyName">نام شرکت *</label>
+<input id="companyName" required maxlength="120" placeholder="مثلاً شرکت صبا">
+</div>
+<div class="field">
+<label for="companyNational">شناسه ملی *</label>
+<input id="companyNational" required inputmode="numeric" pattern="[0-9۰-۹]{1,20}" placeholder="شناسه ملی">
+</div>
+</div>
+<div class="actions">
+<button>ذخیره شرکت</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>شرکت‌های ثبت‌شده</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نام شرکت</th>
+<th>شناسه ملی</th>
+<th>سهمیه تخصیص‌یافته</th>
+<th>عملیات</th>
+</tr>
+</thead>
+<tbody id="companiesRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="customers">
+<div class="card">
+<div class="section-head" style="margin-top:0">
+<h3>ثبت مشتری</h3>
+<span class="tag">وابسته به شرکت فعال</span>
+</div>
+<form id="customerForm">
+<div class="form-grid">
+<div class="field">
+<label for="customerName">نام مشتری *</label>
+<input id="customerName" required maxlength="120" placeholder="نام شخص یا شرکت">
+</div>
+<div class="field">
+<label for="customerNational">شناسه ملی / اقتصادی</label>
+<input id="customerNational" maxlength="30" placeholder="اختیاری">
+</div>
+</div>
+<div class="actions">
+<button>ذخیره مشتری</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>مشتریان شرکت فعال</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نام</th>
+<th>شناسه</th>
+<th>تاریخ ثبت</th>
+</tr>
+</thead>
+<tbody id="customersRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="invoices">
+<div class="card">
+<div class="section-head" style="margin-top:0">
+<h3>صدور فاکتور</h3>
+<span class="tag">ریال</span>
+</div>
+<form id="invoiceForm">
+<div class="form-grid">
+<div class="field">
+<label for="invoiceNumber">شماره فاکتور *</label>
+<input id="invoiceNumber" required maxlength="40" placeholder="INV-0001">
+</div>
+<div class="field">
+<label for="invoiceDate">تاریخ *</label>
+<input id="invoiceDate" required placeholder="۱۴۰۵/۰۷/۰۴">
+</div>
+<div class="field">
+<label for="invoiceCustomer">مشتری *</label>
+<select id="invoiceCustomer" required>
+</select>
+</div>
+<div class="field">
+<label for="itemDescription">شرح کالا / خدمت *</label>
+<input id="itemDescription" required maxlength="200" placeholder="شرح کالا یا خدمت">
+</div>
+<div class="field">
+<label for="itemQuantity">تعداد *</label>
+<input id="itemQuantity" required type="number" min="1" step="1" value="1">
+</div>
+<div class="field">
+<label for="itemPrice">قیمت واحد (ریال) *</label>
+<input id="itemPrice" required type="number" min="0" step="1" placeholder="۰">
+</div>
+<div class="field">
+<label for="itemTax">درصد مالیات</label>
+<input id="itemTax" type="number" min="0" max="100" step="0.01" value="10">
+</div>
+<div class="field">
+<label>مبلغ قابل پرداخت</label>
+<div class="invoice-total" id="invoicePreview">۰ ریال</div>
+</div>
+</div>
+<div class="actions">
+<button type="button" class="secondary" onclick="previewInvoice()">محاسبه مبلغ</button>
+<button type="submit">ذخیره پیش‌نویس</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>فاکتورهای شرکت فعال</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>شماره</th>
+<th>تاریخ</th>
+<th>مشتری</th>
+<th>مبلغ کل</th>
+<th>وضعیت</th>
+<th>عملیات</th>
+</tr>
+</thead>
+<tbody id="invoicesRows">
+</tbody>
+</table>
+</div>
+<p class="footer-note">«نهایی‌سازی» در این نمونه یک سهمیه محلی مصرف می‌کند؛ به معنی تأیید یا ارسال به سامانه مؤدیان نیست.</p>
+</section>
+<section class="panel" id="quota">
+<div class="grid">
+<div class="metric">
+<div class="label">کل خریداری‌شده</div>
+<div class="num" id="qPurchased">۰</div>
+</div>
+<div class="metric">
+<div class="label">در کیف خریدار اصلی</div>
+<div class="num" id="qMaster">۰</div>
+</div>
+<div class="metric">
+<div class="label">تخصیص به شرکت‌ها</div>
+<div class="num" id="qAllocated">۰</div>
+</div>
+<div class="metric">
+<div class="label">مصرف‌شده</div>
+<div class="num" id="qUsed">۰</div>
+</div>
+</div>
+<div class="two" style="margin-top:15px">
+<div class="card">
+<h3>ثبت سهمیه خریداری‌شده</h3>
+<form id="purchaseForm">
+<div class="field">
+<label for="purchaseCount">تعداد فاکتور</label>
+<input id="purchaseCount" type="number" min="1" step="1" required value="50">
+</div>
+<div class="actions">
+<button>افزودن سهمیه آزمایشی</button>
+</div>
+</form>
+<p class="footer-note">این عملیات آزمایشی است و خرید یا پرداخت واقعی انجام نمی‌شود.</p>
+</div>
+<div class="card">
+<h3>تخصیص سهمیه به شرکت</h3>
+<form id="transferForm">
+<div class="field">
+<label for="transferCompany">شرکت مقصد</label>
+<select id="transferCompany">
+</select>
+</div>
+<div class="field" style="margin-top:12px">
+<label for="transferCount">تعداد فاکتور</label>
+<input id="transferCount" type="number" min="1" step="1" required value="10">
+</div>
+<div class="actions">
+<button>تخصیص سهمیه</button>
+</div>
+</form>
+<p class="footer-note">سهمیه تخصیص‌یافته از موجودی خریدار اصلی کم می‌شود و شرکت مقصد امکان انتقال مجدد ندارد.</p>
+</div>
+</div>
+<div class="section-head">
+<h3>سهمیه شرکت‌ها</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>شرکت</th>
+<th>تخصیص‌یافته</th>
+<th>مصرف‌شده</th>
+<th>باقی‌مانده</th>
+</tr>
+</thead>
+<tbody id="quotaRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="settings">
+<div class="card">
+<h3>تنظیمات برنامه</h3>
+<div class="form-grid">
+<div class="field">
+<label for="fontScale">اندازه نوشته</label>
+<select id="fontScale">
+<option value="0.85">کوچک — ۸۵٪</option>
+<option value="1">معمولی — ۱۰۰٪</option>
+<option value="1.15">بزرگ — ۱۱۵٪</option>
+<option value="1.3">خیلی بزرگ — ۱۳۰٪</option>
+</select>
+</div>
+<div class="field">
+<label>وضعیت اتصال سامانه مؤدیان</label>
+<input disabled value="غیرفعال — درگاه رسمی پیکربندی نشده">
+</div>
+</div>
+<div class="actions">
+<button id="saveSettings" type="button">ذخیره تنظیمات</button>
+<button class="secondary" type="button" onclick="exportData()">خروجی پشتیبان JSON</button>
+<button class="secondary" type="button" onclick="document.getElementById('importFile').click()">بازیابی پشتیبان</button>
+<input id="importFile" class="hidden" type="file" accept="application/json">
+</div>
+<p class="footer-note">پشتیبان شامل داده‌های ذخیره‌شده در این نمونه است. آن را در اختیار افراد دیگر قرار ندهید. داده‌ها فقط روی همین مرورگر/دستگاه قرار دارند.</p>
+</div>
+<div class="card" style="margin-top:15px">
+<h3>درباره نسخه</h3>
+<p>صبا — نمونه آفلاین قابل‌آزمایش</p>
+<p class="footer-note">این فایل، نسخه وب آفلاین برای بررسی گردش‌کارهاست؛ APK اندروید نیست. برای استفاده تجاری به بک‌اند امن، احراز هویت، مجوزدهی سرور و اتصال رسمی نیاز است.</p>
+<button class="danger" onclick="resetData()">پاک‌کردن تمام داده‌های محلی</button>
+</div>
+</section>
+
+<section class="panel" id="products">
+<div class="card">
+<h3>تعریف کالا و خدمات</h3>
+<form id="productForm" class="form-grid">
+<div class="field">
+<label for="productName">نام کالا یا خدمت</label>
+<input id="productName" required maxlength="140">
+</div>
+<div class="field">
+<label for="productCode">شناسه کالا/خدمت (اختیاری)</label>
+<input id="productCode" maxlength="60">
+</div>
+<div class="field">
+<label for="productKind">نوع</label>
+<select id="productKind">
+<option>کالا</option>
+<option>خدمت</option>
+</select>
+</div>
+<div class="field">
+<label for="productUnit">واحد</label>
+<input id="productUnit" placeholder="عدد، ساعت، کیلوگرم" maxlength="40">
+</div>
+<div class="field full">
+<button>ذخیره کالا/خدمت</button>
+</div>
+</form>
+</div>
+<div class="section-head">
+<h3>فهرست کالا و خدمات شرکت فعال</h3>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نام</th>
+<th>شناسه</th>
+<th>نوع</th>
+<th>واحد</th>
+</tr>
+</thead>
+<tbody id="productsRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="tracking">
+<div class="card">
+<h3>پیگیری صورتحساب‌ها</h3>
+<p class="footer-note">این جدول وضعیت واقعی سامانه مؤدیان را دریافت نمی‌کند؛ تا زمان فعال‌سازی اتصال رسمی، هیچ صورتحسابی «ارسال‌شده» نمایش داده نمی‌شود.</p>
+<div class="field">
+<label for="trackingSearch">جست‌وجو بر اساس شماره فاکتور</label>
+<input id="trackingSearch" placeholder="شماره صورتحساب">
+</div>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>شماره</th>
+<th>موضوع</th>
+<th>الگو</th>
+<th>وضعیت محلی</th>
+<th>وضعیت ارسال</th>
+</tr>
+</thead>
+<tbody id="trackingRows">
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" id="printing">
+<div class="card">
+<h3>تنظیمات چاپ صورتحساب</h3>
+<div class="form-grid">
+<div class="field">
+<label for="printTitle">عنوان سربرگ</label>
+<input id="printTitle" maxlength="120" placeholder="صورتحساب فروش کالا و خدمات">
+</div>
+<div class="field">
+<label for="printFooter">متن پایین فاکتور</label>
+<input id="printFooter" maxlength="240">
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printSeller"> نمایش اطلاعات فروشنده</label>
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printBuyer"> نمایش اطلاعات خریدار</label>
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printSignature"> جایگاه امضا</label>
+</div>
+<div class="field">
+<label>
+<input type="checkbox" id="printStamp"> جایگاه مهر</label>
+</div>
+</div>
+<div class="actions">
+<button id="savePrint" type="button">ذخیره تنظیمات چاپ</button>
+<button id="printPreview" class="secondary" type="button">پیش‌نمایش چاپ آخرین فاکتور</button>
+</div>
+<p class="footer-note">چاپ از امکانات مرورگر استفاده می‌کند؛ تصویر مهر یا امضای واقعی ذخیره نمی‌شود.</p>
+</div>
+</section>
+<section class="panel" id="integration">
+<div class="card">
+<h3>کلیدها، گواهی امضا و ارتباط مالیاتی</h3>
+<p class="footer-note">وضعیت: اتصال رسمی پیکربندی نشده است. کلید خصوصی، رمز، توکن یا گواهی حساس را در این نمونه مرورگری وارد نکنید. تولید CSR و امضای دیجیتال باید در پیاده‌سازی امن اندروید انجام شود.</p>
+<div class="table-wrap">
+<table>
+<tbody>
+<tr>
+<th>محیط</th>
+<td>آفلاین / آزمایشی</td>
+</tr>
+<tr>
+<th>ارسال صورتحساب</th>
+<td>غیرفعال</td>
+</tr>
+<tr>
+<th>استعلام وضعیت</th>
+<td>غیرفعال</td>
+</tr>
+<tr>
+<th>کلید خصوصی</th>
+<td>ذخیره نمی‌شود</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="panel" id="owner">
+<div class="card">
+<h3>اطلاعات مالک و وب‌سرویس</h3>
+<p class="footer-note">این بخش صرفاً نمای آماده‌سازی است. احراز هویت چندکاربره، سرویس صدور مجوز، پرداخت واقعی و API تجاری هنوز پیاده‌سازی نشده‌اند.</p>
+<div class="table-wrap">
+<table>
+<tbody>
+<tr>
+<th>نوع حساب</th>
+<td>نمونه محلی تک‌کاربره</td>
+</tr>
+<tr>
+<th>مدیریت شارژ</th>
+<td>آزمایشی؛ بدون خرید واقعی</td>
+</tr>
+<tr>
+<th>وب‌سرویس</th>
+<td>غیرفعال</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</main>
+</div>
+<script>
+const KEY='saba_offline_v1';
+let storageBlocked=false;
+let state=load();
+let activePage='dashboard';
+// Default schema, shared by startup, reset and backup validation.
+function fresh() {
+  return {
+    companies: [],
+    customers: [],
+    invoices: [],
+    products: [],
+    purchased: 0,
+    master: 0,
+    allocations: {},
+    used: {},
+    fontScale: 1,
+    printPrefs: {}
+  };
+}
+// Validate persisted and imported data before it reaches the UI.
+function validateState(input) {
+  const fail = () => {
+    throw new Error('ساختار یا مقادیر پشتیبان معتبر نیست.');
+  };
+  const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const text = value => typeof value === 'string';
+  const integer = value => Number.isSafeInteger(value) && value >= 0;
+  const id = value => text(value) && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
+  if (!record(input)) fail();
+  const x = {
+    ...fresh(), ...input
+  };
+  for (const key of ['companies', 'customers', 'invoices', 'products']) {
+    if (!Array.isArray(x[key])) fail();
+    const seen = new Set();
+    for (const row of x[key]) {
+      if (!record(row) || !id(row.id) || seen.has(row.id)) fail();
+      seen.add(row.id);
+    }
+  }
+  const companies = new Set(x.companies.map(row => row.id));
+  const nationals = new Set();
+  for (const row of x.companies) {
+    if (!text(row.name) || !row.name.trim() || !text(row.national) || !row.national.trim() || nationals.has(row.national)) fail();
+    nationals.add(row.national);
+  }
+  for (const key of ['customers', 'products']) {
+    for (const row of x[key]) {
+      if (!companies.has(row.companyId) || !text(row.name) || !row.name.trim()) fail();
+      for (const field of key === 'customers' ? ['national', 'created'] : ['code', 'kind', 'unit']) {
+        if (row[field] !== undefined && !text(row[field])) fail();
+      }
+    }
+  }
+  const productCodes = new Set();
+  for (const row of x.products) {
+    if (row.code) {
+      const key = JSON.stringify([row.companyId, row.code]);
+      if (productCodes.has(key)) fail();
+      productCodes.add(key);
+    }
+  }
+  const numbers = new Set();
+  for (const row of x.invoices) {
+    if (!companies.has(row.companyId) || !x.customers.some(c => c.id === row.customerId && c.companyId === row.companyId)) fail();
+    for (const field of ['number', 'date', 'desc', 'customerName']) if (!text(row[field]) || !row[field].trim()) fail();
+    if (!['پیش‌نویس', 'نهایی‌شده'].includes(row.status)) fail();
+    if (!integer(row.q) || row.q < 1 || !integer(row.p) || !Number.isFinite(row.t) || row.t < 0 || row.t > 100) fail();
+    for (const field of ['net', 'tax', 'total', 'created']) if (!integer(row[field])) fail();
+    if (row.net !== row.q * row.p || row.tax !== Math.round(row.net * row.t / 100) || row.total !== row.net + row.tax) fail();
+    const key = JSON.stringify([row.companyId, row.number]);
+    if (numbers.has(key)) fail();
+    numbers.add(key);
+  }
+  if (!integer(x.purchased) || !integer(x.master)) fail();
+  for (const key of ['allocations', 'used']) {
+    if (!record(x[key])) fail();
+    for (const [companyId, count] of Object.entries(x[key])) if (!companies.has(companyId) || !integer(count)) fail();
+  }
+  let allocated = 0;
+  for (const companyId of companies) {
+    const allocation = x.allocations[companyId] || 0;
+    const used = x.used[companyId] || 0;
+    if (used > allocation || used !== x.invoices.filter(row => row.companyId === companyId && row.status === 'نهایی‌شده').length) fail();
+    allocated += allocation;
+    if (!integer(allocated)) fail();
+  }
+  if (!integer(x.master + allocated) || x.purchased !== x.master + allocated) fail();
+  if (![0.85, 1, 1.15, 1.3].includes(x.fontScale) || !record(x.printPrefs)) fail();
+  for (const key of ['title', 'footer']) if (x.printPrefs[key] !== undefined && !text(x.printPrefs[key])) fail();
+  for (const key of ['seller', 'buyer', 'signature', 'stamp']) if (x.printPrefs[key] !== undefined && typeof x.printPrefs[key] !== 'boolean') fail();
+  // Discard unknown top-level fields; retain compatible v19 records.
+  return Object.fromEntries(Object.keys(fresh()).map(key => [key, x[key]]));
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    storageBlocked = false;
+    return raw === null ? fresh() : validateState(JSON.parse(raw));
+  }
+  catch {
+    storageBlocked = true;
+    // Keep the original stored bytes intact for recovery; do not overwrite on startup.
+    queueMicrotask(() => notify('خواندن داده‌های محلی ممکن نشد. پیش از ثبت اطلاعات، پشتیبان معتبر را بازیابی کنید.'));
+    return fresh();
+  }
+}
+function save() {
+  try {
+    if (storageBlocked) throw new Error("ابتدا داده‌های محلی را بازیابی یا بازنشانی کنید.");
+    localStorage.setItem(KEY, JSON.stringify(validateState(state)));
+  }
+  catch (error) {
+    state = load();
+    render();
+    notify('ذخیره انجام نشد؛ فضای مرورگر و اعتبار داده‌ها را بررسی کنید.');
+    throw error;
+  }
+  render();
+}
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }
+  [c]))
+}
+function fa(n){
+  return Number(n||0).toLocaleString('fa-IR')
+}
+function money(n){
+  return fa(n)+' ریال'
+}
+function company(){
+  return state.companies.find(c=>c.id===document.getElementById('activeCompany').value)||state.companies[0]||null
+}
+function cid(){
+  return company()?.id||''
+}
+function notify(t){
+  let n=document.getElementById('notice');
+  n.textContent=t;
+  n.classList.add('show');
+  setTimeout(()=>n.classList.remove('show'),3500)
+}
+function go(page){
+  activePage=page;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===page));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  document.getElementById('pageTitle').textContent=({
+    dashboard:'داشبورد',companies:'مدیریت شرکت‌ها',customers:'مدیریت مشتریان',invoices:'فاکتورها و صدور',quota:'سهمیه و مجوز',settings:'تنظیمات',products:'کالا و خدمات',tracking:'پیگیری ارسال',printing:'تنظیمات چاپ',integration:'اتصال و امضا',owner:'حساب مالک'
+  }
+  )[page];
+  render()
+}
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
+document.getElementById('activeCompany').addEventListener('change',render);
+function initSelects(){
+  let a=document.getElementById('activeCompany'),old=a.value;
+  a.innerHTML=state.companies.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  if(state.companies.some(c=>c.id===old))a.value=old;
+  let customers=state.customers.filter(c=>c.companyId===cid());
+  const customerSelect=document.getElementById('invoiceCustomer'),previousCustomer=customerSelect.value;
+  document.getElementById('invoiceCustomer').innerHTML=customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  if(customers.some(c=>c.id===previousCustomer))customerSelect.value=previousCustomer;
+  const transferSelect=document.getElementById('transferCompany'),previousTransfer=transferSelect.value;
+  document.getElementById('transferCompany').innerHTML=state.companies.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  if(state.companies.some(c=>c.id===previousTransfer))transferSelect.value=previousTransfer
+}
+function render(){
+  initSelects();
+  let c=company(),cs=state.customers.filter(x=>x.companyId===cid()),ins=state.invoices.filter(x=>x.companyId===cid());
+  let alloc=state.allocations[cid()]||0,used=state.used[cid()]||0,remaining=Math.max(0,alloc-used);
+  document.getElementById('mCompanies').textContent=fa(state.companies.length);
+  document.getElementById('mCustomers').textContent=fa(cs.length);
+  document.getElementById('mInvoices').textContent=fa(ins.length);
+  document.getElementById('mQuota').textContent=fa(remaining);
+  document.getElementById('quotaUsed').textContent=fa(used)+' از '+fa(alloc);
+  document.getElementById('quotaBar').style.width=(alloc?Math.min(100,used/alloc*100):0)+'%';
+  document.getElementById('recent').innerHTML=ins.slice().reverse().slice(0,5).map(i=>`<div class="activity-row"><div><strong>${esc(i.number)}</strong><div class="footer-note">${esc(i.customerName)} · ${esc(i.date)}</div></div><div style="text-align:left"><strong>${money(i.total)}</strong><div><span class="status ${i.status==='نهایی‌شده'?'ok':''}">${esc(i.status)}</span></div></div></div>`).join('')||'<div class="empty">هنوز فاکتوری ثبت نشده است.</div>';
+  document.getElementById('companiesRows').innerHTML=state.companies.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.national)}</td><td>${fa(state.allocations[x.id]||0)}</td><td><button class="secondary" onclick="selectCompany('${esc(x.id)}')">انتخاب</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">شرکتی ثبت نشده است.</td></tr>';
+  document.getElementById('customersRows').innerHTML=cs.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.national||'—')}</td><td>${esc(x.created)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">مشتری ثبت نشده است.</td></tr>';
+  document.getElementById('invoicesRows').innerHTML=ins.slice().reverse().map(i=>`<tr><td>${esc(i.number)}</td><td>${esc(i.date)}</td><td>${esc(i.customerName)}</td><td>${money(i.total)}</td><td><span class="status ${i.status==='نهایی‌شده'?'ok':''}">${esc(i.status)}</span></td><td>${i.status==='پیش‌نویس'?`<button onclick="finalizeInvoice('${esc(i.id)}')" ${remaining<1?'disabled':''}>نهایی‌سازی محلی</button>`:'<span class="tag">ثبت شد</span>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">فاکتوری ثبت نشده است.</td></tr>';
+  document.getElementById('qPurchased').textContent=fa(state.purchased);
+  document.getElementById('qMaster').textContent=fa(state.master);
+  document.getElementById('qAllocated').textContent=fa(Object.values(state.allocations).reduce((a,b)=>a+b,0));
+  document.getElementById('qUsed').textContent=fa(Object.values(state.used).reduce((a,b)=>a+b,0));
+  document.getElementById('quotaRows').innerHTML=state.companies.map(x=>{
+    let a=state.allocations[x.id]||0,u=state.used[x.id]||0;
+    return `<tr><td>${esc(x.name)}</td><td>${fa(a)}</td><td>${fa(u)}</td><td>${fa(Math.max(0,a-u))}</td></tr>`
+  }
+  ).join('')||'<tr><td colspan="4" class="empty">شرکتی ثبت نشده است.</td></tr>';
+  document.getElementById('fontScale').value=String(state.fontScale||1);
+  document.documentElement.style.fontSize=(15*(state.fontScale||1))+'px';
+  renderExtensions()
+}
+function selectCompany(id){
+  document.getElementById('activeCompany').value=id;
+  render();
+  notify('شرکت فعال تغییر کرد.')
+}
+document.getElementById('companyForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  let name=document.getElementById('companyName').value.trim(),national=document.getElementById('companyNational').value.trim().replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+  if(!name||!national)return notify('نام و شناسه ملی الزامی است.');
+  if(state.companies.some(c=>c.national===national))return notify('این شناسه ملی قبلاً ثبت شده است.');
+  let id=crypto.randomUUID();
+  state.companies.push({
+    id,name,national
+  });
+  state.allocations[id]=0;
+  state.used[id]=0;
+  document.getElementById('companyForm').reset();
+  save();
+  document.getElementById('activeCompany').value=id;
+  render();
+  notify('شرکت ثبت شد.')
+});
+document.getElementById('customerForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  if(!company())return notify('ابتدا شرکت ثبت کنید.');
+  let name=document.getElementById('customerName').value.trim();
+  if(!name)return notify('نام مشتری الزامی است.');
+  state.customers.push({
+    id:crypto.randomUUID(),companyId:cid(),name,national:document.getElementById('customerNational').value.trim(),created:new Date().toLocaleDateString('fa-IR')
+  });
+  e.target.reset();
+  save();
+  notify('مشتری ذخیره شد.')
+});
+function previewInvoice(){
+  let q=Number(document.getElementById('itemQuantity').value),p=Number(document.getElementById('itemPrice').value),t=Number(document.getElementById('itemTax').value);
+  if(!Number.isInteger(q)||q<1||!Number.isFinite(p)||p<0||!Number.isFinite(t)||t<0||t>100)return notify('تعداد، قیمت یا مالیات معتبر نیست.');
+  let net=q*p,tax=Math.round(net*t/100);
+  document.getElementById('invoicePreview').textContent=money(net+tax)
+}
+['itemQuantity','itemPrice','itemTax'].forEach(id=>document.getElementById(id).addEventListener('input',previewInvoice));
+document.getElementById('invoiceForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  if(!company())return notify('ابتدا شرکت ثبت کنید.');
+  let customer=state.customers.find(c=>c.id===document.getElementById('invoiceCustomer').value&&c.companyId===cid());
+  if(!customer)return notify('برای این شرکت مشتری ثبت کنید.');
+  let number=document.getElementById('invoiceNumber').value.trim(),date=document.getElementById('invoiceDate').value.trim(),desc=document.getElementById('itemDescription').value.trim(),q=Number(document.getElementById('itemQuantity').value),p=Number(document.getElementById('itemPrice').value),t=Number(document.getElementById('itemTax').value);
+  if(state.invoices.some(i=>i.companyId===cid()&&i.number===number))return notify('شماره فاکتور تکراری است.');
+  if(!number||!date||!desc||!Number.isInteger(q)||q<1||!Number.isSafeInteger(p)||p<0||!Number.isFinite(t)||t<0||t>100)return notify('اطلاعات فاکتور معتبر نیست.');
+  let net=q*p;
+  if(!Number.isSafeInteger(net)||net>Number.MAX_SAFE_INTEGER)return notify('مبلغ از محدوده مجاز خارج است.');
+  let tax=Math.round(net*t/100),total=net+tax;
+  if(!Number.isSafeInteger(total))return notify('مبلغ نهایی معتبر نیست.');
+  state.invoices.push({
+    id:crypto.randomUUID(),companyId:cid(),number,date,customerId:customer.id,customerName:customer.name,desc,q,p,t,net,tax,total,status:'پیش‌نویس',created:Date.now()
+  });
+  e.target.reset();
+  document.getElementById('itemQuantity').value='1';
+  document.getElementById('itemTax').value='10';
+  document.getElementById('invoicePreview').textContent='۰ ریال';
+  save();
+  notify('پیش‌نویس فاکتور ذخیره شد.')
+});
+function finalizeInvoice(id){
+  let inv=state.invoices.find(i=>i.id===id&&i.companyId===cid());
+  if(!inv||inv.status!=='پیش‌نویس')return notify('این فاکتور قابل نهایی‌سازی نیست.');
+  let remaining=(state.allocations[cid()]||0)-(state.used[cid()]||0);
+  if(remaining<1)return notify('سهمیه کافی نیست؛ ابتدا سهمیه تخصیص دهید.');
+  inv.status='نهایی‌شده';
+  inv.finalizedAt=Date.now();
+  state.used[cid()]=(state.used[cid()]||0)+1;
+  save();
+  notify('فاکتور نهایی و یک سهمیه مصرف شد. این ثبت محلی است، ارسال دولتی انجام نشد.')
+}
+document.getElementById('purchaseForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  let n=Number(document.getElementById('purchaseCount').value);
+  if(!Number.isSafeInteger(n)||n<1||!Number.isSafeInteger(state.purchased+n)||!Number.isSafeInteger(state.master+n))return notify('تعداد سهمیه از محدوده مجاز خارج است.');
+  state.purchased+=n;
+  state.master+=n;
+  save();
+  notify('سهمیه آزمایشی به کیف خریدار اصلی افزوده شد.')
+});
+document.getElementById('transferForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  let id=document.getElementById('transferCompany').value,n=Number(document.getElementById('transferCount').value);
+  if(!state.companies.some(c=>c.id===id))return notify('ابتدا شرکت مقصد ثبت کنید.');
+  if(!Number.isSafeInteger(n)||n<1)return notify('تعداد باید عدد مثبت باشد.');
+  if(n>state.master)return notify('سهمیه خریدار اصلی کافی نیست.');
+  state.master-=n;
+  state.allocations[id]=(state.allocations[id]||0)+n;
+  save();
+  notify('سهمیه به شرکت انتخاب‌شده تخصیص یافت.')
+});
+document.getElementById('saveSettings').addEventListener('click',()=>{
+  state.fontScale=Number(document.getElementById('fontScale').value)||1;
+  save();
+  notify('تنظیمات ذخیره شد.')
+});
+function exportData(){
+  let blob=new Blob([JSON.stringify(state,null,2)],{
+    type:'application/json'
+  }
+  ),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='saba-backup.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  notify('فایل پشتیبان آماده شد.')
+}
+document.getElementById('importFile').addEventListener('change',async e=>{
+  let f=e.target.files[0];
+  if(!f)return;
+  try{
+    let x=JSON.parse(await f.text());
+    const validated=validateState(x);
+    if(!confirm('بازیابی، داده‌های فعلی را جایگزین می‌کند. ادامه می‌دهید؟'))return;
+    storageBlocked=false;
+    state=validated;
+    save();
+    notify('پشتیبان بازیابی شد.')
+  }
+  catch{
+    notify('فایل پشتیبان معتبر نیست.')
+  }
+  e.target.value=''
+});
+function resetData(){
+  if(confirm('همه شرکت‌ها، مشتریان، فاکتورها و سهمیه‌های محلی پاک شوند؟')){
+    storageBlocked=false;
+    state=fresh();
+    save();
+    go('dashboard');
+    notify('داده‌های محلی پاک شد.')
+  }
+}
+// Product catalog, tracking, and print preferences
+// Extension v19: company-scoped product catalog, local status view, print preferences.
+function extendedState(){
+  if(!Array.isArray(state.products))state.products=[];
+  if(!state.printPrefs||typeof state.printPrefs!=='object')state.printPrefs={
+  };
+}
+function renderExtensions(){
+  extendedState();
+  const current=cid();
+  const products=state.products.filter(x=>x.companyId===current);
+  document.getElementById('productsRows').innerHTML=products.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.code||'—')}</td><td>${esc(x.kind)}</td><td>${esc(x.unit||'—')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">کالا یا خدمتی ثبت نشده است.</td></tr>';
+  const search=document.getElementById('trackingSearch').value.trim();
+  document.getElementById('trackingRows').innerHTML=state.invoices.filter(x=>x.companyId===current&&(!search||String(x.number).includes(search))).slice().reverse().map(x=>`<tr><td>${esc(x.number)}</td><td>${esc(x.subject||'اصلی')}</td><td>${esc(x.pattern||'الگوی اول')}</td><td>${esc(x.status)}</td><td><span class="status">ارسال نشده</span></td></tr>`).join('')||'<tr><td colspan="5" class="empty">موردی یافت نشد.</td></tr>';
+  const p=state.printPrefs;
+  document.getElementById('printTitle').value=p.title||'';
+  document.getElementById('printFooter').value=p.footer||'';
+  for(const k of ['Seller','Buyer','Signature','Stamp'])document.getElementById('print'+k).checked=!!p[k.toLowerCase()];
+}
+document.getElementById('productForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  if(!company())return notify('ابتدا شرکت ثبت کنید.');
+  extendedState();
+  const name=document.getElementById('productName').value.trim(),code=document.getElementById('productCode').value.trim();
+  if(!name)return notify('نام کالا یا خدمت الزامی است.');
+  if(code&&state.products.some(x=>x.companyId===cid()&&x.code===code))return notify('شناسه کالا در این شرکت تکراری است.');
+  state.products.push({
+    id:crypto.randomUUID(),companyId:cid(),name,code,kind:document.getElementById('productKind').value,unit:document.getElementById('productUnit').value.trim()
+  });
+  e.target.reset();
+  save();
+  notify('کالا یا خدمت ذخیره شد.')
+});
+document.getElementById('trackingSearch').addEventListener('input',renderExtensions);
+document.getElementById('savePrint').addEventListener('click',()=>{
+  state.printPrefs={
+    title:document.getElementById('printTitle').value.trim(),footer:document.getElementById('printFooter').value.trim(),seller:document.getElementById('printSeller').checked,buyer:document.getElementById('printBuyer').checked,signature:document.getElementById('printSignature').checked,stamp:document.getElementById('printStamp').checked
+  };
+  save();
+  notify('تنظیمات چاپ ذخیره شد.')
+});
+document.getElementById('printPreview').addEventListener('click',()=>{
+  const inv=state.invoices.filter(x=>x.companyId===cid()).slice(-1)[0];
+  if(!inv)return notify('ابتدا یک فاکتور ثبت کنید.');
+  const p=state.printPrefs||{
+  };
+  const w=window.open('','_blank');
+  if(!w)return notify('مرورگر پنجره چاپ را مسدود کرد.');
+  const safe=x=>esc(String(x??''));
+  w.document.write('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>چاپ صورتحساب</title><style>body{font:16px Tahoma;padding:35px;line-height:2}table{width:100%;border-collapse:collapse}td,th{border:1px solid #bbb;padding:10px}</style><h2>'+safe(p.title||'صورتحساب فروش')+'</h2><table><tr><th>شماره</th><td>'+safe(inv.number)+'</td></tr><tr><th>تاریخ</th><td>'+safe(inv.date)+'</td></tr>'+(p.seller?'<tr><th>فروشنده</th><td>'+safe(company()?.name)+'</td></tr>':'')+(p.buyer?'<tr><th>خریدار</th><td>'+safe(inv.customerName)+'</td></tr>':'')+'<tr><th>شرح</th><td>'+safe(inv.desc)+'</td></tr><tr><th>مبلغ کل (ریال)</th><td>'+safe(inv.total)+'</td></tr></table><p>'+safe(p.footer)+'</p>'+(p.signature?'<p>محل امضا: ....................</p>':'')+(p.stamp?'<p>محل مهر: ....................</p>':'')+'<p>نمونه محلی ـ ارسال مالیاتی انجام نشده است</p></html>');
+  w.document.close();
+  w.focus();
+  w.print()
+});
+render();
+
+</script>
+</body>
+</html>

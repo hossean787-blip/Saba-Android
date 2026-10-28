@@ -1,0 +1,402 @@
+:root {
+  --navy:#112b3c;
+  --teal:#0e9f8a;
+  --gold:#d9b56d;
+  --bg:#f3f6f8;
+  --ink:#1b2a34;
+  --muted:#6b7a86;
+  --line:#e4eaee;
+  --white:#fff;
+  --red:#c34747;
+  --radius:18px;
+  font-size:15px
+}
+* {
+  box-sizing:border-box
+}
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:Tahoma,"Segoe UI",sans-serif
+}
+button,input,select {
+  font:inherit
+}
+button {
+  cursor:pointer;
+  border:0;
+  border-radius:12px;
+  padding:11px 15px;
+  background:var(--navy);
+  color:#fff;
+  font-weight:600
+}
+button.secondary {
+  background:#e9f1f3;
+  color:var(--navy)
+}
+button.gold {
+  background:var(--gold);
+  color:#172a36
+}
+button.danger {
+  background:#fff0f0;
+  color:var(--red)
+}
+button:disabled {
+  opacity:.45;
+  cursor:not-allowed
+}
+.app {
+  display:grid;
+  grid-template-columns:245px 1fr;
+  min-height:100vh
+}
+.side {
+  background:var(--navy);
+  color:#fff;
+  padding:24px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:20px
+}
+.brand {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:4px 8px 20px;
+  border-bottom:1px solid #ffffff20
+}
+.logo {
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  background:linear-gradient(135deg,var(--gold),#f0dca9);
+  color:var(--navy);
+  display:grid;
+  place-items:center;
+  font-size:24px;
+  font-weight:900
+}
+.brand h1 {
+  font-size:23px;
+  margin:0
+}
+.brand small {
+  color:#b7c8d2
+}
+.nav {
+  display:grid;
+  gap:7px
+}
+.nav button {
+  background:transparent;
+  text-align:right;
+  color:#c8d5dd;
+  font-weight:500
+}
+.nav button.active,.nav button:hover {
+  background:#ffffff15;
+  color:white
+}
+.side-note {
+  margin-top:auto;
+  background:#ffffff0d;
+  border:1px solid #ffffff1a;
+  border-radius:14px;
+  padding:13px;
+  font-size:12px;
+  line-height:1.9;
+  color:#d6e0e6
+}
+.main {
+  padding:26px;
+  min-width:0
+}
+.top {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+  margin-bottom:24px
+}
+.eyebrow {
+  font-size:12px;
+  color:var(--teal);
+  font-weight:bold
+}
+.top h2 {
+  margin:6px 0 0;
+  font-size:25px
+}
+.top-actions {
+  display:flex;
+  gap:8px;
+  align-items:center
+}
+.company-select {
+  max-width:210px;
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:white
+}
+.panel {
+  display:none
+}
+.panel.active {
+  display:block
+}
+.grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px
+}
+.metric,.card {
+  background:white;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:18px;
+  box-shadow:0 5px 18px #122c3c05
+}
+.metric .label {
+  font-size:13px;
+  color:var(--muted)
+}
+.metric .num {
+  font-size:25px;
+  font-weight:800;
+  margin:13px 0 6px
+}
+.metric .hint {
+  font-size:12px;
+  color:var(--muted)
+}
+.section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:26px 0 13px;
+  gap:10px
+}
+.section-head h3 {
+  margin:0;
+  font-size:17px
+}
+.two {
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:15px
+}
+.activity {
+  display:grid;
+  gap:12px
+}
+.activity-row {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 0;
+  border-bottom:1px solid var(--line)
+}
+.activity-row:last-child {
+  border:0
+}
+.status {
+  display:inline-block;
+  padding:5px 9px;
+  border-radius:99px;
+  background:#fff3da;
+  color:#916a20;
+  font-size:11px;
+  white-space:nowrap
+}
+.status.ok {
+  background:#e3f7ef;
+  color:#167653
+}
+.status.bad {
+  background:#fff0f0;
+  color:#b54141
+}
+.form-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:13px
+}
+.field {
+  display:grid;
+  gap:7px
+}
+.field.full {
+  grid-column:1/-1
+}
+.field label {
+  font-size:13px;
+  color:#51616d
+}
+.field input,.field select {
+  width:100%;
+  border:1px solid #dce4e9;
+  background:#fff;
+  border-radius:11px;
+  padding:12px;
+  color:var(--ink);
+  outline:none
+}
+.field input:focus,.field select:focus {
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px #0e9f8a15
+}
+.actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:15px
+}
+.table-wrap {
+  overflow:auto;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:15px
+}
+table {
+  width:100%;
+  border-collapse:collapse;
+  min-width:650px
+}
+th,td {
+  text-align:right;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line);
+  font-size:13px
+}
+th {
+  background:#f8fafb;
+  color:#64737d;
+  font-weight:600
+}
+tr:last-child td {
+  border-bottom:0
+}
+.empty {
+  text-align:center;
+  padding:28px;
+  color:var(--muted)
+}
+.notice {
+  padding:12px 15px;
+  border-radius:12px;
+  background:#e5f6f0;
+  color:#176d54;
+  margin-bottom:15px;
+  display:none
+}
+.notice.show {
+  display:block
+}
+.quota-bar {
+  height:10px;
+  background:#edf1f3;
+  border-radius:99px;
+  overflow:hidden;
+  margin:12px 0
+}
+.quota-bar span {
+  display:block;
+  height:100%;
+  background:var(--teal);
+  width:0
+}
+.footer-note {
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.9;
+  margin-top:18px
+}
+.tag {
+  font-size:11px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:5px 8px;
+  color:var(--muted)
+}
+.invoice-total {
+  font-size:22px;
+  font-weight:bold;
+  color:var(--teal)
+}
+.hidden {
+  display:none!important
+}
+@media(max-width:900px) {
+  .app {
+  grid-template-columns:1fr
+}
+.side {
+  padding:12px;
+  gap:10px
+}
+.brand {
+  padding:4px 6px 10px
+}
+.brand h1 {
+  font-size:19px
+}
+.nav {
+  display:flex;
+  overflow:auto
+}
+.nav button {
+  white-space:nowrap;
+  padding:10px
+}
+.side-note {
+  display:none
+}
+.main {
+  padding:17px
+}
+.grid {
+  grid-template-columns:repeat(2,minmax(0,1fr))
+}
+.two {
+  grid-template-columns:1fr
+}
+.top h2 {
+  font-size:21px
+}
+
+}
+@media(max-width:520px) {
+  .top {
+  align-items:flex-start;
+  flex-direction:column
+}
+.top-actions {
+  width:100%;
+  flex-wrap:wrap
+}
+.company-select {
+  flex:1;
+  max-width:none
+}
+.form-grid {
+  grid-template-columns:1fr
+}
+.field.full {
+  grid-column:auto
+}
+.metric {
+  padding:14px
+}
+.metric .num {
+  font-size:21px
+}
+.main {
+  padding:13px
+}
+
+}
+
