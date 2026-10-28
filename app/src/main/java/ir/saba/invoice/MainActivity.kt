@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.lifecycleScope
 import ir.saba.invoice.data.Company
 import ir.saba.invoice.data.Customer
@@ -87,7 +88,7 @@ class MainActivity : ComponentActivity() {
 
         MaterialTheme {
             val baseDensity = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides baseDensity.copy(fontScale = fontScale)) {
+            CompositionLocalProvider(LocalDensity provides Density(baseDensity.density, fontScale)) {
             Scaffold(topBar = { TopAppBar(title = { Text("صبا | مدیریت فاکتور") }) }) { padding ->
                 Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
                     Text("سامانه مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
