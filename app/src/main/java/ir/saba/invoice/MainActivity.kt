@@ -24,9 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Add
 import androidx.lifecycle.lifecycleScope
@@ -139,9 +139,9 @@ class MainActivity : ComponentActivity() {
                     NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
                         listOf(
                             Triple(Page.DASHBOARD, "خانه", Icons.Default.Home),
-                            Triple(Page.COMPANIES, "شرکت‌ها", Icons.Default.Business),
-                            Triple(Page.INVOICES, "فاکتورها", Icons.Default.Receipt),
-                            Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.People),
+                            Triple(Page.COMPANIES, "شرکت‌ها", Icons.Default.AccountCircle),
+                            Triple(Page.INVOICES, "فاکتورها", Icons.Default.List),
+                            Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
                             Triple(Page.SETTINGS, "تنظیمات", Icons.Default.Settings)
                         ).forEach { (destination, title, icon) ->
                             NavigationBarItem(selected = page == destination,
