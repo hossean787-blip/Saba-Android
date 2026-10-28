@@ -8,7 +8,7 @@ import androidx.room.Insert
 import androidx.room.Query
 
 /** Local simulation records. Never represents a government submission. */
-@Entity(tableName = "moadian_simulations", indices = [Index("companyId"), Index("invoiceId")])
+@Entity(tableName = "moadian_simulations", indices = [Index("companyId"), Index(value = ["invoiceId"], unique = true)])
 data class MoadianSimulation(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val companyId: Long,
