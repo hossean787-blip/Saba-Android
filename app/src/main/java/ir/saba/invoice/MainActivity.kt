@@ -181,46 +181,113 @@ class MainActivity : ComponentActivity() {
                     when (page) {
 
                         Page.DASHBOARD -> {
-                            ElevatedCard(
-                                colors = CardDefaults.elevatedCardColors(containerColor = premiumPurple),
-                                modifier = Modifier.fillMaxWidth()
+                            val pendingCount = invoices.count { it.status == "DRAFT" }
+                            val finalizedCount = invoices.count { it.status != "DRAFT" }
+                            val company = companies.firstOrNull { it.id == selectedCompanyId }
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(bottom = 20.dp)
                             ) {
-                                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("صورتحساب الکترونیکی", color = Color.White,
-                                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                    Text("صدور، پیگیری و مدیریت صورتحساب‌ها", color = Color.White)
-                                    Button(onClick = { page = Page.INVOICES },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = premiumPurple)) {
-                                        Icon(Icons.Default.Add, null)
-                                        Text("صدور فاکتور جدید")
+                                item {
+                                    ElevatedCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.elevatedCardColors(containerColor = premiumPurple)
+                                    ) {
+                                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            Text("صدور و مدیریت صورتحساب", color = Color.White,
+                                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                            Text("مدیریت یکپارچه فاکتورها و وضعیت ارسال", color = Color(0xFFF0E9FF),
+                                                style = MaterialTheme.typography.bodyMedium)
+                                            Button(
+                                                onClick = { page = Page.INVOICES },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = premiumPurple)
+                                            ) {
+                                                Icon(Icons.Default.Add, contentDescription = null)
+                                                Spacer(Modifier.width(5.dp))
+                                                Text("صدور فاکتور جدید")
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                listOf(
-                                    Triple("شرکت‌ها", companies.size.toString(), Page.COMPANIES),
-                                    Triple("مشتریان", customers.size.toString(), Page.CUSTOMERS),
-                                    Triple("فاکتورها", invoices.size.toString(), Page.INVOICES)
-                                ).forEach { (label, amount, destination) ->
-                                    ElevatedCard(onClick = { page = destination }, modifier = Modifier.weight(1f)) {
-                                        Column(Modifier.padding(14.dp)) {
-                                            Text(amount, style = MaterialTheme.typography.headlineSmall, color = premiumPurple)
-                                            Text(label, style = MaterialTheme.typography.bodySmall)
+                                item {
+                                    Text("نمای کلی", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        listOf(
+                                            Triple("شرکت‌ها", companies.size.toString(), Page.COMPANIES),
+                                            Triple("مشتریان", customers.size.toString(), Page.CUSTOMERS),
+                                            Triple("فاکتورها", invoices.size.toString(), Page.INVOICES)
+                                        ).forEach { (label, count, destination) ->
+                                            ElevatedCard(
+                                                onClick = { page = destination },
+                                                modifier = Modifier.weight(1f),
+                                                colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+                                            ) {
+                                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Text(count, style = MaterialTheme.typography.headlineSmall,
+                                                        color = premiumPurple, fontWeight = FontWeight.Bold)
+                                                    Text(label, style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    ElevatedCard(modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.elevatedCardColors(containerColor = Color.White)) {
+                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Text("وضعیت صورتحساب‌ها", fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.titleMedium)
+                                            HorizontalDivider()
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text("پیش‌نویس‌های ثبت‌شده")
+                                                Text(pendingCount.toString(), fontWeight = FontWeight.Bold, color = premiumPurple)
+                                            }
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text("فاکتورهای نهایی‌شده")
+                                                Text(finalizedCount.toString(), fontWeight = FontWeight.Bold, color = premiumPurple)
+                                            }
+                                            Text("ارسال واقعی به سامانه مؤدیان هنوز فعال نیست.",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                item {
+                                    Text("دسترسی سریع", fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium)
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedButton(onClick = { page = Page.COMPANIES }, modifier = Modifier.weight(1f)) {
+                                            Text("شرکت‌ها")
+                                        }
+                                        OutlinedButton(onClick = { page = Page.CUSTOMERS }, modifier = Modifier.weight(1f)) {
+                                            Text("مشتریان")
+                                        }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedButton(onClick = { page = Page.QUOTA }, modifier = Modifier.weight(1f)) {
+                                            Text("سهمیه‌ها")
+                                        }
+                                        OutlinedButton(onClick = { page = Page.SIMULATION }, modifier = Modifier.weight(1f)) {
+                                            Text("آزمایش مؤدیان")
+                                        }
+                                    }
+                                }
+                                item {
+                                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("شرکت فعال", style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold)
+                                            Text(company?.name ?: "هنوز شرکتی انتخاب نشده است")
+                                            Text("مشتریان این شرکت: ${customers.size}  |  صورتحساب‌ها: ${invoices.size}",
+                                                style = MaterialTheme.typography.bodySmall)
+                                            TextButton(onClick = { page = Page.COMPANIES }) { Text("مدیریت شرکت‌ها") }
                                         }
                                     }
                                 }
                             }
-                            Spacer(Modifier.height(16.dp))
-                            ElevatedCard(onClick = { page = Page.SIMULATION },
-                                modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text("آزمایش سامانه مؤدیان", fontWeight = FontWeight.Bold)
-                                    Text("ارسال آزمایشی آفلاین؛ ارسال واقعی غیرفعال است.")
-                                }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            OutlinedButton(onClick = { page = Page.QUOTA }) { Text("مدیریت سهمیه‌ها") }
                         }
                         Page.COMPANIES -> {
                             Text("ثبت شرکت / مؤدی", style = MaterialTheme.typography.titleLarge)
