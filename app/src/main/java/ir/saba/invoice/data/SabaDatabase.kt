@@ -10,6 +10,8 @@ import androidx.room.Transaction
 import androidx.room.Update
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Dao interface CompanyDao {
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insert(item: Company): Long
@@ -38,16 +40,23 @@ import androidx.room.Room
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class], version = 1, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class], version = 2, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `moadian_simulations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `companyId` INTEGER NOT NULL, `invoiceId` INTEGER NOT NULL, `requestId` TEXT NOT NULL, `payloadHash` TEXT NOT NULL, `localStatus` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_moadian_simulations_companyId` ON `moadian_simulations` (`companyId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_moadian_simulations_invoiceId` ON `moadian_simulations` (`invoiceId`)")
+            }
+        }
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
         }
     }
     abstract fun companyDao(): CompanyDao
@@ -55,4 +64,5 @@ abstract class SabaDatabase : RoomDatabase() {
     abstract fun invoiceDao(): InvoiceDao
     abstract fun invoiceLineDao(): InvoiceLineDao
     abstract fun quotaDao(): QuotaDao
+    abstract fun moadianSimulationDao(): MoadianSimulationDao
 }
