@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "moadian-full"
+version = "0.0.1"
+description = "Connect to Moadian API"
+readme = "README.md"
+authors = [{ name = "Parsa", email = "parsa@x017.ir" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+keywords = ["moadian", ]
+
+requires-python = ">=3.7"
+
+dependencies = [
+    "requests",
+    "Authlib",
+]
+
+[project.urls]
+Homepage = "https://github.com/x017/moadian-full"
+Issues = "https://github.com/x017/moadian2/issues"
