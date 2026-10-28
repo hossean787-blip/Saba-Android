@@ -1,0 +1,91 @@
+name: Import Saba v21 and build APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Saba_v21_sync_fixed.zip'
+      - '.github/workflows/import-v21-and-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Safely import 80 source files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import hashlib, stat
+          archive = Path('Saba_v21_sync_fixed.zip')
+          if not archive.is_file():
+              raise SystemExit('Source ZIP not found at repository root')
+          with ZipFile(archive) as z:
+              entries = [i for i in z.infolist() if not i.is_dir()]
+              if len(entries) < 80:
+                  raise SystemExit(f'Expected >=80 source entries; got {len(entries)}')
+              for info in entries:
+                  name = info.filename
+                  if not name.startswith('Saba/'):
+                      raise SystemExit(f'Unexpected ZIP entry: {name}')
+                  rel = PurePosixPath(name.removeprefix('Saba/'))
+                  if not rel.parts or rel.is_absolute() or '..' in rel.parts:
+                      raise SystemExit(f'Unsafe ZIP path: {name}')
+                  if stat.S_ISLNK((info.external_attr >> 16) & 0xFFFF):
+                      raise SystemExit(f'Symlink not permitted: {name}')
+                  if info.file_size > 3_000_000:
+                      raise SystemExit(f'Oversized ZIP entry: {name}')
+                  if rel.parts[0] == '.git':
+                      raise SystemExit(f'Git metadata not permitted: {name}')
+                  if rel.as_posix() in {'.github/workflows/android-build.yml',
+                                       '.github/workflows/import-v21-and-build.yml'}:
+                      continue
+                  dest = Path(*rel.parts)
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  data = z.read(info)
+                  dest.write_bytes(data)
+                  if hashlib.sha256(dest.read_bytes()).digest() != hashlib.sha256(data).digest():
+                      raise SystemExit(f'Verification failed: {dest}')
+              print(f'Imported and verified {len(entries)} ZIP entries')
+          PY
+      - name: Commit extracted source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes"
+          else
+            git commit -m "Import and reconcile original Saba v21 source ZIP"
+            git push origin HEAD:main
+          fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace --no-daemon
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: saba-v21-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
