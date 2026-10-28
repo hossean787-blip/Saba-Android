@@ -21,7 +21,7 @@ class MoadianAuthenticationTest {
         assertEquals("ok", String(answer))
         assertEquals(1, requests)
     }
-    @Test(expected = IllegalStateException::class) fun expiredTokenBlocksNetwork() = runBlocking {
+    @Test(expected = IllegalStateException::class) fun expiredTokenBlocksNetwork(): Unit = runBlocking {
         val client = object : MoadianHttpClient {
             override suspend fun post(path: String, bearerToken: String, body: ByteArray): ByteArray =
                 error("Must not invoke HTTP")
