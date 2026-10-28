@@ -25,9 +25,11 @@ import ir.saba.invoice.data.QuotaRepository
 import ir.saba.invoice.data.QuotaWallet
 import ir.saba.invoice.data.CompanyQuota
 import ir.saba.invoice.data.SabaDatabase
+import ir.saba.invoice.data.MoadianSimulation
+import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SETTINGS }
+private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SIMULATION, SETTINGS }
 
 class MainActivity : ComponentActivity() {
     private val db by lazy { SabaDatabase.getInstance(applicationContext) }
@@ -51,6 +53,7 @@ class MainActivity : ComponentActivity() {
         var customerName by remember { mutableStateOf("") }
         var customerNationalId by remember { mutableStateOf("") }
         var invoices by remember { mutableStateOf(listOf<Invoice>()) }
+        var simulations by remember { mutableStateOf(listOf<MoadianSimulation>()) }
         var invoiceNumber by remember { mutableStateOf("") }
         var invoiceDate by remember { mutableStateOf("") }
         var invoiceCustomerId by remember { mutableStateOf<Long?>(null) }
@@ -70,6 +73,7 @@ class MainActivity : ComponentActivity() {
                 selectedCompanyId = selectedCompanyId?.takeIf { id -> companies.any { it.id == id } } ?: companies.firstOrNull()?.id
                 customers = selectedCompanyId?.let { db.customerDao().forCompany(it) } ?: emptyList()
                 invoices = selectedCompanyId?.let { db.invoiceDao().forCompany(it) } ?: emptyList()
+                simulations = selectedCompanyId?.let { db.moadianSimulationDao().forCompany(it) } ?: emptyList()
                 val company = companies.firstOrNull { it.id == selectedCompanyId }
                 wallet = company?.let { db.quotaDao().wallet(it.purchaserId) }
                 companyQuota = selectedCompanyId?.let { db.quotaDao().companyQuota(it) }
@@ -80,6 +84,7 @@ class MainActivity : ComponentActivity() {
             val id = selectedCompanyId
             customers = if (id == null) emptyList() else db.customerDao().forCompany(id)
             invoices = if (id == null) emptyList() else db.invoiceDao().forCompany(id)
+            simulations = if (id == null) emptyList() else db.moadianSimulationDao().forCompany(id)
             invoiceCustomerId = customers.firstOrNull()?.id
             val company = companies.firstOrNull { it.id == id }
             wallet = company?.let { db.quotaDao().wallet(it.purchaserId) }
@@ -99,6 +104,7 @@ class MainActivity : ComponentActivity() {
                         Button(onClick = { page = Page.CUSTOMERS }) { Text("مشتریان") }
                         Button(onClick = { page = Page.INVOICES }) { Text("فاکتورها") }
                         Button(onClick = { page = Page.QUOTA }) { Text("سهمیه") }
+                        Button(onClick = { page = Page.SIMULATION }) { Text("آزمایش مؤدیان") }
                         Button(onClick = { page = Page.SETTINGS }) { Text("تنظیمات") }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -247,6 +253,45 @@ class MainActivity : ComponentActivity() {
                                                     }) { Text("نهایی‌سازی و مصرف سهمیه") }
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Page.SIMULATION -> {
+                            Text("آزمایش آفلاین مؤدیان", style = MaterialTheme.typography.titleLarge)
+                            Text("هیچ اطلاعاتی به سامانه واقعی ارسال نمی‌شود.")
+                            val eligible = invoices.filter { it.status == "FINALIZED" }
+                            if (eligible.isEmpty()) Text("فاکتور نهایی‌شده‌ای برای آزمایش وجود ندارد.")
+                            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(eligible, key = { it.id }) { invoice ->
+                                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(12.dp)) {
+                                            Text("فاکتور شماره: ${invoice.invoiceNumber}")
+                                            Text("مبلغ: ${invoice.totalAmountRial} ریال")
+                                            val recorded = simulations.firstOrNull { it.invoiceId == invoice.id }
+                                            Text(if (recorded == null) "بدون آزمون" else "آزمایش محلی ثبت‌شده")
+                                            Button(enabled = recorded == null, onClick = {
+                                                lifecycleScope.launch {
+                                                    try {
+                                                        val companyId = selectedCompanyId ?: error("شرکت انتخاب نشده است.")
+                                                        require(invoice.companyId == companyId) { "مغایرت شرکت فاکتور" }
+                                                        val existing = db.moadianSimulationDao().latestForInvoice(invoice.id)
+                                                        require(existing == null) { "این صورتحساب قبلاً آزمایش شده است." }
+                                                        val payload = "${invoice.id}|${invoice.companyId}|${invoice.invoiceNumber}|${invoice.totalAmountRial}|${invoice.taxAmountRial}".toByteArray(Charsets.UTF_8)
+                                                        val request = SubmissionPreparation.prepare(payload)
+                                                        db.moadianSimulationDao().insert(MoadianSimulation(
+                                                            companyId = companyId, invoiceId = invoice.id,
+                                                            requestId = request.requestId, payloadHash = request.payloadSha256,
+                                                            createdAtMillis = System.currentTimeMillis()
+                                                        ))
+                                                        simulations = db.moadianSimulationDao().forCompany(companyId)
+                                                        notice = "آزمایش آفلاین ثبت شد؛ هیچ ارسال واقعی انجام نشد."
+                                                    } catch (e: Exception) {
+                                                        notice = e.message ?: "خطای آزمایش"
+                                                    }
+                                                }
+                                            }) { Text("شبیه‌سازی ارسال") }
                                         }
                                     }
                                 }
