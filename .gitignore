@@ -1,0 +1,21 @@
+# Android / Gradle
+.gradle/
+build/
+**/build/
+.local.properties
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.env
+.env*
+.idea/
+.DS_Store
+# sensitive backups
+*credentials*
+*private_key*
