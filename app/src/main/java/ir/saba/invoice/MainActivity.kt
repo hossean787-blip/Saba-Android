@@ -40,6 +40,7 @@ import ir.saba.invoice.data.QuotaRepository
 import ir.saba.invoice.data.QuotaWallet
 import ir.saba.invoice.data.CompanyQuota
 import ir.saba.invoice.data.SabaDatabase
+import ir.saba.invoice.data.SabaPreferences
 import ir.saba.invoice.data.MoadianSimulation
 import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.launch
@@ -48,6 +49,7 @@ private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SIMU
 
 class MainActivity : ComponentActivity() {
     private val db by lazy { SabaDatabase.getInstance(applicationContext) }
+    private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { SabaApp() }
@@ -58,6 +60,9 @@ class MainActivity : ComponentActivity() {
     private fun SabaApp() {
         var page by remember { mutableStateOf(Page.DASHBOARD) }
         var fontScale by remember { mutableFloatStateOf(1.0f) }
+        val savedFontScale by settings.fontScale.collectAsState(initial = 1.0f)
+        LaunchedEffect(savedFontScale) { fontScale = savedFontScale }
+        val settingScope = rememberCoroutineScope()
         var companies by remember { mutableStateOf(listOf<Company>()) }
         var customers by remember { mutableStateOf(listOf<Customer>()) }
         var selectedCompanyId by remember { mutableStateOf<Long?>(null) }
@@ -465,11 +470,12 @@ class MainActivity : ComponentActivity() {
                             Slider(
                                 value = fontScale,
                                 onValueChange = { fontScale = it },
+                                onValueChangeFinished = { settingScope.launch { settings.setFontScale(fontScale) } },
                                 valueRange = 0.85f..1.35f,
                                 steps = 9
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { fontScale = 1.0f }) { Text("اندازه پیش‌فرض") }
+                                OutlinedButton(onClick = { fontScale = 1.0f; settingScope.launch { settings.setFontScale(1.0f) } }) { Text("اندازه پیش‌فرض") }
                             }
                             Spacer(Modifier.height(12.dp))
                             Text("وضعیت اتصال سامانه مؤدیان", style = MaterialTheme.typography.titleMedium)
