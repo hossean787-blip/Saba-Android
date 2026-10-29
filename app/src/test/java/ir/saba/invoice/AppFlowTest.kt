@@ -21,7 +21,10 @@ class AppFlowTest {
         compose.onNodeWithText("ورود به صبا").assertExists()
         compose.onNodeWithText("ثبت شرکت").assertDoesNotExist()
         compose.onNodeWithText("ثبت‌نام مالک جدید").performClick()
-        compose.onNodeWithText("ثبت‌نام مالک جدید").assertExists()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("برای شروع، مشخصات خود را تکمیل کنید.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("برای شروع، مشخصات خود را تکمیل کنید.").assertExists()
     }
 }
