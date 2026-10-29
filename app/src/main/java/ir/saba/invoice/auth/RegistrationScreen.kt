@@ -69,9 +69,10 @@ fun RegistrationScreen(
             },
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) { Text(if (submitting) "در حال بررسی..." else "ادامه و دریافت کد تأیید") }
-        TextButton(onClick = onSignIn, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text("قبلاً ثبت‌نام کرده‌اید؟ ورود")
+        OutlinedButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
+            Text("ورود آزمایشی آفلاین به داشبورد")
         }
+        Text("این مسیر صرفاً برای آزمایش امکانات برنامه است؛ حساب مالک ایجاد نمی‌کند و نباید در نسخه تجاری فعال باشد.", style = MaterialTheme.typography.bodySmall)
     }
 }
 
