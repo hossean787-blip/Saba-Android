@@ -8,21 +8,21 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Executes the real activity and the real Snackbar host, without external services. */
+/** Verify unauthenticated app startup is gated by owner login. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class AppFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test fun savingCompanyShowsSuccessAndReturnsToTheCompanyList() {
-        compose.waitUntil(15000) { compose.onAllNodesWithText("ثبت شرکت").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("ثبت شرکت").performScrollTo().performClick()
-        compose.onNodeWithText("افزودن شرکت / مؤدی").performClick()
-        compose.onNodeWithText("نام").performTextInput("شرکت آزمایشی صبا")
-        compose.onNodeWithText("شناسه ملی").performTextInput("۱۲۳۴۵۶۷۸۹۰۱")
-        compose.onNodeWithText("ذخیره اطلاعات").performScrollTo().performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("اطلاعات شرکت ذخیره شد.").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("اطلاعات شرکت ذخیره شد.").assertExists()
-        compose.onNodeWithText("شناسه ملی: 12345678901").assertExists()
+    @Test fun unauthenticatedLaunchShowsOwnerLoginInsteadOfCompanyDashboard() {
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("ورود به صبا").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("ورود به صبا").assertExists()
+        compose.onNodeWithText("ثبت شرکت").assertDoesNotExist()
+        compose.onNodeWithText("ثبت‌نام مالک جدید").performClick()
+        compose.onNodeWithText("ثبت‌نام مالک جدید").assertExists()
+        compose.onNodeWithText("بازگشت به صفحه ورود").performScrollTo().performClick()
+        compose.onNodeWithText("ورود به صبا").assertExists()
     }
 }
