@@ -182,7 +182,39 @@ class MainActivity : ComponentActivity() {
                                 item { DashboardCard("فاکتورهای نهایی محلی", (current?.invoices?.count { it.status == "FINALIZED" } ?: 0).toString()) { page = Page.INVOICES } }
                                 item { OutlinedButton(onClick = { page = Page.QUOTA }) { Text("مدیریت سهمیه") } }
                                 item { OutlinedButton(onClick = { page = Page.SIMULATION }) { Text("آزمایش آفلاین مؤدیان") } }
-                                item { Text("ارسال واقعی مؤدیان فعال نیست؛ نهایی‌شدن سند به معنی ارسال نیست.") }
+                                item {
+                                    ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("آخرین فاکتورهای شرکت فعال", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                            val recent = current?.invoices?.take(4).orEmpty()
+                                            if (recent.isEmpty()) {
+                                                Text("هنوز فاکتوری برای این شرکت ثبت نشده است.", style = MaterialTheme.typography.bodyMedium)
+                                            } else {
+                                                recent.forEach { invoice ->
+                                                    HorizontalDivider()
+                                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                        Column {
+                                                            Text("شماره ${invoice.invoiceNumber}", fontWeight = FontWeight.Medium)
+                                                            Text(if (invoice.status == "DRAFT") "پیش‌نویس" else "نهایی‌شده محلی", style = MaterialTheme.typography.bodySmall)
+                                                        }
+                                                        Text("${invoice.totalAmountRial} ریال", style = MaterialTheme.typography.bodyMedium)
+                                                    }
+                                                }
+                                            }
+                                            TextButton(onClick = { page = Page.INVOICES }) { Text("مشاهده همه فاکتورها") }
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                            Text("وضعیت اتصال مؤدیان", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                            Text("ارسال واقعی غیرفعال است. نهایی‌شدن فاکتور به معنی ثبت در سامانه مؤدیان نیست.",
+                                                style = MaterialTheme.typography.bodySmall)
+                                            TextButton(onClick = { page = Page.SIMULATION }) { Text("آزمایش آفلاین") }
+                                        }
+                                    }
+                                }
                             }
                             Page.COMPANIES -> CompaniesScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it; page = Page.CUSTOMERS }, onNotice = ::notify, onEditing = { editing = it })
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
