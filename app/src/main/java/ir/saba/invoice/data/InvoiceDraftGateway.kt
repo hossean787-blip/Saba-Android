@@ -39,7 +39,6 @@ class RoomInvoiceDraftGateway(private val repository: InvoiceRepository) : Invoi
         repository.deleteDraft(companyId, invoiceId)
 
     override suspend fun finalizeDraft(companyId: Long, invoiceId: Long) {
-        repository.detailsForCompany(companyId, invoiceId)
-        repository.finalizeDraft(invoiceId)
+        repository.finalizeDraft(companyId, invoiceId)
     }
 }
