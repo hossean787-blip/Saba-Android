@@ -1,6 +1,12 @@
 package ir.saba.invoice.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -30,13 +36,28 @@ fun OwnerLoginScreen(
     } else {
         RegistrationValidator.validMobile(normalized) || RegistrationValidator.validNationalId(normalized)
     }
+    val violet = Color(0xFF4936B7)
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .imePadding().padding(24.dp),
+        modifier = Modifier.fillMaxSize().background(Color(0xFFF5F5FD))
+            .verticalScroll(rememberScrollState()).imePadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("صبا", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
-        Text("ورود به حساب مالک", style = MaterialTheme.typography.headlineSmall)
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .background(Brush.linearGradient(listOf(Color(0xFF252C8D), violet, Color(0xFF8277DD))))
+                .padding(horizontal = 24.dp, vertical = 38.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("صبا", style = MaterialTheme.typography.displayMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            Text("صدور صورتحساب و اتصال به سامانه مؤدیان", color = Color.White)
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                .background(Color.White, RoundedCornerShape(26.dp)).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+        Text("ورود به صبا", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("مدیریت هوشمند صورتحساب و اطلاعات مالیاتی", color = Color.Gray)
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             SegmentedButton(
                 selected = method == LoginMethod.PASSWORD,
@@ -76,6 +97,10 @@ fun OwnerLoginScreen(
             enabled = !busy && validIdentifier && (method == LoginMethod.SMS_OTP || password.isNotEmpty()),
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) { Text(if (busy) "در حال بررسی..." else if (method == LoginMethod.PASSWORD) "ورود با رمز ثابت" else "دریافت کد تأیید") }
-        TextButton(onClick = onRegister, modifier = Modifier.fillMaxWidth()) { Text("ایجاد حساب مالک جدید") }
+        HorizontalDivider()
+        OutlinedButton(onClick = onRegister, modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(16.dp)) { Text("ثبت‌نام مالک جدید") }
+        Text("حفاظت از اطلاعات حساب شما", color = Color(0xFF268C7C), style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
