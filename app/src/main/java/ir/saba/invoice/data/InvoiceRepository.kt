@@ -2,6 +2,9 @@ package ir.saba.invoice.data
 
 import androidx.room.withTransaction
 import ir.saba.invoice.domain.InvoiceCalculator
+import ir.saba.invoice.domain.InvoiceInput
+
+data class InvoiceDetails(val invoice: Invoice, val lines: List<InvoiceLine>)
 
 /** Local invoice workflow. Production licensing and authorization must also be enforced by a server. */
 class InvoiceRepository(private val db: SabaDatabase) {
@@ -19,20 +22,27 @@ class InvoiceRepository(private val db: SabaDatabase) {
         require(invoiceNumber.isNotBlank()) { "شماره فاکتور الزامی است." }
         require(issueDate.isNotBlank()) { "تاریخ فاکتور الزامی است." }
         require(lines.isNotEmpty()) { "حداقل یک ردیف فاکتور لازم است." }
+        val normalizedDate = InvoiceInput.date(issueDate)
+        val normalizedNumber = InvoiceInput.digits(invoiceNumber).trim()
         val totals = InvoiceCalculator.calculate(lines)
 
         return db.withTransaction {
             require(db.companyDao().byId(companyId) != null) { "شرکت پیدا نشد." }
             val customer = db.customerDao().byId(customerId) ?: error("مشتری پیدا نشد.")
             require(customer.companyId == companyId) { "مشتری به شرکت انتخاب‌شده تعلق ندارد." }
+            val duplicate = db.invoiceDao().byNumber(companyId, normalizedNumber)
+                ?: db.invoiceDao().forCompany(companyId).firstOrNull {
+                    InvoiceInput.digits(it.invoiceNumber).trim() == normalizedNumber
+                }
+            require(duplicate == null || duplicate.id == existingInvoiceId) { "این شماره فاکتور برای شرکت قبلاً ثبت شده است." }
 
             val invoiceId = if (existingInvoiceId == null) {
                 db.invoiceDao().insert(
                     Invoice(
                         companyId = companyId,
                         customerId = customerId,
-                        invoiceNumber = invoiceNumber.trim(),
-                        issueDate = issueDate.trim(),
+                        invoiceNumber = normalizedNumber,
+                        issueDate = normalizedDate,
                         totalAmountRial = totals.totalAmountRial,
                         taxAmountRial = totals.taxAmountRial,
                         status = "DRAFT"
@@ -45,8 +55,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 db.invoiceDao().update(
                     old.copy(
                         customerId = customerId,
-                        invoiceNumber = invoiceNumber.trim(),
-                        issueDate = issueDate.trim(),
+                        invoiceNumber = normalizedNumber,
+                        issueDate = normalizedDate,
                         totalAmountRial = totals.totalAmountRial,
                         taxAmountRial = totals.taxAmountRial
                     )
@@ -99,4 +109,19 @@ class InvoiceRepository(private val db: SabaDatabase) {
 
     suspend fun invoicesForCompany(companyId: Long): List<Invoice> = db.invoiceDao().forCompany(companyId)
     suspend fun linesForInvoice(invoiceId: Long): List<InvoiceLine> = db.invoiceLineDao().forInvoice(invoiceId)
+
+    suspend fun detailsForCompany(companyId: Long, invoiceId: Long): InvoiceDetails = db.withTransaction {
+        val invoice = db.invoiceDao().byId(invoiceId) ?: throw IllegalArgumentException("فاکتور پیدا نشد.")
+        require(invoice.companyId == companyId) { "فاکتور متعلق به شرکت انتخاب‌شده نیست." }
+        InvoiceDetails(invoice, db.invoiceLineDao().forInvoice(invoiceId))
+    }
+
+    suspend fun deleteDraft(companyId: Long, invoiceId: Long) = db.withTransaction {
+        val details = detailsForCompany(companyId, invoiceId)
+        require(details.invoice.status == "DRAFT") { "فقط پیش‌نویس قابل حذف است؛ فاکتور نهایی قابل حذف نیست." }
+        require(db.quotaDao().useForInvoice(invoiceId) == null) { "این فاکتور سابقه مصرف سهمیه دارد و قابل حذف نیست." }
+        require(db.moadianSimulationDao().latestForInvoice(invoiceId) == null) { "فاکتور دارای سابقه آزمایش قابل حذف نیست." }
+        require(db.invoiceDao().deleteDraft(companyId, invoiceId) == 1) { "فاکتور حذف نشد." }
+    }
 }
+

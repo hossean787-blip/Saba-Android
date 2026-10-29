@@ -1,0 +1,697 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "f7d17b3752e33ebcdeaf5df511e6ec59",
+    "entities": [
+      {
+        "tableName": "companies",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `purchaserId` TEXT NOT NULL, `name` TEXT NOT NULL, `nationalId` TEXT NOT NULL, `economicId` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaserId",
+            "columnName": "purchaserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nationalId",
+            "columnName": "nationalId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "economicId",
+            "columnName": "economicId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_companies_nationalId",
+            "unique": true,
+            "columnNames": [
+              "nationalId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_companies_nationalId` ON `${TABLE_NAME}` (`nationalId`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "customers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `companyId` INTEGER NOT NULL, `name` TEXT NOT NULL, `nationalId` TEXT NOT NULL, `economicId` TEXT NOT NULL, `postalCode` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, FOREIGN KEY(`companyId`) REFERENCES `companies`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "companyId",
+            "columnName": "companyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nationalId",
+            "columnName": "nationalId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "economicId",
+            "columnName": "economicId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "postalCode",
+            "columnName": "postalCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_customers_companyId_id",
+            "unique": true,
+            "columnNames": [
+              "companyId",
+              "id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_customers_companyId_id` ON `${TABLE_NAME}` (`companyId`, `id`)"
+          },
+          {
+            "name": "index_customers_companyId",
+            "unique": false,
+            "columnNames": [
+              "companyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_customers_companyId` ON `${TABLE_NAME}` (`companyId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "companies",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "companyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "invoices",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `companyId` INTEGER NOT NULL, `customerId` INTEGER NOT NULL, `invoiceNumber` TEXT NOT NULL, `issueDate` TEXT NOT NULL, `totalAmountRial` INTEGER NOT NULL, `taxAmountRial` INTEGER NOT NULL, `status` TEXT NOT NULL, `trackingCode` TEXT, FOREIGN KEY(`companyId`) REFERENCES `companies`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`companyId`, `customerId`) REFERENCES `customers`(`companyId`, `id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "companyId",
+            "columnName": "companyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "customerId",
+            "columnName": "customerId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invoiceNumber",
+            "columnName": "invoiceNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "issueDate",
+            "columnName": "issueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalAmountRial",
+            "columnName": "totalAmountRial",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taxAmountRial",
+            "columnName": "taxAmountRial",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trackingCode",
+            "columnName": "trackingCode",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_invoices_companyId",
+            "unique": false,
+            "columnNames": [
+              "companyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_invoices_companyId` ON `${TABLE_NAME}` (`companyId`)"
+          },
+          {
+            "name": "index_invoices_customerId",
+            "unique": false,
+            "columnNames": [
+              "customerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_invoices_customerId` ON `${TABLE_NAME}` (`customerId`)"
+          },
+          {
+            "name": "index_invoices_companyId_invoiceNumber",
+            "unique": true,
+            "columnNames": [
+              "companyId",
+              "invoiceNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_invoices_companyId_invoiceNumber` ON `${TABLE_NAME}` (`companyId`, `invoiceNumber`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "companies",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "companyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "customers",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "companyId",
+              "customerId"
+            ],
+            "referencedColumns": [
+              "companyId",
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "invoice_lines",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `invoiceId` INTEGER NOT NULL, `itemCode` TEXT NOT NULL, `description` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `unitPriceRial` INTEGER NOT NULL, `discountRial` INTEGER NOT NULL, `taxRatePercent` INTEGER NOT NULL, FOREIGN KEY(`invoiceId`) REFERENCES `invoices`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invoiceId",
+            "columnName": "invoiceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemCode",
+            "columnName": "itemCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitPriceRial",
+            "columnName": "unitPriceRial",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "discountRial",
+            "columnName": "discountRial",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taxRatePercent",
+            "columnName": "taxRatePercent",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_invoice_lines_invoiceId",
+            "unique": false,
+            "columnNames": [
+              "invoiceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_invoice_lines_invoiceId` ON `${TABLE_NAME}` (`invoiceId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "invoices",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "invoiceId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "quota_wallets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`purchaserId` TEXT NOT NULL, `purchasedTotal` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`purchaserId`))",
+        "fields": [
+          {
+            "fieldPath": "purchaserId",
+            "columnName": "purchaserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchasedTotal",
+            "columnName": "purchasedTotal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "available",
+            "columnName": "available",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "purchaserId"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "company_quotas",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`companyId` INTEGER NOT NULL, `purchaserId` TEXT NOT NULL, `allocatedTotal` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`companyId`), FOREIGN KEY(`companyId`) REFERENCES `companies`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "companyId",
+            "columnName": "companyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaserId",
+            "columnName": "purchaserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allocatedTotal",
+            "columnName": "allocatedTotal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "available",
+            "columnName": "available",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "companyId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_company_quotas_purchaserId",
+            "unique": false,
+            "columnNames": [
+              "purchaserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_company_quotas_purchaserId` ON `${TABLE_NAME}` (`purchaserId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "companies",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "companyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "quota_transfers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `operationId` TEXT NOT NULL, `purchaserId` TEXT NOT NULL, `companyId` INTEGER NOT NULL, `amount` INTEGER NOT NULL, `transferredAtEpochMillis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationId",
+            "columnName": "operationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaserId",
+            "columnName": "purchaserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "companyId",
+            "columnName": "companyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amount",
+            "columnName": "amount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transferredAtEpochMillis",
+            "columnName": "transferredAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_quota_transfers_operationId",
+            "unique": true,
+            "columnNames": [
+              "operationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_quota_transfers_operationId` ON `${TABLE_NAME}` (`operationId`)"
+          },
+          {
+            "name": "index_quota_transfers_purchaserId",
+            "unique": false,
+            "columnNames": [
+              "purchaserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_quota_transfers_purchaserId` ON `${TABLE_NAME}` (`purchaserId`)"
+          },
+          {
+            "name": "index_quota_transfers_companyId",
+            "unique": false,
+            "columnNames": [
+              "companyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_quota_transfers_companyId` ON `${TABLE_NAME}` (`companyId`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "invoice_quota_uses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `invoiceId` INTEGER NOT NULL, `purchaserId` TEXT NOT NULL, `companyId` INTEGER NOT NULL, `usedAtEpochMillis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invoiceId",
+            "columnName": "invoiceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaserId",
+            "columnName": "purchaserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "companyId",
+            "columnName": "companyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usedAtEpochMillis",
+            "columnName": "usedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_invoice_quota_uses_invoiceId",
+            "unique": true,
+            "columnNames": [
+              "invoiceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_invoice_quota_uses_invoiceId` ON `${TABLE_NAME}` (`invoiceId`)"
+          },
+          {
+            "name": "index_invoice_quota_uses_purchaserId",
+            "unique": false,
+            "columnNames": [
+              "purchaserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_invoice_quota_uses_purchaserId` ON `${TABLE_NAME}` (`purchaserId`)"
+          },
+          {
+            "name": "index_invoice_quota_uses_companyId",
+            "unique": false,
+            "columnNames": [
+              "companyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_invoice_quota_uses_companyId` ON `${TABLE_NAME}` (`companyId`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "moadian_simulations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `companyId` INTEGER NOT NULL, `invoiceId` INTEGER NOT NULL, `requestId` TEXT NOT NULL, `payloadHash` TEXT NOT NULL, `localStatus` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "companyId",
+            "columnName": "companyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invoiceId",
+            "columnName": "invoiceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestId",
+            "columnName": "requestId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadHash",
+            "columnName": "payloadHash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localStatus",
+            "columnName": "localStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "createdAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_moadian_simulations_companyId",
+            "unique": false,
+            "columnNames": [
+              "companyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_moadian_simulations_companyId` ON `${TABLE_NAME}` (`companyId`)"
+          },
+          {
+            "name": "index_moadian_simulations_invoiceId",
+            "unique": true,
+            "columnNames": [
+              "invoiceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_moadian_simulations_invoiceId` ON `${TABLE_NAME}` (`invoiceId`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f7d17b3752e33ebcdeaf5df511e6ec59')"
+    ]
+  }
+}
