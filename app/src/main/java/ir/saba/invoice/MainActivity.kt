@@ -130,11 +130,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.imePadding(),
                     topBar = {
                         Surface(shadowElevation = 2.dp) {
-                            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp)) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column(Modifier.weight(1f)) {
-                                        Text("صبا", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                        Text("مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.labelMedium)
+                                        Text("صبا", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        Text("مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.labelSmall)
                                     }
                                     Box(Modifier.weight(1f)) {
                                         TextButton(enabled = !editing && !busy, onClick = { companyMenu = true }) {
@@ -198,7 +198,17 @@ class MainActivity : ComponentActivity() {
                                 item { OutlinedButton(onClick = { page = Page.SIMULATION }) { Text("آزمایش آفلاین مؤدیان") } }
                                 item { Text("ارسال واقعی مؤدیان فعال نیست؛ نهایی‌شدن سند به معنی ارسال نیست.") }
                             }
-                            Page.COMPANIES -> CompaniesScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it; page = Page.CUSTOMERS }, onNotice = ::notify, onEditing = { editing = it })
+                            Page.COMPANIES -> {
+                                if (companies.isEmpty() && !loading) {
+                                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("شروع کار با صبا", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                            Text("برای ثبت مشتری و صدور صورتحساب، ابتدا اطلاعات شرکت یا مؤدی خود را ثبت کنید.", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                                CompaniesScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it; page = Page.CUSTOMERS }, onNotice = ::notify, onEditing = { editing = it })
+                            }
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
@@ -255,8 +265,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 OutlinedButton(onClick = { fontScale = 1f; act { settings.setFontScale(1f) } }) { Text("اندازه پیش‌فرض") }
-                                Text("وضعیت اتصال مؤدیان: غیرفعال؛ هیچ صورتحسابی ارسال نمی‌شود.")
-                                Text("ثبت محلی فاکتور از ارسال مالیاتی مستقل است.")
+                                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("وضعیت سامانه مؤدیان", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                        Text("اتصال غیرفعال است؛ هیچ صورتحسابی ارسال نمی‌شود.")
+                                        Text("ثبت محلی فاکتور از ارسال مالیاتی مستقل است.", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
                             }
                         }
                     }
