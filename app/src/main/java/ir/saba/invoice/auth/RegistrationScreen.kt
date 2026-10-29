@@ -1,6 +1,11 @@
 package ir.saba.invoice.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -35,12 +40,25 @@ fun RegistrationScreen(
     val input = RegistrationInput(first.trim(), last.trim(), nationalId, mobile, email.trim(), password, repeatPassword)
     val errors = if (attempted) RegistrationValidator.errors(input) else emptySet()
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .imePadding().padding(horizontal = 24.dp, vertical = 28.dp),
+        Modifier.fillMaxSize().background(Color(0xFFF5F5FD)).verticalScroll(rememberScrollState()).imePadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("صبا", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
-        Text("ایجاد حساب مالک", style = MaterialTheme.typography.headlineSmall)
+        Column(
+            Modifier.fillMaxWidth().background(
+                Brush.linearGradient(listOf(Color(0xFF252C8D), Color(0xFF4936B7), Color(0xFF8277DD)))
+            ).padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("صبا", style = MaterialTheme.typography.displayMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            Text("صدور صورتحساب و اتصال به سامانه مؤدیان", color = Color.White)
+        }
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                .background(Color.White, RoundedCornerShape(26.dp)).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+        Text("ثبت‌نام مالک جدید", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("اطلاعات حساب • تأیید موبایل • تکمیل", color = Color(0xFF4936B7))
         Text("برای شروع، مشخصات خود را تکمیل کنید.", style = MaterialTheme.typography.bodyMedium)
         @Composable fun field(label: String, value: String, change: (String) -> Unit, key: String, type: KeyboardType = KeyboardType.Text, secret: Boolean = false) {
             OutlinedTextField(
@@ -70,9 +88,10 @@ fun RegistrationScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) { Text(if (submitting) "در حال بررسی..." else "ادامه و دریافت کد تأیید") }
         OutlinedButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
-            Text("ورود آزمایشی آفلاین به داشبورد")
+            Text("بازگشت به صفحه ورود")
         }
-        Text("این مسیر صرفاً برای آزمایش امکانات برنامه است؛ حساب مالک ایجاد نمی‌کند و نباید در نسخه تجاری فعال باشد.", style = MaterialTheme.typography.bodySmall)
+        Text("اطلاعات شما فقط پس از تأیید امن سرور ثبت خواهد شد.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF268C7C))
+        }
     }
 }
 
