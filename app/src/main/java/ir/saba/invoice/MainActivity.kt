@@ -152,11 +152,12 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     bottomBar = {
-                        NavigationBar {
+                        NavigationBar(containerColor = Color(0xFFF1ECF9), tonalElevation = 0.dp) {
                             listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "شرکت‌ها", Icons.Default.AccountCircle),
                                 Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
                                 Triple(Page.SETTINGS, "تنظیمات", Icons.Default.Settings)).forEach { (destination, title, icon) ->
                                 NavigationBarItem(selected = page == destination, enabled = !editing && !busy,
+                                    colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer),
                                     onClick = { page = destination }, icon = { Icon(icon, title) }, label = { Text(title, maxLines = 1) })
                             }
                         }
@@ -292,4 +293,22 @@ private fun DashboardCard(title: String, value: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CompanyPlaceholder(loading: Boolean) { Text(if (loading) "در حال بارگذاری اطلاعات…" else "ابتدا از بخش شرکت‌ها یک شرکت ثبت و انتخاب کنید.") }
+private fun CompanyPlaceholder(loading: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                if (loading) "در حال آماده‌سازی اطلاعات" else "هنوز شرکتی انتخاب نشده است",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                if (loading) "لطفاً کمی صبر کنید." else "از بخش شرکت‌ها، مؤدی خود را ثبت یا انتخاب کنید تا اطلاعات این قسمت نمایش داده شود.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
