@@ -51,65 +51,37 @@ class MainActivity : ComponentActivity() {
     private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val gateway = ir.saba.invoice.auth.AuthGatewayClient(
-            "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/saba-auth-gateway"
-        )
+        // Prevent passwords and financial screens from entering screenshots/recents previews.
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        val auth = androidx.lifecycle.ViewModelProvider(this, object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                ir.saba.invoice.auth.OwnerAuthViewModel(ir.saba.invoice.auth.AuthGatewayClient(
+                    "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/saba-auth-gateway"
+                )) as T
+        })[ir.saba.invoice.auth.OwnerAuthViewModel::class.java]
         setContent {
-            val scope = rememberCoroutineScope()
-            var authPage by rememberSaveable { mutableStateOf("login") }
-            var authError by remember { mutableStateOf<String?>(null) }
-            var authBusy by remember { mutableStateOf(false) }
-            var authenticated by remember { mutableStateOf(false) }
-            var session by remember { mutableStateOf<ir.saba.invoice.auth.AuthGatewayClient.Session?>(null) }
-            MaterialTheme {
+            ir.saba.invoice.auth.AuthTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    if (authenticated) {
-                        SabaApp()
-                    } else when (authPage) {
-                        "register" -> RegistrationScreen(
-                            onSubmit = { input ->
-                                if (!authBusy) {
-                                    authBusy = true
-                                    authError = null
-                                    scope.launch {
-                                        try {
-                                            val result = gateway.registerWithPassword(input)
-                                            if (result != null) {
-                                                session = result
-                                                authenticated = true
-                                            } else {
-                                                authError = "ثبت‌نام ثبت شد. در صورت فعال بودن تأیید ایمیل، ابتدا ایمیل خود را تأیید کنید."
-                                                authPage = "login"
-                                            }
-                                        } catch (e: Exception) {
-                                            authError = e.message ?: "ثبت‌نام انجام نشد."
-                                        } finally { authBusy = false }
-                                    }
-                                }
-                            },
-                            onSignIn = { authPage = "login"; authError = null },
-                            submitting = authBusy,
-                            serverError = authError
+                    BackHandler(enabled = auth.session == null && auth.page == "register") {
+                        auth.navigate("login")
+                    }
+                    if (auth.session != null) {
+                        SabaApp(onLogout = auth::logout)
+                    } else if (auth.page == "register") {
+                        RegistrationScreen(
+                            onSubmit = auth::register,
+                            onSignIn = { auth.navigate("login") },
+                            submitting = auth.busy,
+                            serverError = auth.message
                         )
-                        else -> OwnerLoginScreen(
-                            onPasswordLogin = { identifier, password ->
-                                if (!authBusy) {
-                                    authBusy = true
-                                    authError = null
-                                    scope.launch {
-                                        try {
-                                            session = gateway.loginWithPassword(identifier, password)
-                                            authenticated = true
-                                        } catch (e: Exception) {
-                                            authError = e.message ?: "ورود انجام نشد."
-                                        } finally { authBusy = false }
-                                    }
-                                }
-                            },
-                            onSmsLogin = { authError = "ورود پیامکی فعلاً غیرفعال است." },
-                            onRegister = { authPage = "register"; authError = null },
-                            busy = authBusy,
-                            error = authError
+                    } else {
+                        OwnerLoginScreen(
+                            onPasswordLogin = auth::login,
+                            onSmsLogin = {},
+                            onRegister = { auth.navigate("register") },
+                            busy = auth.busy,
+                            error = auth.message
                         )
                     }
                 }
@@ -118,7 +90,15 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun SabaApp() {
+    private fun SabaApp(onLogout: () -> Unit) {
+        var confirmLogout by remember { mutableStateOf(false) }
+        if (confirmLogout) AlertDialog(
+            onDismissRequest = { confirmLogout = false },
+            title = { Text("خروج از حساب") },
+            text = { Text("برای دسترسی دوباره باید با ایمیل و رمز عبور وارد شوید.") },
+            confirmButton = { TextButton(onClick = { confirmLogout = false; onLogout() }) { Text("خروج") } },
+            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("انصراف") } }
+        )
         val preferences = remember { getSharedPreferences("display", MODE_PRIVATE) }
         var page by rememberSaveable { mutableStateOf(Page.DASHBOARD) }
         var fontScale by rememberSaveable {
@@ -321,6 +301,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else CompanyPlaceholder(loading)
                             Page.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = { confirmLogout = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("خروج از حساب") }
                                 Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
                                 Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {

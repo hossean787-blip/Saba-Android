@@ -18,10 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
-/**
- * Production UI shell. No account is created until a trusted authentication backend is connected.
- * The SMS provider's credentials must never be embedded in this Android application.
- */
+/** Email/password registration; no unused national-ID or mobile collection. */
 @Composable
 fun RegistrationScreen(
     onSubmit: (RegistrationInput) -> Unit,
@@ -31,67 +28,64 @@ fun RegistrationScreen(
 ) {
     var first by rememberSaveable { mutableStateOf("") }
     var last by rememberSaveable { mutableStateOf("") }
-    var nationalId by rememberSaveable { mutableStateOf("") }
-    var mobile by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var repeatPassword by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var repeatPassword by remember { mutableStateOf("") }
     var attempted by rememberSaveable { mutableStateOf(false) }
-    val input = RegistrationInput(first.trim(), last.trim(), nationalId, mobile, email.trim(), password, repeatPassword)
-    val errors = if (attempted) RegistrationValidator.errors(input) else emptySet()
-    Column(
-        Modifier.fillMaxSize().background(Color(0xFFF5F5FD)).verticalScroll(rememberScrollState()).imePadding(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Column(
-            Modifier.fillMaxWidth().background(
-                Brush.linearGradient(listOf(Color(0xFF252C8D), Color(0xFF4936B7), Color(0xFF8277DD)))
-            ).padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("صبا", style = MaterialTheme.typography.displayMedium, color = Color.White, fontWeight = FontWeight.Bold)
-            Text("صدور صورتحساب و اتصال به سامانه مؤدیان", color = Color.White)
-        }
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                .background(Color.White, RoundedCornerShape(26.dp)).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-        Text("ثبت‌نام مالک جدید", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("اطلاعات حساب • رمز عبور • تکمیل", color = Color(0xFF4936B7))
-        Text("برای شروع، مشخصات خود را تکمیل کنید.", style = MaterialTheme.typography.bodyMedium)
-        @Composable fun field(label: String, value: String, change: (String) -> Unit, key: String, type: KeyboardType = KeyboardType.Text, secret: Boolean = false) {
+    val input = RegistrationInput(first.trim(), last.trim(), "", "", email.trim(), password, repeatPassword)
+    val errors = if (attempted) RegistrationValidator.emailPasswordErrors(input) else emptySet()
+    val messages = mapOf(
+        "firstName" to "نام را وارد کنید (حداکثر ۱۰۰ نویسه).",
+        "lastName" to "نام خانوادگی را وارد کنید (حداکثر ۱۰۰ نویسه).",
+        "email" to "نشانی ایمیل معتبر وارد کنید.",
+        "password" to "رمز عبور باید بین ۸ تا ۱۲۸ نویسه و غیرخالی باشد.",
+        "passwordConfirmation" to "تکرار رمز عبور مطابقت ندارد."
+    )
+    AuthLayout("ثبت‌نام مالک جدید", "حساب خود را با ایمیل و رمز عبور بسازید.") {
+        @Composable fun field(label: String, value: String, change: (String) -> Unit, key: String,
+            type: KeyboardType = KeyboardType.Text, secret: Boolean = false) {
+            var visible by remember { mutableStateOf(false) }
             OutlinedTextField(
-                value = value, onValueChange = change, modifier = Modifier.fillMaxWidth(),
-                label = { Text(label) }, singleLine = true, isError = key in errors,
+                value = value, onValueChange = change, enabled = !submitting,
+                modifier = Modifier.fillMaxWidth(), label = { Text(label) },
+                singleLine = true, isError = key in errors,
+                textStyle = LocalTextStyle.current.copy(textDirection =
+                    if (secret || type == KeyboardType.Email) androidx.compose.ui.text.style.TextDirection.Ltr
+                    else androidx.compose.ui.text.style.TextDirection.ContentOrRtl),
                 keyboardOptions = KeyboardOptions(keyboardType = type),
-                visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-                supportingText = if (key in errors) ({ Text("مقدار واردشده معتبر نیست.") }) else null
+                visualTransformation = if (secret && !visible) PasswordVisualTransformation()
+                    else androidx.compose.ui.text.input.VisualTransformation.None,
+                trailingIcon = if (secret) ({ TextButton(onClick = { visible = !visible }, enabled = !submitting) {
+                    Text(if (visible) "پنهان" else "نمایش")
+                } }) else null,
+                supportingText = if (key in errors) ({ Text(messages.getValue(key)) }) else null
             )
         }
-        field("نام", first, { first = it }, "firstName")
-        field("نام خانوادگی", last, { last = it }, "lastName")
-        field("کد ملی (۱۰ رقم)", nationalId, { nationalId = it.take(10) }, "nationalId", KeyboardType.Number)
-        field("شماره موبایل", mobile, { mobile = it.take(11) }, "mobile", KeyboardType.Phone)
-        field("ایمیل (اجباری)", email, { email = it }, "email", KeyboardType.Email)
-        field("رمز عبور ثابت (حداقل ۸ نویسه)", password, { password = it }, "password", KeyboardType.Password, true)
-        field("تکرار رمز عبور", repeatPassword, { repeatPassword = it }, "passwordConfirmation", KeyboardType.Password, true)
-        Text("ثبت‌نام با ایمیل و رمز عبور انجام می‌شود؛ ممکن است تأیید ایمیل لازم باشد.",
-            style = MaterialTheme.typography.bodySmall)
+        field("نام", first, { first = it.take(100) }, "firstName")
+        field("نام خانوادگی", last, { last = it.take(100) }, "lastName")
+        field("ایمیل", email, { email = it.take(254) }, "email", KeyboardType.Email)
+        field("رمز عبور ثابت", password, { password = it.take(128) }, "password", KeyboardType.Password, true)
+        field("تکرار رمز عبور", repeatPassword, { repeatPassword = it.take(128) }, "passwordConfirmation", KeyboardType.Password, true)
+        Text("حداقل ۸ نویسه؛ رمز عبور را در اختیار دیگران نگذارید.", style = MaterialTheme.typography.bodySmall)
         if (serverError != null) Text(serverError, color = MaterialTheme.colorScheme.error)
         Button(
             enabled = !submitting,
             onClick = {
                 attempted = true
-                if (RegistrationValidator.errors(input).isEmpty()) onSubmit(input)
+                if (RegistrationValidator.emailPasswordErrors(input).isEmpty()) {
+                    onSubmit(input); password = ""; repeatPassword = ""
+                }
             },
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) { Text(if (submitting) "در حال بررسی..." else "ساخت حساب کاربری") }
-        OutlinedButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
+            modifier = Modifier.fillMaxWidth().height(54.dp)
+        ) {
+            if (submitting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Text("ساخت حساب کاربری")
+        }
+        OutlinedButton(onClick = onSignIn, enabled = !submitting, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             Text("بازگشت به صفحه ورود")
         }
-        Text("حساب شما از طریق سرویس امن احراز هویت ثبت می‌شود.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF268C7C))
-        }
+        Text("پس از ثبت‌نام، در صورت نیاز پیوند تأیید ایمیل برای شما ارسال می‌شود.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

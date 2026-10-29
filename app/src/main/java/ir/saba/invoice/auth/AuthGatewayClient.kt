@@ -11,22 +11,39 @@ import java.net.URL
  * Never place service-role keys or SMS provider credentials in the APK.
  * The gateway must enforce OTP expiration, throttling and identity uniqueness.
  */
-class AuthGatewayClient(private val baseUrl: String) {
+interface OwnerAuthService {
+    suspend fun registerWithPassword(input: RegistrationInput): AuthGatewayClient.Session?
+    suspend fun loginWithPassword(identifier: String, password: String): AuthGatewayClient.Session
+    suspend fun logout(accessToken: String)
+}
+
+class AuthGatewayClient(
+    private val baseUrl: String,
+    private val openConnection: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }
+) : OwnerAuthService {
     init {
-        require(baseUrl.startsWith("https://")) { "Authentication requires HTTPS" }
+        require(URL(baseUrl).let { it.protocol == "https" && it.host.isNotBlank() && it.userInfo == null }) { "Authentication requires HTTPS" }
     }
 
     data class Challenge(val id: String, val maskedMobile: String, val expiresInSeconds: Int)
-    data class Session(val accessToken: String, val refreshToken: String)
+    data class Session(val accessToken: String, val refreshToken: String) {
+        init { require(accessToken.isNotBlank() && refreshToken.isNotBlank()) }
+        override fun toString() = "Session([redacted])"
+    }
 
-    suspend fun registerWithPassword(input: RegistrationInput): Session? {
+    override suspend fun registerWithPassword(input: RegistrationInput): Session? {
+        require(RegistrationValidator.emailPasswordErrors(input).isEmpty())
         val body = JSONObject()
-            .put("firstName", input.firstName)
-            .put("lastName", input.lastName)
-            .put("email", input.email)
+            .put("firstName", input.firstName.trim())
+            .put("lastName", input.lastName.trim())
+            .put("email", input.email.trim())
             .put("password", input.password)
         val result = post("/v1/auth/registration/start", body)
-        return if (result.has("accessToken")) session(result) else null
+        return when {
+            result.has("accessToken") -> session(result)
+            result.optString("status") == "email_confirmation_required" -> null
+            else -> throw java.io.IOException("Invalid authentication response")
+        }
     }
 
     suspend fun startRegistration(input: RegistrationInput): Challenge {
@@ -35,7 +52,7 @@ class AuthGatewayClient(private val baseUrl: String) {
             .put("lastName", input.lastName)
             .put("nationalId", RegistrationValidator.normalizeDigits(input.nationalId))
             .put("mobile", RegistrationValidator.normalizeDigits(input.mobile))
-            .put("email", input.email)
+            .put("email", input.email.trim())
             .put("password", input.password)
         val response = post("/v1/auth/registration/start", body)
         return Challenge(
@@ -50,9 +67,9 @@ class AuthGatewayClient(private val baseUrl: String) {
             .put("challengeId", challengeId)
             .put("code", RegistrationValidator.normalizeDigits(code))))
 
-    suspend fun loginWithPassword(identifier: String, password: String): Session =
+    override suspend fun loginWithPassword(identifier: String, password: String): Session =
         session(post("/v1/auth/login/password", JSONObject()
-            .put("identifier", RegistrationValidator.normalizeDigits(identifier))
+            .put("identifier", identifier.trim())
             .put("password", password)))
 
     suspend fun startSmsLogin(mobile: String): Challenge {
@@ -67,16 +84,19 @@ class AuthGatewayClient(private val baseUrl: String) {
             .put("challengeId", challengeId)
             .put("code", RegistrationValidator.normalizeDigits(code))))
 
-    suspend fun logout(refreshToken: String) {
-        post("/v1/auth/logout", JSONObject().put("refreshToken", refreshToken))
+    override suspend fun logout(accessToken: String) {
+        require(accessToken.isNotBlank())
+        post("/v1/auth/logout", JSONObject().put("accessToken", accessToken))
     }
 
     private fun session(json: JSONObject) = Session(
         json.getString("accessToken"), json.getString("refreshToken"))
 
     private suspend fun post(path: String, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
-        val connection = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
+        val connection = openConnection(URL(baseUrl.trimEnd('/') + path))
         try {
+            connection.instanceFollowRedirects = false
+            connection.useCaches = false
             connection.requestMethod = "POST"
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
@@ -99,7 +119,7 @@ class AuthGatewayClient(private val baseUrl: String) {
 class AuthGatewayException(val httpStatus: Int) : Exception(
     when (httpStatus) {
         400 -> "اطلاعات واردشده معتبر نیست."
-        401 -> "اطلاعات ورود یا کد تأیید صحیح نیست."
+        401, 403 -> "ایمیل یا رمز عبور صحیح نیست؛ تأیید ایمیل را نیز بررسی کنید."
         408, 429 -> "درخواست‌های زیادی ارسال شده است؛ کمی بعد تلاش کنید."
         503 -> "سرویس احراز هویت هنوز آماده نیست."
         else -> "ارتباط با سرویس احراز هویت ناموفق بود."

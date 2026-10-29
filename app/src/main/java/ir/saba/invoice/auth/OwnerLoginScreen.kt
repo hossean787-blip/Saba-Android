@@ -1,24 +1,16 @@
 package ir.saba.invoice.auth
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 
-/** Login UI only. Backend must authenticate before allowing dashboard access. */
 @Composable
 fun OwnerLoginScreen(
     onPasswordLogin: (identifier: String, password: String) -> Unit,
@@ -27,68 +19,45 @@ fun OwnerLoginScreen(
     busy: Boolean = false,
     error: String? = null
 ) {
-    val method = LoginMethod.PASSWORD
-    var identifier by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    val normalized = RegistrationValidator.normalizeDigits(identifier)
-    val validIdentifier = if (method == LoginMethod.SMS_OTP) {
-        RegistrationValidator.validMobile(normalized)
-    } else {
-        RegistrationValidator.validEmail(identifier)
+    var email by rememberSaveable { mutableStateOf("") }
+    // Passwords must never enter Activity saved-instance state.
+    var password by remember { mutableStateOf("") }
+    var visible by remember { mutableStateOf(false) }
+    val valid = RegistrationValidator.validEmail(email) && password.isNotBlank() && password.length <= 128
+    fun submit() {
+        if (!busy && valid) { onPasswordLogin(email.trim(), password); password = ""; visible = false }
     }
-    val violet = Color(0xFF4936B7)
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFF5F5FD))
-            .verticalScroll(rememberScrollState()).imePadding(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .background(Brush.linearGradient(listOf(Color(0xFF252C8D), violet, Color(0xFF8277DD))))
-                .padding(horizontal = 24.dp, vertical = 38.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("صبا", style = MaterialTheme.typography.displayMedium, color = Color.White, fontWeight = FontWeight.Bold)
-            Text("صدور صورتحساب و اتصال به سامانه مؤدیان", color = Color.White)
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                .background(Color.White, RoundedCornerShape(26.dp)).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-        Text("ورود به صبا", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("مدیریت هوشمند صورتحساب و اطلاعات مالیاتی", color = Color.Gray)
+    AuthLayout("ورود به صبا", "با ایمیل و رمز عبور خود وارد حساب شوید.") {
         OutlinedTextField(
-            value = identifier,
-            onValueChange = { identifier = if (method == LoginMethod.PASSWORD) it.trim().take(254) else RegistrationValidator.normalizeDigits(it).filter(Char::isDigit).take(11) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(if (method == LoginMethod.PASSWORD) "ایمیل" else "شماره موبایل") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
+            value = email, onValueChange = { email = it.take(254) }, enabled = !busy,
+            modifier = Modifier.fillMaxWidth(), label = { Text("ایمیل") },
+            textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+            singleLine = true, isError = email.isNotEmpty() && !RegistrationValidator.validEmail(email),
+            supportingText = if (email.isNotEmpty() && !RegistrationValidator.validEmail(email))
+                ({ Text("نشانی ایمیل معتبر وارد کنید.") }) else null
         )
-        if (method == LoginMethod.PASSWORD) {
-            OutlinedTextField(
-                value = password, onValueChange = { password = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("رمز عبور ثابت") },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true
-            )
+        OutlinedTextField(
+            value = password, onValueChange = { password = it.take(128) }, enabled = !busy,
+            modifier = Modifier.fillMaxWidth(), label = { Text("رمز عبور ثابت") },
+            textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = { TextButton(onClick = { visible = !visible }, enabled = !busy) {
+                Text(if (visible) "پنهان" else "نمایش")
+            } },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { submit() }), singleLine = true
+        )
+        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        Button(onClick = { submit() }, enabled = !busy && valid, modifier = Modifier.fillMaxWidth().height(54.dp)) {
+            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Text("ورود با رمز ثابت")
         }
-        if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
-        Button(
-            onClick = {
-                if (method == LoginMethod.PASSWORD) onPasswordLogin(identifier.trim(), password)
-                else onSmsLogin(normalized)
-            },
-            enabled = !busy && validIdentifier && (method == LoginMethod.SMS_OTP || password.isNotEmpty()),
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) { Text(if (busy) "در حال بررسی..." else if (method == LoginMethod.PASSWORD) "ورود با رمز ثابت" else "دریافت کد تأیید") }
         HorizontalDivider()
-        OutlinedButton(onClick = onRegister, modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(16.dp)) { Text("ثبت‌نام مالک جدید") }
-        Text("ورود امن با ایمیل و رمز عبور", color = Color(0xFF268C7C), style = MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick = onRegister, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            Text("ثبت‌نام مالک جدید")
         }
+        Text("برای حفظ امنیت، پس از بسته‌شدن کامل برنامه دوباره وارد شوید.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

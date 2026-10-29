@@ -39,9 +39,18 @@ object RegistrationValidator {
 
     fun validEmail(raw: String): Boolean {
         val email = raw.trim()
-        return email.length <= 254 && email.matches(
+        val local = email.substringBefore("@")
+        return local.length in 1..64 && !local.startsWith(".") && !local.endsWith(".") && !local.contains("..") && email.length <= 254 && email.matches(
             Regex("[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+")
         )
+    }
+
+    fun emailPasswordErrors(input: RegistrationInput): Set<String> = buildSet {
+        if (input.firstName.trim().length !in 1..100) add("firstName")
+        if (input.lastName.trim().length !in 1..100) add("lastName")
+        if (!validEmail(input.email)) add("email")
+        if (input.password.length !in 8..128 || input.password.isBlank()) add("password")
+        if (input.password != input.passwordConfirmation) add("passwordConfirmation")
     }
 
     fun errors(input: RegistrationInput): Set<String> = buildSet {

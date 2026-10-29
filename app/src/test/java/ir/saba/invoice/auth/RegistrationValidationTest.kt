@@ -23,6 +23,22 @@ class RegistrationValidationTest {
         assertTrue(RegistrationValidator.errors(form).contains("passwordConfirmation"))
     }
 
+    @Test fun emailPasswordRegistrationDoesNotRequireUnusedIdentityFields() {
+        val input = RegistrationInput("Ali", "Ahmadi", "", "", "owner@example.com", "password123", "password123")
+        assertTrue(RegistrationValidator.emailPasswordErrors(input).isEmpty())
+    }
+
+    @Test fun blankOrOversizePasswordsAreRejected() {
+        val input = RegistrationInput("Ali", "Ahmadi", "", "", "owner@example.com", "        ", "        ")
+        assertTrue("password" in RegistrationValidator.emailPasswordErrors(input))
+        assertTrue("password" in RegistrationValidator.emailPasswordErrors(input.copy(password = "a".repeat(129))))
+    }
+
+    @Test fun invalidEmailLocalPartsAreRejected() {
+        listOf(".owner@example.com", "owner.@example.com", "own..er@example.com", "a".repeat(65) + "@example.com")
+            .forEach { assertFalse(RegistrationValidator.validEmail(it)) }
+    }
+
     @Test fun otpExpiresAtExactlyTwoMinutes() {
         assertFalse(OtpPolicy.isExpired(1000, 1119))
         assertTrue(OtpPolicy.isExpired(1000, 1120))

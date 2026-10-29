@@ -1,31 +1,26 @@
-# Saba owner authentication acceptance and release gate
+# Owner email/password authentication checkpoint — 2026-10-30
 
-Status: NOT production-ready. SMS template 553755 is awaiting provider approval.
+Scope: continue main from 2cc50665; no new branch. SMS remains outside this assignment.
 
-## Verified environment
-- Supabase project: fiiitzfbdjzpmepzjsjw
-- Edge Function: saba-auth-gateway (deployed v3; readiness is a presence check only).
-- Tables: owner_identity_reservations, sms_challenges; RLS enabled and no client policies intentionally.
-- Android registration UI and validation exist; MainActivity still has offline demo access, NOT authenticated login.
+## Implemented in this change (verification pending CI)
+- Email/password registration and login through the existing deployed gateway v4.
+- Removed national-ID/mobile collection from the active email/password form: gateway v4 does not persist those values. Legacy identity/OTP helpers remain inactive.
+- Shared RTL navy/teal/gold authentication design; responsive bounded forms, safe system insets, field-specific validation, password visibility, loading/disabled states.
+- In-memory ViewModel session across Activity recreation. Process death intentionally requires login again. No tokens or passwords in preferences, saved state, backups or logs.
+- Explicit logout confirmation in settings, immediate local lock, backend logout with accessToken (previous client incorrectly sent refreshToken).
+- Offline logout stays locked and explains that remote revocation was not confirmed. No offline revocation claim.
+- Cancellation propagates; errors cannot display raw backend messages. HTTPS only, redirects disabled, invalid/empty session response rejected.
+- FLAG_SECURE prevents screenshots/recents capture in the release APK and debug APK.
 
-## Mandatory implementation sequence
-1. Confirm provider's official pattern SMS endpoint, request schema, API-key authentication, IP allowlist and template approval. Do not send until approved.
-2. Implement an authenticated or abuse-resistant server-side registration/start flow; server-side Iranian national ID checksum, HMAC uniqueness and atomic reservation; use approved secret storage only.
-3. Implement OTP challenge: CSPRNG 6 digits, hashed code, 120-second server expiry, max 5 attempts, resend throttle, single-use consume, anti-enumeration and abuse rate limits.
-4. Activate account only after SMS verification; never store raw passwords or national IDs; integrate Supabase Auth for real sessions.
-5. Implement password and OTP login; secure token persistence, logout, and no demo bypass in production.
-6. Connect Android screen to backend with loading/error states and clear offline demo separation.
+## Acceptance evidence
+- Previous baseline 2cc50665: CI run 40951950965 succeeded (JVM suite, APK, instrumentation APK compilation, lint).
+- Added gateway transport, validation, ViewModel and Compose tests. Their execution is pending the CI run for this change.
+- CI writes exact counts from JUnit XML, preserves JSON summary and lint reports, runs 3 non-destructive live rejection-path smoke tests and uploads the debug APK.
+- Live smoke does not create accounts or send email/SMS. It does not prove successful real email verification or login.
+- Final installation, real owner signup/email confirmation/login/logout and visual inspection on the user's phone are pending user acceptance, as assigned by the user.
+- No Android Emulator/device test execution claimed by this checkpoint.
 
-## Acceptance tests (must actually execute before release)
-- National ID invalid checksum, duplicate national ID and mobile; concurrency two identical registrations.
-- SMS provider failure: no account activation; no false success message.
-- OTP wrong, expired, consumed, repeated, brute-force, resend too early.
-- No secret in APK, source, logs or network response.
-- Successful real registration, login, logout and session restore on emulator/device.
-- Run JVM and instrumentation suites; inspect logs and attach APK artifact to CI.
-
-## Blocking facts
-- Provider template 553755 pending approval.
-- Secret existence/validity not independently verified.
-- No live SMS sent or real account created.
-- GitHub CI and instrumentation need fresh verified successful runs.
+## Recovery
+The baseline commit 2cc50665d9b065e42cdd4add13632d014160350e is the Git recovery point.
+This change does not deploy a backend or modify schema, billing, identity uniqueness rules or SMS settings.
+This authentication checkpoint does not certify the whole app for commercial release.
