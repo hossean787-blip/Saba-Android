@@ -22,37 +22,38 @@ class QuotaAtomicityInstrumentedTest {
 
     @After fun close() = db.close()
 
-    private suspend fun seed(): Long {
+    private suspend fun seed(): Pair<Long, Long> {
         val company = db.companyDao().insert(Company(purchaserId = "owner", name = "Tenant", nationalId = "12345678901"))
         val customer = db.customerDao().insert(Customer(companyId = company, name = "Customer"))
         quotas.initializeWallet("owner", 1)
         quotas.transferFromMaster("owner", company, 1, "transfer-1")
-        return invoices.saveDraft(company, customer, "100", "1405/07/01",
+        val invoiceId = invoices.saveDraft(company, customer, "100", "1405/07/01",
             listOf(InvoiceLine(invoiceId = 0, description = "Service", quantity = 1,
                 unitPriceRial = 1000, taxRatePercent = 10)))
+        return company to invoiceId
     }
 
     @Test fun finalizingTwiceConsumesQuotaOnlyOnce() = runBlocking {
-        val id = seed()
+        val (companyId, id) = seed()
         invoices.finalizeDraft(id)
         invoices.finalizeDraft(id)
         assertEquals("FINALIZED", db.invoiceDao().byId(id)?.status)
-        assertEquals(0L, db.quotaDao().companyQuota(1L)?.available)
+        assertEquals(0L, db.quotaDao().companyQuota(companyId)?.available)
         assertNotNull(db.quotaDao().useForInvoice(id))
     }
 
     @Test fun concurrentFinalizationConsumesQuotaOnce() = runBlocking {
-        val id = seed()
+        val (companyId, id) = seed()
         coroutineScope {
             (1..8).map { async { invoices.finalizeDraft(id) } }.awaitAll()
         }
         assertEquals("FINALIZED", db.invoiceDao().byId(id)?.status)
-        assertEquals(0L, db.quotaDao().companyQuota(1L)?.available)
+        assertEquals(0L, db.quotaDao().companyQuota(companyId)?.available)
         assertNotNull(db.quotaDao().useForInvoice(id))
     }
 
     @Test fun failureToInsertQuotaUseRollsBackEntireFinalization() = runBlocking {
-        val id = seed()
+        val (companyId, id) = seed()
         db.openHelper.writableDatabase.execSQL(
             "CREATE TRIGGER reject_quota_use BEFORE INSERT ON invoice_quota_uses " +
                 "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
@@ -62,7 +63,7 @@ class QuotaAtomicityInstrumentedTest {
             throw AssertionError("Expected database transaction to fail")
         } catch (expected: RuntimeException) {
             assertEquals("DRAFT", db.invoiceDao().byId(id)?.status)
-            assertEquals(1L, db.quotaDao().companyQuota(1L)?.available)
+            assertEquals(1L, db.quotaDao().companyQuota(companyId)?.available)
             assertEquals(null, db.quotaDao().useForInvoice(id))
         }
     }
