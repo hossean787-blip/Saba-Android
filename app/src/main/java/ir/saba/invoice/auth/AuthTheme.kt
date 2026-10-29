@@ -86,7 +86,7 @@ internal fun AuthLayout(title: String, subtitle: String, content: @Composable Co
                 content()
             }
         }
-        Text("سورا | SURA", Modifier.padding(bottom = 20.dp),
+        Text("سورا | صبا گستر اراک", Modifier.padding(bottom = 20.dp),
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
