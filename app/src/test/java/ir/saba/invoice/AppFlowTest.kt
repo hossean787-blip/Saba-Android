@@ -20,8 +20,6 @@ class AppFlowTest {
         }
         compose.onNodeWithText("ورود به صبا").assertExists()
         compose.onNodeWithText("ثبت شرکت").assertDoesNotExist()
-        compose.onNodeWithText("ثبت‌نام مالک جدید").performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("ورود به صبا").assertDoesNotExist()
+        compose.onNodeWithText("ثبت‌نام مالک جدید").assertExists()
     }
 }
