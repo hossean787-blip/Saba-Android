@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.auth.RegistrationScreen
+import ir.saba.invoice.auth.OwnerLoginScreen
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.ui.*
@@ -51,21 +52,29 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            var showRegistration by rememberSaveable { mutableStateOf(true) }
-            if (showRegistration) {
-                MaterialTheme {
-                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        RegistrationScreen(
-                            onSubmit = {
-                                // No SMS or account activation without a trusted backend.
-                                // Never persist passwords or personal identifiers locally here.
+            var authPage by rememberSaveable { mutableStateOf("login") }
+            var authError by rememberSaveable { mutableStateOf<String?>(null) }
+            MaterialTheme {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    when (authPage) {
+                        "register" -> RegistrationScreen(
+                            onSubmit = { authError = "ثبت‌نام تا تکمیل و آزمون سرویس امن فعال نیست." },
+                            onSignIn = { authPage = "login"; authError = null },
+                            serverError = authError ?: "برای ثبت‌نام، تأیید پیامک و اتصال سرویس مرکزی ضروری است."
+                        )
+                        else -> OwnerLoginScreen(
+                            onPasswordLogin = { _, _ ->
+                                authError = "ورود با رمز ثابت هنوز به سرویس امن متصل نشده است؛ دسترسی صادر نشد."
                             },
-                            onSignIn = { showRegistration = false },
-                            serverError = "ثبت‌نام واقعی تا تأیید الگوی پیامک و تکمیل سرویس احراز هویت غیرفعال است. گزینه «ورود» فقط نسخه آزمایشی آفلاین را باز می‌کند؛ حساب مالک ایجاد نمی‌شود."
+                            onSmsLogin = {
+                                authError = "ورود پیامکی تا تأیید الگو و اتصال سرویس فعال نیست."
+                            },
+                            onRegister = { authPage = "register"; authError = null },
+                            error = authError
                         )
                     }
                 }
-            } else SabaApp()
+            }
         }
     }
 
