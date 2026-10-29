@@ -51,25 +51,64 @@ class MainActivity : ComponentActivity() {
     private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val gateway = ir.saba.invoice.auth.AuthGatewayClient(
+            "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/saba-auth-gateway"
+        )
         setContent {
+            val scope = rememberCoroutineScope()
             var authPage by rememberSaveable { mutableStateOf("login") }
-            var authError by rememberSaveable { mutableStateOf<String?>(null) }
+            var authError by remember { mutableStateOf<String?>(null) }
+            var authBusy by remember { mutableStateOf(false) }
+            var authenticated by remember { mutableStateOf(false) }
+            var session by remember { mutableStateOf<ir.saba.invoice.auth.AuthGatewayClient.Session?>(null) }
             MaterialTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    when (authPage) {
+                    if (authenticated) {
+                        SabaApp()
+                    } else when (authPage) {
                         "register" -> RegistrationScreen(
-                            onSubmit = { authError = "ثبت‌نام تا تکمیل و آزمون سرویس امن فعال نیست." },
+                            onSubmit = { input ->
+                                if (!authBusy) {
+                                    authBusy = true
+                                    authError = null
+                                    scope.launch {
+                                        try {
+                                            val result = gateway.registerWithPassword(input)
+                                            if (result != null) {
+                                                session = result
+                                                authenticated = true
+                                            } else {
+                                                authError = "ثبت‌نام ثبت شد. در صورت فعال بودن تأیید ایمیل، ابتدا ایمیل خود را تأیید کنید."
+                                                authPage = "login"
+                                            }
+                                        } catch (e: Exception) {
+                                            authError = e.message ?: "ثبت‌نام انجام نشد."
+                                        } finally { authBusy = false }
+                                    }
+                                }
+                            },
                             onSignIn = { authPage = "login"; authError = null },
-                            serverError = authError ?: "برای ثبت‌نام، تأیید پیامک و اتصال سرویس مرکزی ضروری است."
+                            submitting = authBusy,
+                            serverError = authError
                         )
                         else -> OwnerLoginScreen(
-                            onPasswordLogin = { _, _ ->
-                                authError = "ورود با رمز ثابت هنوز به سرویس امن متصل نشده است؛ دسترسی صادر نشد."
+                            onPasswordLogin = { identifier, password ->
+                                if (!authBusy) {
+                                    authBusy = true
+                                    authError = null
+                                    scope.launch {
+                                        try {
+                                            session = gateway.loginWithPassword(identifier, password)
+                                            authenticated = true
+                                        } catch (e: Exception) {
+                                            authError = e.message ?: "ورود انجام نشد."
+                                        } finally { authBusy = false }
+                                    }
+                                }
                             },
-                            onSmsLogin = {
-                                authError = "ورود پیامکی تا تأیید الگو و اتصال سرویس فعال نیست."
-                            },
+                            onSmsLogin = { authError = "ورود پیامکی فعلاً غیرفعال است." },
                             onRegister = { authPage = "register"; authError = null },
+                            busy = authBusy,
                             error = authError
                         )
                     }
