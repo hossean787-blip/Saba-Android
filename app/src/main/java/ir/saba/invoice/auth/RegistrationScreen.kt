@@ -1,6 +1,10 @@
 package ir.saba.invoice.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
@@ -33,7 +37,32 @@ fun RegistrationScreen(
     var repeatPassword by remember { mutableStateOf("") }
     var attempted by rememberSaveable { mutableStateOf(false) }
     val input = RegistrationInput(first.trim(), last.trim(), "", "", email.trim(), password, repeatPassword)
-    val errors = if (attempted) RegistrationValidator.emailPasswordErrors(input) else emptySet()
+    var revealed by rememberSaveable { mutableIntStateOf(1) }
+    val allErrors = RegistrationValidator.emailPasswordErrors(input)
+    val errors = allErrors.filter { key ->
+        attempted || when (key) {
+            "firstName" -> revealed > 1
+            "lastName" -> revealed > 2
+            "email" -> email.isNotEmpty()
+            "password" -> password.isNotEmpty()
+            "passwordConfirmation" -> repeatPassword.isNotEmpty()
+            else -> false
+        }
+    }.toSet()
+    val currentValue = when (revealed) {
+        1 -> first
+        2 -> last
+        3 -> email
+        4 -> password
+        else -> repeatPassword
+    }
+    val requiredKeys = listOf("firstName", "lastName", "email", "password", "passwordConfirmation")
+    LaunchedEffect(currentValue, revealed, allErrors, submitting) {
+        if (!submitting && revealed < 5 && requiredKeys.take(revealed).none { it in allErrors }) {
+            delay(1000)
+            revealed += 1
+        }
+    }
     val messages = mapOf(
         "firstName" to "نام را وارد کنید (حداکثر ۱۰۰ نویسه).",
         "lastName" to "نام خانوادگی را وارد کنید (حداکثر ۱۰۰ نویسه).",
@@ -62,14 +91,22 @@ fun RegistrationScreen(
             )
         }
         field("نام", first, { first = it.take(100) }, "firstName")
-        field("نام خانوادگی", last, { last = it.take(100) }, "lastName")
-        field("ایمیل", email, { email = it.take(254) }, "email", KeyboardType.Email)
-        field("رمز عبور ثابت", password, { password = it.take(128) }, "password", KeyboardType.Password, true)
-        field("تکرار رمز عبور", repeatPassword, { repeatPassword = it.take(128) }, "passwordConfirmation", KeyboardType.Password, true)
-        Text("حداقل ۸ نویسه؛ رمز عبور را در اختیار دیگران نگذارید.", style = MaterialTheme.typography.bodySmall)
+        AnimatedVisibility(visible = revealed >= 2, enter = fadeIn() + expandVertically()) {
+            field("نام خانوادگی", last, { last = it.take(100) }, "lastName")
+        }
+        AnimatedVisibility(visible = revealed >= 3, enter = fadeIn() + expandVertically()) {
+            field("ایمیل", email, { email = it.take(254) }, "email", KeyboardType.Email)
+        }
+        AnimatedVisibility(visible = revealed >= 4, enter = fadeIn() + expandVertically()) {
+            field("رمز عبور ثابت", password, { password = it.take(128) }, "password", KeyboardType.Password, true)
+        }
+        AnimatedVisibility(visible = revealed >= 5, enter = fadeIn() + expandVertically()) {
+            field("تکرار رمز عبور", repeatPassword, { repeatPassword = it.take(128) }, "passwordConfirmation", KeyboardType.Password, true)
+        }
+        if (revealed >= 4) Text("حداقل ۸ نویسه؛ رمز عبور را در اختیار دیگران نگذارید.", style = MaterialTheme.typography.bodySmall)
         if (serverError != null) Text(serverError, color = MaterialTheme.colorScheme.error)
         Button(
-            enabled = !submitting,
+            enabled = !submitting && revealed == 5 && allErrors.isEmpty(),
             onClick = {
                 attempted = true
                 if (RegistrationValidator.emailPasswordErrors(input).isEmpty()) {

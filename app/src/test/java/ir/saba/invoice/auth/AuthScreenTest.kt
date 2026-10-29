@@ -30,22 +30,39 @@ class AuthScreenTest {
         compose.onNodeWithText("ایمیل").assertIsNotEnabled()
     }
 
-    @Test fun invalidRegistrationShowsFieldErrors() {
-        var submitted = false
-        compose.setContent { AuthTheme { RegistrationScreen({ submitted = true }, {}) } }
-        compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().performClick()
-        compose.onNodeWithText("نشانی ایمیل معتبر وارد کنید.").assertExists()
-        compose.onNodeWithText("نام را وارد کنید (حداکثر ۱۰۰ نویسه).").assertExists()
-        compose.runOnIdle { assertFalse(submitted) }
+    private fun waitForField(label: String) {
+        compose.waitUntil(5000) { compose.onAllNodesWithText(label, substring = false).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+    }
+
+    @Test fun registrationStartsWithOnlyNameAndNeverSubmitsEmptyForm() {
+        compose.setContent { AuthTheme { RegistrationScreen({}, {}) } }
+        compose.onNodeWithText("نام", substring = false).assertExists()
+        compose.onNodeWithText("نام خانوادگی").assertDoesNotExist()
+        compose.onNodeWithText("ایمیل", substring = false).assertDoesNotExist()
+        compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test fun revealedFieldsStayVisibleWhenEarlierValueIsCleared() {
+        compose.setContent { AuthTheme { RegistrationScreen({}, {}) } }
+        compose.onNodeWithText("نام", substring = false).performTextInput("Ali")
+        waitForField("نام خانوادگی")
+        compose.onNodeWithText("نام", substring = false).assertIsFocused().performTextClearance()
+        compose.onNodeWithText("نام خانوادگی").assertExists()
+        compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().assertIsNotEnabled()
     }
 
     @Test fun registrationSubmitsMatchingPasswords() {
         var received: RegistrationInput? = null
         compose.setContent { AuthTheme { RegistrationScreen({ received = it }, {}) } }
         compose.onNodeWithText("نام", substring = false).performScrollTo().performTextInput("Ali")
+        waitForField("نام خانوادگی")
         compose.onNodeWithText("نام خانوادگی").performScrollTo().performTextInput("Ahmadi")
+        waitForField("ایمیل")
         compose.onNodeWithText("ایمیل", substring = false).performScrollTo().performTextInput("owner@example.com")
+        waitForField("رمز عبور ثابت")
         compose.onNodeWithText("رمز عبور ثابت").performScrollTo().performTextInput("password123")
+        waitForField("تکرار رمز عبور")
         compose.onNodeWithText("تکرار رمز عبور").performScrollTo().performTextInput("password123")
         compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().performClick()
         compose.runOnIdle {
