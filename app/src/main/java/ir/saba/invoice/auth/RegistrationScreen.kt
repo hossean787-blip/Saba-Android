@@ -70,7 +70,7 @@ fun RegistrationScreen(
         "password" to "رمز عبور باید بین ۸ تا ۱۲۸ نویسه و غیرخالی باشد.",
         "passwordConfirmation" to "تکرار رمز عبور مطابقت ندارد."
     )
-    AuthLayout("ثبت‌نام مالک جدید", "حساب خود را با ایمیل و رمز عبور بسازید.") {
+    AuthLayout("ایجاد حساب کاربری", "حساب خود را با ایمیل و رمز عبور بسازید.") {
         @Composable fun field(label: String, value: String, change: (String) -> Unit, key: String,
             type: KeyboardType = KeyboardType.Text, secret: Boolean = false) {
             var visible by remember { mutableStateOf(false) }

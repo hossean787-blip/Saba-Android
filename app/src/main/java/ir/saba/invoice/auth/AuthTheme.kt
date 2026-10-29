@@ -67,7 +67,7 @@ internal fun AuthLayout(title: String, subtitle: String, content: @Composable Co
                 .padding(horizontal = 28.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("صبا", style = MaterialTheme.typography.headlineLarge,
+            Text("سورا", style = MaterialTheme.typography.headlineLarge,
                 color = Color(0xFF103C59), fontWeight = FontWeight.Bold)
             Text("مدیریت یکپارچه صورتحساب", color = Color(0xFF234F6B),
                 style = MaterialTheme.typography.bodyMedium)
@@ -86,7 +86,7 @@ internal fun AuthLayout(title: String, subtitle: String, content: @Composable Co
                 content()
             }
         }
-        Text("صبا | حساب کاربری مالک", Modifier.padding(bottom = 20.dp),
+        Text("سورا | SURA", Modifier.padding(bottom = 20.dp),
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

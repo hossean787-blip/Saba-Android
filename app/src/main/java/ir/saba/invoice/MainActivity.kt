@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
                             Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp)) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column(Modifier.weight(1f)) {
-                                        Text("صبا", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        Text("سورا", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                         Text("مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.labelSmall)
                                     }
                                     Box(Modifier.weight(1f)) {
@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
                                 if (companies.isEmpty() && !loading) {
                                     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("شروع کار با صبا", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                            Text("شروع کار با سورا", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                             Text("برای ثبت مشتری و صدور صورتحساب، ابتدا اطلاعات شرکت یا مؤدی خود را ثبت کنید.", style = MaterialTheme.typography.bodyMedium)
                                         }
                                     }

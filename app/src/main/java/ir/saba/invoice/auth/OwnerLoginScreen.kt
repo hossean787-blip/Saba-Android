@@ -27,7 +27,7 @@ fun OwnerLoginScreen(
     fun submit() {
         if (!busy && valid) { onPasswordLogin(email.trim(), password); password = ""; visible = false }
     }
-    AuthLayout("ورود به صبا", "با ایمیل و رمز عبور خود وارد حساب شوید.") {
+    AuthLayout("ورود به سورا", "با ایمیل و رمز عبور خود وارد حساب شوید.") {
         OutlinedTextField(
             value = email, onValueChange = { email = it.take(254) }, enabled = !busy,
             modifier = Modifier.fillMaxWidth(), label = { Text("ایمیل") },
@@ -55,7 +55,7 @@ fun OwnerLoginScreen(
         }
         HorizontalDivider()
         OutlinedButton(onClick = onRegister, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            Text("ثبت‌نام مالک جدید")
+            Text("ایجاد حساب کاربری")
         }
         Text("برای حفظ امنیت، پس از بسته‌شدن کامل برنامه دوباره وارد شوید.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

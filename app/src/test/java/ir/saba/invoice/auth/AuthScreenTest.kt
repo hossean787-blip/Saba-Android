@@ -26,7 +26,7 @@ class AuthScreenTest {
 
     @Test fun busyLoginDisablesNavigationAndSubmission() {
         compose.setContent { AuthTheme { OwnerLoginScreen({ _, _ -> }, {}, {}, busy = true) } }
-        compose.onNodeWithText("ثبت‌نام مالک جدید").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("ایجاد حساب کاربری").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("ایمیل").assertIsNotEnabled()
     }
 

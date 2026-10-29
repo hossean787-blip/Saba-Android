@@ -16,10 +16,10 @@ class AppFlowTest {
 
     @Test fun unauthenticatedLaunchShowsOwnerLoginInsteadOfCompanyDashboard() {
         compose.waitUntil(15000) {
-            compose.onAllNodesWithText("ورود به صبا").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("ورود به سورا").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("ورود به صبا").assertExists()
+        compose.onNodeWithText("ورود به سورا").assertExists()
         compose.onNodeWithText("ثبت شرکت").assertDoesNotExist()
-        compose.onNodeWithText("ثبت‌نام مالک جدید").assertExists()
+        compose.onNodeWithText("ایجاد حساب کاربری").assertExists()
     }
 }
