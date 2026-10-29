@@ -34,7 +34,7 @@ fun OwnerLoginScreen(
     val validIdentifier = if (method == LoginMethod.SMS_OTP) {
         RegistrationValidator.validMobile(normalized)
     } else {
-        RegistrationValidator.validMobile(normalized) || RegistrationValidator.validNationalId(normalized)
+        RegistrationValidator.validEmail(identifier)
     }
     val violet = Color(0xFF4936B7)
     Column(
@@ -58,7 +58,7 @@ fun OwnerLoginScreen(
         ) {
         Text("ورود به صبا", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("مدیریت هوشمند صورتحساب و اطلاعات مالیاتی", color = Color.Gray)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        /* Password-only release: SMS login is deferred. */\n        /* SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             SegmentedButton(
                 selected = method == LoginMethod.PASSWORD,
                 onClick = { method = LoginMethod.PASSWORD },
@@ -72,9 +72,9 @@ fun OwnerLoginScreen(
         }
         OutlinedTextField(
             value = identifier,
-            onValueChange = { identifier = RegistrationValidator.normalizeDigits(it).filter(Char::isDigit).take(11) },
+            onValueChange = { identifier = if (method == LoginMethod.PASSWORD) it.trim().take(254) else RegistrationValidator.normalizeDigits(it).filter(Char::isDigit).take(11) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(if (method == LoginMethod.PASSWORD) "موبایل یا کد ملی" else "شماره موبایل") },
+            label = { Text(if (method == LoginMethod.PASSWORD) "ایمیل" else "شماره موبایل") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             singleLine = true
         )
@@ -91,7 +91,7 @@ fun OwnerLoginScreen(
         if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
         Button(
             onClick = {
-                if (method == LoginMethod.PASSWORD) onPasswordLogin(normalized, password)
+                if (method == LoginMethod.PASSWORD) onPasswordLogin(identifier.trim(), password)
                 else onSmsLogin(normalized)
             },
             enabled = !busy && validIdentifier && (method == LoginMethod.SMS_OTP || password.isNotEmpty()),
