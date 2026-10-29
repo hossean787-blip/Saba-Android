@@ -50,6 +50,18 @@ jobs:
         run: gradle :app:testDebugUnitTest --stacktrace --no-daemon
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace --no-daemon
+      - name: Upload test and lint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saba-test-and-lint-reports
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: warn
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4

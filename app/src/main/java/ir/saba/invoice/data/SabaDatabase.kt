@@ -32,6 +32,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Update suspend fun update(item: Invoice)
     @Query("SELECT * FROM invoices WHERE companyId = :companyId ORDER BY issueDate DESC, id DESC") suspend fun forCompany(companyId: Long): List<Invoice>
     @Query("SELECT * FROM invoices WHERE id = :id LIMIT 1") suspend fun byId(id: Long): Invoice?
+    @Query("SELECT * FROM invoices WHERE companyId = :companyId AND invoiceNumber = :number LIMIT 1")
+    suspend fun byNumber(companyId: Long, number: String): Invoice?
+    @Query("DELETE FROM invoices WHERE id = :id AND companyId = :companyId AND status = 'DRAFT'")
+    suspend fun deleteDraft(companyId: Long, id: Long): Int
 }
 
 @Dao interface InvoiceLineDao {
@@ -66,3 +70,4 @@ abstract class SabaDatabase : RoomDatabase() {
     abstract fun quotaDao(): QuotaDao
     abstract fun moadianSimulationDao(): MoadianSimulationDao
 }
+
