@@ -151,4 +151,44 @@ class InvoiceWorkflowTest {
         assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
         assertNull(db.quotaDao().useForInvoice(id))
     }
+    @Test fun injectedQuotaUseFailureRollsBackStatusQuotaAndUsage() = runBlocking {
+        val quota = QuotaRepository(db)
+        quota.initializeWallet("owner", 1)
+        quota.transferFromMaster("owner", company, 1, "injected-rollback")
+        val id = draft("rollback-test")
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER reject_quota_use BEFORE INSERT ON invoice_quota_uses " +
+                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
+        )
+        var rejected = false
+        try {
+            repository.finalizeDraft(company, id)
+        } catch (_: android.database.sqlite.SQLiteException) {
+            rejected = true
+        } catch (_: RuntimeException) {
+            rejected = true
+        }
+        assertTrue("The injected SQL failure must abort finalization", rejected)
+        assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
+        assertEquals(1L, db.quotaDao().companyQuota(company)!!.available)
+        assertNull(db.quotaDao().useForInvoice(id))
+        assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
+    }
+
+    @Test fun crossCompanyFinalizationCannotConsumeQuotaOrChangeStatus() = runBlocking {
+        val quota = QuotaRepository(db)
+        quota.initializeWallet("owner", 1)
+        quota.transferFromMaster("owner", company, 1, "cross-company")
+        val id = draft("cross-company-draft")
+        expectRejected { repository.finalizeDraft(otherCompany, id) }
+        assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
+        assertEquals(1L, db.quotaDao().companyQuota(company)!!.available)
+        assertNull(db.quotaDao().useForInvoice(id))
+        repository.finalizeDraft(company, id)
+        expectRejected { repository.finalizeDraft(otherCompany, id) }
+        assertEquals("FINALIZED", db.invoiceDao().byId(id)!!.status)
+        assertEquals(0L, db.quotaDao().companyQuota(company)!!.available)
+        assertNotNull(db.quotaDao().useForInvoice(id))
+    }
+
 }
