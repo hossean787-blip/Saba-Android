@@ -19,6 +19,16 @@ class AuthGatewayClient(private val baseUrl: String) {
     data class Challenge(val id: String, val maskedMobile: String, val expiresInSeconds: Int)
     data class Session(val accessToken: String, val refreshToken: String)
 
+    suspend fun registerWithPassword(input: RegistrationInput): Session? {
+        val body = JSONObject()
+            .put("firstName", input.firstName)
+            .put("lastName", input.lastName)
+            .put("email", input.email)
+            .put("password", input.password)
+        val result = post("/v1/auth/registration/start", body)
+        return if (result.has("accessToken")) session(result) else null
+    }
+
     suspend fun startRegistration(input: RegistrationInput): Challenge {
         val body = JSONObject()
             .put("firstName", input.firstName)
