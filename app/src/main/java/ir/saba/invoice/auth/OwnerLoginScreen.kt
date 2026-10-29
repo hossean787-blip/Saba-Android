@@ -27,7 +27,7 @@ fun OwnerLoginScreen(
     busy: Boolean = false,
     error: String? = null
 ) {
-    var method by rememberSaveable { mutableStateOf(LoginMethod.PASSWORD) }
+    val method = LoginMethod.PASSWORD
     var identifier by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     val normalized = RegistrationValidator.normalizeDigits(identifier)
@@ -58,24 +58,12 @@ fun OwnerLoginScreen(
         ) {
         Text("ورود به صبا", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("مدیریت هوشمند صورتحساب و اطلاعات مالیاتی", color = Color.Gray)
-        /* Password-only release: SMS login is deferred. */\n        /* SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = method == LoginMethod.PASSWORD,
-                onClick = { method = LoginMethod.PASSWORD },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-            ) { Text("رمز عبور ثابت") }
-            SegmentedButton(
-                selected = method == LoginMethod.SMS_OTP,
-                onClick = { method = LoginMethod.SMS_OTP },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-            ) { Text("کد پیامکی") }
-        }
         OutlinedTextField(
             value = identifier,
             onValueChange = { identifier = if (method == LoginMethod.PASSWORD) it.trim().take(254) else RegistrationValidator.normalizeDigits(it).filter(Char::isDigit).take(11) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(if (method == LoginMethod.PASSWORD) "ایمیل" else "شماره موبایل") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             singleLine = true
         )
         if (method == LoginMethod.PASSWORD) {
@@ -100,7 +88,7 @@ fun OwnerLoginScreen(
         HorizontalDivider()
         OutlinedButton(onClick = onRegister, modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(16.dp)) { Text("ثبت‌نام مالک جدید") }
-        Text("حفاظت از اطلاعات حساب شما", color = Color(0xFF268C7C), style = MaterialTheme.typography.bodySmall)
+        Text("ورود امن با ایمیل و رمز عبور", color = Color(0xFF268C7C), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
