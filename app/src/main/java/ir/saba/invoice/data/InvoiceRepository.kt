@@ -108,7 +108,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
     }
 
     suspend fun invoicesForCompany(companyId: Long): List<Invoice> = db.invoiceDao().forCompany(companyId)
-    suspend fun linesForInvoice(invoiceId: Long): List<InvoiceLine> = db.invoiceLineDao().forInvoice(invoiceId)
+    suspend fun linesForInvoice(companyId: Long, invoiceId: Long): List<InvoiceLine> =
+        detailsForCompany(companyId, invoiceId).lines
 
     suspend fun detailsForCompany(companyId: Long, invoiceId: Long): InvoiceDetails = db.withTransaction {
         val invoice = db.invoiceDao().byId(invoiceId) ?: throw IllegalArgumentException("فاکتور پیدا نشد.")
