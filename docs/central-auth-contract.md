@@ -1,35 +1,28 @@
-# Saba central authentication contract (implementation blueprint)
+# Current Saba authentication contract — 2026-10-30
 
-The Android app MUST NOT contain Melipayamak credentials, a national-ID registry, or a self-issued authentication token. Registration and uniqueness checks are enforced by a central HTTPS backend.
+Active scope: owner registration and login with email and a persistent user-chosen password. SMS/OTP is disabled in the active Android UI.
 
-## Required backend persistence
-- `accounts`: id (UUID PK), first_name, last_name, national_id_ciphertext, national_id_hmac (UNIQUE, NOT NULL), mobile_e164 (UNIQUE), email (NOT NULL), password_hash (Argon2id), verified_at, created_at, disabled_at.
-- `otp_challenges`: id, account_pending_id, purpose, mobile_e164, code_hash, expires_at, attempts, consumed_at, resend_available_at.
-- `sessions`: id, account_id, refresh_token_hash, revoked_at, expires_at.
-- Secrets: national-ID HMAC key, encryption key, password pepper (if used), Melipayamak API credentials stored in server secret management; never in Git or APK.
-- Require encryption at rest and least-privilege access to sensitive fields. Normalize Persian/Arabic digits server-side.
+## Existing deployed gateway v4
+Base: https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/saba-auth-gateway
 
-## Endpoints
-- `POST /v1/auth/registration/start`: validate all required fields (including email); check valid national-ID checksum and unique HMAC; atomically reserve pending identity and mobile; hash password; request OTP through server-side Melipayamak adapter; return challenge ID, masked mobile, server-issued expiration.
-- `POST /v1/auth/registration/verify`: challenge ID + six-digit code. Validate hash with constant-time comparison, 120-second expiry, attempt limit and single-use consumption; atomically activate account.
-- `POST /v1/auth/login/password`: mobile OR national ID + password; return short-lived access token and rotating refresh token.
-- `POST /v1/auth/login/otp/start` and `POST /v1/auth/login/otp/verify`: send and verify login OTP to existing verified mobile.
-- `POST /v1/auth/owner/mobile/change/start` and `POST /v1/auth/owner/mobile/change/verify`: require authenticated owner and recent step-up authentication, verify NEW number before changing it.
-- `POST /v1/auth/logout`: revoke refresh token.
+- POST /v1/auth/registration/start: firstName, lastName, email, password. Returns accessToken + refreshToken when a session is issued, otherwise HTTP 202 with status=email_confirmation_required.
+- POST /v1/auth/login/password: identifier (email), password. Returns accessToken + refreshToken on success.
+- POST /v1/auth/logout: accessToken. The gateway calls Supabase Auth logout with Bearer accessToken. A refreshToken in this request is incorrect.
+- Non-2xx responses are failures. A successful response with empty/missing tokens is never accepted as an authenticated session.
+- The gateway uses its server-side Supabase anon key; no service-role key, SMS key or password storage is added to Android.
 
-## Security and abuse controls
-- Always return generic errors for account existence checks; don't disclose whether a national ID is registered.
-- Atomic UNIQUE constraints on national_id_hmac and mobile_e164; handle conflicts as safe generic errors.
-- Rate-limit by account, mobile, IP and device; cap OTP verification attempts; avoid user enumeration.
-- Expiration, resend and throttling are SERVER enforced; client countdown is only a visual hint.
-- Audit changes without logging national IDs, passwords, OTPs, tokens or provider secrets.
-- Use HTTPS with certificate validation; no local offline bypass for production.
-- Send SMS using the current Melipayamak official API from the backend only. Confirm actual endpoint, authentication and template format against the provider's current documentation before deploying; no provider endpoint is assumed here.
+## Android behavior
+- Registration requires first/last names (1–100 trimmed characters), valid email, matching nonblank passwords of 8–128 characters.
+- The active form does not collect national ID/mobile because this gateway does not persist or enforce their uniqueness. Existing inactive OTP helpers are outside this delivery.
+- Network requests are HTTPS only, no redirects, 15-second connect/read timeouts, no raw backend errors shown to the user.
+- Session lives only in a ViewModel: retained during Activity recreation, cleared on process termination. There is no disk session restoration or remember-me claim.
+- Password fields use remember rather than rememberSaveable; passwords are cleared after submission. Session.toString is redacted. Screenshots/recents capture is disabled.
+- Logout confirmation locks local access immediately, then calls remote logout. Offline failure leaves the app locked and explicitly reports remote revocation as unconfirmed.
+- Back or navigation cannot launch a second overlapping auth request.
+- Owner signup/email confirmation/real login/visual acceptance on the phone remain user acceptance tests. Technical contract tests must not be represented as those manual tests.
 
-## Acceptance criteria
-1. Two simultaneous registrations with the same national ID result in exactly one activated owner.
-2. Expired/reused/wrong OTPs never activate accounts.
-3. No SMS provider secret or national-ID lookup table appears in APK or source.
-4. Login method can be selected between password and SMS OTP.
-5. Owner mobile changes require step-up authentication and proof of new number.
-6. Integration tests use a fake SMS adapter; production delivery requires valid provider credentials and reachable backend.
+## Verification
+Run existing main CI: JVM/Compose regression tests, APK and instrumentation APK compilation, lint, three non-destructive live rejection-path checks. Exact JUnit counts are in saba-test-and-lint-reports/auth-verification/junit-summary.json; no accounts, email or SMS are created by the smoke script.
+
+## Deferred requirements
+SMS, national-ID uniqueness, mobile verification/change, persistent encrypted session restore and app-wide owner data isolation require separate implementation/acceptance. This checkpoint certifies only the assigned email/password authentication work, subject to the stated manual acceptance tests.

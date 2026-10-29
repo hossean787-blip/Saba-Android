@@ -1,0 +1,7 @@
+Vazirmatn by Saber Rastikerdar and contributors.
+Source: https://github.com/rastikerdar/vazirmatn
+License: SIL Open Font License 1.1 (see Vazirmatn-OFL.txt).
+Bundled unmodified files:
+fonts/ttf/Vazirmatn-Regular.ttf — Git blob 64e4a8189557a17b63fd7a77794207483e592972
+fonts/ttf/Vazirmatn-Bold.ttf — Git blob efa9b095da01d299310bdcae293e24e657fe6da9
+Both destination blob SHAs verified identical to upstream on 2026-10-30.
