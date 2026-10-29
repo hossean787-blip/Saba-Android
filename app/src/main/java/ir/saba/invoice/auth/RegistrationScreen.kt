@@ -58,7 +58,7 @@ fun RegistrationScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
         Text("ثبت‌نام مالک جدید", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("اطلاعات حساب • تأیید موبایل • تکمیل", color = Color(0xFF4936B7))
+        Text("اطلاعات حساب • رمز عبور • تکمیل", color = Color(0xFF4936B7))
         Text("برای شروع، مشخصات خود را تکمیل کنید.", style = MaterialTheme.typography.bodyMedium)
         @Composable fun field(label: String, value: String, change: (String) -> Unit, key: String, type: KeyboardType = KeyboardType.Text, secret: Boolean = false) {
             OutlinedTextField(
@@ -76,7 +76,7 @@ fun RegistrationScreen(
         field("ایمیل (اجباری)", email, { email = it }, "email", KeyboardType.Email)
         field("رمز عبور ثابت (حداقل ۸ نویسه)", password, { password = it }, "password", KeyboardType.Password, true)
         field("تکرار رمز عبور", repeatPassword, { repeatPassword = it }, "passwordConfirmation", KeyboardType.Password, true)
-        Text("با ادامه، شماره موبایل از طریق کد شش‌رقمی با اعتبار دو دقیقه تأیید خواهد شد.",
+        Text("ثبت‌نام با ایمیل و رمز عبور انجام می‌شود؛ ممکن است تأیید ایمیل لازم باشد.",
             style = MaterialTheme.typography.bodySmall)
         if (serverError != null) Text(serverError, color = MaterialTheme.colorScheme.error)
         Button(
@@ -86,11 +86,11 @@ fun RegistrationScreen(
                 if (RegistrationValidator.errors(input).isEmpty()) onSubmit(input)
             },
             modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) { Text(if (submitting) "در حال بررسی..." else "ادامه و دریافت کد تأیید") }
+        ) { Text(if (submitting) "در حال بررسی..." else "ساخت حساب کاربری") }
         OutlinedButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
             Text("بازگشت به صفحه ورود")
         }
-        Text("اطلاعات شما فقط پس از تأیید امن سرور ثبت خواهد شد.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF268C7C))
+        Text("حساب شما از طریق سرویس امن احراز هویت ثبت می‌شود.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF268C7C))
         }
     }
 }
