@@ -40,10 +40,12 @@ fun AuthTheme(content: @Composable () -> Unit) {
             labelSmall = base.labelSmall.copy(fontFamily = family)
         ),
         colorScheme = lightColorScheme(
-            primary = Color(0xFF176B68), onPrimary = Color.White,
-            secondary = Color(0xFFB59758), background = Color(0xFFF4F7F8),
+            primary = Color(0xFF075F91), onPrimary = Color.White,
+            primaryContainer = Color(0xFFD9F1FF), onPrimaryContainer = Color(0xFF123C59),
+            outline = Color(0xFF6B8EA5), outlineVariant = Color(0xFFD4E8F4),
+            secondary = Color(0xFF2378A3), background = Color(0xFFF2F9FF),
             surface = Color.White, onSurface = Color(0xFF172C3D),
-            surfaceVariant = Color(0xFFE7EEF0), onSurfaceVariant = Color(0xFF4C626C)
+            surfaceVariant = Color(0xFFE7F4FD), onSurfaceVariant = Color(0xFF456176)
         ),
         shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(28.dp)),
         content = content
@@ -60,21 +62,22 @@ internal fun AuthLayout(title: String, subtitle: String, content: @Composable Co
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Column(
-            Modifier.fillMaxWidth().background(Brush.linearGradient(
-                listOf(Color(0xFF102D41), Color(0xFF176B68))))
+            Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth().background(Brush.linearGradient(
+                listOf(Color(0xFFDDF3FF), Color(0xFF8DD5FA), Color(0xFFC3EAFF))), RoundedCornerShape(28.dp))
                 .padding(horizontal = 28.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("صبا", style = MaterialTheme.typography.headlineLarge,
-                color = Color.White, fontWeight = FontWeight.Bold)
-            Text("مدیریت یکپارچه صورتحساب", color = Color(0xFFD1E9E6),
+                color = Color(0xFF103C59), fontWeight = FontWeight.Bold)
+            Text("مدیریت یکپارچه صورتحساب", color = Color(0xFF234F6B),
                 style = MaterialTheme.typography.bodyMedium)
-            Text("دقیق • ساده • همراه شما", color = Color(0xFFE5C789),
+            Text("دقیق • ساده • همراه شما", color = Color(0xFF285B78),
                 style = MaterialTheme.typography.labelMedium)
         }
         Surface(
             modifier = Modifier.padding(horizontal = 20.dp).widthIn(max = 480.dp).fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp), shadowElevation = 3.dp
+            shape = RoundedCornerShape(28.dp), shadowElevation = 2.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD4E8F4))
         ) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
