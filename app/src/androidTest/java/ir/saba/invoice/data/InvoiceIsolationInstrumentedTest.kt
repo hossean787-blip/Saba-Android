@@ -6,8 +6,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -76,6 +74,36 @@ class InvoiceIsolationInstrumentedTest {
             } catch (expected: IllegalArgumentException) {
                 assertEquals(0, db.invoiceDao().forCompany(company).size)
             }
+        }
+    }
+
+    @Test fun sqliteFailureInsideDraftUpdateRollsBackHeaderAndLines() = runBlocking {
+        val company = db.companyDao().insert(Company(purchaserId = "owner", name = "Alpha", nationalId = "11111111111"))
+        val customer = db.customerDao().insert(Customer(companyId = company, name = "Customer"))
+        val id = repository.saveDraft(company, customer, "10", "1405/07/01", listOf(line("Original")))
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER reject_replacement BEFORE INSERT ON invoice_lines " +
+            "WHEN NEW.description = 'Replacement' BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
+        )
+        try {
+            repository.saveDraft(company, customer, "11", "1405/07/02",
+                listOf(line("Replacement")), existingInvoiceId = id)
+            throw AssertionError("Expected injected database failure")
+        } catch (expected: android.database.SQLException) {
+            assertEquals("10", db.invoiceDao().byId(id)?.invoiceNumber)
+            assertEquals("1405/07/01", db.invoiceDao().byId(id)?.issueDate)
+            assertEquals("Original", repository.linesForInvoice(company, id).single().description)
+        }
+    }
+
+    @Test fun rejectsNumberThatNormalizesToWhitespace() = runBlocking {
+        val company = db.companyDao().insert(Company(purchaserId = "owner", name = "Alpha", nationalId = "11111111111"))
+        val customer = db.customerDao().insert(Customer(companyId = company, name = "Customer"))
+        try {
+            repository.saveDraft(company, customer, "   ", "1405/07/01", listOf(line()))
+            throw AssertionError("Empty invoice number accepted")
+        } catch (expected: IllegalArgumentException) {
+            assertEquals(0, db.invoiceDao().forCompany(company).size)
         }
     }
 }
