@@ -174,18 +174,26 @@ class MainActivity : ComponentActivity() {
                         when (page) {
                             Page.DASHBOARD -> LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                                 item {
-                                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                                        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            Text("صدور و مدیریت صورتحساب", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                                        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Text("مدیریت هوشمند صورتحساب", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                             Text(company?.name ?: "ابتدا شرکت خود را ثبت کنید.")
                                             Button(onClick = { page = if (company == null) Page.COMPANIES else Page.INVOICES }) { Text(if (company == null) "ثبت شرکت" else "ورود به فاکتورها") }
                                         }
                                     }
                                 }
-                                item { DashboardCard("شرکت‌ها", companies.size.toString()) { page = Page.COMPANIES } }
-                                item { DashboardCard("مشتریان شرکت فعال", (current?.customers?.size ?: 0).toString()) { page = Page.CUSTOMERS } }
-                                item { DashboardCard("پیش‌نویس‌ها", (current?.invoices?.count { it.status == "DRAFT" } ?: 0).toString()) { page = Page.INVOICES } }
-                                item { DashboardCard("فاکتورهای نهایی محلی", (current?.invoices?.count { it.status == "FINALIZED" } ?: 0).toString()) { page = Page.INVOICES } }
+                                item {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Box(Modifier.weight(1f)) { DashboardCard("شرکت‌ها", companies.size.toString()) { page = Page.COMPANIES } }
+                                        Box(Modifier.weight(1f)) { DashboardCard("مشتریان", (current?.customers?.size ?: 0).toString()) { page = Page.CUSTOMERS } }
+                                    }
+                                }
+                                item {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Box(Modifier.weight(1f)) { DashboardCard("پیش‌نویس‌ها", (current?.invoices?.count { it.status == "DRAFT" } ?: 0).toString()) { page = Page.INVOICES } }
+                                        Box(Modifier.weight(1f)) { DashboardCard("نهایی محلی", (current?.invoices?.count { it.status == "FINALIZED" } ?: 0).toString()) { page = Page.INVOICES } }
+                                    }
+                                }
                                 item { OutlinedButton(onClick = { page = Page.QUOTA }) { Text("مدیریت سهمیه") } }
                                 item { OutlinedButton(onClick = { page = Page.SIMULATION }) { Text("آزمایش آفلاین مؤدیان") } }
                                 item { Text("ارسال واقعی مؤدیان فعال نیست؛ نهایی‌شدن سند به معنی ارسال نیست.") }
@@ -237,10 +245,15 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else CompanyPlaceholder(loading)
                             Page.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("تنظیمات نمایش", style = MaterialTheme.typography.titleLarge)
+                                Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
-                                Slider(fontScale, { fontScale = it }, valueRange = 0.85f..1.35f,
-                                    onValueChangeFinished = { act { settings.setFontScale(fontScale) } })
+                                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                                    Column(Modifier.padding(16.dp)) {
+                                        Text("اندازه نوشته‌ها", style = MaterialTheme.typography.titleSmall)
+                                        Slider(value = fontScale, onValueChange = { fontScale = it }, valueRange = 0.85f..1.35f,
+                                            onValueChangeFinished = { act { settings.setFontScale(fontScale) } }, modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
                                 OutlinedButton(onClick = { fontScale = 1f; act { settings.setFontScale(1f) } }) { Text("اندازه پیش‌فرض") }
                                 Text("وضعیت اتصال مؤدیان: غیرفعال؛ هیچ صورتحسابی ارسال نمی‌شود.")
                                 Text("ثبت محلی فاکتور از ارسال مالیاتی مستقل است.")
@@ -255,10 +268,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun DashboardCard(title: String, value: String, onClick: () -> Unit) {
-    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
