@@ -6,15 +6,40 @@ export ANDROID_HOME="${ANDROID_HOME:-$HOME/android-sdk}"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-if [[ -x "$HOME/.sdkman/candidates/java/17.0.18-tem/bin/java" ]]; then
-  export JAVA_HOME="$HOME/.sdkman/candidates/java/17.0.18-tem"
-elif [[ -d "$HOME/.sdkman/candidates/java" ]]; then
-  for candidate in "$HOME"/.sdkman/candidates/java/17*; do
-    if [[ -x "$candidate/bin/javac" ]]; then export JAVA_HOME="$candidate"; break; fi
-  done
+# SDKMAN can be installed outside HOME in GitHub Codespaces.
+if [[ -n "${SDKMAN_DIR:-}" && -f "$SDKMAN_DIR/bin/sdkman-init.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+elif [[ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "$HOME/.sdkman/bin/sdkman-init.sh"
 fi
-if [[ -n "${JAVA_HOME:-}" && -x "$JAVA_HOME/bin/java" ]]; then
-  export PATH="$JAVA_HOME/bin:$PATH"
+if declare -F sdk >/dev/null 2>&1; then
+  sdk use java 17.0.18-tem >/dev/null 2>&1 || true
+fi
+
+# Prefer an explicitly installed JDK 17, not the default JDK 25.
+for candidate in \
+  "${JAVA_HOME:-}" \
+  "$HOME/.sdkman/candidates/java/17.0.18-tem" \
+  "${SDKMAN_DIR:-/nonexistent}/candidates/java/17.0.18-tem" \
+  "/usr/local/sdkman/candidates/java/17.0.18-tem"; do
+  [[ -n "$candidate" && -x "$candidate/bin/javac" ]] || continue
+  if "$candidate/bin/java" -version 2>&1 | grep -Eq '"17([."]|\\+)'; then
+    export JAVA_HOME="$candidate"
+    export PATH="$JAVA_HOME/bin:$PATH"
+    break
+  fi
+done
+# When 'sdk use' already adjusted PATH, derive JAVA_HOME from the active JDK.
+if ! [[ -n "${JAVA_HOME:-}" && -x "$JAVA_HOME/bin/javac" ]] || \
+   ! "$JAVA_HOME/bin/java" -version 2>&1 | grep -Eq '"17([."]|\\+)'; then
+  active_java="$(readlink -f "$(command -v java)")"
+  candidate="$(dirname "$(dirname "$active_java")")"
+  if [[ -x "$candidate/bin/javac" ]] && "$candidate/bin/java" -version 2>&1 | grep -Eq '"17([."]|\\+)'; then
+    export JAVA_HOME="$candidate"
+    export PATH="$JAVA_HOME/bin:$PATH"
+  fi
 fi
 
 echo "=== Java ==="
