@@ -46,6 +46,7 @@ private data class CompanyData(
 
 class MainActivity : ComponentActivity() {
     private val db by lazy { SabaDatabase.getInstance(applicationContext) }
+    private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { SabaApp() }
@@ -55,7 +56,12 @@ class MainActivity : ComponentActivity() {
     private fun SabaApp() {
         val preferences = remember { getSharedPreferences("display", MODE_PRIVATE) }
         var page by rememberSaveable { mutableStateOf(Page.DASHBOARD) }
-        var fontScale by rememberSaveable { mutableFloatStateOf(preferences.getFloat("font_scale", 1f)) }
+        var fontScale by rememberSaveable {
+            val legacy = preferences.getFloat("font_scale", 1f)
+            mutableFloatStateOf(if (legacy.isFinite()) legacy.coerceIn(0.85f, 1.35f) else 1f)
+        }
+        val savedFontScale by settings.fontScale.collectAsState(initial = fontScale)
+        LaunchedEffect(savedFontScale) { fontScale = savedFontScale }
         var companies by remember { mutableStateOf(emptyList<Company>()) }
         var selectedCompanyId by rememberSaveable { mutableStateOf<Long?>(null) }
         var data by remember { mutableStateOf<CompanyData?>(null) }
@@ -234,8 +240,8 @@ class MainActivity : ComponentActivity() {
                                 Text("تنظیمات نمایش", style = MaterialTheme.typography.titleLarge)
                                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
                                 Slider(fontScale, { fontScale = it }, valueRange = 0.85f..1.35f,
-                                    onValueChangeFinished = { preferences.edit().putFloat("font_scale", fontScale).apply() })
-                                OutlinedButton(onClick = { fontScale = 1f; preferences.edit().putFloat("font_scale", 1f).apply() }) { Text("اندازه پیش‌فرض") }
+                                    onValueChangeFinished = { act { settings.setFontScale(fontScale) } })
+                                OutlinedButton(onClick = { fontScale = 1f; act { settings.setFontScale(1f) } }) { Text("اندازه پیش‌فرض") }
                                 Text("وضعیت اتصال مؤدیان: غیرفعال؛ هیچ صورتحسابی ارسال نمی‌شود.")
                                 Text("ثبت محلی فاکتور از ارسال مالیاتی مستقل است.")
                             }

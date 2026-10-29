@@ -1,7 +1,10 @@
 # Android / Gradle
 .gradle/
+.kotlin/
 build/
 **/build/
+!docs/build/
+!docs/build/**
 .local.properties
 local.properties
 *.apk

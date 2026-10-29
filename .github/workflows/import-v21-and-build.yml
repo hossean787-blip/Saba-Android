@@ -1,11 +1,6 @@
 name: Import Saba v21 and build APK
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'Saba_v21_sync_fixed.zip'
-      - '.github/workflows/import-v21-and-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,7 +8,7 @@ permissions:
 
 jobs:
   import-and-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4

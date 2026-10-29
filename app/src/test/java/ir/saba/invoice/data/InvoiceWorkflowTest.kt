@@ -60,6 +60,8 @@ class InvoiceWorkflowTest {
     @Test fun rejectsCrossCompanyRead() = runBlocking {
         val id = draft()
         expectRejected { repository.detailsForCompany(otherCompany, id) }
+        expectRejected { repository.linesForInvoice(otherCompany, id) }
+        assertEquals(2, repository.linesForInvoice(company, id).size)
     }
 
     @Test fun rejectsCrossCompanyDeleteAndPreservesDraft() = runBlocking {
@@ -144,7 +146,7 @@ class InvoiceWorkflowTest {
 
     @Test fun missingQuotaPreservesDraftAndLines() = runBlocking {
         val id = draft()
-        try { repository.finalizeDraft(id); fail("Expected no-quota failure") } catch (_: IllegalStateException) { }
+        try { repository.finalizeDraft(id); fail("Expected no-quota failure") } catch (_: IllegalArgumentException) { }
         assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
         assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
         assertNull(db.quotaDao().useForInvoice(id))
