@@ -31,4 +31,20 @@ class MoneyArithmeticTest {
     fun detectsSumOverflow() {
         MoneyArithmetic.sumLines(listOf(Long.MAX_VALUE, 1L))
     }
+    @Test fun supportsZeroQuantity() {
+        assertEquals(0L, MoneyArithmetic.lineTotal(0L, Long.MAX_VALUE))
+    }
+
+    @Test fun sumsEmptyInputToZero() {
+        assertEquals(0L, MoneyArithmetic.sumLines(emptyList()))
+    }
+
+    @Test fun permitsMaximumRepresentableAmount() {
+        assertEquals(Long.MAX_VALUE, MoneyArithmetic.lineTotal(1L, Long.MAX_VALUE))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsNegativeUnitPrice() {
+        MoneyArithmetic.lineTotal(1L, -1L)
+    }
 }
