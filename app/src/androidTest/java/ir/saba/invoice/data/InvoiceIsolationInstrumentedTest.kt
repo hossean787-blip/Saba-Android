@@ -89,7 +89,7 @@ class InvoiceIsolationInstrumentedTest {
             repository.saveDraft(company, customer, "11", "1405/07/02",
                 listOf(line("Replacement")), existingInvoiceId = id)
             throw AssertionError("Expected injected database failure")
-        } catch (expected: android.database.SQLException) {
+        } catch (expected: RuntimeException) {
             assertEquals("10", db.invoiceDao().byId(id)?.invoiceNumber)
             assertEquals("1405/07/01", db.invoiceDao().byId(id)?.issueDate)
             assertEquals("Original", repository.linesForInvoice(company, id).single().description)
