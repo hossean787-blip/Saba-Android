@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import ir.saba.invoice.auth.RegistrationScreen
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.ui.*
@@ -49,7 +50,23 @@ class MainActivity : ComponentActivity() {
     private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { SabaApp() }
+        setContent {
+            var showRegistration by rememberSaveable { mutableStateOf(true) }
+            if (showRegistration) {
+                MaterialTheme {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        RegistrationScreen(
+                            onSubmit = {
+                                // No SMS or account activation without a trusted backend.
+                                // Never persist passwords or personal identifiers locally here.
+                            },
+                            onSignIn = { showRegistration = false },
+                            serverError = "ثبت‌نام آنلاین پس از اتصال سرویس امن احراز هویت فعال می‌شود. برای مشاهده نسخه آزمایشی، گزینه ورود را انتخاب کنید."
+                        )
+                    }
+                }
+            } else SabaApp()
+        }
     }
 
     @Composable
