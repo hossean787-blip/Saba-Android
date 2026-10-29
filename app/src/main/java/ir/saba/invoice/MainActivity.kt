@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                                 // Never persist passwords or personal identifiers locally here.
                             },
                             onSignIn = { showRegistration = false },
-                            serverError = "ثبت‌نام آنلاین پس از اتصال سرویس امن احراز هویت فعال می‌شود. برای مشاهده نسخه آزمایشی، گزینه ورود را انتخاب کنید."
+                            serverError = "ثبت‌نام واقعی تا تأیید الگوی پیامک و تکمیل سرویس احراز هویت غیرفعال است. گزینه «ورود» فقط نسخه آزمایشی آفلاین را باز می‌کند؛ حساب مالک ایجاد نمی‌شود."
                         )
                     }
                 }
