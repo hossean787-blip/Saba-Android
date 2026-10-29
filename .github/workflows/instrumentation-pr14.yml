@@ -1,0 +1,52 @@
+name: Saba PR14 Android Instrumentation
+on:
+  push:
+    branches:
+      - feature/compose-draft-gateway-20261029
+    paths:
+      - 'app/**'
+      - '.github/workflows/instrumentation-pr14.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  instrumentation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM where available
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+          else
+            echo "No /dev/kvm; emulator will try software acceleration."
+          fi
+      - name: Execute three real device tests (API 29)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.QuotaAtomicityInstrumentedTest
+      - name: Upload device test XML, logs and HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saba-pr14-instrumentation-results
+          if-no-files-found: warn
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+            app/build/test-results/

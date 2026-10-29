@@ -35,8 +35,8 @@ class QuotaAtomicityInstrumentedTest {
 
     @Test fun finalizingTwiceConsumesQuotaOnlyOnce() = runBlocking {
         val (companyId, id) = seed()
-        invoices.finalizeDraft(id)
-        invoices.finalizeDraft(id)
+        invoices.finalizeDraft(companyId, id)
+        invoices.finalizeDraft(companyId, id)
         assertEquals("FINALIZED", db.invoiceDao().byId(id)?.status)
         assertEquals(0L, db.quotaDao().companyQuota(companyId)?.available)
         assertNotNull(db.quotaDao().useForInvoice(id))
@@ -45,7 +45,7 @@ class QuotaAtomicityInstrumentedTest {
     @Test fun concurrentFinalizationConsumesQuotaOnce() = runBlocking {
         val (companyId, id) = seed()
         coroutineScope {
-            (1..8).map { async { invoices.finalizeDraft(id) } }.awaitAll()
+            (1..8).map { async { invoices.finalizeDraft(companyId, id) } }.awaitAll()
         }
         assertEquals("FINALIZED", db.invoiceDao().byId(id)?.status)
         assertEquals(0L, db.quotaDao().companyQuota(companyId)?.available)
@@ -59,7 +59,7 @@ class QuotaAtomicityInstrumentedTest {
                 "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
         )
         try {
-            invoices.finalizeDraft(id)
+            invoices.finalizeDraft(companyId, id)
             throw AssertionError("Expected database transaction to fail")
         } catch (expected: RuntimeException) {
             assertEquals("DRAFT", db.invoiceDao().byId(id)?.status)

@@ -47,7 +47,7 @@ fun InvoiceScreen(
     onNotice: (String) -> Unit,
     onEditorActive: (Boolean) -> Unit
 ) {
-    val repository = remember(db) { InvoiceRepository(db) }
+    val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
     var mode by rememberSaveable { mutableStateOf("list") }
     var invoiceId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -233,7 +233,7 @@ fun InvoiceScreen(
             else perform {
                 val id = actionId ?: throw IllegalArgumentException("فاکتور را دوباره انتخاب کنید.")
                 if (requested == "delete") repository.deleteDraft(companyId, id)
-                else { repository.detailsForCompany(companyId, id); repository.finalizeDraft(id) }
+                else { repository.detailsForCompany(companyId, id); repository.finalizeDraft(companyId, id) }
                 confirmation = ""
                 if (requested == "delete") { details = null; mode = "list" }
                 else details = repository.detailsForCompany(companyId, id)

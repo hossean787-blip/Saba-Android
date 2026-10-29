@@ -88,7 +88,7 @@ class InvoiceScreenTest {
             val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))
             val quota = QuotaRepository(db)
             quota.initializeWallet("test", 1); quota.transferFromMaster("test", company, 1, "q")
-            InvoiceRepository(db).finalizeDraft(id)
+            InvoiceRepository(db).finalizeDraft(company, id)
             invoices = db.invoiceDao().forCompany(company)
         }
         compose.setContent { Screen() }

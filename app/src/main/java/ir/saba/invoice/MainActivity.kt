@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import ir.saba.invoice.auth.RegistrationScreen
+import ir.saba.invoice.auth.OwnerLoginScreen
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.ui.*
@@ -49,7 +51,31 @@ class MainActivity : ComponentActivity() {
     private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { SabaApp() }
+        setContent {
+            var authPage by rememberSaveable { mutableStateOf("login") }
+            var authError by rememberSaveable { mutableStateOf<String?>(null) }
+            MaterialTheme {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    when (authPage) {
+                        "register" -> RegistrationScreen(
+                            onSubmit = { authError = "ثبت‌نام تا تکمیل و آزمون سرویس امن فعال نیست." },
+                            onSignIn = { authPage = "login"; authError = null },
+                            serverError = authError ?: "برای ثبت‌نام، تأیید پیامک و اتصال سرویس مرکزی ضروری است."
+                        )
+                        else -> OwnerLoginScreen(
+                            onPasswordLogin = { _, _ ->
+                                authError = "ورود با رمز ثابت هنوز به سرویس امن متصل نشده است؛ دسترسی صادر نشد."
+                            },
+                            onSmsLogin = {
+                                authError = "ورود پیامکی تا تأیید الگو و اتصال سرویس فعال نیست."
+                            },
+                            onRegister = { authPage = "register"; authError = null },
+                            error = authError
+                        )
+                    }
+                }
+            }
+        }
     }
 
     @Composable

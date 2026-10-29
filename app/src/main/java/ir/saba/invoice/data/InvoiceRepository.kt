@@ -71,10 +71,12 @@ class InvoiceRepository(private val db: SabaDatabase) {
     }
 
     /** Finalization and quota consumption are one database transaction. */
-    suspend fun finalizeDraft(invoiceId: Long, nowEpochMillis: Long = System.currentTimeMillis()) {
+    suspend fun finalizeDraft(companyId: Long, invoiceId: Long, nowEpochMillis: Long = System.currentTimeMillis()) {
+        require(companyId > 0) { "شرکت نامعتبر است." }
         require(invoiceId > 0) { "شناسه فاکتور نامعتبر است." }
         db.withTransaction {
             val invoice = db.invoiceDao().byId(invoiceId) ?: throw IllegalArgumentException("فاکتور پیدا نشد.")
+            require(invoice.companyId == companyId) { "فاکتور متعلق به شرکت انتخاب‌شده نیست." }
             if (invoice.status == "FINALIZED") {
                 require(db.quotaDao().useForInvoice(invoiceId) != null) {
                     "فاکتور قبلاً نهایی شده ولی سابقه مصرف سهمیه ندارد؛ نیاز به بررسی دارد."
