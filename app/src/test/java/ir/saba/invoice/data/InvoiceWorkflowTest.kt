@@ -126,7 +126,7 @@ class InvoiceWorkflowTest {
         quota.initializeWallet("owner", 1)
         quota.transferFromMaster("owner", company, 1, "allocation")
         val id = draft()
-        coroutineScope { List(8) { async { repository.finalizeDraft(id) } }.awaitAll() }
+        coroutineScope { List(8) { async { repository.finalizeDraft(company, id) } }.awaitAll() }
         assertEquals(0L, db.quotaDao().companyQuota(company)!!.available)
         assertNotNull(db.quotaDao().useForInvoice(id))
     }
@@ -136,8 +136,8 @@ class InvoiceWorkflowTest {
         quota.initializeWallet("owner", 2)
         quota.transferFromMaster("owner", company, 2, "allocation")
         val id = draft()
-        repository.finalizeDraft(id)
-        repository.finalizeDraft(id)
+        repository.finalizeDraft(company, id)
+        repository.finalizeDraft(company, id)
         assertEquals(1L, db.quotaDao().companyQuota(company)!!.available)
         expectRejected { repository.deleteDraft(company, id) }
         expectRejected { repository.saveDraft(company, customer, "2", "1405/07/03", listOf(line()), id) }
@@ -146,7 +146,7 @@ class InvoiceWorkflowTest {
 
     @Test fun missingQuotaPreservesDraftAndLines() = runBlocking {
         val id = draft()
-        try { repository.finalizeDraft(id); fail("Expected no-quota failure") } catch (_: IllegalArgumentException) { }
+        try { repository.finalizeDraft(company, id); fail("Expected no-quota failure") } catch (_: IllegalArgumentException) { }
         assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
         assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
         assertNull(db.quotaDao().useForInvoice(id))
