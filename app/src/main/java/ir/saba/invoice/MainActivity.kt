@@ -51,8 +51,8 @@ class MainActivity : ComponentActivity() {
     private val settings by lazy { SabaPreferences(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Prevent passwords and financial screens from entering screenshots/recents previews.
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        // Allow screenshots of ordinary app pages for support and bug reporting.
+        // Keep authentication screens protected while passwords may be visible.
         val auth = androidx.lifecycle.ViewModelProvider(this, object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
@@ -61,6 +61,13 @@ class MainActivity : ComponentActivity() {
                 )) as T
         })[ir.saba.invoice.auth.OwnerAuthViewModel::class.java]
         setContent {
+            androidx.compose.runtime.SideEffect {
+                if (auth.session == null) {
+                    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
             ir.saba.invoice.auth.AuthTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     BackHandler(enabled = auth.session == null && auth.page == "register") {
