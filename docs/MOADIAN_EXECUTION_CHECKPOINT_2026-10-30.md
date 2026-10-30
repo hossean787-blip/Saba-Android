@@ -40,3 +40,8 @@ Commits: de97e6ea (MoadianDetails model), d74c30aa (Room version 3 and migration
 Files: data/MoadianDetails.kt; data/SabaDatabase.kt.
 Room details are stored separately from Company and its existing invoice/customer foreign keys. No existing rows are deleted. The new details table is NOT yet connected to the UI. No private key is stored.
 Tests: NONE executed; migration integrity and generated Room schema validation are still unverified. Next: implement and wire complete fields and safe persistence, then build and run migration tests. Do not mark this as complete.
+
+## Next checkpoint
+Last code commits: f6921699 (editor scroll fix and truthful unknown taxpayer type), 2027522b (MoadianFieldValidation format checks).
+Modified files: ui/MoadianScreen.kt; domain/MoadianFieldValidation.kt.
+Tests: NOT RUN. No APK. Format validator is not yet connected to the form. Full 17-field UI and private-key storage remain blocked on implementation, not external permissions. Existing Room v3 migration has not been validated on device. Next: connect details DAO to form transactionally, preserve drafts on errors, implement safe key handling, run build/tests. Never claim complete.
