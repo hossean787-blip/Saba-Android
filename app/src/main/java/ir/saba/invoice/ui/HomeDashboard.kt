@@ -73,8 +73,8 @@ fun HomeDashboard(
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HomeMetric("پیش‌نویس", draftCount, Color(0xFFFFE9ED), Color(0xFFC8224D), Modifier.weight(1f), onInvoices)
-                HomeMetric("در صف ارسال", queueCount, Color(0xFFFFF2DD), Color(0xFFAC6300), Modifier.weight(1f), onInvoices)
+                HomeMetric("پیش‌نویس", draftCount.toLong(), Color(0xFFFFE9ED), Color(0xFFC8224D), Modifier.weight(1f), onInvoices)
+                HomeMetric("در صف ارسال", queueCount.toLong(), Color(0xFFFFF2DD), Color(0xFFAC6300), Modifier.weight(1f), onInvoices)
                 HomeMetric("شارژ باقی‌مانده", remainingCharge, Color(0xFFE0F8F0), Color(0xFF007C61), Modifier.weight(1f), onCharge)
             }
         }
