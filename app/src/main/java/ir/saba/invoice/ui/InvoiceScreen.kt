@@ -45,7 +45,9 @@ fun InvoiceScreen(
     invoices: List<Invoice>,
     onChanged: suspend () -> Unit,
     onNotice: (String) -> Unit,
-    onEditorActive: (Boolean) -> Unit
+    onEditorActive: (Boolean) -> Unit,
+    availableCharge: Long = 0,
+    onNeedCharge: () -> Unit = {}
 ) {
     val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
@@ -113,10 +115,12 @@ fun InvoiceScreen(
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 Button(enabled = !busy && customers.isNotEmpty(), onClick = {
+                    if (availableCharge <= 0) { onNeedCharge(); return@Button }
                     invoiceId = null; number = ""; date = ""; customerId = customers.firstOrNull()?.id
                     lines = emptyList(); error = ""; mode = "edit"
                 }) { Text("صدور فاکتور جدید") }
                 if (customers.isEmpty()) Text("برای صدور فاکتور ابتدا مشتری این شرکت را ثبت کنید.")
+                if (availableCharge <= 0) Text("شارژ مودی صفر است؛ برای صدور فاکتور جدید به انتقال شارژ هدایت می‌شوید.")
                 OutlinedTextField(search, { search = it }, label = { Text("جستجوی شماره فاکتور یا مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("ALL" to "همه", "DRAFT" to "پیش‌نویس", "FINALIZED" to "نهایی").forEach { (value, title) ->
@@ -199,7 +203,7 @@ fun InvoiceScreen(
                             invoiceId = savedId
                             onChanged()
                             mode = "details"
-                            onNotice("پیش‌نویس ذخیره شد؛ هنوز نهایی یا ارسال نشده است.")
+                            onNotice("فاکتور جدید ثبت شد؛ شارژ هنگام ایجاد اولیه مصرف می‌شود، نه هنگام ارسال.")
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "در حال ذخیره…" else "ذخیره پیش‌نویس") }
                     OutlinedButton(enabled = !busy, onClick = { confirmation = "leave" }, modifier = Modifier.fillMaxWidth()) { Text("انصراف از ویرایش") }
@@ -240,7 +244,7 @@ fun InvoiceScreen(
                 if (requested == "delete") { details = null; mode = "list" }
                 else details = repository.detailsForCompany(companyId, id)
                 onChanged()
-                onNotice(if (requested == "delete") "پیش‌نویس حذف شد." else "فاکتور محلی نهایی شد؛ یک سهمیه مصرف شد و ارسال واقعی انجام نشد.")
+                onNotice(if (requested == "delete") "پیش‌نویس حذف شد." else "فاکتور محلی نهایی شد؛ شارژ هنگام ایجاد فاکتور مصرف شده است و ارسال واقعی انجام نشد.")
             }
         }) { Text("تأیید") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { confirmation = "" }) { Text("بازگشت") } }
