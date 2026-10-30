@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
     private var biometricBusy by mutableStateOf(false)
     private var biometricNotice by mutableStateOf<String?>(null)
 
+    @android.annotation.TargetApi(Build.VERSION_CODES.P)
     private fun showBiometricPrompt(
         cipher: Cipher, title: String,
         onSuccess: (Cipher) -> Unit,

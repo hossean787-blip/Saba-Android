@@ -34,16 +34,21 @@ class BiometricLoginVault(context: Context) {
                 @Suppress("DEPRECATION")
                 manager != null && manager.isHardwareDetected && manager.hasEnrolledFingerprints()
             } else {
-                val manager = appContext.getSystemService(BiometricManager::class.java) ?: return false
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
-                        BiometricManager.BIOMETRIC_SUCCESS
-                } else {
-                    @Suppress("DEPRECATION")
-                    manager.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
-                }
+                canUsePlatformBiometrics()
             }
         } catch (_: Exception) { false }
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.Q)
+    private fun canUsePlatformBiometrics(): Boolean {
+        val manager = appContext.getSystemService(BiometricManager::class.java) ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            manager.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
+        }
     }
 
     fun isEnabled(): Boolean =
