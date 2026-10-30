@@ -39,6 +39,21 @@ class MoadianScreenTest {
         compose.onNodeWithText("مودی اول").assertDoesNotExist()
     }
 
+    @Test fun allFourTaxpayerTypesRenderInOneVisualRow() {
+        val rows = runBlocking { db.companyDao().all() }
+        compose.setContent { MaterialTheme {
+            MoadianScreen(db, rows, {}, {}, {}, {})
+        } }
+        compose.onNodeWithText("جدید").performClick()
+        val kinds = listOf("شخص حقیقی", "شخص حقوقی", "مشارکت مدنی", "اتباع غیرایرانی")
+        val y = kinds.map { label ->
+            compose.onNodeWithText(label).assertExists()
+                .fetchSemanticsNode().boundsInRoot.top
+        }
+        assertTrue("Taxpayer kinds must share a single row", y.maxOrNull()!! - y.minOrNull()!! < 20f)
+        compose.onNodeWithContentDescription("راهنمای شماره اقتصادی *").assertExists()
+    }
+
     @Test fun archiveRequiresConfirmationAndKeepsCompany() {
         val id = runBlocking { db.companyDao().insert(Company(purchaserId = "owner", name = "مودی اول", nationalId = "12345678901")) }
         val rows = runBlocking { db.companyDao().all() }

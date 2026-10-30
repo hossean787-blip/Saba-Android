@@ -41,8 +41,11 @@ class HomeMoadianVisualInstrumentedTest {
             }
         } }
         compose.onNodeWithText("ثبت فاکتور جدید").assertExists()
-        compose.onNodeWithText("صورتحساب 1000000001").assertExists()
         screenshot("home-emulator")
+        // Recent activity is below the fold on compact phones; LazyColumn
+        // composes it only after scrolling. Verify real data after scrolling.
+        compose.onNode(hasScrollAction()).performScrollToIndex(6)
+        compose.onNodeWithText("صورتحساب 1000000001").assertExists()
     }
     @Test fun taxpayerFormAndTableRenderOnAndroid() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
