@@ -19,16 +19,19 @@ class InvoiceRepository(private val db: SabaDatabase) {
     ): Long {
         require(companyId > 0) { "شرکت را انتخاب کنید." }
         require(customerId > 0) { "مشتری را انتخاب کنید." }
-        require(invoiceNumber.isNotBlank()) { "شماره فاکتور الزامی است." }
         require(issueDate.isNotBlank()) { "تاریخ فاکتور الزامی است." }
         require(lines.isNotEmpty()) { "حداقل یک ردیف فاکتور لازم است." }
         val normalizedDate = InvoiceInput.date(issueDate)
-        val normalizedNumber = InvoiceInput.digits(invoiceNumber).trim()
-        require(normalizedNumber.isNotEmpty()) { "شماره فاکتور الزامی است." }
+        val requestedNumber = InvoiceInput.digits(invoiceNumber).trim()
         val totals = InvoiceCalculator.calculate(lines)
 
         return db.withTransaction {
             require(db.companyDao().byId(companyId) != null) { "شرکت پیدا نشد." }
+            require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
+            val normalizedNumber = if (requestedNumber.isNotEmpty()) requestedNumber
+                else if (existingInvoiceId != null) db.invoiceDao().byId(existingInvoiceId)?.invoiceNumber.orEmpty()
+                else TaxpayerSerialAllocator(db).reserve(companyId)
+            require(normalizedNumber.isNotEmpty()) { "شماره فاکتور الزامی است." }
             val customer = db.customerDao().byId(customerId) ?: throw IllegalArgumentException("مشتری پیدا نشد.")
             require(customer.companyId == companyId) { "مشتری به شرکت انتخاب‌شده تعلق ندارد." }
             val duplicate = db.invoiceDao().byNumber(companyId, normalizedNumber)

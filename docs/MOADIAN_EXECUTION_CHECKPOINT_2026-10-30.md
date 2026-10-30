@@ -73,3 +73,12 @@ Added cipher randomness/tamper/cross-taxpayer tests and format/location tests. C
 Official-rule verification: intamedia.ir fetch timed out on 2026-10-30. Older primary tax documents mirrored elsewhere support 11/14 economic and type-specific identities but current exceptions have NOT been certified. Form convention for natural persons intentionally follows requested economic-ID field semantics; do not reuse as legal national-code semantics in invoice payloads.
 Remaining: certify current rules, device Android Keystore/import/UI tests, owner-account partition (legacy purchaserId owner), serial allocation integration, complete UI acceptance and visual review; newer location data coverage; orphan-logo cleanup. No production readiness claim.
 Next: inspect CI, repair actual failures, retain evidence and APK only after successful checks.
+
+## Verified checkpoint and sequence integration
+Last green code/rollback point: 22f2b12403f47241926832db8160d5da0fc7e45b.
+CI run 41011091311 / job 123916890812: BUILD SUCCESSFUL; 149 JVM tests passed, zero failures/errors/skips; 3 live authentication rejection smoke tests passed; lint/build succeeded.
+This next change adds schema 5 nullable nextInvoiceSerial/nextReferenceSerial with additive migration 4->5; reservations are transactional, taxpayer scoped, persistent across draft deletion, and retain independent main/reference counters. Invoice form empty number requests automatic numbering for configured taxpayers; legacy companies still require a number. Inactive taxpayers cannot save new drafts.
+Preserves counters on taxpayer edit. Fixes create retry after refresh failure by retaining the committed taxpayer identity; blocks saving after failed edit data load.
+New tests: MoadianScreenTest for selection/new blank form and confirmed archival; TaxpayerSerialAllocatorTest for concurrency, isolation, no reuse after deletion and rollback.
+Modified: data/MoadianDetails.kt, SabaDatabase.kt, TaxpayerSerialAllocator.kt, InvoiceRepository.kt; ui/MoadianScreen.kt, InvoiceScreen.kt; test/data/DatabaseMigrationTest.kt, TaxpayerSerialAllocatorTest.kt; test/MoadianScreenTest.kt.
+Current new tests/changes pending CI. Remaining: official-current-rule certification, device Keystore/file provider validation, full visual/form acceptance; legacy owner context migration is not performed. No existing data deleted. Reference reservation service exists; reference-invoice workflow is outside the currently existing Invoice model.

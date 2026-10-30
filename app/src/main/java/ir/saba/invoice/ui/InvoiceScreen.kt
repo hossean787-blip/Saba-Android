@@ -49,6 +49,8 @@ fun InvoiceScreen(
 ) {
     val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
+    var automaticNumber by remember { mutableStateOf(false) }
+    LaunchedEffect(companyId) { automaticNumber = db.moadianDetailsDao().byCompany(companyId) != null }
     var mode by rememberSaveable { mutableStateOf("list") }
     var invoiceId by rememberSaveable { mutableStateOf<Long?>(null) }
     var number by rememberSaveable { mutableStateOf("") }
@@ -171,7 +173,7 @@ fun InvoiceScreen(
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(if (invoiceId == null) "صدور فاکتور جدید" else "ویرایش پیش‌نویس", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("مبالغ به ریال؛ تعداد در این نسخه فقط عدد صحیح است.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(number, { number = it }, enabled = !busy, label = { Text("شماره فاکتور") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(number, { number = it }, enabled = !busy, label = { Text("شماره فاکتور") }, supportingText = { if (automaticNumber) Text("برای تخصیص خودکار سریال مودی، این کادر را خالی بگذارید.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(date, { date = it }, enabled = !busy, label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
                     var expanded by remember { mutableStateOf(false) }
                     Box {

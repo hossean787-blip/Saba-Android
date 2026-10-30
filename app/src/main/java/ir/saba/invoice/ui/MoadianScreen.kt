@@ -156,6 +156,7 @@ fun MoadianScreen(
     )
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var loadFailed by remember { mutableStateOf(false) }
     fun close() { privateKey = ""; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
         val current = if (which == "new") null else companies.firstOrNull { it.id == selectedId }
@@ -164,6 +165,7 @@ fun MoadianScreen(
             return
         }
         privateKey = ""; storedKey = null; keyError = null; keyMode = "manual"; logoPath = ""; logoError = null; fieldErrors = emptyMap()
+        loadFailed = false
         name = current?.name.orEmpty()
         nationalId = current?.nationalId.orEmpty()
         economicId = current?.economicId.orEmpty()
@@ -209,7 +211,7 @@ fun MoadianScreen(
                     storedKey = d.encryptedPrivateKey
                     logoPath = d.logoUri
                 }
-                } catch (_: Exception) { error = "بازیابی اطلاعات انجام نشد؛ فرم را ببندید و دوباره تلاش کنید." }
+                } catch (_: Exception) { loadFailed = true; error = "بازیابی اطلاعات انجام نشد؛ فرم را ببندید و دوباره تلاش کنید." }
                 finally { busy = false }
             }
         }
@@ -353,7 +355,7 @@ fun MoadianScreen(
                     }
                     error = if (fieldErrors.isEmpty()) null else "موارد مشخص‌شده در فرم را اصلاح کنید."
                     if (error == null && keyError == null) pending = true
-                }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                }, enabled = !busy && !loadFailed, modifier = Modifier.fillMaxWidth()) {
                     Text(if (mode == "new") "ثبت مودی" else "ذخیره تغییرات")
                 }
             } else {
@@ -367,11 +369,14 @@ fun MoadianScreen(
                                     error = "این شناسه ملی قبلاً ثبت شده است."
                                     pending = false
                                 } else if (mode == "new") {
-                                    db.withTransaction {
+                                    val savedId = db.withTransaction {
                                         ensureUniqueTaxpayer(db, null, nationalId, economicId, fiscalMemoryId)
                                         val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
                                         db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = vault.encrypt(id, privateKey), keyCheckStatus = "NEEDS_MATCH"))
+                                        id
                                     }
+                                    selectedId = savedId
+                                    mode = "edit"
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()
                                     close()
@@ -381,8 +386,9 @@ fun MoadianScreen(
                                     db.withTransaction {
                                         ensureUniqueTaxpayer(db, old.id, nationalId, economicId, fiscalMemoryId)
                                         db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                        val prior = db.moadianDetailsDao().byCompany(old.id)
                                         val encrypted = if (privateKey.isNotBlank()) vault.encrypt(old.id, privateKey) else storedKey
-                                        db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false))
+                                        db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false, nextInvoiceSerial = prior?.nextInvoiceSerial, nextReferenceSerial = prior?.nextReferenceSerial))
                                     }
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()

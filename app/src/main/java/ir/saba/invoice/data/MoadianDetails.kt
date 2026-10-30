@@ -20,5 +20,7 @@ data class MoadianDetails(
     val fiscalMemoryId: String = "",
     val keyCheckStatus: String = "UNCHECKED",
     val inactive: Boolean = false,
-    val encryptedPrivateKey: String? = null
+    val encryptedPrivateKey: String? = null,
+    val nextInvoiceSerial: Long? = null,
+    val nextReferenceSerial: Long? = null
 )
