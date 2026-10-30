@@ -40,6 +40,16 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 }
             require(duplicate == null || duplicate.id == existingInvoiceId) { "این شماره فاکتور برای شرکت قبلاً ثبت شده است." }
 
+            // A quota unit is consumed when a NEW invoice is first created, not when sent or finalized.
+            // Keep consumption and invoice insertion in the same Room transaction.
+            val newQuota = if (existingInvoiceId == null) {
+                val company = db.companyDao().byId(companyId)!!
+                val quota = db.quotaDao().companyQuota(companyId)
+                    ?: throw IllegalArgumentException("شارژ مودی صفر است؛ از تنظیمات، انتقال شارژ انجام دهید.")
+                require(quota.purchaserId == company.purchaserId) { "مالک شارژ با مودی مطابقت ندارد." }
+                require(quota.available > 0) { "شارژ مودی صفر است؛ از تنظیمات، انتقال شارژ انجام دهید." }
+                quota
+            } else null
             val invoiceId = if (existingInvoiceId == null) {
                 db.invoiceDao().insert(
                     Invoice(
@@ -68,6 +78,15 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 db.invoiceLineDao().deleteForInvoice(existingInvoiceId)
                 existingInvoiceId
             }
+            if (newQuota != null) {
+                db.quotaDao().updateCompanyQuota(newQuota.copy(available = newQuota.available - 1))
+                db.quotaDao().insertQuotaUse(InvoiceQuotaUse(
+                    invoiceId = invoiceId,
+                    purchaserId = newQuota.purchaserId,
+                    companyId = companyId,
+                    usedAtEpochMillis = System.currentTimeMillis()
+                ))
+            }
             db.invoiceLineDao().insertAll(lines.map { it.copy(id = 0, invoiceId = invoiceId) })
             invoiceId
         }
@@ -80,12 +99,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
         db.withTransaction {
             val invoice = db.invoiceDao().byId(invoiceId) ?: throw IllegalArgumentException("فاکتور پیدا نشد.")
             require(invoice.companyId == companyId) { "فاکتور متعلق به شرکت انتخاب‌شده نیست." }
-            if (invoice.status == "FINALIZED") {
-                require(db.quotaDao().useForInvoice(invoiceId) != null) {
-                    "فاکتور قبلاً نهایی شده ولی سابقه مصرف سهمیه ندارد؛ نیاز به بررسی دارد."
-                }
-                return@withTransaction
-            }
+            if (invoice.status == "FINALIZED") return@withTransaction
             require(invoice.status == "DRAFT") { "وضعیت فاکتور اجازه نهایی‌سازی نمی‌دهد." }
             val lines = db.invoiceLineDao().forInvoice(invoiceId)
             val totals = InvoiceCalculator.calculate(lines)
@@ -93,22 +107,13 @@ class InvoiceRepository(private val db: SabaDatabase) {
             require(db.customerDao().byId(invoice.customerId)?.companyId == company.id) {
                 "مشتری به شرکت این فاکتور تعلق ندارد."
             }
-            require(db.quotaDao().useForInvoice(invoiceId) == null) { "سهمیه این فاکتور قبلاً مصرف شده است." }
-            val quota = db.quotaDao().companyQuota(company.id) ?: throw IllegalArgumentException("برای این شرکت سهمیه تخصیص داده نشده است.")
-            require(quota.purchaserId == company.purchaserId) { "مالک سهمیه با مالک شرکت مطابقت ندارد." }
-            require(quota.available > 0) { "سهمیه شرکت تمام شده است." }
-
+            require(db.quotaDao().useForInvoice(invoiceId) != null) {
+                "این پیش‌نویس سابقه مصرف شارژ ندارد؛ برای بررسی به پشتیبانی مراجعه کنید."
+            }
             db.invoiceDao().update(invoice.copy(
                 totalAmountRial = totals.totalAmountRial,
                 taxAmountRial = totals.taxAmountRial,
                 status = "FINALIZED"
-            ))
-            db.quotaDao().updateCompanyQuota(quota.copy(available = quota.available - 1))
-            db.quotaDao().insertQuotaUse(InvoiceQuotaUse(
-                invoiceId = invoice.id,
-                purchaserId = company.purchaserId,
-                companyId = company.id,
-                usedAtEpochMillis = nowEpochMillis
             ))
         }
     }
