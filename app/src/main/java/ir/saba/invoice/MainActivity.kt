@@ -126,6 +126,7 @@ class MainActivity : ComponentActivity() {
         var companyMenu by remember { mutableStateOf(false) }
         var purchased by rememberSaveable { mutableStateOf("50") }
         var allocation by rememberSaveable { mutableStateOf("10") }
+        var newInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
 
@@ -237,7 +238,7 @@ class MainActivity : ComponentActivity() {
                                 customerCount = current?.customers?.size ?: 0,
                                 invoices = current?.invoices.orEmpty(),
                                 onSelectTaxpayer = { companyMenu = true },
-                                onNewInvoice = { page = if (company == null) Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) Page.QUOTA else Page.INVOICES },
+                                onNewInvoice = { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } },
                                 onCustomers = { page = Page.CUSTOMERS },
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
@@ -257,7 +258,7 @@ class MainActivity : ComponentActivity() {
                                 CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
                             Page.INVOICES -> if (current != null) key(current.companyId) {
-                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA })
+                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest)
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
                                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
