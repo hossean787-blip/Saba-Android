@@ -33,7 +33,16 @@ class InvoiceWorkflowTest {
 
     @After fun close() { db.close() }
     private fun line(price: Long = 100) = InvoiceLine(invoiceId = 0, itemCode = "code", description = "کالا", quantity = 2, unitPriceRial = price, discountRial = 10, taxRatePercent = 10)
-    private suspend fun draft(number: String = "1") = repository.saveDraft(company, customer, number, "1405/07/02", listOf(line(), line(200)))
+    private suspend fun fund(id: Long, amount: Long = 10) {
+        if (db.quotaDao().companyQuota(id) != null) return
+        val owner = db.companyDao().byId(id)!!.purchaserId
+        QuotaRepository(db).initializeWallet(owner, amount)
+        QuotaRepository(db).transferFromMaster(owner, id, amount, "fund-$id")
+    }
+    private suspend fun draft(number: String = "1", funded: Boolean = true): Long {
+        if (funded) fund(company)
+        return repository.saveDraft(company, customer, number, "1405/07/02", listOf(line(), line(200)))
+    }
     private suspend fun expectRejected(action: suspend () -> Unit) {
         try { action(); fail("Expected rejection") } catch (_: IllegalArgumentException) { }
     }
@@ -70,12 +79,13 @@ class InvoiceWorkflowTest {
         assertNotNull(db.invoiceDao().byId(id))
     }
 
-    @Test fun deletingDraftRemovesLinesWithoutConsumingQuota() = runBlocking {
+    @Test fun cancellingDraftPreservesLinesAndConsumedQuota() = runBlocking {
         val id = draft()
         repository.deleteDraft(company, id)
-        assertNull(db.invoiceDao().byId(id))
-        assertTrue(db.invoiceLineDao().forInvoice(id).isEmpty())
-        assertNull(db.quotaDao().useForInvoice(id))
+        assertEquals("CANCELLED", db.invoiceDao().byId(id)!!.status)
+        assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
+        assertNotNull(db.quotaDao().useForInvoice(id))
+        assertEquals(9L, db.quotaDao().companyQuota(company)!!.available)
     }
 
     @Test fun duplicateNumberLeavesOriginalLinesIntact() = runBlocking {
@@ -103,6 +113,7 @@ class InvoiceWorkflowTest {
     @Test fun separateCompaniesMayHaveTheSameInvoiceNumber() = runBlocking {
         draft("1")
         val foreignCustomer = db.customerDao().insert(Customer(companyId = otherCompany, name = "مشتری دوم"))
+        fund(otherCompany)
         repository.saveDraft(otherCompany, foreignCustomer, "1", "1405/07/02", listOf(line()))
         assertEquals(1, db.invoiceDao().forCompany(company).size)
         assertEquals(1, db.invoiceDao().forCompany(otherCompany).size)
@@ -131,7 +142,7 @@ class InvoiceWorkflowTest {
         assertNotNull(db.quotaDao().useForInvoice(id))
     }
 
-    @Test fun finalizationConsumesQuotaOnlyOnceAndPreventsEditingOrDeleting() = runBlocking {
+    @Test fun creationConsumesOnceAndFinalizationPreventsEditingOrDeleting() = runBlocking {
         val quota = QuotaRepository(db)
         quota.initializeWallet("owner", 2)
         quota.transferFromMaster("owner", company, 2, "allocation")
@@ -144,35 +155,24 @@ class InvoiceWorkflowTest {
         assertEquals("FINALIZED", db.invoiceDao().byId(id)!!.status)
     }
 
-    @Test fun missingQuotaPreservesDraftAndLines() = runBlocking {
-        val id = draft()
-        try { repository.finalizeDraft(company, id); fail("Expected no-quota failure") } catch (_: IllegalArgumentException) { }
-        assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
-        assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
-        assertNull(db.quotaDao().useForInvoice(id))
+    @Test fun missingQuotaRejectsCreationWithoutPartialRows() = runBlocking {
+        expectRejected { draft(funded = false) }
+        assertTrue(db.invoiceDao().forCompany(company).isEmpty())
+        assertNull(db.quotaDao().companyQuota(company))
     }
-    @Test fun injectedQuotaUseFailureRollsBackStatusQuotaAndUsage() = runBlocking {
-        val quota = QuotaRepository(db)
-        quota.initializeWallet("owner", 1)
-        quota.transferFromMaster("owner", company, 1, "injected-rollback")
-        val id = draft("rollback-test")
+    @Test fun injectedQuotaUseFailureRollsBackEntireCreation() = runBlocking {
+        fund(company, 1)
         db.openHelper.writableDatabase.execSQL(
             "CREATE TRIGGER reject_quota_use BEFORE INSERT ON invoice_quota_uses " +
-                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
-        )
+                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
         var rejected = false
-        try {
-            repository.finalizeDraft(company, id)
-        } catch (_: android.database.sqlite.SQLiteException) {
-            rejected = true
-        } catch (_: RuntimeException) {
-            rejected = true
-        }
-        assertTrue("The injected SQL failure must abort finalization", rejected)
-        assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
+        try { draft("rollback-test") } catch (_: RuntimeException) { rejected = true }
+        assertTrue(rejected)
+        assertTrue(db.invoiceDao().forCompany(company).isEmpty())
         assertEquals(1L, db.quotaDao().companyQuota(company)!!.available)
-        assertNull(db.quotaDao().useForInvoice(id))
-        assertEquals(2, db.invoiceLineDao().forInvoice(id).size)
+        db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM invoice_quota_uses").use {
+            assertTrue(it.moveToFirst()); assertEquals(0, it.getInt(0))
+        }
     }
 
     @Test fun crossCompanyFinalizationCannotConsumeQuotaOrChangeStatus() = runBlocking {
@@ -182,8 +182,8 @@ class InvoiceWorkflowTest {
         val id = draft("cross-company-draft")
         expectRejected { repository.finalizeDraft(otherCompany, id) }
         assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
-        assertEquals(1L, db.quotaDao().companyQuota(company)!!.available)
-        assertNull(db.quotaDao().useForInvoice(id))
+        assertEquals(0L, db.quotaDao().companyQuota(company)!!.available)
+        assertNotNull(db.quotaDao().useForInvoice(id))
         repository.finalizeDraft(company, id)
         expectRejected { repository.finalizeDraft(otherCompany, id) }
         assertEquals("FINALIZED", db.invoiceDao().byId(id)!!.status)
@@ -191,4 +191,19 @@ class InvoiceWorkflowTest {
         assertNotNull(db.quotaDao().useForInvoice(id))
     }
 
+    @Test fun concurrentNewInvoicesCannotOverspendLastUnit() = runBlocking {
+        fund(company, 1)
+        val outcomes = coroutineScope {
+            (1..8).map { n -> async { runCatching { draft("race-$n") } } }.awaitAll()
+        }
+        assertEquals(1, outcomes.count { it.isSuccess })
+        assertEquals(0L, db.quotaDao().companyQuota(company)!!.available)
+        assertEquals(1, db.invoiceDao().forCompany(company).size)
+        val id = db.invoiceDao().forCompany(company).single().id
+        assertNotNull(db.quotaDao().useForInvoice(id))
+        repository.saveDraft(company, customer, "edited", "1405/07/03", listOf(line()), id)
+        repository.finalizeDraft(company, id)
+        repository.finalizeDraft(company, id)
+        assertEquals(0L, db.quotaDao().companyQuota(company)!!.available)
+    }
 }

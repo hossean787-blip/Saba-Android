@@ -19,6 +19,8 @@ class TaxpayerSerialAllocatorTest {
             val second = db.companyDao().insert(Company(purchaserId = "owner", name = "دوم", nationalId = "2"))
             for (id in listOf(first, second)) db.moadianDetailsDao().upsert(MoadianDetails(companyId = id, invoiceSerialStart = "1000000001", referenceSerialStart = "2000000001"))
             val customer = db.customerDao().insert(Customer(companyId = first, name = "خریدار"))
+            QuotaRepository(db).initializeWallet("owner", 10)
+            QuotaRepository(db).transferFromMaster("owner", first, 10, "seed")
             val repo = InvoiceRepository(db)
             val line = listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 0))
             val firstInvoice = repo.saveDraft(first, customer, "", "1405/08/08", line)

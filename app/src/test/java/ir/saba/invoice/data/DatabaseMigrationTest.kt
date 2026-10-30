@@ -24,7 +24,8 @@ class DatabaseMigrationTest {
         try {
             company = original.companyDao().insert(Company(purchaserId = "owner", name = "شرکت", nationalId = "123"))
             customer = original.customerDao().insert(Customer(companyId = company, name = "خریدار"))
-            invoice = InvoiceRepository(original).saveDraft(company, customer, "OLD", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 2, unitPriceRial = 100, taxRatePercent = 10)))
+            invoice = original.invoiceDao().insert(Invoice(companyId = company, customerId = customer, invoiceNumber = "OLD", issueDate = "1405/07/02", totalAmountRial = 220, taxAmountRial = 20))
+            original.invoiceLineDao().insertAll(listOf(InvoiceLine(invoiceId = invoice, description = "کالا", quantity = 2, unitPriceRial = 100, taxRatePercent = 10)))
             QuotaRepository(original).initializeWallet("owner", 5)
             QuotaRepository(original).transferFromMaster("owner", company, 3, "before-upgrade")
         } finally { original.close() }

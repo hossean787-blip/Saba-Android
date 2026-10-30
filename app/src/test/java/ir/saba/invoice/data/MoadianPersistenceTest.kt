@@ -22,6 +22,8 @@ class MoadianPersistenceTest {
             val id = db.companyDao().insert(Company(purchaserId = "owner", name = "مودی", nationalId = "123"))
             val other = db.companyDao().insert(Company(purchaserId = "owner", name = "دوم", nationalId = "456"))
             val customer = db.customerDao().insert(Customer(companyId = id, name = "خریدار"))
+            QuotaRepository(db).initializeWallet("owner", 10)
+            QuotaRepository(db).transferFromMaster("owner", id, 10, "seed")
             val invoice = InvoiceRepository(db).saveDraft(id, customer, "1", "1405/08/08",
                 listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 0)))
             db.moadianDetailsDao().upsert(MoadianDetails(companyId = id, postalCode = "1234567890", encryptedPrivateKey = "ciphertext"))

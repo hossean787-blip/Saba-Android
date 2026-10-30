@@ -31,12 +31,14 @@ class InvoiceScreenTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         company = db.companyDao().insert(Company(purchaserId = "test", name = "شرکت", nationalId = "1"))
         customer = db.customerDao().insert(Customer(companyId = company, name = "خریدار"))
+        QuotaRepository(db).initializeWallet("test", 10)
+        QuotaRepository(db).transferFromMaster("test", company, 10, "seed")
     }
     @After fun close() { db.close() }
     @Composable private fun Screen() {
         MaterialTheme {
             InvoiceScreen(db, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
-                onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = {}, onEditorActive = {})
+                onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = {}, onEditorActive = {}, availableCharge = 10)
         }
     }
     private fun openNew() {
@@ -86,8 +88,6 @@ class InvoiceScreenTest {
     @Test fun finalizedInvoiceHasDetailsWithoutEditOrDeleteActions() {
         runBlocking {
             val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))
-            val quota = QuotaRepository(db)
-            quota.initializeWallet("test", 1); quota.transferFromMaster("test", company, 1, "q")
             InvoiceRepository(db).finalizeDraft(company, id)
             invoices = db.invoiceDao().forCompany(company)
         }
