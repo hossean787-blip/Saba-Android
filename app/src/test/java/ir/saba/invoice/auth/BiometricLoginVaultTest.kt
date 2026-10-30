@@ -10,7 +10,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class BiometricLoginVaultTest {
     @Test fun credentialsRoundTripWithoutLoggingOrAlteration() {
-        val source = StoredLoginCredentials("owner@example.com", "Pa$$w0rd ۱!#")
+        val source = StoredLoginCredentials("owner@example.com", "Complex ۱۲۳ password!#")
         val raw = encodeCredentials(source)
         try { assertEquals(source, decodeCredentials(raw)) }
         finally { raw.fill(0) }
