@@ -62,6 +62,21 @@ class AuthGatewayClientTest {
         client(c).loginWithPassword(" person۰@example.com ", "password123")
         assertEquals("person۰@example.com", JSONObject(c.sent.toString("UTF-8")).getString("identifier"))
     }
+    @Test fun rejectedMatchingRegistrationExplainsServerValidationNotMismatch() {
+        val c = Connection("private password policy details", 400)
+        try {
+            runBlocking { client(c).registerWithPassword(form()) }
+            fail("Rejected signup was accepted")
+        } catch (expected: AuthGatewayException) {
+            assertEquals(400, expected.httpStatus)
+            assertTrue(expected.isRegistration)
+            assertTrue(expected.message!!.contains("سرور"))
+            assertTrue(expected.message!!.contains("متفاوت بودن دو رمز نیست"))
+            assertFalse(expected.message!!.contains("private"))
+            assertTrue(c.closed)
+        }
+    }
+
     @Test fun errorsDoNotLeakUpstreamBody() {
         val c = Connection("private upstream diagnostic", 401)
         try {

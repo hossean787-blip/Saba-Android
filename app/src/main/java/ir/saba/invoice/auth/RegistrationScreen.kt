@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -76,7 +77,7 @@ fun RegistrationScreen(
             var visible by remember { mutableStateOf(false) }
             OutlinedTextField(
                 value = value, onValueChange = change, enabled = !submitting,
-                modifier = Modifier.fillMaxWidth(), label = { Text(label) },
+                modifier = Modifier.fillMaxWidth().testTag(key), label = { Text(label) },
                 singleLine = true, isError = key in errors,
                 textStyle = LocalTextStyle.current.copy(textDirection =
                     if (secret || type == KeyboardType.Email) androidx.compose.ui.text.style.TextDirection.Ltr
@@ -104,13 +105,28 @@ fun RegistrationScreen(
             field("تکرار رمز عبور", repeatPassword, { repeatPassword = it.take(128) }, "passwordConfirmation", KeyboardType.Password, true)
         }
         if (revealed >= 4) Text("حداقل ۸ نویسه؛ رمز عبور را در اختیار دیگران نگذارید.", style = MaterialTheme.typography.bodySmall)
-        if (serverError != null) Text(serverError, color = MaterialTheme.colorScheme.error)
+        if (revealed >= 5 && repeatPassword.isNotEmpty() &&
+            password == repeatPassword && "password" !in allErrors
+        ) {
+            Text(
+                "دو رمز عبور مطابقت دارند.",
+                modifier = Modifier.testTag("passwordsMatch"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (serverError != null) {
+            Text(serverError, modifier = Modifier.testTag("registrationServerError"),
+                color = MaterialTheme.colorScheme.error)
+        }
         Button(
             enabled = !submitting && revealed == 5 && allErrors.isEmpty(),
             onClick = {
                 attempted = true
                 if (RegistrationValidator.emailPasswordErrors(input).isEmpty()) {
-                    onSubmit(input); password = ""; repeatPassword = ""
+                    // Retain non-saved password fields after a rejected server request.
+                    // Successful registration removes this screen from composition.
+                    onSubmit(input)
                 }
             },
             modifier = Modifier.fillMaxWidth().height(54.dp)

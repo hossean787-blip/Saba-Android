@@ -52,6 +52,46 @@ class AuthScreenTest {
         compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().assertIsNotEnabled()
     }
 
+    @Test fun matchingPasswordsRemainInFormWhenGatewayRejectsRegistration() {
+        var error by androidx.compose.runtime.mutableStateOf<String?>(null)
+        compose.setContent { AuthTheme {
+            RegistrationScreen(
+                onSubmit = { error = "خطای سرور آزمایشی" },
+                onSignIn = {},
+                serverError = error
+            )
+        } }
+        compose.onNodeWithText("نام", substring = false).performTextInput("Ali")
+        waitForField("نام خانوادگی")
+        compose.onNodeWithText("نام خانوادگی").performScrollTo().performTextInput("Ahmadi")
+        waitForField("ایمیل")
+        compose.onNodeWithText("ایمیل", substring = false).performScrollTo().performTextInput("owner@example.com")
+        waitForField("رمز عبور ثابت")
+        compose.onNodeWithText("رمز عبور ثابت").performScrollTo().performTextInput("password123")
+        waitForField("تکرار رمز عبور")
+        compose.onNodeWithText("تکرار رمز عبور").performScrollTo().performTextInput("password123")
+        compose.onNodeWithTag("passwordsMatch").assertExists()
+        compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithTag("registrationServerError").assertTextContains("خطای سرور آزمایشی")
+        compose.onNodeWithTag("passwordsMatch").assertExists()
+        compose.onNodeWithText("ساخت حساب کاربری").assertIsEnabled()
+    }
+
+    @Test fun differentConfirmationHasItsOwnErrorAndCannotSubmit() {
+        compose.setContent { AuthTheme { RegistrationScreen({}, {}) } }
+        compose.onNodeWithText("نام", substring = false).performTextInput("Ali")
+        waitForField("نام خانوادگی")
+        compose.onNodeWithText("نام خانوادگی").performScrollTo().performTextInput("Ahmadi")
+        waitForField("ایمیل")
+        compose.onNodeWithText("ایمیل", substring = false).performScrollTo().performTextInput("owner@example.com")
+        waitForField("رمز عبور ثابت")
+        compose.onNodeWithText("رمز عبور ثابت").performScrollTo().performTextInput("password123")
+        waitForField("تکرار رمز عبور")
+        compose.onNodeWithText("تکرار رمز عبور").performScrollTo().performTextInput("password124")
+        compose.onNodeWithText("تکرار رمز عبور مطابقت ندارد.").assertExists()
+        compose.onNodeWithText("ساخت حساب کاربری").performScrollTo().assertIsNotEnabled()
+    }
+
     @Test fun registrationSubmitsMatchingPasswords() {
         var received: RegistrationInput? = null
         compose.setContent { AuthTheme { RegistrationScreen({ received = it }, {}) } }

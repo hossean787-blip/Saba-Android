@@ -106,7 +106,7 @@ class AuthGatewayClient(
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             if (status !in 200..299) {
-                throw AuthGatewayException(status)
+                throw AuthGatewayException(status, isRegistration = path == "/v1/auth/registration/start")
             }
             val text = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
             JSONObject(text)
@@ -116,12 +116,20 @@ class AuthGatewayClient(
     }
 }
 
-class AuthGatewayException(val httpStatus: Int) : Exception(
-    when (httpStatus) {
-        400 -> "اطلاعات واردشده معتبر نیست."
-        401, 403 -> "ایمیل یا رمز عبور صحیح نیست؛ تأیید ایمیل را نیز بررسی کنید."
-        408, 429 -> "درخواست‌های زیادی ارسال شده است؛ کمی بعد تلاش کنید."
-        503 -> "سرویس احراز هویت هنوز آماده نیست."
+class AuthGatewayException(val httpStatus: Int, val isRegistration: Boolean = false) : Exception(
+    when {
+        isRegistration && httpStatus == 400 ->
+            "سرور اطلاعات ثبت‌نام را نپذیرفت؛ شرایط رمز عبور و اعتبار ایمیل را بررسی کنید. این خطا به‌معنای متفاوت بودن دو رمز نیست."
+        isRegistration && httpStatus == 409 ->
+            "این حساب ممکن است قبلاً ثبت شده باشد. ورود یا بازیابی حساب را بررسی کنید."
+        isRegistration && httpStatus == 422 ->
+            "سرور شرایط ثبت‌نام را تأیید نکرد؛ ایمیل و ضوابط رمز عبور را بررسی کنید."
+        httpStatus == 400 -> "اطلاعات واردشده معتبر نیست."
+        httpStatus == 401 || httpStatus == 403 ->
+            "ایمیل یا رمز عبور صحیح نیست؛ تأیید ایمیل را نیز بررسی کنید."
+        httpStatus == 408 || httpStatus == 429 ->
+            "درخواست‌های زیادی ارسال شده است؛ کمی بعد تلاش کنید."
+        httpStatus == 503 -> "سرویس احراز هویت هنوز آماده نیست."
         else -> "ارتباط با سرویس احراز هویت ناموفق بود."
     }
 )
