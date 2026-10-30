@@ -17,6 +17,12 @@ class InvoiceIsolationInstrumentedTest {
 
     @After fun close() = db.close()
 
+    private suspend fun fund(id: Long) {
+        val owner = "owner"
+        if (db.quotaDao().wallet(owner) == null) QuotaRepository(db).initializeWallet(owner, 100)
+        QuotaRepository(db).transferFromMaster(owner, id, 10, "fund-$id")
+    }
+
     private fun line(description: String = "Test item") =
         InvoiceLine(invoiceId = 0, description = description, quantity = 2, unitPriceRial = 1000, taxRatePercent = 10)
 
@@ -38,6 +44,7 @@ class InvoiceIsolationInstrumentedTest {
         val second = db.companyDao().insert(Company(purchaserId = "owner", name = "Beta", nationalId = "22222222222"))
         val c1 = db.customerDao().insert(Customer(companyId = first, name = "Customer A"))
         val c2 = db.customerDao().insert(Customer(companyId = second, name = "Customer B"))
+        fund(first); fund(second)
         val a = repository.saveDraft(first, c1, "10", "1405/07/01", listOf(line("A")))
         val b = repository.saveDraft(second, c2, "10", "1405/07/01", listOf(line("B")))
         assertEquals(1, repository.invoicesForCompany(first).size)
@@ -53,6 +60,7 @@ class InvoiceIsolationInstrumentedTest {
     @Test fun failedDraftUpdatePreservesExistingLines() = runBlocking {
         val company = db.companyDao().insert(Company(purchaserId = "owner", name = "Alpha", nationalId = "11111111111"))
         val customer = db.customerDao().insert(Customer(companyId = company, name = "Customer"))
+        fund(company)
         val id = repository.saveDraft(company, customer, "10", "1405/07/01", listOf(line("Original")))
         try {
             repository.saveDraft(company, customer, "11", "1405/07/01",
@@ -80,6 +88,7 @@ class InvoiceIsolationInstrumentedTest {
     @Test fun sqliteFailureInsideDraftUpdateRollsBackHeaderAndLines() = runBlocking {
         val company = db.companyDao().insert(Company(purchaserId = "owner", name = "Alpha", nationalId = "11111111111"))
         val customer = db.customerDao().insert(Customer(companyId = company, name = "Customer"))
+        fund(company)
         val id = repository.saveDraft(company, customer, "10", "1405/07/01", listOf(line("Original")))
         db.openHelper.writableDatabase.execSQL(
             "CREATE TRIGGER reject_replacement BEFORE INSERT ON invoice_lines " +

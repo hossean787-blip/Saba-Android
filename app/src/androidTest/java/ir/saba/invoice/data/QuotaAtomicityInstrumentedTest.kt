@@ -52,19 +52,21 @@ class QuotaAtomicityInstrumentedTest {
         assertNotNull(db.quotaDao().useForInvoice(id))
     }
 
-    @Test fun failureToInsertQuotaUseRollsBackEntireFinalization() = runBlocking {
-        val (companyId, id) = seed()
+    @Test fun failureToInsertQuotaUseRollsBackEntireCreation() = runBlocking {
+        val company = db.companyDao().insert(Company(purchaserId = "owner", name = "Tenant", nationalId = "123"))
+        val customer = db.customerDao().insert(Customer(companyId = company, name = "Customer"))
+        quotas.initializeWallet("owner", 1)
+        quotas.transferFromMaster("owner", company, 1, "seed")
         db.openHelper.writableDatabase.execSQL(
             "CREATE TRIGGER reject_quota_use BEFORE INSERT ON invoice_quota_uses " +
-                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
-        )
+                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
         try {
-            invoices.finalizeDraft(companyId, id)
+            invoices.saveDraft(company, customer, "100", "1405/07/01",
+                listOf(InvoiceLine(invoiceId = 0, description = "Service", quantity = 1, unitPriceRial = 100)))
             throw AssertionError("Expected database transaction to fail")
         } catch (expected: RuntimeException) {
-            assertEquals("DRAFT", db.invoiceDao().byId(id)?.status)
-            assertEquals(1L, db.quotaDao().companyQuota(companyId)?.available)
-            assertEquals(null, db.quotaDao().useForInvoice(id))
+            assertEquals(0, db.invoiceDao().forCompany(company).size)
+            assertEquals(1L, db.quotaDao().companyQuota(company)?.available)
         }
     }
 }
