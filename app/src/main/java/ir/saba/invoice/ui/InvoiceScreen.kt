@@ -48,7 +48,8 @@ fun InvoiceScreen(
     onNotice: (String) -> Unit,
     onEditorActive: (Boolean) -> Unit,
     availableCharge: Long = 0,
-    onNeedCharge: () -> Unit = {}
+    onNeedCharge: () -> Unit = {},
+    newInvoiceRequest: Int = 0
 ) {
     val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
@@ -69,6 +70,21 @@ fun InvoiceScreen(
     var lineIndex by rememberSaveable { mutableIntStateOf(-1) }
     var confirmation by rememberSaveable { mutableStateOf("") }
     var actionId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(newInvoiceRequest) {
+        if (newInvoiceRequest > 0 && !busy) {
+            if (availableCharge <= 0L) onNeedCharge()
+            else {
+                invoiceId = null
+                number = ""
+                date = ""
+                customerId = customers.firstOrNull()?.id
+                lines = emptyList()
+                error = ""
+                mode = "edit"
+            }
+        }
+    }
 
     LaunchedEffect(mode, busy) { onEditorActive(mode == "edit" || busy) }
     DisposableEffect(Unit) { onDispose { onEditorActive(false) } }
