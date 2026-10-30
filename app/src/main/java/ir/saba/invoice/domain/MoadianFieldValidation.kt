@@ -10,6 +10,25 @@ object MoadianFieldValidation {
         }
     }.joinToString("")
 
+    /** Local form conventions. Live tax registration remains an independent check. */
+    fun identity(type: String, national: String, economic: String): Map<String, String> = buildMap {
+        val n = digits(national)
+        val e = digits(economic)
+        val nationalLength = when(type) {
+            "شخص حقوقی", "مشارکت مدنی" -> 11
+            "شخص حقیقی" -> 14 // This app's requested field stores the economic identity.
+            "اتباع غیرایرانی" -> 12
+            else -> 0
+        }
+        val economicLength = if (type in listOf("شخص حقوقی", "مشارکت مدنی")) 11 else 14
+        if (nationalLength == 0 || !n.matches(Regex("[0-9]{$nationalLength}")))
+            put("nationalId", "شناسه برای این نوع مودی باید $nationalLength رقم باشد.")
+        if (!e.matches(Regex("[0-9]{$economicLength}")))
+            put("economicId", "شماره اقتصادی برای این نوع مودی باید $economicLength رقم باشد.")
+        if (type in listOf("شخص حقوقی", "مشارکت مدنی", "شخص حقیقی") && n != e)
+            put("nationalId", "شناسه این فرم باید با شماره اقتصادی واردشده یکسان باشد.")
+    }
+
     fun postalCode(value: String): String? =
         if (digits(value).matches(Regex("[0-9]{10}"))) null else "کدپستی باید دقیقاً ۱۰ رقم باشد."
 

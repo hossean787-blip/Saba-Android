@@ -143,13 +143,13 @@ fun MoadianScreen(
             else -> "FOREIGN"
         },
         registrationNumber = registrationNumber,
-        invoiceSerialStart = invoiceSerialStart,
-        referenceSerialStart = referenceSerialStart,
-        fax = fax,
-        postalCode = postalCode,
+        invoiceSerialStart = MoadianFieldValidation.digits(invoiceSerialStart),
+        referenceSerialStart = MoadianFieldValidation.digits(referenceSerialStart),
+        fax = MoadianFieldValidation.digits(fax),
+        postalCode = MoadianFieldValidation.digits(postalCode),
         province = province,
         county = county,
-        mobile = mobile,
+        mobile = MoadianFieldValidation.digits(mobile),
         certificateExpiry = certificateExpiry,
         fiscalMemoryId = fiscalMemoryId.trim().uppercase(java.util.Locale.ROOT),
         logoUri = logoPath
@@ -337,6 +337,7 @@ fun MoadianScreen(
                     } else try { TaxpayerPrivateKey.parse(privateKey); null } catch (e: IllegalArgumentException) { e.message }
                     fieldErrors = buildMap {
                         fun check(field: String, message: String?) { if (message != null) put(field, message) }
+                        putAll(MoadianFieldValidation.identity(kind, nationalId, economicId))
                         check("name", MoadianFieldValidation.required(name, "نام"))
                         check("nationalId", MoadianFieldValidation.required(nationalId, "شناسه ملی"))
                         check("economicId", MoadianFieldValidation.required(economicId, "شماره اقتصادی"))
@@ -367,6 +368,7 @@ fun MoadianScreen(
                                     pending = false
                                 } else if (mode == "new") {
                                     db.withTransaction {
+                                        ensureUniqueTaxpayer(db, null, nationalId, economicId, fiscalMemoryId)
                                         val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
                                         db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = vault.encrypt(id, privateKey), keyCheckStatus = "NEEDS_MATCH"))
                                     }
@@ -377,8 +379,8 @@ fun MoadianScreen(
                                 } else {
                                     val old = db.companyDao().byId(selectedId ?: -1) ?: throw IllegalStateException("مودی یافت نشد.")
                                     db.withTransaction {
+                                        ensureUniqueTaxpayer(db, old.id, nationalId, economicId, fiscalMemoryId)
                                         db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
-                                        val existing = db.moadianDetailsDao().byCompany(old.id)
                                         val encrypted = if (privateKey.isNotBlank()) vault.encrypt(old.id, privateKey) else storedKey
                                         db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false))
                                     }
@@ -388,6 +390,7 @@ fun MoadianScreen(
                                     onNotice("تغییرات ذخیره شد.")
                                 }
                             } catch (e: CancellationException) { throw e }
+                            catch (e: DuplicateTaxpayer) { fieldErrors = mapOf(e.field to "این مقدار برای مودی دیگری ثبت شده است."); error = "مودی تکراری قابل ثبت نیست."; pending = false }
                             catch (_: Exception) { error = "ذخیره انجام نشد؛ اطلاعات فرم حفظ شد."; pending = false }
                             finally { busy = false }
                         }
@@ -434,4 +437,16 @@ private fun MoadianChoice(label: String, value: String, options: List<String>, o
             }
         },
         confirmButton = { TextButton(onClick = { expanded = false }) { Text("بستن") } })
+}
+
+private class DuplicateTaxpayer(val field: String) : IllegalArgumentException("Duplicate taxpayer identity")
+
+private suspend fun ensureUniqueTaxpayer(db: SabaDatabase, excludedId: Long?, national: String, economic: String, fiscal: String) {
+    val rows = db.companyDao().all().filter { it.id != excludedId }
+    if (rows.any { MoadianFieldValidation.digits(it.nationalId) == MoadianFieldValidation.digits(national) })
+        throw DuplicateTaxpayer("nationalId")
+    if (rows.any { MoadianFieldValidation.digits(it.economicId) == MoadianFieldValidation.digits(economic) })
+        throw DuplicateTaxpayer("economicId")
+    if (db.moadianDetailsDao().all().any { it.companyId != excludedId && it.fiscalMemoryId.equals(fiscal.trim(), ignoreCase = true) })
+        throw DuplicateTaxpayer("fiscalMemoryId")
 }

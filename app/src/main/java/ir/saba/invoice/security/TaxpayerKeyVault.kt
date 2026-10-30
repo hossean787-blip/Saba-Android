@@ -10,8 +10,10 @@ import javax.crypto.spec.GCMParameterSpec
 import java.util.Base64
 
 /** Device-bound encryption. Plaintext is never written to a file, preferences or logs. */
-class TaxpayerKeyVault {
-    private fun key(): SecretKey = synchronized(TaxpayerKeyVault::class.java) {
+class TaxpayerKeyVault internal constructor(private val keyProvider: (() -> SecretKey)? = null) {
+    private fun key(): SecretKey {
+        keyProvider?.let { return it() }
+        return synchronized(TaxpayerKeyVault::class.java) {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(ALIAS, null) as? SecretKey) ?: KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore"
@@ -21,6 +23,7 @@ class TaxpayerKeyVault {
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256).setRandomizedEncryptionRequired(true).build())
         }.generateKey()
+    }
     }
     fun encrypt(companyId: Long, pem: String): String {
         val bytes = TaxpayerPrivateKey.parse(pem).encoded

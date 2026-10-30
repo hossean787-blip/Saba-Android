@@ -65,3 +65,11 @@ Submit/confirmation controls moved outside scrollable fields. Added field-specif
 Added MoadianPersistenceTest: reopen persistence, archive with invoice relations intact, isolation of details by Company.id, restoration, transaction rollback.
 Files: ui/MoadianScreen.kt, MainActivity.kt, test/data/MoadianPersistenceTest.kt, this report.
 Not yet verified: CI pending. Remaining acceptance gaps from previous checkpoint still apply; especially official rules, dependent selectors, inline errors/logo, authenticated owner partition and invoice sequence integration. Do not call this complete.
+
+## Validation and CI correction
+Last tested revision 5691a8a0: CI run 41010343379 executed 143 tests: 142 passed, 1 failed. Migration 1->4 and archive/persistence/rollback tests passed. RSA valid-key acceptance failed with ClassCastException confirmed by run 41010719384. Fixed assumption that RSA private keys expose CRT fields: read public exponent from bounded DER and use RSAPrivateKey interface; retain sign/verify self-test.
+Added dependent searchable province/county selectors from attributed CC-BY-4.0 Open Admin Data snapshot (31/429; not a guarantee of latest divisions), bounded private app-storage logo import, inline errors and Persian/Arabic digit normalization. Added type-specific local form identity checks and transaction-scoped duplicate economic/fiscal identities.
+Added cipher randomness/tamper/cross-taxpayer tests and format/location tests. CI pending for this change.
+Official-rule verification: intamedia.ir fetch timed out on 2026-10-30. Older primary tax documents mirrored elsewhere support 11/14 economic and type-specific identities but current exceptions have NOT been certified. Form convention for natural persons intentionally follows requested economic-ID field semantics; do not reuse as legal national-code semantics in invoice payloads.
+Remaining: certify current rules, device Android Keystore/import/UI tests, owner-account partition (legacy purchaserId owner), serial allocation integration, complete UI acceptance and visual review; newer location data coverage; orphan-logo cleanup. No production readiness claim.
+Next: inspect CI, repair actual failures, retain evidence and APK only after successful checks.
