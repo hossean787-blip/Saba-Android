@@ -211,21 +211,53 @@ fun MoadianScreen(
         }
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("مودیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF168DC5))
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (mode == null) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("مودیان", style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold, color = Color(0xFF16384E))
+                    Text("${companies.size} مودی ثبت‌شده", color = Color(0xFF688195),
+                        style = MaterialTheme.typography.labelSmall)
+                }
+                Surface(color = Color(0xFFE3F5F5), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF118598),
+                        modifier = Modifier.padding(12.dp).size(22.dp))
+                }
+            }
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2F7)),
+                shape = RoundedCornerShape(20.dp)) {
+                Row(Modifier.fillMaxWidth().padding(15.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF087F93))
+                    Column(Modifier.weight(1f)) {
+                        Text("مدیریت مودیان سورا", fontWeight = FontWeight.Bold,
+                            color = Color(0xFF163E56))
+                        Text("اطلاعات و کلیدهای مالیاتی مودیان را مدیریت کنید.",
+                            style = MaterialTheme.typography.bodySmall, color = Color(0xFF597B8D))
+                    }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = { open("new") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Text("جدید") }
-                OutlinedButton(onClick = { open("edit") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Edit, null, Modifier.size(18.dp)); Text("ویرایش") }
-                OutlinedButton(onClick = { open("delete") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Delete, null, Modifier.size(18.dp)); Text("حذف") }
+                Button(onClick = { open("new") }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Add, null, Modifier.size(17.dp)); Text("جدید")
+                }
+                OutlinedButton(onClick = { open("edit") }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Edit, null, Modifier.size(17.dp)); Text("ویرایش")
+                }
+                OutlinedButton(onClick = { open("delete") }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Delete, null, Modifier.size(17.dp)); Text("حذف")
+                }
             }
-            OutlinedTextField(enabled = !busy && !pending, value = query, onValueChange = { query = it }, label = { Text("جستجوی مودیان") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("ردیف", Modifier.weight(.5f), fontWeight = FontWeight.Bold)
-                Text("نام مودی", Modifier.weight(2f), fontWeight = FontWeight.Bold)
-                Text("نوع مودی", Modifier.weight(1.3f), fontWeight = FontWeight.Bold)
-                Text("صحت کلیدها", Modifier.weight(1.3f), fontWeight = FontWeight.Bold)
-            }
+            OutlinedTextField(enabled = !busy && !pending, value = query,
+                onValueChange = { query = it }, label = { Text("جستجوی مودیان") },
+                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                shape = RoundedCornerShape(17.dp),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+            Text("فهرست مودیان", fontWeight = FontWeight.Bold,
+                color = Color(0xFF153A51), style = MaterialTheme.typography.titleMedium)
             fun searchText(value: String) = MoadianFieldValidation.digits(value).replace('ي', 'ی').replace('ك', 'ک')
             val needle = searchText(query)
             val rows = companies.filter { searchText(it.name).contains(needle, ignoreCase = true) ||
@@ -233,26 +265,53 @@ fun MoadianScreen(
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(rows, key = { _, item -> item.id }) { index, company ->
                     val selected = selectedId == company.id
-                    Surface(
-                        color = if (selected) Color(0xFFD8F1FF) else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().clickable { selectedId = company.id; if (detailRows.firstOrNull { it.companyId == company.id }?.inactive != true) onSelect(company.id) }
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedId = company.id
+                            if (detailRows.firstOrNull { it.companyId == company.id }?.inactive != true)
+                                onSelect(company.id)
+                        },
+                        colors = CardDefaults.cardColors(containerColor =
+                            if (selected) Color(0xFFE5F7F9) else Color.White),
+                        border = if (selected) androidx.compose.foundation.BorderStroke(
+                            1.dp, Color(0xFF2DA2B1)) else null,
+                        shape = RoundedCornerShape(19.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
-                        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text((index + 1).toString(), Modifier.weight(.5f))
-                            Text(company.name + if (detailRows.firstOrNull { it.companyId == company.id }?.inactive == true) " (غیرفعال)" else "", Modifier.weight(2f))
-                            Text(when(detailRows.firstOrNull { it.companyId == company.id }?.taxpayerType) {
-                                "NATURAL" -> "حقیقی"
-                                "LEGAL" -> "حقوقی"
-                                "PARTNERSHIP" -> "مشارکت"
-                                "FOREIGN" -> "اتباع"
-                                else -> "نامشخص"
-                            }, Modifier.weight(1.3f))
-                            Text(when(detailRows.firstOrNull { it.companyId == company.id }?.keyCheckStatus) {
-                                "NEEDS_MATCH" -> "نیازمند بررسی تطابق"
-                                "INVALID" -> "نامعتبر"
-                                else -> "بررسی‌نشده"
-                            }, Modifier.weight(1.3f))
+                        val d = detailRows.firstOrNull { it.companyId == company.id }
+                        val type = when (d?.taxpayerType) {
+                            "NATURAL" -> "حقیقی"
+                            "LEGAL" -> "حقوقی"
+                            "PARTNERSHIP" -> "مشارکت مدنی"
+                            "FOREIGN" -> "اتباع غیرایرانی"
+                            else -> "نامشخص"
+                        }
+                        val check = when (d?.keyCheckStatus) {
+                            "NEEDS_MATCH" -> "نیازمند بررسی تطابق"
+                            "INVALID" -> "نامعتبر"
+                            else -> "بررسی‌نشده"
+                        }
+                        Row(Modifier.fillMaxWidth().padding(14.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE5F3F7)) {
+                                Text("${index + 1}", modifier = Modifier.padding(11.dp),
+                                    color = Color(0xFF157F96), fontWeight = FontWeight.Bold)
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text(company.name, fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF193F55))
+                                Text("نوع مودی: $type", style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF667F91))
+                                Text("صحت کلیدها: $check", style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF667F91))
+                            }
+                            if (d?.inactive == true)
+                                Text("غیرفعال", color = Color(0xFFB74C6D),
+                                    style = MaterialTheme.typography.labelSmall)
+                            else if (selected)
+                                Text("انتخاب‌شده", color = Color(0xFF007F71),
+                                    style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -283,8 +342,11 @@ fun MoadianScreen(
             )
         } else {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(if (mode == "new") "ثبت مودی جدید" else "ویرایش مودی", style = MaterialTheme.typography.titleLarge)
-            Text("اطلاعات به‌صورت محلی ذخیره می‌شوند؛ تطابق کلید با شناسه یکتا نیازمند استعلام جداگانه است.", style = MaterialTheme.typography.bodySmall)
+            Text(if (mode == "new") "ثبت مودی جدید" else "ویرایش مودی",
+                style = MaterialTheme.typography.titleLarge, color = Color(0xFF173B51),
+                fontWeight = FontWeight.ExtraBold)
+            Text("اطلاعات به‌صورت محلی ذخیره می‌شوند؛ تطابق کلید با شناسه یکتا نیازمند استعلام جداگانه است.",
+                style = MaterialTheme.typography.bodySmall, color = Color(0xFF6D8293))
             Text("نوع مودی *", fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF174256))
             val kinds = listOf("شخص حقیقی", "شخص حقوقی", "مشارکت مدنی", "اتباع غیرایرانی")
