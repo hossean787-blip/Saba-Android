@@ -1,13 +1,11 @@
 package ir.saba.invoice.ui
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.*
 import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
 import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.R
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import ir.saba.invoice.auth.AuthTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
