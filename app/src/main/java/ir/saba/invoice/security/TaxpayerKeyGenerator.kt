@@ -7,7 +7,7 @@ import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 
 /**
- * Generates a taxpayer-specific 3072-bit RSA keypair locally.
+ * Generates a taxpayer-specific 2048-bit RSA keypair locally.
  * The caller MUST encrypt the private PEM with TaxpayerKeyVault before storage.
  * Public key export is safe; possession alone never proves registration with the tax authority.
  */
@@ -15,9 +15,9 @@ object TaxpayerKeyGenerator {
     data class Generated(val privatePem: String, val publicPem: String)
 
     fun generate(): Generated {
-        val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(3072) }.generateKeyPair()
+        val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
         val publicKey = pair.public as RSAPublicKey
-        require(publicKey.modulus.bitLength() >= 3072)
+        require(publicKey.modulus.bitLength() >= 2048)
         val verified = KeyFactory.getInstance("RSA").generatePublic(
             RSAPublicKeySpec(publicKey.modulus, publicKey.publicExponent)
         )
