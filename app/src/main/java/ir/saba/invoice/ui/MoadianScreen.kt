@@ -61,6 +61,7 @@ fun MoadianScreen(
     var privateKey by remember { mutableStateOf("") }
     var generatedPublicKey by remember { mutableStateOf("") }
     var publicKeyExported by remember { mutableStateOf(false) }
+    var generatedKeyConfirmed by remember { mutableStateOf(false) }
     var generatedNotice by remember { mutableStateOf<String?>(null) }
     val exportPublicKey = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null && generatedPublicKey.isNotBlank()) {
@@ -170,7 +171,7 @@ fun MoadianScreen(
     )
     var error by remember { mutableStateOf<String?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
-    fun close() { privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
+    fun close() { privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedKeyConfirmed = false; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
         val current = if (which == "new") null else companies.firstOrNull { it.id == selectedId }
         if (which != "new" && current == null) {
@@ -450,6 +451,7 @@ fun MoadianScreen(
                         privateKey = pair.privatePem
                         generatedPublicKey = pair.publicPem
                         publicKeyExported = false
+                        generatedKeyConfirmed = false
                         keyMode = "generated"
                         keyError = null
                         generatedNotice = "کلید RSA اختصاصی ساخته شد. پیش از ثبت فرم، کلید عمومی را ذخیره کنید. کلید خصوصی هنگام ثبت مودی در حافظه رمزنگاری می‌شود."
@@ -458,6 +460,14 @@ fun MoadianScreen(
                     } finally { busy = false }
                 }
             }) { Text("تولید جفت کلید اختصاصی RSA") }
+            if (generatedPublicKey.isNotBlank()) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(checked = generatedKeyConfirmed, enabled = !busy && !pending && publicKeyExported,
+                        onCheckedChange = { generatedKeyConfirmed = it })
+                    Text("فایل کلید عمومی را ذخیره کرده‌ام و می‌دانم کلید خصوصی این گوشی بدون پشتیبان امن قابل بازیابی نیست.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
             if (storedKey != null) Text("برای محافظت از شناسه مالیاتی و دسترسی‌های موجود، ساخت کلید جدید برای مودی دارای کلید غیرفعال است. تعویض کلید نیازمند فرایند جداگانه و تأیید مجدد کارپوشه است.", style = MaterialTheme.typography.bodySmall)
             if (generatedPublicKey.isNotBlank()) {
                 OutlinedButton(enabled = !busy && !pending, onClick = {
@@ -498,7 +508,7 @@ fun MoadianScreen(
                         if (fiscalMemoryId.isNotBlank()) check("fiscalMemoryId", MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId))
                     }
                     error = if (fieldErrors.isEmpty()) null else "موارد مشخص‌شده در فرم را اصلاح کنید."
-                    if (keyMode == "generated" && !publicKeyExported) {
+                    if (keyMode == "generated" && (!publicKeyExported || !generatedKeyConfirmed)) {
                         keyError = "ابتدا فایل کلید عمومی را در مکان امن ذخیره کنید؛ بدون آن امکان ثبت کلید در کارپوشه ندارید."
                     }
                     if (error == null && keyError == null) pending = true
