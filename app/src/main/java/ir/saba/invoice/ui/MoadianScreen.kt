@@ -15,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.Company
 import ir.saba.invoice.data.SabaDatabase
+import ir.saba.invoice.data.MoadianDetails
+import androidx.room.withTransaction
+import ir.saba.invoice.domain.MoadianFieldValidation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -43,6 +46,37 @@ fun MoadianScreen(
     var phone by remember { mutableStateOf("") }
     var purchaserId by remember { mutableStateOf("owner") }
     var kind by remember { mutableStateOf("شخص حقوقی") }
+    var registrationNumber by remember { mutableStateOf("") }
+    var invoiceSerialStart by remember { mutableStateOf("") }
+    var referenceSerialStart by remember { mutableStateOf("") }
+    var fax by remember { mutableStateOf("") }
+    var postalCode by remember { mutableStateOf("") }
+    var province by remember { mutableStateOf("") }
+    var county by remember { mutableStateOf("") }
+    var mobile by remember { mutableStateOf("") }
+    var certificateExpiry by remember { mutableStateOf("") }
+    var fiscalMemoryId by remember { mutableStateOf("") }
+    var detailRows by remember { mutableStateOf(emptyList<MoadianDetails>()) }
+    LaunchedEffect(companies) { detailRows = db.moadianDetailsDao().all() }
+    fun details(id: Long) = MoadianDetails(
+        companyId = id,
+        taxpayerType = when(kind) {
+            "شخص حقیقی" -> "NATURAL"
+            "شخص حقوقی" -> "LEGAL"
+            "مشارکت مدنی" -> "PARTNERSHIP"
+            else -> "FOREIGN"
+        },
+        registrationNumber = registrationNumber,
+        invoiceSerialStart = invoiceSerialStart,
+        referenceSerialStart = referenceSerialStart,
+        fax = fax,
+        postalCode = postalCode,
+        province = province,
+        county = county,
+        mobile = mobile,
+        certificateExpiry = certificateExpiry,
+        fiscalMemoryId = fiscalMemoryId
+    )
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     fun close() { mode = null; pending = false; error = null; onEditing(false) }
@@ -59,9 +93,42 @@ fun MoadianScreen(
         phone = current?.phone.orEmpty()
         purchaserId = current?.purchaserId ?: "owner"
         kind = "شخص حقوقی"
+        registrationNumber = ""
+        invoiceSerialStart = ""
+        referenceSerialStart = ""
+        fax = ""
+        postalCode = ""
+        province = ""
+        county = ""
+        mobile = ""
+        certificateExpiry = ""
+        fiscalMemoryId = ""
         error = null
         mode = which
         onEditing(true)
+        if (which == "edit" && current != null) {
+            scope.launch {
+                val d = db.moadianDetailsDao().byCompany(current.id)
+                if (d != null) {
+                    kind = when(d.taxpayerType) {
+                        "NATURAL" -> "شخص حقیقی"
+                        "PARTNERSHIP" -> "مشارکت مدنی"
+                        "FOREIGN" -> "اتباع غیرایرانی"
+                        else -> "شخص حقوقی"
+                    }
+                    registrationNumber = d.registrationNumber
+                    invoiceSerialStart = d.invoiceSerialStart
+                    referenceSerialStart = d.referenceSerialStart
+                    fax = d.fax
+                    postalCode = d.postalCode
+                    province = d.province
+                    county = d.county
+                    mobile = d.mobile
+                    certificateExpiry = d.certificateExpiry
+                    fiscalMemoryId = d.fiscalMemoryId
+                }
+            }
+        }
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("مودیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF168DC5))
@@ -90,7 +157,13 @@ fun MoadianScreen(
                         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text((index + 1).toString(), Modifier.weight(.5f))
                             Text(company.name, Modifier.weight(2f))
-                            Text("نامشخص", Modifier.weight(1.3f))
+                            Text(when(detailRows.firstOrNull { it.companyId == company.id }?.taxpayerType) {
+                                "NATURAL" -> "حقیقی"
+                                "LEGAL" -> "حقوقی"
+                                "PARTNERSHIP" -> "مشارکت"
+                                "FOREIGN" -> "اتباع"
+                                else -> "نامشخص"
+                            }, Modifier.weight(1.3f))
                             Text("بررسی‌نشده", Modifier.weight(1.3f))
                         }
                     }
@@ -119,8 +192,19 @@ fun MoadianScreen(
             OutlinedTextField(name, { name = it }, label = { Text("نام *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(economicId, { economicId = it }, label = { Text("شماره اقتصادی *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(nationalId, { nationalId = it }, label = { Text("شناسه ملی *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(registrationNumber, { registrationNumber = it }, label = { Text("شماره ثبت") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(invoiceSerialStart, { invoiceSerialStart = it }, label = { Text("شروع سریال صورتحساب") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(referenceSerialStart, { referenceSerialStart = it }, label = { Text("شروع سریال صورتحساب ارجاعی") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(phone, { phone = it }, label = { Text("تلفن") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(fax, { fax = it }, label = { Text("فکس") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(postalCode, { postalCode = it }, label = { Text("کدپستی *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(province, { province = it }, label = { Text("استان *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(county, { county = it }, label = { Text("شهرستان *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(address, { address = it }, label = { Text("آدرس *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(mobile, { mobile = it }, label = { Text("شماره موبایل *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(certificateExpiry, { certificateExpiry = it }, label = { Text("تاریخ انقضاء گواهی امضاء") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(fiscalMemoryId, { fiscalMemoryId = it }, label = { Text("شناسه یکتا *") }, modifier = Modifier.fillMaxWidth())
+            Text("کلید خصوصی: ورود و ذخیره تا پیاده‌سازی رمزنگاری امن غیرفعال است.", color = MaterialTheme.colorScheme.error)
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (!pending) {
                 Button(onClick = {
@@ -129,6 +213,13 @@ fun MoadianScreen(
                         nationalId.isBlank() -> "شناسه ملی اجباری است."
                         economicId.isBlank() -> "شماره اقتصادی اجباری است."
                         address.isBlank() -> "آدرس اجباری است."
+                        MoadianFieldValidation.postalCode(postalCode) != null -> MoadianFieldValidation.postalCode(postalCode)
+                        MoadianFieldValidation.mobile(mobile) != null -> MoadianFieldValidation.mobile(mobile)
+                        province.isBlank() || county.isBlank() -> "استان و شهرستان اجباری هستند."
+                        MoadianFieldValidation.serial(invoiceSerialStart, "سریال اصلی") != null -> MoadianFieldValidation.serial(invoiceSerialStart, "سریال اصلی")
+                        MoadianFieldValidation.serial(referenceSerialStart, "سریال ارجاعی") != null -> MoadianFieldValidation.serial(referenceSerialStart, "سریال ارجاعی")
+                        MoadianFieldValidation.serialPair(invoiceSerialStart, referenceSerialStart) != null -> MoadianFieldValidation.serialPair(invoiceSerialStart, referenceSerialStart)
+                        MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId) != null -> MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId)
                         else -> null
                     }
                     if (error == null) pending = true
@@ -146,14 +237,22 @@ fun MoadianScreen(
                                     error = "این شناسه ملی قبلاً ثبت شده است."
                                     pending = false
                                 } else if (mode == "new") {
-                                    db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                    db.withTransaction {
+                                        val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                        db.moadianDetailsDao().upsert(details(id))
+                                    }
                                     onChanged()
+                                    detailRows = db.moadianDetailsDao().all()
                                     close()
                                     onNotice("مودی ثبت شد.")
                                 } else {
                                     val old = db.companyDao().byId(selectedId ?: -1) ?: throw IllegalStateException("مودی یافت نشد.")
-                                    db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                    db.withTransaction {
+                                        db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                        db.moadianDetailsDao().upsert(details(old.id))
+                                    }
                                     onChanged()
+                                    detailRows = db.moadianDetailsDao().all()
                                     close()
                                     onNotice("تغییرات ذخیره شد.")
                                 }
