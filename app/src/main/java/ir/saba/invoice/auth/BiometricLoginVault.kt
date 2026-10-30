@@ -51,14 +51,22 @@ class BiometricLoginVault(context: Context) {
         }
     }
 
+    // Enrollment must not be marked as failed because of a temporary
+    // BiometricManager availability result after an authenticated CryptoObject.
     fun isEnabled(): Boolean =
-        canOffer() && prefs.contains("encrypted") && prefs.contains("iv") &&
+        prefs.contains("encrypted") && prefs.contains("iv") &&
             try { keystore().containsAlias(KEY_ALIAS) } catch (_: Exception) { false }
 
     fun prepareEnrollment(): Cipher {
         check(canOffer()) { "Biometric authentication unavailable" }
+        // Recover a damaged/invalidated Keystore alias without ever leaving
+        // previously saved ciphertext paired with a new key.
+        val key = try { createOrGetKey() } catch (_: Exception) {
+            clear()
+            createOrGetKey()
+        }
         return Cipher.getInstance(TRANSFORMATION).apply {
-            init(Cipher.ENCRYPT_MODE, createOrGetKey())
+            init(Cipher.ENCRYPT_MODE, key)
             updateAAD(AAD)
         }
     }
@@ -68,18 +76,21 @@ class BiometricLoginVault(context: Context) {
         val plaintext = encodeCredentials(credentials)
         try {
             val ciphertext = cipher.doFinal(plaintext)
-            check(cipher.iv.size == 12)
+            check(cipher.iv.size in 12..16)
             check(prefs.edit()
                 .putString("encrypted", Base64.encodeToString(ciphertext, Base64.NO_WRAP))
                 .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
                 .commit())
+            // If the device invalidates this key, do not claim enrollment
+            // succeeded even if the encrypted bytes were written.
+            check(isEnabled())
         } finally { plaintext.fill(0) }
     }
 
     fun prepareUnlock(): Cipher {
         check(isEnabled()) { "Biometric login unavailable" }
         val iv = Base64.decode(prefs.getString("iv", ""), Base64.NO_WRAP)
-        require(iv.size == 12)
+        require(iv.size in 12..16)
         val key = keystore().getKey(KEY_ALIAS, null) as? SecretKey
             ?: error("Biometric key missing")
         return Cipher.getInstance(TRANSFORMATION).apply {

@@ -175,10 +175,18 @@ class MainActivity : ComponentActivity() {
                         biometricNotice = if (biometricEnabled)
                             "ورود با اثر انگشت فعال شد؛ دفعه بعد بدون تایپ رمز می‌توانید وارد شوید."
                             else "فعال‌سازی اثر انگشت انجام نشد."
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
                         biometricVault.clear()
                         biometricEnabled = false
-                        biometricNotice = "ذخیره امن ورود با اثر انگشت انجام نشد."
+                        // Report only a nonsensitive failure category, never
+                        // exception messages, keys or credential contents.
+                        val category = when (e) {
+                            is android.security.keystore.UserNotAuthenticatedException -> "تأیید هویت دستگاه"
+                            is android.security.keystore.KeyPermanentlyInvalidatedException -> "تغییر اثر انگشت ثبت‌شده"
+                            is java.security.GeneralSecurityException -> "سازگاری رمزنگاری دستگاه"
+                            else -> "ذخیره امن اطلاعات"
+                        }
+                        biometricNotice = "فعال‌سازی اثر انگشت انجام نشد ($category). اثر انگشت ثبت‌شده در تنظیمات گوشی را بررسی کنید؛ ورود با رمز ثابت همچنان فعال است."
                     } finally { auth.discardBiometricEnrollment() }
                 },
                 onDismiss = { biometricBusy = false; auth.discardBiometricEnrollment() }
@@ -235,7 +243,11 @@ class MainActivity : ComponentActivity() {
                         AlertDialog(
                             onDismissRequest = { auth.discardBiometricEnrollment() },
                             title = { Text("ورود با اثر انگشت") },
-                            text = { Text("مایلی دفعات بعد با اثر انگشت وارد شوی؟ اگر تأیید کنی، اطلاعات ورود با کلید امن دستگاه رمزنگاری و فقط روی همین گوشی ذخیره می‌شود. ورود همچنان توسط سرور بررسی می‌شود.") },
+                            text = { Text("مایلی دفعات بعد با اثر انگشت وارد شوی؟ اطلاعات ورود با کلید امن گوشی رمزنگاری می‌شود و فقط با تأیید خودت باز خواهد شد. اعتبار ورود همچنان توسط سرور بررسی می‌شود.") },
+                            shape = RoundedCornerShape(28.dp),
+                            containerColor = Color(0xFFF6FCFF),
+                            titleContentColor = Color(0xFF163A53),
+                            textContentColor = Color(0xFF476579),
                             confirmButton = {
                                 TextButton(onClick = {
                                     credentials?.let { enableBiometricLogin(it) }
@@ -251,8 +263,12 @@ class MainActivity : ComponentActivity() {
                     biometricNotice?.let { info ->
                         AlertDialog(
                             onDismissRequest = { biometricNotice = null },
-                            title = { Text("ورود امن سورا") },
+                            title = { Text("ورود امن سورا", fontWeight = FontWeight.Bold) },
                             text = { Text(info) },
+                            shape = RoundedCornerShape(28.dp),
+                            containerColor = Color(0xFFF6FCFF),
+                            titleContentColor = Color(0xFF163A53),
+                            textContentColor = Color(0xFF476579),
                             confirmButton = {
                                 TextButton(onClick = { biometricNotice = null }) { Text("متوجه شدم") }
                             }
