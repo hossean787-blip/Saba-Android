@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,7 +44,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SIMULATION, SETTINGS }
+private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -211,6 +212,8 @@ class MainActivity : ComponentActivity() {
                     } else if (auth.session != null) {
                         SabaApp(
                             onLogout = auth::logout,
+                            ownerName = auth.ownerName,
+                            ownerEmail = auth.ownerEmail,
                             biometricEnabled = biometricEnabled,
                             onDisableBiometrics = {
                                 biometricVault.clear()
@@ -282,10 +285,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SabaApp(
         onLogout: () -> Unit,
+        ownerName: String?,
+        ownerEmail: String?,
         biometricEnabled: Boolean,
         onDisableBiometrics: () -> Unit
     ) {
         var confirmLogout by remember { mutableStateOf(false) }
+        var accountMenuOpen by remember { mutableStateOf(false) }
         var confirmDisableBiometrics by remember { mutableStateOf(false) }
         if (confirmDisableBiometrics) AlertDialog(
             onDismissRequest = { confirmDisableBiometrics = false },
@@ -376,7 +382,9 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(page) {
             if (page != Page.INVOICES) newInvoiceRequest = 0
         }
-        BackHandler(enabled = page != Page.DASHBOARD && !editing) { if (!busy) page = Page.DASHBOARD }
+        BackHandler(enabled = page != Page.DASHBOARD && !editing) {
+            if (!busy) page = if (page == Page.APP_SETTINGS) Page.SETTINGS else Page.DASHBOARD
+        }
 
         MaterialTheme(shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), colorScheme = lightColorScheme(
             primary = Color(0xFF075F91), onPrimary = Color.White,
@@ -391,17 +399,46 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.imePadding(),
                     topBar = {
                         Surface(shadowElevation = 5.dp, color = Color(0xFF06192C)) {
-                            Box(Modifier.statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp)) {
-                                SuraBrandBanner(
-                                    subtitle = when (page) {
-                                        Page.DASHBOARD -> "داشبورد صورتحساب‌های الکترونیکی"
-                                        Page.COMPANIES -> "مدیریت مودیان مالیاتی"
-                                        Page.INVOICES -> "صدور و مدیریت صورتحساب"
-                                        Page.CUSTOMERS -> "مدیریت مشتریان"
-                                        Page.SETTINGS -> "حساب کاربری و تنظیمات"
-                                        else -> "سامانه صورتحساب سورا"
-                                    }, compact = true
-                                )
+                            Row(Modifier.fillMaxWidth().statusBarsPadding()
+                                    .padding(horizontal = 11.dp, vertical = 8.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Box(Modifier.weight(1f)) {
+                                    SuraBrandBanner(
+                                        subtitle = when (page) {
+                                            Page.DASHBOARD -> "داشبورد صورتحساب‌های الکترونیکی"
+                                            Page.COMPANIES -> "مدیریت مودیان مالیاتی"
+                                            Page.INVOICES -> "صدور و مدیریت صورتحساب"
+                                            Page.CUSTOMERS -> "مدیریت مشتریان"
+                                            Page.SETTINGS -> "حساب کاربری"
+                                            Page.APP_SETTINGS -> "تنظیمات برنامه"
+                                            else -> "سامانه صورتحساب سورا"
+                                        }, compact = true
+                                    )
+                                }
+                                Box {
+                                    IconButton(
+                                        onClick = { accountMenuOpen = true },
+                                        enabled = !editing && !busy,
+                                        modifier = Modifier.size(47.dp)
+                                    ) {
+                                        Icon(Icons.Default.Menu, contentDescription = "باز کردن منوی کاربری",
+                                            tint = Color(0xFFDAEAF3), modifier = Modifier.size(28.dp))
+                                    }
+                                    DropdownMenu(expanded = accountMenuOpen,
+                                        onDismissRequest = { accountMenuOpen = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text("حساب کاربری") },
+                                            leadingIcon = { Icon(Icons.Default.AccountCircle, null) },
+                                            onClick = { accountMenuOpen = false; page = Page.SETTINGS }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("تنظیمات برنامه") },
+                                            leadingIcon = { Icon(Icons.Default.Settings, null) },
+                                            onClick = { accountMenuOpen = false; page = Page.APP_SETTINGS }
+                                        )
+                                    }
+                                }
                             }
                         }
                     },
@@ -502,14 +539,26 @@ class MainActivity : ComponentActivity() {
                             Page.SETTINGS -> AccountScreen(
                                 taxpayerCharge = current?.quota?.available ?: 0,
                                 ownerCharge = current?.wallet?.available ?: 0,
-                                fontScale = fontScale, busy = busy,
-                                onCharge = { page = Page.QUOTA },
+                                busy = busy,
+                                ownerName = ownerName,
+                                ownerEmail = ownerEmail,
+                                onTransferCharge = {
+                                    if (selectedCompanyId == null) {
+                                        page = Page.COMPANIES
+                                        notify("ابتدا یک مودی ثبت یا انتخاب کنید.")
+                                    } else page = Page.QUOTA
+                                },
+                                onLogout = { confirmLogout = true }
+                            )
+                            Page.APP_SETTINGS -> AppSettingsScreen(
+                                fontScale = fontScale,
+                                busy = busy,
                                 onFontScale = { fontScale = it },
                                 onCommitFontScale = { act { settings.setFontScale(fontScale) } },
                                 onResetFont = { fontScale = 1f; act { settings.setFontScale(1f) } },
-                                onLogout = { confirmLogout = true },
                                 biometricEnabled = biometricEnabled,
-                                onDisableBiometrics = { confirmDisableBiometrics = true }
+                                onDisableBiometrics = { confirmDisableBiometrics = true },
+                                onBackToAccount = { page = Page.SETTINGS }
                             )
                         }
                     }
