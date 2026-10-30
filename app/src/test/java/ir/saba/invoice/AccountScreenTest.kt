@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import ir.saba.invoice.ui.AccountScreen
+import ir.saba.invoice.ui.AppSettingsScreen
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -15,20 +16,57 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class AccountScreenTest {
     @get:Rule val compose = createComposeRule()
-    @Test fun settingsExpandAndChargeAndLogoutRemainReachable() {
+
+    @Test fun accountActionsAreTwoColumnsAndTransferAndLogoutAreFunctional() {
         var transfers = 0
         var logouts = 0
         compose.setContent { MaterialTheme {
-            AccountScreen(3, 7, 1f, false, { transfers++ }, {}, {}, {}, { logouts++ })
+            AccountScreen(3, 7, false, "مالک آزمایشی", "owner@example.com",
+                { transfers++ }, { logouts++ })
         } }
-        compose.onNodeWithText("تنظیمات نمایش").assertDoesNotExist()
-        compose.onNodeWithText("خروج از حساب").performClick()
-        assertEquals(1, logouts)
-        compose.onNodeWithText("تنظیمات برنامه").performClick()
+        val personal = compose.onNodeWithTag("personalInfo").assertExists()
+            .fetchSemanticsNode().boundsInRoot.top
+        val password = compose.onNodeWithTag("changePassword").assertExists()
+            .fetchSemanticsNode().boundsInRoot.top
+        assertTrue("First pair must share a row", kotlin.math.abs(personal - password) < 4f)
+        val mobile = compose.onNodeWithTag("changeMobile").assertExists()
+            .fetchSemanticsNode().boundsInRoot.top
+        val transfer = compose.onNodeWithTag("transferCharge").assertExists()
+            .fetchSemanticsNode().boundsInRoot.top
+        assertTrue("Second pair must share a row", kotlin.math.abs(mobile - transfer) < 4f)
+        compose.onNodeWithText("تنظیمات برنامه").assertDoesNotExist()
+        compose.onNodeWithTag("transferCharge").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, transfers) }
+        compose.onNodeWithTag("accountLogout").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, logouts) }
+    }
+
+    @Test fun verifiedProfileIsShownAndUnavailableBackendActionsDontPretendSuccess() {
+        compose.setContent { MaterialTheme {
+            AccountScreen(3, 7, false, "مالک آزمایشی", "owner@example.com", {}, {})
+        } }
+        compose.onNodeWithTag("personalInfo").performClick()
+        compose.onNodeWithText("اطلاعات شخصی مالک").assertExists()
+        compose.onNodeWithText("ایمیل حساب: owner@example.com").assertExists()
+        compose.onNodeWithText("متوجه شدم").performClick()
+        compose.onNodeWithTag("changePassword").performClick()
+        compose.onNodeWithText("تغییر رمز عبور").assertExists()
+        compose.onNodeWithText("این خدمت هنوز در سرور متصل نشده است", substring = true).assertExists()
+        compose.onNodeWithText("متوجه شدم").performClick()
+        compose.onNodeWithTag("purchaseCharge").performScrollTo().performClick()
+        compose.onNodeWithText("خرید واقعی فعال نیست", substring = true).assertExists()
+    }
+
+    @Test fun applicationSettingsRemainAccessibleAsSeparateScreen() {
+        var returns = 0
+        var scaleChanges = 0
+        compose.setContent { MaterialTheme {
+            AppSettingsScreen(1f, false, { scaleChanges++ }, {}, {}, true, {}, { returns++ })
+        } }
         compose.onNodeWithText("تنظیمات نمایش").assertExists()
-        compose.onAllNodesWithText("انتقال شارژ")[1].performScrollTo().performClick()
-        assertEquals(1, transfers)
-        compose.onNodeWithText("بستن تنظیمات برنامه").performScrollTo().performClick()
-        compose.onNodeWithText("تنظیمات نمایش").assertDoesNotExist()
+        compose.onNodeWithText("ورود با اثر انگشت").assertExists()
+        compose.onNodeWithText("غیرفعال‌کردن ورود با اثر انگشت").assertExists()
+        compose.onNodeWithText("بازگشت به حساب کاربری").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, returns) }
     }
 }

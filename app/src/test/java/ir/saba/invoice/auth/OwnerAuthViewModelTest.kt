@@ -38,6 +38,8 @@ class OwnerAuthViewModelTest {
         assertTrue(model.busy)
         advanceUntilIdle()
         assertNotNull(model.session)
+        assertEquals("owner@example.com", model.ownerEmail)
+        assertNull(model.ownerName)
         assertFalse(model.busy)
     }
     @Test fun failedLoginNeverUnlocksDashboard() = runTest(dispatcher) {
@@ -82,6 +84,8 @@ class OwnerAuthViewModelTest {
         model.register(form())
         advanceUntilIdle()
         assertNotNull(model.session)
+        assertEquals("Ali Ahmadi", model.ownerName)
+        assertEquals("owner@example.com", model.ownerEmail)
     }
     @Test fun successfulPasswordLoginOffersOptInButBiometricLoginDoesNot() = runTest(dispatcher) {
         val model = OwnerAuthViewModel(Fake())
@@ -115,6 +119,8 @@ class OwnerAuthViewModelTest {
         advanceUntilIdle()
         model.logout()
         assertNull(model.session)
+        assertNull(model.ownerEmail)
+        assertNull(model.ownerName)
         advanceUntilIdle()
         assertEquals("access", service.loggedOutToken)
         assertFalse(model.busy)
