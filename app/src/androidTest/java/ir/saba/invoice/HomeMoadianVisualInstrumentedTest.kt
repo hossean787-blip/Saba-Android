@@ -54,7 +54,7 @@ class HomeMoadianVisualInstrumentedTest {
         compose.onNodeWithText("صورتحساب 1000000001").assertExists()
     }
     @Test fun ownerAccountHubRendersActualTwoColumnCardsOnAndroid() {
-        compose.setContent { AuthTheme {
+        compose.setContent { MaterialTheme {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AccountScreen(
                     taxpayerCharge = 12L, ownerCharge = 36L, busy = false,
@@ -69,7 +69,7 @@ class HomeMoadianVisualInstrumentedTest {
     }
 
     @Test fun appSettingsAreSeparateFromOwnerAccountOnAndroid() {
-        compose.setContent { AuthTheme {
+        compose.setContent { MaterialTheme {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AppSettingsScreen(
                     fontScale = 1f, busy = false,
