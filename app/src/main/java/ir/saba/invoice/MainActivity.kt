@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.room.withTransaction
 import ir.saba.invoice.auth.RegistrationScreen
 import ir.saba.invoice.auth.OwnerLoginScreen
 import ir.saba.invoice.data.*
@@ -126,6 +127,7 @@ class MainActivity : ComponentActivity() {
         var companyMenu by remember { mutableStateOf(false) }
         var purchased by rememberSaveable { mutableStateOf("50") }
         var allocation by rememberSaveable { mutableStateOf("10") }
+        var transferOperationId by rememberSaveable(selectedCompanyId, allocation) { mutableStateOf("") }
         var newInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
@@ -134,8 +136,8 @@ class MainActivity : ComponentActivity() {
 
         suspend fun refreshCompany(id: Long) {
             val company = db.companyDao().byId(id) ?: error("شرکت پیدا نشد.")
-            val snapshot = CompanyData(id, db.customerDao().forCompany(id), db.invoiceDao().forCompany(id),
-                db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id))
+            val snapshot = db.withTransaction { CompanyData(id, db.customerDao().forCompany(id), db.invoiceDao().forCompany(id),
+                db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id)) }
             if (selectedCompanyId == id) data = snapshot
         }
         suspend fun refresh() {
@@ -241,7 +243,7 @@ class MainActivity : ComponentActivity() {
                                 customerCount = current?.customers?.size ?: 0,
                                 invoices = current?.invoices.orEmpty(),
                                 onSelectTaxpayer = { companyMenu = true },
-                                onNewInvoice = { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } },
+                                onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } } },
                                 onCustomers = { page = Page.CUSTOMERS },
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
@@ -261,7 +263,7 @@ class MainActivity : ComponentActivity() {
                                 CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
                             Page.INVOICES -> if (current != null) key(current.companyId) {
-                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest)
+                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
                                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -275,8 +277,9 @@ class MainActivity : ComponentActivity() {
                                     } }) { Text("ایجاد کیف آزمایشی") }
                                     OutlinedTextField(allocation, { allocation = it }, label = { Text("تعداد شارژ برای انتقال") }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
                                     Button(enabled = !busy && current.wallet != null, onClick = { act {
-                                        QuotaRepository(db).transferFromMaster(company.purchaserId, company.id, InvoiceInput.wholeNumber(allocation, "تخصیص"), java.util.UUID.randomUUID().toString())
-                                        refresh(); notify("شارژ با موفقیت به مودی منتقل شد.")
+                                        if (transferOperationId.isEmpty()) transferOperationId = java.util.UUID.randomUUID().toString()
+                                        QuotaRepository(db).transferFromMaster(company.purchaserId, company.id, InvoiceInput.wholeNumber(allocation, "تخصیص"), transferOperationId)
+                                        refresh(); transferOperationId = ""; notify("شارژ با موفقیت به مودی منتقل شد.")
                                     } }) { Text("تأیید انتقال شارژ") }
                                     Text("این سهمیه فقط محلی و آزمایشی است؛ خرید و مجوز تجاری فعال نیست.")
                                 }
@@ -317,6 +320,7 @@ class MainActivity : ComponentActivity() {
                                 androidx.compose.animation.AnimatedVisibility(visible = appSettingsExpanded) {
                                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
+                                        OutlinedButton(onClick = { page = Page.QUOTA }, modifier = Modifier.fillMaxWidth()) { Text("انتقال شارژ") }
                                         Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
                                 Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {

@@ -10,3 +10,6 @@ Next: diagnose latest CI, correct navigation request consumption and transfer re
 Files read: MainActivity.kt, ui/HomeDashboard.kt, ui/InvoiceScreen.kt, data/InvoiceRepository.kt, QuotaRepository.kt, QuotaDao.kt, previous checkpoint and workflow files.
 No new tests executed for this combined mission yet. Device Keystore and instrumentation remain unverified.
 Checkpoint cadence: immediately after safe small changes; reports only on new evidence. Keep work-in-progress off main when unsafe.
+
+## Home fixes
+Source baseline 9a666ba9. Current baseline CI: 153 tests / 134 passed / 19 failed, mostly obsolete quota fixtures. MainActivity atomic dashboard snapshot, retry-stable charge-transfer operation ID, explicit consumption acknowledgment for Home invoice request, charge shortcut inside settings. InvoiceScreen acknowledges parent request so switching taxpayer cannot replay it. Static call-site review done; runtime CI pending. Next: update quota fixtures without weakening assertions and add creation-policy regression tests.

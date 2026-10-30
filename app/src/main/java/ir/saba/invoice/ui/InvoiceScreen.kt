@@ -49,7 +49,8 @@ fun InvoiceScreen(
     onEditorActive: (Boolean) -> Unit,
     availableCharge: Long = 0,
     onNeedCharge: () -> Unit = {},
-    newInvoiceRequest: Int = 0
+    newInvoiceRequest: Int = 0,
+    onNewInvoiceRequestHandled: () -> Unit = {}
 ) {
     val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
@@ -76,6 +77,7 @@ fun InvoiceScreen(
     LaunchedEffect(newInvoiceRequest) {
         if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
             lastHandledNewInvoiceRequest = newInvoiceRequest
+            onNewInvoiceRequestHandled()
             if (availableCharge <= 0L) onNeedCharge()
             else {
                 invoiceId = null
