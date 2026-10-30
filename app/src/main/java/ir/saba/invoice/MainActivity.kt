@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SabaApp(onLogout: () -> Unit) {
         var confirmLogout by remember { mutableStateOf(false) }
+        var appSettingsExpanded by rememberSaveable { mutableStateOf(false) }
         if (confirmLogout) AlertDialog(
             onDismissRequest = { confirmLogout = false },
             title = { Text("خروج از حساب") },
@@ -210,7 +211,7 @@ class MainActivity : ComponentActivity() {
                         NavigationBar(containerColor = Color(0xFFE7F4FD), tonalElevation = 0.dp) {
                             listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
                                 Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
-                                Triple(Page.SETTINGS, "تنظیمات", Icons.Default.Settings)).forEach { (destination, title, icon) ->
+                                Triple(Page.SETTINGS, "حساب کاربری", Icons.Default.AccountCircle)).forEach { (destination, title, icon) ->
                                 NavigationBarItem(selected = page == destination, enabled = !editing && !busy,
                                     colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer),
                                     onClick = { page = destination }, icon = { Icon(icon, title) }, label = { Text(title, maxLines = 1) })
@@ -319,8 +320,13 @@ class MainActivity : ComponentActivity() {
                                             style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
-                                OutlinedButton(onClick = { confirmLogout = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("خروج از حساب") }
-                                Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                OutlinedButton(onClick = { appSettingsExpanded = !appSettingsExpanded }, modifier = Modifier.fillMaxWidth()) {
+                                    Text(if (appSettingsExpanded) "بستن تنظیمات برنامه ▲" else "تنظیمات برنامه ▼")
+                                }
+                                androidx.compose.animation.AnimatedVisibility(visible = appSettingsExpanded) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                                        Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
                                 Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                                     Column(Modifier.padding(16.dp)) {
@@ -336,6 +342,9 @@ class MainActivity : ComponentActivity() {
                                         Text("اتصال غیرفعال است؛ هیچ صورتحسابی ارسال نمی‌شود.")
                                         Text("ثبت محلی فاکتور از ارسال مالیاتی مستقل است.", style = MaterialTheme.typography.bodySmall)
                                     }
+                                }
+                                }
+                                OutlinedButton(onClick = { confirmLogout = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("خروج از حساب") }
                                 }
                             }
                         }
