@@ -25,3 +25,6 @@ Updated existing API29 emulator workflow to run on main for device-test/workflow
 
 ## Moadian focused review
 Preserved existing 17-field form and all eight guides. Replaced info glyph with requested question mark while preserving accessible field-specific description; added loading indicator; search now normalizes Persian/Arabic digits and Arabic kaf/yeh and includes economic identity. Private-key/ciphertext handling unchanged. Files: ui/MoadianScreen.kt. Static check: exactly eight help usages remain; functional device tests queued. Next: four-type real form create/edit verification and CI inspection.
+
+## Emulator setup failure diagnosed
+Run 41048322695 failed before any device test: android-actions/setup-android requested removed SDK package 'tools'. Same setup defect exists in duplicate moadian-verify workflow. Reused the already-working preinstalled SDK setup from android-build.yml; preserved actual test commands. Consolidated duplicate moadian-verify as a manual reusable entry instead of duplicating automatic JVM/device jobs on every app push. Device workflow remains automatic for its test/workflow changes and callable manually. No device tests executed yet. Next: inspect new run and continue independent tests.
