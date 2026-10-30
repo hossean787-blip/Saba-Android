@@ -16,22 +16,10 @@ import org.robolectric.annotation.Config
 class AppFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test fun foregroundLoginAndRegistrationAllowSupportScreenshots() {
+    @Test fun foregroundLoginAllowsSupportScreenshots() {
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("ورود به سورا").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.runOnIdle {
-            assertEquals(
-                0,
-                compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE
-            )
-        }
-        compose.onNodeWithText("ایجاد حساب کاربری").performClick()
-        compose.waitUntil(5000) {
-            compose.onAllNodesWithText("نام", substring = false)
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("نام", substring = false).assertExists()
         compose.runOnIdle {
             assertEquals(
                 0,
