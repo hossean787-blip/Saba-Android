@@ -53,6 +53,36 @@ class HomeMoadianVisualInstrumentedTest {
         compose.onNode(hasScrollAction()).performScrollToIndex(6)
         compose.onNodeWithText("صورتحساب 1000000001").assertExists()
     }
+    @Test fun ownerAccountHubRendersActualTwoColumnCardsOnAndroid() {
+        compose.setContent { AuthTheme {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                AccountScreen(
+                    taxpayerCharge = 12L, ownerCharge = 36L, busy = false,
+                    ownerName = "مالک آزمایشی", ownerEmail = "test-owner@example.invalid",
+                    onTransferCharge = {}, onLogout = {}
+                )
+            }
+        } }
+        compose.onNodeWithTag("personalInfo").assertExists()
+        compose.onNodeWithTag("transferCharge").assertExists()
+        screenshot("owner-account-emulator")
+    }
+
+    @Test fun appSettingsAreSeparateFromOwnerAccountOnAndroid() {
+        compose.setContent { AuthTheme {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                AppSettingsScreen(
+                    fontScale = 1f, busy = false,
+                    onFontScale = {}, onCommitFontScale = {}, onResetFont = {},
+                    biometricEnabled = true, onDisableBiometrics = {},
+                    onBackToAccount = {}
+                )
+            }
+        } }
+        compose.onNodeWithText("تنظیمات نمایش").assertExists()
+        screenshot("app-settings-emulator")
+    }
+
     @Test fun taxpayerFormAndTableRenderOnAndroid() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val db = Room.inMemoryDatabaseBuilder(context, SabaDatabase::class.java).build()
