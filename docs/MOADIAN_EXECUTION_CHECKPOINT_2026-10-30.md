@@ -57,3 +57,11 @@ Files: security/TaxpayerPrivateKey.kt, security/TaxpayerKeyVault.kt, data/Moadia
 Fixed: new form incorrectly inherited selected taxpayer values; new duplicate check incorrectly excluded selection; edit preserves existing ciphertext/logo/inactive fields.
 Tests: added parser rejection/self-check tests; CI result pending. Keystore hardware/device behavior not tested. No production readiness claim.
 Remaining: dependent province/county, logo import, inline help/errors, official current rules verification (search found conflicting/older material; do not certify), archive behavior, persistent drafts/configuration handling, owner separation, serial allocation integration, complete UI/CRUD/security tests. Continue from this commit on main. No data deleted.
+
+## Safe archive and form continuation
+Previous security commit: 1bb1b44d0a1a7878088da21b689b787b840f6994. Build/tests pending in GitHub Actions.
+Added reversible taxpayer deactivation; every row remains visible with inactive label; main selector excludes inactive taxpayers; historical Company/Customer/Invoice rows remain untouched. Saving an inactive taxpayer reactivates it.
+Submit/confirmation controls moved outside scrollable fields. Added field-specific guide dialogs, standard Material action icons and sky-blue application palette.
+Added MoadianPersistenceTest: reopen persistence, archive with invoice relations intact, isolation of details by Company.id, restoration, transaction rollback.
+Files: ui/MoadianScreen.kt, MainActivity.kt, test/data/MoadianPersistenceTest.kt, this report.
+Not yet verified: CI pending. Remaining acceptance gaps from previous checkpoint still apply; especially official rules, dependent selectors, inline errors/logo, authenticated owner partition and invoice sequence integration. Do not call this complete.

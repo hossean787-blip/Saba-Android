@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
         val savedFontScale by settings.fontScale.collectAsState(initial = fontScale)
         LaunchedEffect(savedFontScale) { fontScale = savedFontScale }
         var companies by remember { mutableStateOf(emptyList<Company>()) }
+        var inactiveCompanyIds by remember { mutableStateOf(emptySet<Long>()) }
         var selectedCompanyId by rememberSaveable { mutableStateOf<Long?>(null) }
         var data by remember { mutableStateOf<CompanyData?>(null) }
         var loading by remember { mutableStateOf(false) }
@@ -131,7 +132,9 @@ class MainActivity : ComponentActivity() {
         suspend fun refresh() {
             val rows = db.companyDao().all()
             companies = rows
-            val next = selectedCompanyId?.takeIf { id -> rows.any { it.id == id } } ?: rows.firstOrNull()?.id
+            inactiveCompanyIds = db.moadianDetailsDao().all().filter { it.inactive }.map { it.companyId }.toSet()
+            val activeRows = rows.filter { it.id !in inactiveCompanyIds }
+            val next = selectedCompanyId?.takeIf { id -> activeRows.any { it.id == id } } ?: activeRows.firstOrNull()?.id
             selectedCompanyId = next
             if (next != null) refreshCompany(next) else data = null
         }
@@ -163,10 +166,10 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = page != Page.DASHBOARD && !editing) { if (!busy) page = Page.DASHBOARD }
 
         MaterialTheme(shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), colorScheme = lightColorScheme(
-            primary = Color(0xFF6246AE), onPrimary = Color.White,
-            primaryContainer = Color(0xFFECE5FB), onPrimaryContainer = Color(0xFF25184D),
-            background = Color(0xFFF8F7FC), surface = Color.White,
-            onBackground = Color(0xFF1D1834), onSurface = Color(0xFF1D1834)
+            primary = Color(0xFF075F91), onPrimary = Color.White,
+            primaryContainer = Color(0xFFD9F1FF), onPrimaryContainer = Color(0xFF123C59),
+            background = Color(0xFFF2F9FF), surface = Color.White,
+            onBackground = Color(0xFF172C3D), onSurface = Color(0xFF172C3D)
         )) {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl,
@@ -186,7 +189,7 @@ class MainActivity : ComponentActivity() {
                                             Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب مودی", maxLines = 2)
                                         }
                                         DropdownMenu(companyMenu, { companyMenu = false }) {
-                                            companies.forEach { company -> DropdownMenuItem(text = { Text(company.name) }, onClick = {
+                                            companies.filter { it.id !in inactiveCompanyIds }.forEach { company -> DropdownMenuItem(text = { Text(company.name) }, onClick = {
                                                 selectedCompanyId = company.id; companyMenu = false
                                             }) }
                                         }
@@ -197,7 +200,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     bottomBar = {
-                        NavigationBar(containerColor = Color(0xFFF1ECF9), tonalElevation = 0.dp) {
+                        NavigationBar(containerColor = Color(0xFFE7F4FD), tonalElevation = 0.dp) {
                             listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
                                 Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
                                 Triple(Page.SETTINGS, "تنظیمات", Icons.Default.Settings)).forEach { (destination, title, icon) ->

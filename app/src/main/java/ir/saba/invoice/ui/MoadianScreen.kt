@@ -7,6 +7,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.provider.OpenableColumns
 import ir.saba.invoice.security.TaxpayerKeyVault
 import ir.saba.invoice.security.TaxpayerPrivateKey
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -183,9 +188,9 @@ fun MoadianScreen(
         Text("مودیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF168DC5))
         if (mode == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = { open("new") }, modifier = Modifier.weight(1f)) { Text("＋ جدید") }
-                OutlinedButton(onClick = { open("edit") }, modifier = Modifier.weight(1f)) { Text("✎ ویرایش") }
-                OutlinedButton(onClick = { open("delete") }, modifier = Modifier.weight(1f)) { Text("حذف") }
+                Button(onClick = { open("new") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Text("جدید") }
+                OutlinedButton(onClick = { open("edit") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Edit, null, Modifier.size(18.dp)); Text("ویرایش") }
+                OutlinedButton(onClick = { open("delete") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Delete, null, Modifier.size(18.dp)); Text("حذف") }
             }
             OutlinedTextField(query, { query = it }, label = { Text("جستجوی مودیان") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -201,11 +206,11 @@ fun MoadianScreen(
                     Surface(
                         color = if (selected) Color(0xFFD8F1FF) else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().clickable { selectedId = company.id; onSelect(company.id) }
+                        modifier = Modifier.fillMaxWidth().clickable { selectedId = company.id; if (detailRows.firstOrNull { it.companyId == company.id }?.inactive != true) onSelect(company.id) }
                     ) {
                         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text((index + 1).toString(), Modifier.weight(.5f))
-                            Text(company.name, Modifier.weight(2f))
+                            Text(company.name + if (detailRows.firstOrNull { it.companyId == company.id }?.inactive == true) " (غیرفعال)" else "", Modifier.weight(2f))
                             Text(when(detailRows.firstOrNull { it.companyId == company.id }?.taxpayerType) {
                                 "NATURAL" -> "حقیقی"
                                 "LEGAL" -> "حقوقی"
@@ -224,10 +229,27 @@ fun MoadianScreen(
             }
         } else if (mode == "delete") {
             AlertDialog(
-                onDismissRequest = ::close,
+                onDismissRequest = { if (!busy) close() },
                 title = { Text("حذف مودی") },
-                text = { Text("حذف فیزیکی مودی به دلیل ارتباط با صورتحساب‌ها غیرفعال است. اطلاعات حفظ می‌شود.") },
-                confirmButton = { TextButton(onClick = ::close) { Text("متوجه شدم") } }
+                text = { Text("مودی غیرفعال می‌شود؛ صورتحساب‌ها و سوابق آن حذف نمی‌شوند. با ویرایش و ذخیره، دوباره فعال خواهد شد.") },
+                confirmButton = { TextButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        try {
+                            val id = selectedId ?: return@launch
+                            db.withTransaction {
+                                val previous = db.moadianDetailsDao().byCompany(id) ?: MoadianDetails(companyId = id)
+                                db.moadianDetailsDao().upsert(previous.copy(inactive = true))
+                            }
+                            detailRows = db.moadianDetailsDao().all()
+                            onChanged()
+                            close()
+                            onNotice("مودی غیرفعال شد؛ سوابق محفوظ است.")
+                        } catch (_: Exception) { onNotice("غیرفعال‌سازی انجام نشد؛ دوباره تلاش کنید.") }
+                        finally { busy = false }
+                    }
+                }) { Text("تأیید غیرفعال‌سازی") } },
+                dismissButton = { TextButton(enabled = !busy, onClick = ::close) { Text("انصراف") } }
             )
         } else {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -243,21 +265,21 @@ fun MoadianScreen(
                 }
             }
             OutlinedTextField(name, { name = it }, label = { Text("نام *") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(economicId, { economicId = it }, label = { Text("شماره اقتصادی *") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(nationalId, { nationalId = it }, label = { Text("شناسه ملی *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(economicId, { economicId = it }, label = { MoadianHelpLabel("شماره اقتصادی *", "برای شخص حقوقی، شناسه ملی ۱۱ رقمی را وارد کنید. برای شخص حقیقی، شماره اقتصادی پرونده مالیاتی را وارد کنید؛ شناسه هویتی این فرم نیز باید همان شماره اقتصادی باشد. قواعد نهایی باید با اطلاعات کارپوشه تطبیق داده شوند.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(nationalId, { nationalId = it }, label = { MoadianHelpLabel("شناسه ملی *", "شناسه ملی، مدنی یا اتباع اجباری است. شناسه حقوقی ۱۱ رقمی است. برای شخص حقیقی در این فرم شماره اقتصادی را وارد کنید. شناسه باید متناسب با نوع مودی ۱۱، ۱۲ یا ۱۴ رقم باشد.") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(registrationNumber, { registrationNumber = it }, label = { Text("شماره ثبت") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(invoiceSerialStart, { invoiceSerialStart = it }, label = { Text("شروع سریال صورتحساب") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(referenceSerialStart, { referenceSerialStart = it }, label = { Text("شروع سریال صورتحساب ارجاعی") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(invoiceSerialStart, { invoiceSerialStart = it }, label = { MoadianHelpLabel("شروع سریال صورتحساب", "شماره شروع فاکتور داخلی سازمان شماست و باید ۱۰ رقم باشد. در صورت نداشتن سریال می‌توانید از 1000000001 شروع کنید.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(referenceSerialStart, { referenceSerialStart = it }, label = { MoadianHelpLabel("شروع سریال صورتحساب ارجاعی", "برای فاکتور اصلاحی، ابطالی و برگشت از فروش است. باید ۱۰ رقم و متفاوت از سریال اصلی باشد. نمونه: 2000000001.") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(phone, { phone = it }, label = { Text("تلفن") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(fax, { fax = it }, label = { Text("فکس") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(postalCode, { postalCode = it }, label = { Text("کدپستی *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(postalCode, { postalCode = it }, label = { MoadianHelpLabel("کدپستی *", "کدپستی باید ۱۰ رقم باشد. برای شعبه، کدپستی همان شعبه را وارد کنید.") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(province, { province = it }, label = { Text("استان *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(county, { county = it }, label = { Text("شهرستان *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(address, { address = it }, label = { Text("آدرس *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(mobile, { mobile = it }, label = { Text("شماره موبایل *") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(certificateExpiry, { certificateExpiry = it }, label = { Text("تاریخ انقضاء گواهی امضاء") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(fiscalMemoryId, { fiscalMemoryId = it }, label = { Text("شناسه یکتا *") }, modifier = Modifier.fillMaxWidth())
-            Text("کلید خصوصی (PrivateKey) *")
+            OutlinedTextField(certificateExpiry, { certificateExpiry = it }, label = { MoadianHelpLabel("تاریخ انقضاء گواهی امضاء", "صرفاً برای یادآوری است و اجباری نیست. تاریخ واقعی درج‌شده در گواهی را وارد کنید؛ اعتبار گواهی‌ها معمولاً تا دو سال است.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(fiscalMemoryId, { fiscalMemoryId = it }, label = { MoadianHelpLabel("شناسه یکتا *", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.") }, modifier = Modifier.fillMaxWidth())
+            MoadianHelpLabel("کلید خصوصی (PrivateKey) *", "متن کلید خصوصی را وارد کنید یا فایل را بارگذاری کنید. فقط یکی از دو روش استفاده می‌شود. بررسی ساختار به معنی تأیید تطابق با شناسه یکتا نیست.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; keyError = null }, label = { Text("ورود دستی") })
                 FilterChip(selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; keyError = null }, label = { Text("بارگذاری فایل") })
@@ -271,6 +293,7 @@ fun MoadianScreen(
                 Text(if (privateKey.isEmpty()) "انتخاب فایل کلید" else "فایل کلید دریافت شد")
             }
             keyError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (!pending) {
                 Button(onClick = {
@@ -320,7 +343,7 @@ fun MoadianScreen(
                                         db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
                                         val existing = db.moadianDetailsDao().byCompany(old.id)
                                         val encrypted = if (privateKey.isNotBlank()) vault.encrypt(old.id, privateKey) else storedKey
-                                        db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = existing?.inactive ?: false, logoUri = existing?.logoUri.orEmpty()))
+                                        db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false, logoUri = existing?.logoUri.orEmpty()))
                                     }
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()
@@ -332,11 +355,24 @@ fun MoadianScreen(
                             finally { busy = false }
                         }
                     }) { Text("تأیید") }
-                    OutlinedButton(onClick = { pending = false }) { Text("بازگشت") }
+                    OutlinedButton(enabled = !busy, onClick = { pending = false }) { Text("بازگشت") }
                 }
             }
-            TextButton(onClick = ::close) { Text("انصراف") }
-            }
+            TextButton(enabled = !busy, onClick = ::close) { Text("انصراف") }
         }
     }
+}
+
+@Composable
+private fun MoadianHelpLabel(label: String, guidance: String) {
+    var visible by remember { mutableStateOf(false) }
+    Row {
+        Text(label)
+        IconButton(onClick = { visible = true }, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Default.Info, contentDescription = "راهنمای " + label)
+        }
+    }
+    if (visible) AlertDialog(onDismissRequest = { visible = false },
+        title = { Text(label.removeSuffix(" *")) }, text = { Text(guidance) },
+        confirmButton = { TextButton(onClick = { visible = false }) { Text("متوجه شدم") } })
 }
