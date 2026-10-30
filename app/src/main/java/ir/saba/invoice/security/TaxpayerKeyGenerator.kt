@@ -3,6 +3,8 @@ package ir.saba.invoice.security
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.RSAPrivateCrtKey
+import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 
@@ -23,6 +25,20 @@ object TaxpayerKeyGenerator {
         )
         require(verified.encoded.contentEquals(pair.public.encoded))
         return Generated(pem("PRIVATE KEY", pair.private.encoded), pem("PUBLIC KEY", pair.public.encoded))
+    }
+
+    /** Re-create the public PEM from an encrypted-at-rest PKCS#8 RSA CRT private key.
+     *  Call only after the vault has decrypted the correct taxpayer's key.
+     */
+    fun publicPemFromPrivatePkcs8(pkcs8: ByteArray): String {
+        val privateKey = KeyFactory.getInstance("RSA")
+            .generatePrivate(PKCS8EncodedKeySpec(pkcs8)) as? RSAPrivateCrtKey
+            ?: throw IllegalArgumentException("Unsupported RSA private key format")
+        require(privateKey.modulus.bitLength() >= 2048)
+        val publicKey = KeyFactory.getInstance("RSA").generatePublic(
+            RSAPublicKeySpec(privateKey.modulus, privateKey.publicExponent)
+        )
+        return pem("PUBLIC KEY", publicKey.encoded)
     }
 
     private fun pem(label: String, bytes: ByteArray): String =
