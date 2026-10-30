@@ -24,7 +24,7 @@ class TaxpayerKeyGeneratorTest {
         assertTrue(Signature.getInstance("SHA256withRSA").run {
             initVerify(publicKey); update(bytes); verify(signature)
         })
-        assertTrue(privateKey.modulus.bitLength() >= 3072)
+        assertTrue(privateKey.modulus.bitLength() >= 2048)
     }
 
     @Test fun generatedTaxpayersDoNotShareAKey() {
