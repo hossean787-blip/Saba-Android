@@ -67,20 +67,20 @@ abstract class SabaDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""CREATE TABLE IF NOT EXISTS moadian_details (
                     companyId INTEGER NOT NULL PRIMARY KEY,
-                    taxpayerType TEXT NOT NULL DEFAULT 'UNSPECIFIED',
-                    registrationNumber TEXT NOT NULL DEFAULT '',
-                    invoiceSerialStart TEXT NOT NULL DEFAULT '',
-                    referenceSerialStart TEXT NOT NULL DEFAULT '',
-                    fax TEXT NOT NULL DEFAULT '',
-                    postalCode TEXT NOT NULL DEFAULT '',
-                    province TEXT NOT NULL DEFAULT '',
-                    county TEXT NOT NULL DEFAULT '',
-                    mobile TEXT NOT NULL DEFAULT '',
-                    logoUri TEXT NOT NULL DEFAULT '',
-                    certificateExpiry TEXT NOT NULL DEFAULT '',
-                    fiscalMemoryId TEXT NOT NULL DEFAULT '',
-                    keyCheckStatus TEXT NOT NULL DEFAULT 'UNCHECKED',
-                    inactive INTEGER NOT NULL DEFAULT 0
+                    taxpayerType TEXT NOT NULL,
+                    registrationNumber TEXT NOT NULL,
+                    invoiceSerialStart TEXT NOT NULL,
+                    referenceSerialStart TEXT NOT NULL,
+                    fax TEXT NOT NULL,
+                    postalCode TEXT NOT NULL,
+                    province TEXT NOT NULL,
+                    county TEXT NOT NULL,
+                    mobile TEXT NOT NULL,
+                    logoUri TEXT NOT NULL,
+                    certificateExpiry TEXT NOT NULL,
+                    fiscalMemoryId TEXT NOT NULL,
+                    keyCheckStatus TEXT NOT NULL,
+                    inactive INTEGER NOT NULL
                 )""".trimIndent())
             }
         }
