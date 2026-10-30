@@ -50,10 +50,24 @@ private data class CompanyData(
 class MainActivity : ComponentActivity() {
     private val db by lazy { SabaDatabase.getInstance(applicationContext) }
     private val settings by lazy { SabaPreferences(applicationContext) }
+    /**
+     * User-requested screenshots are allowed while the app is foregrounded,
+     * including on login/registration for troubleshooting. Hide app content in
+     * the Android recent-apps snapshot while the Activity is backgrounded.
+     * Password fields remain masked by default and never enter saved state.
+     */
+    override fun onResume() {
+        super.onResume()
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    override fun onPause() {
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Allow screenshots of ordinary app pages for support and bug reporting.
-        // Keep authentication screens protected while passwords may be visible.
         val auth = androidx.lifecycle.ViewModelProvider(this, object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
@@ -64,13 +78,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Always play once per cold Activity creation, not after a rotation.
             var showStartupMotion by remember { mutableStateOf(savedInstanceState == null) }
-            androidx.compose.runtime.SideEffect {
-                if (auth.session == null) {
-                    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-                } else {
-                    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-                }
-            }
             ir.saba.invoice.auth.AuthTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     BackHandler(enabled = !showStartupMotion && auth.session == null && auth.page == "register") {

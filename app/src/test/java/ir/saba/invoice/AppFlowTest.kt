@@ -2,6 +2,8 @@ package ir.saba.invoice
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import android.view.WindowManager
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,6 +15,26 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class AppFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test fun foregroundLoginAndRegistrationAllowSupportScreenshots() {
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("ورود به سورا").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle {
+            assertEquals(
+                0,
+                compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE
+            )
+        }
+        compose.onNodeWithText("ایجاد حساب کاربری").performClick()
+        compose.onNodeWithText("نام", substring = false).assertExists()
+        compose.runOnIdle {
+            assertEquals(
+                0,
+                compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE
+            )
+        }
+    }
 
     @Test fun unauthenticatedLaunchShowsOwnerLoginInsteadOfCompanyDashboard() {
         compose.waitUntil(15000) {
