@@ -32,8 +32,8 @@ object TaxpayerPrivateKey {
             val signature = Signature.getInstance("SHA256withRSA").run { initSign(key); update(challenge); sign() }
             require(Signature.getInstance("SHA256withRSA").run { initVerify(publicKey); update(challenge); verify(signature) })
             return key
-        } catch (_: Exception) {
-            throw IllegalArgumentException("ساختار کلید RSA معتبر نیست؛ کلید حداقل ۲۰۴۸ بیت لازم است.")
+        } catch (failure: Exception) {
+            throw IllegalArgumentException("ساختار کلید RSA معتبر نیست؛ کلید حداقل ۲۰۴۸ بیت لازم است. (" + failure.javaClass.simpleName + ")")
         }
     }
     private fun der(tag: Int, bytes: ByteArray): ByteArray {
