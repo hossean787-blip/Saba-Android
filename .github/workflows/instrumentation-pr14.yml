@@ -60,12 +60,17 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon
-      - name: Collect actual emulator UI captures
-        if: always()
+          script: |
+            set -e
+            ./gradlew :app:connectedDebugAndroidTest --no-daemon
+            # Pull files before android-emulator-runner shuts down the emulator.
+            mkdir -p app/build/emulator-screenshots
+            adb pull /sdcard/Android/data/ir.saba.invoice/files/screenshots/ app/build/emulator-screenshots/
+            test -s app/build/emulator-screenshots/screenshots/sura-intro-particles-emulator.png
+            test -s app/build/emulator-screenshots/screenshots/sura-intro-mark-emulator.png
+      - name: Verify captured emulator frames
         run: |
-          mkdir -p app/build/emulator-screenshots
-          adb pull /sdcard/Android/data/ir.saba.invoice/files/screenshots/ app/build/emulator-screenshots/ || true
+          find app/build/emulator-screenshots -type f -name '*.png' -printf '%f %s bytes\n'
       - name: Upload device test XML, logs and HTML
         if: always()
         uses: actions/upload-artifact@v4
