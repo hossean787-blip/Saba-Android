@@ -2,6 +2,10 @@ name: SURA signed APK (manual)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-signed-release.yml'
 
 permissions:
   contents: read
@@ -70,7 +74,11 @@ jobs:
           # Previous run failed on a stale KSP Room schema from Gradle cache.
           # Isolate release compilation from previously cached KSP symbol-processing state.
           export GRADLE_USER_HOME="${RUNNER_TEMP}/sura-release-gradle-home"
-          bash ./gradlew --no-daemon --no-build-cache clean :app:testDebugUnitTest :app:assembleRelease :app:lintRelease
+          # Compile debug and release in separate Gradle sessions to prevent
+          # Room's exportSchema writer from racing across build variants.
+          bash ./gradlew --no-daemon --no-build-cache clean :app:testDebugUnitTest
+          find app/schemas -type f -name '*.json' -size 0 -print -delete
+          bash ./gradlew --no-daemon --no-build-cache :app:assembleRelease :app:lintRelease
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
