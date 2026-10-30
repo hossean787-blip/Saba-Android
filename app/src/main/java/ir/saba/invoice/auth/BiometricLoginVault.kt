@@ -110,7 +110,9 @@ class BiometricLoginVault(context: Context) {
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
             .setUserAuthenticationRequired(true)
-            .setInvalidatedByBiometricEnrollment(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            spec.setInvalidatedByBiometricEnrollment(true)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             spec.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
         } else {
