@@ -305,9 +305,9 @@ fun MoadianScreen(
             OutlinedTextField(enabled = !busy && !pending, value = phone, onValueChange = { phone = MoadianFieldValidation.digits(it) }, label = { Text("تلفن") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(enabled = !busy && !pending, value = fax, onValueChange = { fax = MoadianFieldValidation.digits(it) }, label = { Text("فکس") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["postalCode"] != null, supportingText = { fieldErrors["postalCode"]?.let { Text(it) } }, value = postalCode, onValueChange = { postalCode = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("کدپستی *", "کدپستی باید ۱۰ رقم باشد. برای شعبه، کدپستی همان شعبه را وارد کنید.") }, modifier = Modifier.fillMaxWidth())
-            MoadianChoice("استان *", province, IranDivisions.counties.keys.toList()) { if (!busy && !pending) { province = it; county = "" } }
+            MoadianChoice("استان *", province, IranDivisions.counties.keys.toList(), enabled = !busy && !pending) { if (!busy && !pending) { province = it; county = "" } }
             fieldErrors["province"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            MoadianChoice("شهرستان *", county, IranDivisions.counties[province].orEmpty()) { if (!busy && !pending) county = it }
+            MoadianChoice("شهرستان *", county, IranDivisions.counties[province].orEmpty(), enabled = !busy && !pending) { if (!busy && !pending) county = it }
             fieldErrors["county"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["address"] != null, supportingText = { fieldErrors["address"]?.let { Text(it) } }, value = address, onValueChange = { address = it }, label = { Text("آدرس *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["mobile"] != null, supportingText = { fieldErrors["mobile"]?.let { Text(it) } }, value = mobile, onValueChange = { mobile = MoadianFieldValidation.digits(it) }, label = { Text("شماره موبایل *") }, modifier = Modifier.fillMaxWidth())
@@ -424,10 +424,10 @@ private fun MoadianHelpLabel(label: String, guidance: String) {
 }
 
 @Composable
-private fun MoadianChoice(label: String, value: String, options: List<String>, onChange: (String) -> Unit) {
+private fun MoadianChoice(label: String, value: String, options: List<String>, enabled: Boolean = true, onChange: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
-    OutlinedButton(onClick = { search = ""; expanded = true }, enabled = options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { search = ""; expanded = true }, enabled = enabled && options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
         Text(label + ": " + value.ifBlank { "انتخاب کنید" })
     }
     if (expanded) AlertDialog(onDismissRequest = { expanded = false },
@@ -437,7 +437,7 @@ private fun MoadianChoice(label: String, value: String, options: List<String>, o
                 OutlinedTextField(search, { search = it }, label = { Text("جستجو") }, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     itemsIndexed(options.filter { it.contains(search) }) { _, option ->
-                        TextButton(onClick = { onChange(option); expanded = false }, modifier = Modifier.fillMaxWidth()) { Text(option) }
+                        TextButton(enabled = enabled, onClick = { onChange(option); expanded = false }, modifier = Modifier.fillMaxWidth()) { Text(option) }
                     }
                 }
             }
