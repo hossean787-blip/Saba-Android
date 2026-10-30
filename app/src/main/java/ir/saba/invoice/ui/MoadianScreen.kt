@@ -411,8 +411,8 @@ fun MoadianScreen(
             logoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             MoadianHelpLabel("تاریخ انقضاء گواهی امضاء", "صرفاً برای یادآوری است و اجباری نیست. تاریخ واقعی درج‌شده در گواهی را وارد کنید؛ اعتبار گواهی‌ها معمولاً تا دو سال است.")
             OutlinedTextField(enabled = !busy && !pending, value = certificateExpiry, onValueChange = { certificateExpiry = it }, label = { Text("تاریخ انقضاء گواهی امضاء") }, modifier = Modifier.fillMaxWidth())
-            MoadianHelpLabel("شناسه یکتا *", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.")
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { Text("شناسه یکتا *") }, modifier = Modifier.fillMaxWidth())
+            MoadianHelpLabel("شناسه یکتا (پس از صدور)", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.")
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { Text("شناسه یکتا (پس از صدور)") }, modifier = Modifier.fillMaxWidth())
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
             MoadianHelpLabel("کلید خصوصی (PrivateKey) *", "متن کلید خصوصی را وارد کنید یا فایل را بارگذاری کنید. فقط یکی از دو روش استفاده می‌شود. بررسی ساختار به معنی تأیید تطابق با شناسه یکتا نیست.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -472,7 +472,7 @@ fun MoadianScreen(
                         check("invoiceSerialStart", MoadianFieldValidation.serial(invoiceSerialStart, "سریال اصلی"))
                         check("referenceSerialStart", MoadianFieldValidation.serial(referenceSerialStart, "سریال ارجاعی")
                             ?: MoadianFieldValidation.serialPair(invoiceSerialStart, referenceSerialStart))
-                        check("fiscalMemoryId", MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId))
+                        if (fiscalMemoryId.isNotBlank()) check("fiscalMemoryId", MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId))
                     }
                     error = if (fieldErrors.isEmpty()) null else "موارد مشخص‌شده در فرم را اصلاح کنید."
                     if (error == null && keyError == null) pending = true
@@ -579,6 +579,6 @@ private suspend fun ensureUniqueTaxpayer(db: SabaDatabase, excludedId: Long?, na
         throw DuplicateTaxpayer("nationalId")
     if (rows.any { MoadianFieldValidation.digits(it.economicId) == MoadianFieldValidation.digits(economic) })
         throw DuplicateTaxpayer("economicId")
-    if (db.moadianDetailsDao().all().any { it.companyId != excludedId && MoadianFieldValidation.digits(it.fiscalMemoryId).equals(MoadianFieldValidation.digits(fiscal), ignoreCase = true) })
+    if (fiscal.isNotBlank() && db.moadianDetailsDao().all().any { it.companyId != excludedId && MoadianFieldValidation.digits(it.fiscalMemoryId).equals(MoadianFieldValidation.digits(fiscal), ignoreCase = true) })
         throw DuplicateTaxpayer("fiscalMemoryId")
 }
