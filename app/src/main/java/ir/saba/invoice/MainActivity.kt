@@ -324,7 +324,6 @@ class MainActivity : ComponentActivity() {
         var busy by remember { mutableStateOf(false) }
         var editing by rememberSaveable { mutableStateOf(false) }
         var loadError by remember { mutableStateOf("") }
-        var companyMenu by remember { mutableStateOf(false) }
         var purchased by rememberSaveable { mutableStateOf("50") }
         var allocation by rememberSaveable { mutableStateOf("10") }
         var transferOperationId by rememberSaveable(selectedCompanyId, allocation) { mutableStateOf("") }
@@ -403,17 +402,6 @@ class MainActivity : ComponentActivity() {
                                         else -> "سامانه صورتحساب سورا"
                                     }, compact = true
                                 )
-                                DropdownMenu(expanded = companyMenu, onDismissRequest = { companyMenu = false }) {
-                                    companies.filter { it.id !in inactiveCompanyIds }.forEach { company ->
-                                        DropdownMenuItem(text = { Text(company.name) }, onClick = {
-                                            selectedCompanyId = company.id
-                                            companyMenu = false
-                                        })
-                                    }
-                                    if (companies.isEmpty()) DropdownMenuItem(
-                                        text = { Text("ابتدا یک مودی ثبت کنید") }, onClick = { companyMenu = false }
-                                    )
-                                }
                             }
                         }
                     },
@@ -446,7 +434,9 @@ class MainActivity : ComponentActivity() {
                                 queueCount = current?.invoices?.count { it.status == "QUEUED" } ?: 0,
                                 customerCount = current?.customers?.size ?: 0,
                                 invoices = current?.invoices.orEmpty(),
-                                onSelectTaxpayer = { companyMenu = true },
+                                onSelectTaxpayer = { page = Page.COMPANIES },
+                                taxpayerOptions = companies.filter { it.id !in inactiveCompanyIds }.map { it.id to it.name },
+                                onTaxpayerSelected = { selectedCompanyId = it },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } } },
                                 onCustomers = { page = Page.CUSTOMERS },
                                 onInvoices = { page = Page.INVOICES },

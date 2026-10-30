@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,8 +48,11 @@ fun HomeDashboard(
     onNewInvoice: () -> Unit,
     onCustomers: () -> Unit,
     onInvoices: () -> Unit,
-    onCharge: () -> Unit
+    onCharge: () -> Unit,
+    taxpayerOptions: List<Pair<Long, String>> = emptyList(),
+    onTaxpayerSelected: (Long) -> Unit = {}
 ) {
+    var selectorOpen by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -64,8 +67,11 @@ fun HomeDashboard(
             }
         }
         item {
+            Box(Modifier.fillMaxWidth()) {
             Card(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onSelectTaxpayer),
+                modifier = Modifier.fillMaxWidth().clickable {
+                    if (taxpayerOptions.isNotEmpty()) selectorOpen = true else onSelectTaxpayer()
+                },
                 shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = midnight),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -100,6 +106,15 @@ fun HomeDashboard(
                             color = Color(0xFFBBD7E2), style = MaterialTheme.typography.bodySmall)
                     }
                 }
+            }
+            DropdownMenu(expanded = selectorOpen, onDismissRequest = { selectorOpen = false }) {
+                taxpayerOptions.forEach { (id, label) ->
+                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                        selectorOpen = false
+                        onTaxpayerSelected(id)
+                    })
+                }
+            }
             }
         }
         item {
