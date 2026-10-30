@@ -172,6 +172,9 @@ class MainActivity : ComponentActivity() {
             catch (e: Exception) { loadError = "اطلاعات شرکت بارگذاری نشد: ${e.message.orEmpty()}" }
             finally { loading = false }
         }
+        LaunchedEffect(page) {
+            if (page != Page.INVOICES) newInvoiceRequest = 0
+        }
         BackHandler(enabled = page != Page.DASHBOARD && !editing) { if (!busy) page = Page.DASHBOARD }
 
         MaterialTheme(shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), colorScheme = lightColorScheme(
