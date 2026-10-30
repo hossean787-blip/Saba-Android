@@ -62,7 +62,8 @@ class MainActivity : ComponentActivity() {
                 )) as T
         })[ir.saba.invoice.auth.OwnerAuthViewModel::class.java]
         setContent {
-            var showStartupMotion by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+            // Always play once per cold Activity creation, not after a rotation.
+            var showStartupMotion by remember { mutableStateOf(savedInstanceState == null) }
             androidx.compose.runtime.SideEffect {
                 if (auth.session == null) {
                     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
