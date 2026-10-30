@@ -71,8 +71,11 @@ fun InvoiceScreen(
     var confirmation by rememberSaveable { mutableStateOf("") }
     var actionId by rememberSaveable { mutableStateOf<Long?>(null) }
 
+    // Consume each Home quick-action request once; do not reopen the editor on recomposition.
+    var lastHandledNewInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(newInvoiceRequest) {
-        if (newInvoiceRequest > 0 && !busy) {
+        if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
+            lastHandledNewInvoiceRequest = newInvoiceRequest
             if (availableCharge <= 0L) onNeedCharge()
             else {
                 invoiceId = null
