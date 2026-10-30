@@ -1,6 +1,12 @@
 package ir.saba.invoice
 
 import android.os.Bundle
+import android.os.Build
+import android.os.CancellationSignal
+import android.hardware.biometrics.BiometricPrompt
+import javax.crypto.Cipher
+import ir.saba.invoice.auth.BiometricLoginVault
+import ir.saba.invoice.auth.StoredLoginCredentials
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -50,6 +56,49 @@ private data class CompanyData(
 class MainActivity : ComponentActivity() {
     private val db by lazy { SabaDatabase.getInstance(applicationContext) }
     private val settings by lazy { SabaPreferences(applicationContext) }
+    private val biometricVault by lazy { BiometricLoginVault(applicationContext) }
+    private var biometricEnabled by mutableStateOf(false)
+    private var biometricBusy by mutableStateOf(false)
+    private var biometricNotice by mutableStateOf<String?>(null)
+
+    private fun showBiometricPrompt(
+        cipher: Cipher, title: String,
+        onSuccess: (Cipher) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            onDismiss()
+            return
+        }
+        var complete = false
+        fun finish(action: () -> Unit) {
+            if (!complete) { complete = true; action() }
+        }
+        try {
+            val prompt = BiometricPrompt.Builder(this)
+                .setTitle(title)
+                .setSubtitle("هویت خود را با اثر انگشت تأیید کنید.")
+                .setNegativeButton("انصراف", mainExecutor) { _, _ -> finish(onDismiss) }
+                .build()
+            prompt.authenticate(
+                BiometricPrompt.CryptoObject(cipher),
+                CancellationSignal(),
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        val verified = result.cryptoObject?.cipher
+                        if (verified == null) finish(onDismiss)
+                        else finish { onSuccess(verified) }
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        finish(onDismiss)
+                    }
+                }
+            )
+        } catch (_: Exception) { finish(onDismiss) }
+    }
+
     /**
      * User-requested screenshots are allowed while the app is foregrounded,
      * including on login/registration for troubleshooting. Hide app content in
@@ -75,9 +124,74 @@ class MainActivity : ComponentActivity() {
                     "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/saba-auth-gateway"
                 )) as T
         })[ir.saba.invoice.auth.OwnerAuthViewModel::class.java]
+        biometricEnabled = biometricVault.isEnabled()
+
+        fun unlockWithBiometric() {
+            if (auth.busy || biometricBusy || !biometricEnabled) return
+            val cipher = try { biometricVault.prepareUnlock() } catch (_: Exception) {
+                biometricVault.clear()
+                biometricEnabled = false
+                biometricNotice = "اثر انگشت این دستگاه تغییر کرده یا کلید معتبر نیست؛ با رمز ثابت وارد شوید."
+                return
+            }
+            biometricBusy = true
+            showBiometricPrompt(cipher, "ورود به سورا",
+                onSuccess = { verified ->
+                    biometricBusy = false
+                    try {
+                        val credentials = biometricVault.unlock(verified)
+                        auth.login(credentials.email, credentials.password, fromBiometric = true) {
+                            biometricVault.clear()
+                            biometricEnabled = false
+                        }
+                    } catch (_: Exception) {
+                        biometricVault.clear()
+                        biometricEnabled = false
+                        biometricNotice = "ورود با اثر انگشت در دسترس نیست؛ با ایمیل و رمز ثابت وارد شوید."
+                    }
+                },
+                onDismiss = { biometricBusy = false }
+            )
+        }
+
+        fun enableBiometricLogin(credentials: StoredLoginCredentials) {
+            if (biometricBusy || !biometricVault.canOffer()) {
+                auth.discardBiometricEnrollment()
+                return
+            }
+            val cipher = try { biometricVault.prepareEnrollment() } catch (_: Exception) {
+                auth.discardBiometricEnrollment()
+                biometricNotice = "اثر انگشت این گوشی برای ورود امن آماده نیست."
+                return
+            }
+            biometricBusy = true
+            showBiometricPrompt(cipher, "فعال‌سازی ورود با اثر انگشت",
+                onSuccess = { verified ->
+                    biometricBusy = false
+                    try {
+                        biometricVault.enroll(verified, credentials)
+                        biometricEnabled = biometricVault.isEnabled()
+                        biometricNotice = if (biometricEnabled)
+                            "ورود با اثر انگشت فعال شد؛ دفعه بعد بدون تایپ رمز می‌توانید وارد شوید."
+                            else "فعال‌سازی اثر انگشت انجام نشد."
+                    } catch (_: Exception) {
+                        biometricVault.clear()
+                        biometricEnabled = false
+                        biometricNotice = "ذخیره امن ورود با اثر انگشت انجام نشد."
+                    } finally { auth.discardBiometricEnrollment() }
+                },
+                onDismiss = { biometricBusy = false; auth.discardBiometricEnrollment() }
+            )
+        }
+
         setContent {
             // Always play once per cold Activity creation, not after a rotation.
             var showStartupMotion by remember { mutableStateOf(savedInstanceState == null) }
+            LaunchedEffect(auth.biometricEnrollment, auth.session, biometricEnabled) {
+                if (auth.session != null && auth.biometricEnrollment != null &&
+                    (!biometricVault.canOffer() || biometricEnabled)
+                ) auth.discardBiometricEnrollment()
+            }
             ir.saba.invoice.auth.AuthTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     BackHandler(enabled = !showStartupMotion && auth.session == null && auth.page == "register") {
@@ -86,7 +200,14 @@ class MainActivity : ComponentActivity() {
                     if (showStartupMotion) {
                         StartupLogoMotion(onFinished = { showStartupMotion = false })
                     } else if (auth.session != null) {
-                        SabaApp(onLogout = auth::logout)
+                        SabaApp(
+                            onLogout = auth::logout,
+                            biometricEnabled = biometricEnabled,
+                            onDisableBiometrics = {
+                                biometricVault.clear()
+                                biometricEnabled = false
+                            }
+                        )
                     } else if (auth.page == "register") {
                         RegistrationScreen(
                             onSubmit = auth::register,
@@ -99,8 +220,41 @@ class MainActivity : ComponentActivity() {
                             onPasswordLogin = auth::login,
                             onSmsLogin = {},
                             onRegister = { auth.navigate("register") },
-                            busy = auth.busy,
-                            error = auth.message
+                            busy = auth.busy || biometricBusy,
+                            error = auth.message,
+                            biometricEnabled = biometricEnabled,
+                            onBiometricLogin = { unlockWithBiometric() }
+                        )
+                    }
+                    if (!showStartupMotion && auth.session != null &&
+                        auth.biometricEnrollment != null && !biometricBusy &&
+                        !biometricEnabled && biometricVault.canOffer()
+                    ) {
+                        val credentials = auth.biometricEnrollment
+                        AlertDialog(
+                            onDismissRequest = { auth.discardBiometricEnrollment() },
+                            title = { Text("ورود با اثر انگشت") },
+                            text = { Text("مایلی دفعات بعد با اثر انگشت وارد شوی؟ اگر تأیید کنی، اطلاعات ورود با کلید امن دستگاه رمزنگاری و فقط روی همین گوشی ذخیره می‌شود. ورود همچنان توسط سرور بررسی می‌شود.") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    credentials?.let { enableBiometricLogin(it) }
+                                }) { Text("فعال‌سازی") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { auth.discardBiometricEnrollment() }) {
+                                    Text("فعلاً نه")
+                                }
+                            }
+                        )
+                    }
+                    biometricNotice?.let { info ->
+                        AlertDialog(
+                            onDismissRequest = { biometricNotice = null },
+                            title = { Text("ورود امن سورا") },
+                            text = { Text(info) },
+                            confirmButton = {
+                                TextButton(onClick = { biometricNotice = null }) { Text("متوجه شدم") }
+                            }
                         )
                     }
                 }
@@ -109,8 +263,27 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun SabaApp(onLogout: () -> Unit) {
+    private fun SabaApp(
+        onLogout: () -> Unit,
+        biometricEnabled: Boolean,
+        onDisableBiometrics: () -> Unit
+    ) {
         var confirmLogout by remember { mutableStateOf(false) }
+        var confirmDisableBiometrics by remember { mutableStateOf(false) }
+        if (confirmDisableBiometrics) AlertDialog(
+            onDismissRequest = { confirmDisableBiometrics = false },
+            title = { Text("غیرفعال‌کردن اثر انگشت") },
+            text = { Text("اطلاعات رمزنگاری‌شده ورود از این گوشی حذف می‌شود. دفعات بعد با رمز ثابت وارد شوید.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDisableBiometrics = false
+                    onDisableBiometrics()
+                }) { Text("غیرفعال‌کردن") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDisableBiometrics = false }) { Text("انصراف") }
+            }
+        )
         if (confirmLogout) AlertDialog(
             onDismissRequest = { confirmLogout = false },
             title = { Text("خروج از حساب") },
@@ -323,7 +496,9 @@ class MainActivity : ComponentActivity() {
                                 onFontScale = { fontScale = it },
                                 onCommitFontScale = { act { settings.setFontScale(fontScale) } },
                                 onResetFont = { fontScale = 1f; act { settings.setFontScale(1f) } },
-                                onLogout = { confirmLogout = true }
+                                onLogout = { confirmLogout = true },
+                                biometricEnabled = biometricEnabled,
+                                onDisableBiometrics = { confirmDisableBiometrics = true }
                             )
                         }
                     }
