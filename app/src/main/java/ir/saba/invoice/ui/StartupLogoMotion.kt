@@ -20,9 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.R
@@ -31,6 +31,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -44,8 +45,11 @@ fun StartupLogoMotion(onFinished: () -> Unit) {
     val original = remember(context) {
         BitmapFactory.decodeResource(context.resources, R.drawable.sura_brand_icon)
     }
-    val particles = remember(original) {
-        if (original != null) sampleLogoParticles(original) else emptyList()
+    // The launcher icon keeps its approved framed appearance; the cinematic
+    // introduction extracts only the central mark (without frame or navy matte).
+    val symbol = remember(original) { original?.let(::cutoutSuraSymbol) }
+    val particles = remember(symbol) {
+        if (symbol != null) sampleLogoParticles(symbol) else emptyList()
     }
     val progress = remember { Animatable(0f) }
     var finished by remember { mutableStateOf(false) }
@@ -112,16 +116,18 @@ fun StartupLogoMotion(onFinished: () -> Unit) {
             }
         }
 
-        Image(
-            painter = painterResource(R.drawable.sura_brand_icon),
-            contentDescription = "نشان سورا",
-            modifier = Modifier.align(Alignment.Center).size(emblemSide).graphicsLayer {
-                alpha = reveal
-                val scale = 0.94f + 0.06f * reveal
-                scaleX = scale
-                scaleY = scale
-            }
-        )
+        if (symbol != null) {
+            Image(
+                bitmap = symbol.asImageBitmap(),
+                contentDescription = "نشان سورا",
+                modifier = Modifier.align(Alignment.Center).size(emblemSide).graphicsLayer {
+                    alpha = reveal
+                    val scale = 0.94f + 0.06f * reveal
+                    scaleX = scale
+                    scaleY = scale
+                }
+            )
+        }
 
         Text(
             text = "صبا گستر اراک",
@@ -151,6 +157,34 @@ internal fun logoGather(progress: Float): Float {
 
 internal fun logoReveal(progress: Float): Float =
     ((progress - 0.62f) / 0.30f).coerceIn(0f, 1f)
+
+/**
+ * Builds an in-memory, square transparent mark from the source launcher image.
+ * Keep the original icon untouched: its gold launcher border is intentionally
+ * absent from the animation. The crop excludes the frame before alpha keying.
+ */
+internal fun cutoutSuraSymbol(icon: Bitmap): Bitmap {
+    val side = min(icon.width, icon.height)
+    val crop = (side * 0.12f).toInt()
+    val outputSide = side - crop * 2
+    if (outputSide <= 0) return icon
+    val offsetX = (icon.width - outputSide) / 2
+    val offsetY = (icon.height - outputSide) / 2
+    val source = IntArray(outputSide * outputSide)
+    val result = IntArray(source.size)
+    icon.getPixels(source, 0, outputSide, offsetX, offsetY, outputSide, outputSide)
+    source.forEachIndexed { index, pixel ->
+        val strength = max(AndroidColor.red(pixel), AndroidColor.green(pixel))
+        // The original matte is dark navy; preserve fully saturated gold and cyan
+        // while feathering only their anti-aliased edges.
+        val opacity = ((strength - 45) * 4).coerceIn(0, 255)
+        val alpha = opacity * AndroidColor.alpha(pixel) / 255
+        result[index] = (pixel and 0x00FFFFFF) or (alpha shl 24)
+    }
+    return Bitmap.createBitmap(outputSide, outputSide, Bitmap.Config.ARGB_8888).apply {
+        setPixels(result, 0, outputSide, 0, 0, outputSide, outputSide)
+    }
+}
 
 private data class LogoParticle(
     val targetX: Float, val targetY: Float,
