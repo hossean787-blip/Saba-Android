@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Delete
 import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
@@ -18,6 +19,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Update suspend fun update(item: Company)
     @Query("SELECT * FROM companies ORDER BY name") suspend fun all(): List<Company>
     @Query("SELECT * FROM companies WHERE id = :id LIMIT 1") suspend fun byId(id: Long): Company?
+}
+
+@Dao interface MoadianDetailsDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(item: MoadianDetails)
+    @Query("SELECT * FROM moadian_details WHERE companyId = :companyId LIMIT 1")
+    suspend fun byCompany(companyId: Long): MoadianDetails?
+    @Query("SELECT * FROM moadian_details ORDER BY companyId")
+    suspend fun all(): List<MoadianDetails>
 }
 
 @Dao interface CustomerDao {
@@ -44,7 +53,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class], version = 2, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class], version = 3, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
         internal val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -54,15 +63,37 @@ abstract class SabaDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_moadian_simulations_invoiceId` ON `moadian_simulations` (`invoiceId`)")
             }
         }
+        internal val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS moadian_details (
+                    companyId INTEGER NOT NULL PRIMARY KEY,
+                    taxpayerType TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+                    registrationNumber TEXT NOT NULL DEFAULT '',
+                    invoiceSerialStart TEXT NOT NULL DEFAULT '',
+                    referenceSerialStart TEXT NOT NULL DEFAULT '',
+                    fax TEXT NOT NULL DEFAULT '',
+                    postalCode TEXT NOT NULL DEFAULT '',
+                    province TEXT NOT NULL DEFAULT '',
+                    county TEXT NOT NULL DEFAULT '',
+                    mobile TEXT NOT NULL DEFAULT '',
+                    logoUri TEXT NOT NULL DEFAULT '',
+                    certificateExpiry TEXT NOT NULL DEFAULT '',
+                    fiscalMemoryId TEXT NOT NULL DEFAULT '',
+                    keyCheckStatus TEXT NOT NULL DEFAULT 'UNCHECKED',
+                    inactive INTEGER NOT NULL DEFAULT 0
+                )""".trimIndent())
+            }
+        }
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
         }
     }
+    abstract fun moadianDetailsDao(): MoadianDetailsDao
     abstract fun companyDao(): CompanyDao
     abstract fun customerDao(): CustomerDao
     abstract fun invoiceDao(): InvoiceDao
