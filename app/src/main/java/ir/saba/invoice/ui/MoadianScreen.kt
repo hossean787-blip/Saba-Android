@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.background
@@ -257,7 +258,7 @@ fun MoadianScreen(
             }
             OutlinedTextField(enabled = !busy && !pending, value = query,
                 onValueChange = { query = it }, label = { Text("جستجوی مودیان") },
-                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "جستجو") },
                 shape = RoundedCornerShape(17.dp),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
             Text("فهرست مودیان", fontWeight = FontWeight.Bold,
