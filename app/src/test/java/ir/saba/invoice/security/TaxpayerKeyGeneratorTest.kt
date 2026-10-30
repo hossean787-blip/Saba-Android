@@ -25,6 +25,8 @@ class TaxpayerKeyGeneratorTest {
             initVerify(publicKey); update(bytes); verify(signature)
         })
         assertTrue(privateKey.modulus.bitLength() >= 2048)
+        assertEquals(generated.publicPem,
+            TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(privateKey.encoded))
     }
 
     @Test fun generatedTaxpayersDoNotShareAKey() {
