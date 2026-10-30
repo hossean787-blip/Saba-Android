@@ -60,6 +60,7 @@ fun MoadianScreen(
     val vault = remember { TaxpayerKeyVault() }
     var privateKey by remember { mutableStateOf("") }
     var generatedPublicKey by remember { mutableStateOf("") }
+    var publicKeyExported by remember { mutableStateOf(false) }
     var generatedNotice by remember { mutableStateOf<String?>(null) }
     val exportPublicKey = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null && generatedPublicKey.isNotBlank()) {
@@ -67,6 +68,7 @@ fun MoadianScreen(
                 context.contentResolver.openOutputStream(uri)?.use { output ->
                     output.write(generatedPublicKey.toByteArray(Charsets.US_ASCII))
                 } ?: throw IllegalStateException()
+                publicKeyExported = true
                 generatedNotice = "کلید عمومی ذخیره شد؛ آن را در کارپوشه مالیاتی طبق روش ارسال انتخابی ثبت کنید."
             } catch (_: Exception) { generatedNotice = "ذخیره کلید عمومی انجام نشد؛ دوباره تلاش کنید." }
         }
@@ -168,14 +170,14 @@ fun MoadianScreen(
     )
     var error by remember { mutableStateOf<String?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
-    fun close() { privateKey = ""; generatedPublicKey = ""; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
+    fun close() { privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
         val current = if (which == "new") null else companies.firstOrNull { it.id == selectedId }
         if (which != "new" && current == null) {
             onNotice("ابتدا یک مودی از جدول انتخاب کنید.")
             return
         }
-        privateKey = ""; generatedPublicKey = ""; generatedNotice = null; storedKey = null; keyError = null; keyMode = "manual"; logoPath = ""; logoError = null; fieldErrors = emptyMap()
+        privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedNotice = null; storedKey = null; keyError = null; keyMode = "manual"; logoPath = ""; logoError = null; fieldErrors = emptyMap()
         loadFailed = false
         name = current?.name.orEmpty()
         nationalId = current?.nationalId.orEmpty()
@@ -435,10 +437,10 @@ fun MoadianScreen(
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
             MoadianHelpLabel("کلید خصوصی (PrivateKey) *", "متن کلید خصوصی را وارد کنید یا فایل را بارگذاری کنید. فقط یکی از دو روش استفاده می‌شود. بررسی ساختار به معنی تأیید تطابق با شناسه یکتا نیست.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(enabled = !busy && !pending, selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; generatedPublicKey = ""; keyError = null }, label = { Text("ورود دستی") })
-                FilterChip(enabled = !busy && !pending, selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; generatedPublicKey = ""; keyError = null }, label = { Text("بارگذاری فایل") })
+                FilterChip(enabled = !busy && !pending, selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; keyError = null }, label = { Text("ورود دستی") })
+                FilterChip(enabled = !busy && !pending, selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; keyError = null }, label = { Text("بارگذاری فایل") })
             }
-            OutlinedButton(enabled = !busy && !pending, onClick = {
+            OutlinedButton(enabled = !busy && !pending && storedKey == null, onClick = {
                 busy = true
                 scope.launch {
                     try {
@@ -447,6 +449,7 @@ fun MoadianScreen(
                         }
                         privateKey = pair.privatePem
                         generatedPublicKey = pair.publicPem
+                        publicKeyExported = false
                         keyMode = "generated"
                         keyError = null
                         generatedNotice = "کلید RSA اختصاصی ساخته شد. پیش از ثبت فرم، کلید عمومی را ذخیره کنید. کلید خصوصی هنگام ثبت مودی در حافظه رمزنگاری می‌شود."
@@ -455,6 +458,7 @@ fun MoadianScreen(
                     } finally { busy = false }
                 }
             }) { Text("تولید جفت کلید اختصاصی RSA") }
+            if (storedKey != null) Text("برای محافظت از شناسه مالیاتی و دسترسی‌های موجود، ساخت کلید جدید برای مودی دارای کلید غیرفعال است. تعویض کلید نیازمند فرایند جداگانه و تأیید مجدد کارپوشه است.", style = MaterialTheme.typography.bodySmall)
             if (generatedPublicKey.isNotBlank()) {
                 OutlinedButton(enabled = !busy && !pending, onClick = {
                     exportPublicKey.launch("sura-taxpayer-public-key.pem")
@@ -494,6 +498,9 @@ fun MoadianScreen(
                         if (fiscalMemoryId.isNotBlank()) check("fiscalMemoryId", MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId))
                     }
                     error = if (fieldErrors.isEmpty()) null else "موارد مشخص‌شده در فرم را اصلاح کنید."
+                    if (keyMode == "generated" && !publicKeyExported) {
+                        keyError = "ابتدا فایل کلید عمومی را در مکان امن ذخیره کنید؛ بدون آن امکان ثبت کلید در کارپوشه ندارید."
+                    }
                     if (error == null && keyError == null) pending = true
                 }, enabled = !busy && !loadFailed, modifier = Modifier.fillMaxWidth()) {
                     Text(if (mode == "new") "ثبت مودی" else "ذخیره تغییرات")
