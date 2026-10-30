@@ -229,32 +229,19 @@ class MainActivity : ComponentActivity() {
                         val current = data?.takeIf { it.companyId == selectedCompanyId }
                         val company = companies.firstOrNull { it.id == selectedCompanyId }
                         when (page) {
-                            Page.DASHBOARD -> LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-                                item {
-                                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                                        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            Text("مدیریت هوشمند صورتحساب", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                            Text(company?.name ?: "ابتدا مودی خود را ثبت کنید.")
-                                            Button(onClick = { page = if (company == null) Page.COMPANIES else Page.INVOICES }) { Text(if (company == null) "ثبت مودی" else "ورود به فاکتورها") }
-                                        }
-                                    }
-                                }
-                                item {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Box(Modifier.weight(1f)) { DashboardCard("مودیان", companies.size.toString()) { page = Page.COMPANIES } }
-                                        Box(Modifier.weight(1f)) { DashboardCard("مشتریان", (current?.customers?.size ?: 0).toString()) { page = Page.CUSTOMERS } }
-                                    }
-                                }
-                                item {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Box(Modifier.weight(1f)) { DashboardCard("پیش‌نویس‌ها", (current?.invoices?.count { it.status == "DRAFT" } ?: 0).toString()) { page = Page.INVOICES } }
-                                        Box(Modifier.weight(1f)) { DashboardCard("نهایی محلی", (current?.invoices?.count { it.status == "FINALIZED" } ?: 0).toString()) { page = Page.INVOICES } }
-                                    }
-                                }
-                                item { OutlinedButton(onClick = { page = Page.QUOTA }) { Text("مدیریت سهمیه") } }
-                                item { OutlinedButton(onClick = { page = Page.SIMULATION }) { Text("آزمایش آفلاین مؤدیان") } }
-                                item { Text("ارسال واقعی مؤدیان فعال نیست؛ نهایی‌شدن سند به معنی ارسال نیست.") }
-                            }
+                            Page.DASHBOARD -> HomeDashboard(
+                                taxpayerName = company?.name,
+                                remainingCharge = current?.quota?.available ?: 0L,
+                                draftCount = current?.invoices?.count { it.status == "DRAFT" } ?: 0,
+                                queueCount = current?.invoices?.count { it.status == "QUEUED" } ?: 0,
+                                customerCount = current?.customers?.size ?: 0,
+                                invoices = current?.invoices.orEmpty(),
+                                onSelectTaxpayer = { companyMenu = true },
+                                onNewInvoice = { page = if (company == null) Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) Page.QUOTA else Page.INVOICES },
+                                onCustomers = { page = Page.CUSTOMERS },
+                                onInvoices = { page = Page.INVOICES },
+                                onCharge = { page = Page.QUOTA }
+                            )
                             Page.COMPANIES -> {
                                 if (companies.isEmpty() && !loading) {
                                     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
