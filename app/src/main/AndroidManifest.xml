@@ -7,10 +7,10 @@
         android:usesCleartextTraffic="false"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/sura_brand_icon"
-        android:label="سورا"
+        android:icon="@mipmap/ic_launcher"
+        android:label="صورتحساب سورا"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.Sura">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

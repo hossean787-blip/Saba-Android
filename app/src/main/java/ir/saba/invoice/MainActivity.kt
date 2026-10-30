@@ -375,25 +375,29 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.imePadding(),
                     topBar = {
-                        Surface(shadowElevation = 2.dp) {
-                            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text("سورا", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                        Text("مدیریت فاکتور و مؤدیان", style = MaterialTheme.typography.labelSmall)
+                        Surface(shadowElevation = 5.dp, color = Color(0xFF06192C)) {
+                            Box(Modifier.statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp)) {
+                                SuraBrandBanner(
+                                    subtitle = when (page) {
+                                        Page.DASHBOARD -> "داشبورد صورتحساب‌های الکترونیکی"
+                                        Page.COMPANIES -> "مدیریت مودیان مالیاتی"
+                                        Page.INVOICES -> "صدور و مدیریت صورتحساب"
+                                        Page.CUSTOMERS -> "مدیریت مشتریان"
+                                        Page.SETTINGS -> "حساب کاربری و تنظیمات"
+                                        else -> "سامانه صورتحساب سورا"
+                                    }, compact = true
+                                )
+                                DropdownMenu(expanded = companyMenu, onDismissRequest = { companyMenu = false }) {
+                                    companies.filter { it.id !in inactiveCompanyIds }.forEach { company ->
+                                        DropdownMenuItem(text = { Text(company.name) }, onClick = {
+                                            selectedCompanyId = company.id
+                                            companyMenu = false
+                                        })
                                     }
-                                    Box(Modifier.weight(1f)) {
-                                        TextButton(enabled = !editing && !busy, onClick = { companyMenu = true }) {
-                                            Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب مودی", maxLines = 2)
-                                        }
-                                        DropdownMenu(companyMenu, { companyMenu = false }) {
-                                            companies.filter { it.id !in inactiveCompanyIds }.forEach { company -> DropdownMenuItem(text = { Text(company.name) }, onClick = {
-                                                selectedCompanyId = company.id; companyMenu = false
-                                            }) }
-                                        }
-                                    }
+                                    if (companies.isEmpty()) DropdownMenuItem(
+                                        text = { Text("ابتدا یک مودی ثبت کنید") }, onClick = { companyMenu = false }
+                                    )
                                 }
-                                if (editing) Text("برای تغییر بخش یا شرکت، ابتدا فرم را ذخیره یا ببندید.", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     },

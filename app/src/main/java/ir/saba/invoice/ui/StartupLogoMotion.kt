@@ -130,9 +130,9 @@ fun StartupLogoMotion(onFinished: () -> Unit) {
         }
 
         Text(
-            text = "صبا گستر اراک",
+            text = "به دنیای سورا خوش آمدید",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.SemiBold,
             color = Color(0xFFE2EAF4).copy(alpha = reveal),
             modifier = Modifier.align(Alignment.BottomCenter)
                 .padding(bottom = 90.dp)
