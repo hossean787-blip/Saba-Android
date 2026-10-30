@@ -273,19 +273,19 @@ class MainActivity : ComponentActivity() {
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
                                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("مدیریت سهمیه محلی", style = MaterialTheme.typography.titleLarge)
+                                    Text("انتقال شارژ مودی", style = MaterialTheme.typography.titleLarge)
                                     Text("شرکت: ${company.name}")
-                                    Text("آزاد حساب اصلی: ${current.wallet?.available ?: 0}")
-                                    Text("باقی‌مانده شرکت: ${current.quota?.available ?: 0}")
+                                    Text("شارژ آزاد حساب مالک: ${current.wallet?.available ?: 0}")
+                                    Text("شارژ باقی‌مانده مودی: ${current.quota?.available ?: 0}")
                                     OutlinedTextField(purchased, { purchased = it }, label = { Text("تعداد سهمیه آزمایشی") }, enabled = !busy && current.wallet == null, singleLine = true, modifier = Modifier.fillMaxWidth())
                                     Button(enabled = !busy && current.wallet == null, onClick = { act {
                                         QuotaRepository(db).initializeWallet(company.purchaserId, InvoiceInput.wholeNumber(purchased, "سهمیه")); refresh(); notify("کیف آزمایشی ایجاد شد.")
                                     } }) { Text("ایجاد کیف آزمایشی") }
-                                    OutlinedTextField(allocation, { allocation = it }, label = { Text("تعداد تخصیص به این شرکت") }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                    OutlinedTextField(allocation, { allocation = it }, label = { Text("تعداد شارژ برای انتقال") }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
                                     Button(enabled = !busy && current.wallet != null, onClick = { act {
                                         QuotaRepository(db).transferFromMaster(company.purchaserId, company.id, InvoiceInput.wholeNumber(allocation, "تخصیص"), java.util.UUID.randomUUID().toString())
-                                        refresh(); notify("سهمیه تخصیص یافت.")
-                                    } }) { Text("تخصیص سهمیه") }
+                                        refresh(); notify("شارژ با موفقیت به مودی منتقل شد.")
+                                    } }) { Text("تأیید انتقال شارژ") }
                                     Text("این سهمیه فقط محلی و آزمایشی است؛ خرید و مجوز تجاری فعال نیست.")
                                 }
                             } else CompanyPlaceholder(loading)
@@ -311,6 +311,14 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else CompanyPlaceholder(loading)
                             Page.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                ElevatedCard(onClick = { page = Page.QUOTA }, modifier = Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("انتقال شارژ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                        Text("انتقال از شارژ آزاد حساب مالک به مودی انتخاب‌شده")
+                                        Text("شارژ مودی: ${current?.quota?.available ?: 0}  |  شارژ آزاد مالک: ${current?.wallet?.available ?: 0}",
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
                                 OutlinedButton(onClick = { confirmLogout = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("خروج از حساب") }
                                 Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
