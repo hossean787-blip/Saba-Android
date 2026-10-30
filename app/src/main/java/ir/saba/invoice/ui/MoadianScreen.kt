@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.provider.OpenableColumns
+import android.content.Intent
+import android.net.Uri
 import ir.saba.invoice.security.TaxpayerKeyVault
 import ir.saba.invoice.security.TaxpayerPrivateKey
 import ir.saba.invoice.security.TaxpayerKeyGenerator
@@ -411,6 +413,23 @@ fun MoadianScreen(
             logoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             MoadianHelpLabel("تاریخ انقضاء گواهی امضاء", "صرفاً برای یادآوری است و اجباری نیست. تاریخ واقعی درج‌شده در گواهی را وارد کنید؛ اعتبار گواهی‌ها معمولاً تا دو سال است.")
             OutlinedTextField(enabled = !busy && !pending, value = certificateExpiry, onValueChange = { certificateExpiry = it }, label = { Text("تاریخ انقضاء گواهی امضاء") }, modifier = Modifier.fillMaxWidth())
+            ElevatedCard(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE7F5FA))) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("دریافت شناسه یکتای حافظه مالیاتی", fontWeight = FontWeight.Bold, color = Color(0xFF16384E))
+                    Text("برای دریافت شناسه باید با حساب مؤدی وارد کارپوشه رسمی سازمان امور مالیاتی شوید. سورا شناسه صادر نمی‌کند. پس از صدور، شناسه را در کادر زیر وارد کنید.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(
+                        enabled = !busy && !pending,
+                        onClick = {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://my.tax.gov.ir")))
+                            } catch (_: Exception) {
+                                onNotice("مرورگر در دسترس نیست؛ نشانی my.tax.gov.ir را دستی باز کنید.")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("ورود به کارپوشه و دریافت شناسه یکتا") }
+                }
+            }
             MoadianHelpLabel("شناسه یکتا (پس از صدور)", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.")
             OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { Text("شناسه یکتا (پس از صدور)") }, modifier = Modifier.fillMaxWidth())
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
