@@ -48,3 +48,12 @@ Tests: NOT RUN. No APK. Format validator is not yet connected to the form. Full 
 
 ## Form/Room integration checkpoint
 Code commit e43d5166b1e3ed0767e7b38da0de7b3e77083b3b: ui/MoadianScreen.kt now loads/saves non-secret details in a Room transaction together with Company create/edit, restores fields on edit, displays stored taxpayer type and applies preliminary format checks. No private key material is accepted or persisted. No tests/build executed. Critical outstanding: missing logo picker, key vault/import and mandatory key, dependent province/county, type-specific official tax rules, inline help and error presentation, safe deactivation, full acceptance tests. Current partial registration must not be represented as compliant or production-ready. Last code commit e43d5166. Next action build and resolve compilation/migration failures before extending features.
+
+## Resumed implementation — security foundation
+Baseline f7ca32a had 137 executed tests: 136 passed, DatabaseMigrationTest failed because it registered only 1->2 against schema 3. fea86c1 corrects the fixture and full migration path; CI pending.
+RSA parser commit ed5001b adds bounded PKCS8/PKCS1 parsing, minimum 2048-bit RSA and local signing/verification. This is not fiscal-memory matching.
+This change adds Android Keystore AES-256-GCM encryption bound to Company.id via AAD; Room migration 3->4 adds nullable ciphertext; manual/file entry shares one draft value (64 KiB limit). Private key is never saveable state or logged. Key status remains NEEDS_MATCH, never VERIFIED.
+Files: security/TaxpayerPrivateKey.kt, security/TaxpayerKeyVault.kt, data/MoadianDetails.kt, data/SabaDatabase.kt, ui/MoadianScreen.kt, security/TaxpayerPrivateKeyTest.kt, data/DatabaseMigrationTest.kt.
+Fixed: new form incorrectly inherited selected taxpayer values; new duplicate check incorrectly excluded selection; edit preserves existing ciphertext/logo/inactive fields.
+Tests: added parser rejection/self-check tests; CI result pending. Keystore hardware/device behavior not tested. No production readiness claim.
+Remaining: dependent province/county, logo import, inline help/errors, official current rules verification (search found conflicting/older material; do not certify), archive behavior, persistent drafts/configuration handling, owner separation, serial allocation integration, complete UI/CRUD/security tests. Continue from this commit on main. No data deleted.

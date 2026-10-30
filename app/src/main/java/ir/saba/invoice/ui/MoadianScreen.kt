@@ -1,5 +1,12 @@
 package ir.saba.invoice.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import android.provider.OpenableColumns
+import ir.saba.invoice.security.TaxpayerKeyVault
+import ir.saba.invoice.security.TaxpayerPrivateKey
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +42,42 @@ fun MoadianScreen(
     onEditing: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val vault = remember { TaxpayerKeyVault() }
+    var privateKey by remember { mutableStateOf("") }
+    var storedKey by remember { mutableStateOf<String?>(null) }
+    var keyMode by remember { mutableStateOf("manual") }
+    var keyError by remember { mutableStateOf<String?>(null) }
+    val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val filename = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                    if (it.moveToFirst()) it.getString(0) else ""
+                }.orEmpty()
+                require(filename.substringAfterLast('.').lowercase() in setOf("txt", "pem", "key"))
+                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                    val out = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(4096)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        require(out.size() + n <= TaxpayerPrivateKey.MAX_BYTES)
+                        out.write(buffer, 0, n)
+                    }
+                    out.toByteArray()
+                } ?: throw IllegalArgumentException()
+                try {
+                    val pem = bytes.toString(Charsets.UTF_8)
+                    TaxpayerPrivateKey.parse(pem)
+                    privateKey = pem
+                    keyError = null
+                } finally { bytes.fill(0) }
+            } catch (_: Exception) {
+                privateKey = ""
+                keyError = "فایل معتبر txt، pem یا key با کلید خصوصی RSA و حداکثر ۶۴ کیلوبایت انتخاب کنید."
+            }
+        }
+    }
     var query by remember { mutableStateOf("") }
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var mode by remember { mutableStateOf<String?>(null) }
@@ -79,13 +122,14 @@ fun MoadianScreen(
     )
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    fun close() { mode = null; pending = false; error = null; onEditing(false) }
+    fun close() { privateKey = ""; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
-        val current = companies.firstOrNull { it.id == selectedId }
+        val current = if (which == "new") null else companies.firstOrNull { it.id == selectedId }
         if (which != "new" && current == null) {
             onNotice("ابتدا یک مودی از جدول انتخاب کنید.")
             return
         }
+        privateKey = ""; storedKey = null; keyError = null; keyMode = "manual"
         name = current?.name.orEmpty()
         nationalId = current?.nationalId.orEmpty()
         economicId = current?.economicId.orEmpty()
@@ -108,6 +152,8 @@ fun MoadianScreen(
         onEditing(true)
         if (which == "edit" && current != null) {
             scope.launch {
+                busy = true
+                try {
                 val d = db.moadianDetailsDao().byCompany(current.id)
                 if (d != null) {
                     kind = when(d.taxpayerType) {
@@ -126,7 +172,10 @@ fun MoadianScreen(
                     mobile = d.mobile
                     certificateExpiry = d.certificateExpiry
                     fiscalMemoryId = d.fiscalMemoryId
+                    storedKey = d.encryptedPrivateKey
                 }
+                } catch (_: Exception) { error = "بازیابی اطلاعات انجام نشد؛ فرم را ببندید و دوباره تلاش کنید." }
+                finally { busy = false }
             }
         }
     }
@@ -164,7 +213,11 @@ fun MoadianScreen(
                                 "FOREIGN" -> "اتباع"
                                 else -> "نامشخص"
                             }, Modifier.weight(1.3f))
-                            Text("بررسی‌نشده", Modifier.weight(1.3f))
+                            Text(when(detailRows.firstOrNull { it.companyId == company.id }?.keyCheckStatus) {
+                                "NEEDS_MATCH" -> "نیازمند بررسی تطابق"
+                                "INVALID" -> "نامعتبر"
+                                else -> "بررسی‌نشده"
+                            }, Modifier.weight(1.3f))
                         }
                     }
                 }
@@ -179,7 +232,7 @@ fun MoadianScreen(
         } else {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (mode == "new") "ثبت مودی جدید" else "ویرایش مودی", style = MaterialTheme.typography.titleLarge)
-            Text("اطلاعات تکمیلی مالیاتی و کلید خصوصی تا پیاده‌سازی ذخیره‌سازی امن قابل ثبت نیستند.", color = MaterialTheme.colorScheme.error)
+            Text("اطلاعات به‌صورت محلی ذخیره می‌شوند؛ تطابق کلید با شناسه یکتا نیازمند استعلام جداگانه است.", style = MaterialTheme.typography.bodySmall)
             Text("نوع مودی")
             val kinds = listOf("شخص حقیقی", "شخص حقوقی", "مشارکت مدنی", "اتباع غیرایرانی")
             kinds.chunked(2).forEach { pair ->
@@ -204,10 +257,26 @@ fun MoadianScreen(
             OutlinedTextField(mobile, { mobile = it }, label = { Text("شماره موبایل *") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(certificateExpiry, { certificateExpiry = it }, label = { Text("تاریخ انقضاء گواهی امضاء") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(fiscalMemoryId, { fiscalMemoryId = it }, label = { Text("شناسه یکتا *") }, modifier = Modifier.fillMaxWidth())
-            Text("کلید خصوصی: ورود و ذخیره تا پیاده‌سازی رمزنگاری امن غیرفعال است.", color = MaterialTheme.colorScheme.error)
+            Text("کلید خصوصی (PrivateKey) *")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; keyError = null }, label = { Text("ورود دستی") })
+                FilterChip(selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; keyError = null }, label = { Text("بارگذاری فایل") })
+            }
+            if (storedKey != null) Text("کلید رمزنگاری‌شده موجود است؛ ورود کلید جدید آن را جایگزین می‌کند.")
+            if (keyMode == "manual") OutlinedTextField(privateKey, {
+                if (it.length <= TaxpayerPrivateKey.MAX_BYTES) privateKey = it
+            }, label = { Text("متن کلید خصوصی") }, visualTransformation = PasswordVisualTransformation(),
+                isError = keyError != null, modifier = Modifier.fillMaxWidth())
+            else OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }, enabled = !busy) {
+                Text(if (privateKey.isEmpty()) "انتخاب فایل کلید" else "فایل کلید دریافت شد")
+            }
+            keyError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (!pending) {
                 Button(onClick = {
+                    keyError = if (privateKey.isBlank()) {
+                        if (storedKey == null) "کلید خصوصی اجباری است." else null
+                    } else try { TaxpayerPrivateKey.parse(privateKey); null } catch (e: IllegalArgumentException) { e.message }
                     error = when {
                         name.isBlank() -> "نام مودی اجباری است."
                         nationalId.isBlank() -> "شناسه ملی اجباری است."
@@ -222,7 +291,7 @@ fun MoadianScreen(
                         MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId) != null -> MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId)
                         else -> null
                     }
-                    if (error == null) pending = true
+                    if (error == null && keyError == null) pending = true
                 }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                     Text(if (mode == "new") "ثبت مودی" else "ذخیره تغییرات")
                 }
@@ -233,13 +302,13 @@ fun MoadianScreen(
                         busy = true
                         scope.launch {
                             try {
-                                if (companies.any { it.nationalId == nationalId && it.id != selectedId }) {
+                                if (db.companyDao().all().any { it.nationalId == nationalId.trim() && (mode == "new" || it.id != selectedId) }) {
                                     error = "این شناسه ملی قبلاً ثبت شده است."
                                     pending = false
                                 } else if (mode == "new") {
                                     db.withTransaction {
                                         val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
-                                        db.moadianDetailsDao().upsert(details(id))
+                                        db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = vault.encrypt(id, privateKey), keyCheckStatus = "NEEDS_MATCH"))
                                     }
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()
@@ -249,7 +318,9 @@ fun MoadianScreen(
                                     val old = db.companyDao().byId(selectedId ?: -1) ?: throw IllegalStateException("مودی یافت نشد.")
                                     db.withTransaction {
                                         db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
-                                        db.moadianDetailsDao().upsert(details(old.id))
+                                        val existing = db.moadianDetailsDao().byCompany(old.id)
+                                        val encrypted = if (privateKey.isNotBlank()) vault.encrypt(old.id, privateKey) else storedKey
+                                        db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = existing?.inactive ?: false, logoUri = existing?.logoUri.orEmpty()))
                                     }
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()

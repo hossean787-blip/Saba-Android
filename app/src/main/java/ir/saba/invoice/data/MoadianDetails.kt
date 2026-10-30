@@ -19,5 +19,6 @@ data class MoadianDetails(
     val certificateExpiry: String = "",
     val fiscalMemoryId: String = "",
     val keyCheckStatus: String = "UNCHECKED",
-    val inactive: Boolean = false
+    val inactive: Boolean = false,
+    val encryptedPrivateKey: String? = null
 )
