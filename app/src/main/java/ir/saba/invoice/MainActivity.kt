@@ -183,7 +183,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     Box(Modifier.weight(1f)) {
                                         TextButton(enabled = !editing && !busy, onClick = { companyMenu = true }) {
-                                            Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب شرکت", maxLines = 2)
+                                            Text(companies.firstOrNull { it.id == selectedCompanyId }?.name ?: "انتخاب مودی", maxLines = 2)
                                         }
                                         DropdownMenu(companyMenu, { companyMenu = false }) {
                                             companies.forEach { company -> DropdownMenuItem(text = { Text(company.name) }, onClick = {
@@ -198,7 +198,7 @@ class MainActivity : ComponentActivity() {
                     },
                     bottomBar = {
                         NavigationBar(containerColor = Color(0xFFF1ECF9), tonalElevation = 0.dp) {
-                            listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "شرکت‌ها", Icons.Default.AccountCircle),
+                            listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
                                 Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
                                 Triple(Page.SETTINGS, "تنظیمات", Icons.Default.Settings)).forEach { (destination, title, icon) ->
                                 NavigationBarItem(selected = page == destination, enabled = !editing && !busy,
@@ -223,14 +223,14 @@ class MainActivity : ComponentActivity() {
                                     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                                         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                             Text("مدیریت هوشمند صورتحساب", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                            Text(company?.name ?: "ابتدا شرکت خود را ثبت کنید.")
-                                            Button(onClick = { page = if (company == null) Page.COMPANIES else Page.INVOICES }) { Text(if (company == null) "ثبت شرکت" else "ورود به فاکتورها") }
+                                            Text(company?.name ?: "ابتدا مودی خود را ثبت کنید.")
+                                            Button(onClick = { page = if (company == null) Page.COMPANIES else Page.INVOICES }) { Text(if (company == null) "ثبت مودی" else "ورود به فاکتورها") }
                                         }
                                     }
                                 }
                                 item {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Box(Modifier.weight(1f)) { DashboardCard("شرکت‌ها", companies.size.toString()) { page = Page.COMPANIES } }
+                                        Box(Modifier.weight(1f)) { DashboardCard("مودیان", companies.size.toString()) { page = Page.COMPANIES } }
                                         Box(Modifier.weight(1f)) { DashboardCard("مشتریان", (current?.customers?.size ?: 0).toString()) { page = Page.CUSTOMERS } }
                                     }
                                 }
@@ -352,7 +352,7 @@ private fun CompanyPlaceholder(loading: Boolean) {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                if (loading) "لطفاً کمی صبر کنید." else "از بخش شرکت‌ها، مؤدی خود را ثبت یا انتخاب کنید تا اطلاعات این قسمت نمایش داده شود.",
+                if (loading) "لطفاً کمی صبر کنید." else "از بخش مودیان، مودی خود را ثبت یا انتخاب کنید تا اطلاعات این قسمت نمایش داده شود.",
                 style = MaterialTheme.typography.bodyMedium
             )
         }
