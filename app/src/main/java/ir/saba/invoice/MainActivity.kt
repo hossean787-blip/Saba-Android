@@ -100,7 +100,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SabaApp(onLogout: () -> Unit) {
         var confirmLogout by remember { mutableStateOf(false) }
-        var appSettingsExpanded by rememberSaveable { mutableStateOf(false) }
         if (confirmLogout) AlertDialog(
             onDismissRequest = { confirmLogout = false },
             title = { Text("خروج از حساب") },
@@ -305,43 +304,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             } else CompanyPlaceholder(loading)
-                            Page.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                ElevatedCard(onClick = { page = Page.QUOTA }, modifier = Modifier.fillMaxWidth()) {
-                                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("انتقال شارژ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                        Text("انتقال از شارژ آزاد حساب مالک به مودی انتخاب‌شده")
-                                        Text("شارژ مودی: ${current?.quota?.available ?: 0}  |  شارژ آزاد مالک: ${current?.wallet?.available ?: 0}",
-                                            style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                                OutlinedButton(onClick = { appSettingsExpanded = !appSettingsExpanded }, modifier = Modifier.fillMaxWidth()) {
-                                    Text(if (appSettingsExpanded) "بستن تنظیمات برنامه ▲" else "تنظیمات برنامه ▼")
-                                }
-                                androidx.compose.animation.AnimatedVisibility(visible = appSettingsExpanded) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
-                                        OutlinedButton(onClick = { page = Page.QUOTA }, modifier = Modifier.fillMaxWidth()) { Text("انتقال شارژ") }
-                                        Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
-                                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                                    Column(Modifier.padding(16.dp)) {
-                                        Text("اندازه نوشته‌ها", style = MaterialTheme.typography.titleSmall)
-                                        Slider(value = fontScale, onValueChange = { fontScale = it }, valueRange = 0.85f..1.35f,
-                                            onValueChangeFinished = { act { settings.setFontScale(fontScale) } }, modifier = Modifier.fillMaxWidth())
-                                    }
-                                }
-                                OutlinedButton(onClick = { fontScale = 1f; act { settings.setFontScale(1f) } }) { Text("اندازه پیش‌فرض") }
-                                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("وضعیت سامانه مؤدیان", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                        Text("اتصال غیرفعال است؛ هیچ صورتحسابی ارسال نمی‌شود.")
-                                        Text("ثبت محلی فاکتور از ارسال مالیاتی مستقل است.", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                                }
-                                OutlinedButton(onClick = { confirmLogout = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("خروج از حساب") }
-                                }
-                            }
+                            Page.SETTINGS -> AccountScreen(
+                                taxpayerCharge = current?.quota?.available ?: 0,
+                                ownerCharge = current?.wallet?.available ?: 0,
+                                fontScale = fontScale, busy = busy,
+                                onCharge = { page = Page.QUOTA },
+                                onFontScale = { fontScale = it },
+                                onCommitFontScale = { act { settings.setFontScale(fontScale) } },
+                                onResetFont = { fontScale = 1f; act { settings.setFontScale(1f) } },
+                                onLogout = { confirmLogout = true }
+                            )
                         }
                     }
                 }

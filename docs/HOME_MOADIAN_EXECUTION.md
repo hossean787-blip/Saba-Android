@@ -28,3 +28,8 @@ Preserved existing 17-field form and all eight guides. Replaced info glyph with 
 
 ## Emulator setup failure diagnosed
 Run 41048322695 failed before any device test: android-actions/setup-android requested removed SDK package 'tools'. Same setup defect exists in duplicate moadian-verify workflow. Reused the already-working preinstalled SDK setup from android-build.yml; preserved actual test commands. Consolidated duplicate moadian-verify as a manual reusable entry instead of duplicating automatic JVM/device jobs on every app push. Device workflow remains automatic for its test/workflow changes and callable manually. No device tests executed yet. Next: inspect new run and continue independent tests.
+
+CI 41048617977 stopped at Android-test compilation: missing required taxRatePercent in one new device fixture. Fixed with explicit zero test rate; not a production calculation change. JVM summary was unavailable because compilation failed before tests. Device run used the same bad fixture and requires rerun.
+
+## Account and key-file verification
+Extracted existing account/settings UI into AccountScreen to test expand/collapse, charge entry and logout independently. Logout remains available when settings are collapsed. MainActivity keeps original callbacks and real balances. Key-file import moved to Dispatchers.IO and shared bounded TaxpayerKeyImport helper; no plaintext file or URI grant persisted. Added extension/size/invalid-content tests and real account interaction test. Files: ui/AccountScreen.kt, MainActivity.kt, ui/MoadianScreen.kt, security/TaxpayerKeyImport.kt, test/AccountScreenTest.kt, test/security/TaxpayerKeyImportTest.kt. Static call-site/type/stream-ownership checks done; CI execution pending.

@@ -50,6 +50,7 @@ fun MoadianScreen(
     onEditing: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val vault = remember { TaxpayerKeyVault() }
     var privateKey by remember { mutableStateOf("") }
@@ -58,31 +59,23 @@ fun MoadianScreen(
     var keyError by remember { mutableStateOf<String?>(null) }
     val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            try {
-                val filename = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
-                    if (it.moveToFirst()) it.getString(0) else ""
-                }.orEmpty()
-                require(filename.substringAfterLast('.').lowercase() in setOf("txt", "pem", "key"))
-                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-                    val out = java.io.ByteArrayOutputStream()
-                    val buffer = ByteArray(4096)
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        require(out.size() + n <= TaxpayerPrivateKey.MAX_BYTES)
-                        out.write(buffer, 0, n)
-                    }
-                    out.toByteArray()
-                } ?: throw IllegalArgumentException()
+            busy = true
+            scope.launch {
                 try {
-                    val pem = bytes.toString(Charsets.UTF_8)
-                    TaxpayerPrivateKey.parse(pem)
-                    privateKey = pem
+                    privateKey = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val filename = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                            if (it.moveToFirst()) it.getString(0) else ""
+                        }.orEmpty()
+                        context.contentResolver.openInputStream(uri)?.use {
+                            ir.saba.invoice.security.TaxpayerKeyImport.read(it, filename)
+                        } ?: throw IllegalArgumentException()
+                    }
                     keyError = null
-                } finally { bytes.fill(0) }
-            } catch (_: Exception) {
-                privateKey = ""
-                keyError = "فایل معتبر txt، pem یا key با کلید خصوصی RSA و حداکثر ۶۴ کیلوبایت انتخاب کنید."
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) {
+                    privateKey = ""
+                    keyError = "فایل معتبر txt، pem یا key با کلید خصوصی RSA و حداکثر ۶۴ کیلوبایت انتخاب کنید."
+                } finally { busy = false }
             }
         }
     }
@@ -157,7 +150,6 @@ fun MoadianScreen(
         logoUri = logoPath
     )
     var error by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
     fun close() { privateKey = ""; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
