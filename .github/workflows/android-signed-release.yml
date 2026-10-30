@@ -20,6 +20,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: true
+          cache-disabled: true
       - name: Prepare Android SDK
         shell: bash
         run: |
@@ -67,7 +68,9 @@ jobs:
           # Fail early on invalid keystore credentials without exposing secret values.
           keytool -list -keystore "$SURA_RELEASE_STORE_FILE" -storepass "$SURA_RELEASE_STORE_PASSWORD" -alias "$SURA_RELEASE_KEY_ALIAS" >/dev/null
           # Previous run failed on a stale KSP Room schema from Gradle cache.
-          bash ./gradlew --no-daemon clean :app:testDebugUnitTest :app:assembleRelease :app:lintRelease
+          # Isolate release compilation from previously cached KSP symbol-processing state.
+          export GRADLE_USER_HOME="${RUNNER_TEMP}/sura-release-gradle-home"
+          bash ./gradlew --no-daemon --no-build-cache clean :app:testDebugUnitTest :app:assembleRelease :app:lintRelease
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
