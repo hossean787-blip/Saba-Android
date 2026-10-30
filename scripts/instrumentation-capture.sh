@@ -19,13 +19,13 @@ adb install -r -t "$app_apk"
 adb install -r -t "$test_apk"
 mkdir -p app/build/emulator-screenshots
 adb shell am instrument -w \
-  -e class ir.saba.invoice.StartupLogoVisualInstrumentedTest \
+  -e class ir.saba.invoice.StartupLogoVisualInstrumentedTest,ir.saba.invoice.HomeMoadianVisualInstrumentedTest \
   ir.saba.invoice.test/androidx.test.runner.AndroidJUnitRunner \
   | tee app/build/sura-intro-verification.txt
-grep -q 'OK (1 test)' app/build/sura-intro-verification.txt
+grep -q 'OK (3 tests)' app/build/sura-intro-verification.txt
 
 adb pull /sdcard/Android/data/ir.saba.invoice/files/screenshots/ app/build/emulator-screenshots/
-for frame in sura-intro-particles-emulator.png sura-intro-mark-emulator.png; do
+for frame in sura-intro-particles-emulator.png sura-intro-mark-emulator.png home-emulator.png moadian-table-emulator.png moadian-form-emulator.png; do
   match="$(find app/build/emulator-screenshots -type f -name "$frame" -size +1000c -print -quit)"
   if [[ -z "$match" ]]; then
     echo "Missing/empty real device frame: $frame" >&2
