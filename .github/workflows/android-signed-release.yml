@@ -61,7 +61,13 @@ jobs:
           export SURA_RELEASE_STORE_FILE
           trap 'rm -f "$SURA_RELEASE_STORE_FILE"' EXIT
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$SURA_RELEASE_STORE_FILE"
-          bash ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease :app:lintRelease
+          # Normalize accidental copy/paste line endings in the non-secret alias.
+          SURA_RELEASE_KEY_ALIAS="$(printf '%s' "$SURA_RELEASE_KEY_ALIAS" | tr -d '\r\n')"
+          export SURA_RELEASE_KEY_ALIAS
+          # Fail early on invalid keystore credentials without exposing secret values.
+          keytool -list -keystore "$SURA_RELEASE_STORE_FILE" -storepass "$SURA_RELEASE_STORE_PASSWORD" -alias "$SURA_RELEASE_KEY_ALIAS" >/dev/null
+          # Previous run failed on a stale KSP Room schema from Gradle cache.
+          bash ./gradlew --no-daemon clean :app:testDebugUnitTest :app:assembleRelease :app:lintRelease
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
