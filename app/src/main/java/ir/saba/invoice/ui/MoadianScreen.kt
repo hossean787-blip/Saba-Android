@@ -460,7 +460,7 @@ fun MoadianScreen(
                     } finally { busy = false }
                 }
             }) { Text("تولید جفت کلید اختصاصی RSA") }
-            if (generatedPublicKey.isNotBlank()) {
+            if (generatedPublicKey.isNotBlank() && keyMode == "generated") {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Checkbox(checked = generatedKeyConfirmed, enabled = !busy && !pending && publicKeyExported,
                         onCheckedChange = { generatedKeyConfirmed = it })
