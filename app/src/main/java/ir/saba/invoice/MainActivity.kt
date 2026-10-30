@@ -217,7 +217,7 @@ class MainActivity : ComponentActivity() {
                         )
                     } else {
                         OwnerLoginScreen(
-                            onPasswordLogin = auth::login,
+                            onPasswordLogin = { email, password -> auth.login(email, password) },
                             onSmsLogin = {},
                             onRegister = { auth.navigate("register") },
                             busy = auth.busy || biometricBusy,
