@@ -32,10 +32,11 @@ class DatabaseMigrationTest {
         // the complete v1 table structure, retaining real Room data and foreign keys.
         SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
             it.execSQL("DROP TABLE moadian_simulations")
+            it.execSQL("DROP TABLE moadian_details")
             it.version = 1
         }
         val upgraded = Room.databaseBuilder(context, SabaDatabase::class.java, name)
-            .addMigrations(SabaDatabase.MIGRATION_1_2).build()
+            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3).build()
         try {
             val details = InvoiceRepository(upgraded).detailsForCompany(company, invoice)
             assertEquals(customer, details.invoice.customerId)
@@ -46,6 +47,9 @@ class DatabaseMigrationTest {
             assertEquals(2L, upgraded.quotaDao().wallet("owner")!!.available)
             upgraded.moadianSimulationDao().insert(MoadianSimulation(companyId = company, invoiceId = invoice, requestId = "local", payloadHash = "hash", createdAtMillis = 1))
             assertEquals(1, upgraded.moadianSimulationDao().forCompany(company).size)
+            assertNull(upgraded.moadianDetailsDao().byCompany(company))
+            upgraded.moadianDetailsDao().upsert(MoadianDetails(companyId = company, postalCode = "1234567890"))
+            assertEquals("1234567890", upgraded.moadianDetailsDao().byCompany(company)!!.postalCode)
             upgraded.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { assertFalse(it.moveToFirst()) }
         } finally { upgraded.close(); context.deleteDatabase(name) }
     }
