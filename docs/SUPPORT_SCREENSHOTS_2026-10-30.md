@@ -9,7 +9,7 @@ MainActivity set WindowManager.LayoutParams.FLAG_SECURE whenever the authenticat
 - On foreground activity resume, clear FLAG_SECURE to allow normal screenshots on signup, login and other app screens.
 - On activity pause, add FLAG_SECURE to protect the sensitive app snapshot when leaving the foreground.
 - Password fields remain masked by default. Password values stay in non-saveable Compose state only; no passwords are logged or added to backups.
-- Added Compose UI regression for screenshot flag on login and signup, and Robolectric lifecycle regression for foreground/background transitions.
+- Added Compose UI regression for screenshot flag on login and signup. A separate Robolectric Activity-lifecycle test was excluded from CI pending isolation of an unusually slow run; device verification of task-switching remains required.
 - No database, auth server, identity data, schema or account permissions changed.
 
 ## QA status
