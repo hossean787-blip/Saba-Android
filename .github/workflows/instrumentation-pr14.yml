@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/src/androidTest/**'
       - '.github/workflows/instrumentation-pr14.yml'
+      - 'scripts/instrumentation-capture.sh'
   workflow_dispatch:
   workflow_call:
 
@@ -60,25 +61,7 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
-          script: |
-            set -e
-            ./gradlew :app:connectedDebugAndroidTest --no-daemon
-            # connectedDebugAndroidTest cleans up installed packages after reporting.
-            # Reinstall locally built APKs, rerun only the synthetic visual test,
-            # and retrieve its frames while the target package remains installed.
-            APP_APK="$(find app/build/outputs/apk/debug -name '*.apk' -type f -print -quit)"
-            TEST_APK="$(find app/build/outputs/apk/androidTest -name '*.apk' -type f -print -quit)"
-            test -n "$APP_APK"
-            test -n "$TEST_APK"
-            adb install -r "$APP_APK"
-            adb install -r "$TEST_APK"
-            adb shell am instrument -w -e class ir.saba.invoice.StartupLogoVisualInstrumentedTest ir.saba.invoice.test/androidx.test.runner.AndroidJUnitRunner > app/build/sura-intro-verification.txt
-            cat app/build/sura-intro-verification.txt
-            grep -q 'OK (1 test)' app/build/sura-intro-verification.txt
-            mkdir -p app/build/emulator-screenshots
-            adb pull /sdcard/Android/data/ir.saba.invoice/files/screenshots/ app/build/emulator-screenshots/
-            find app/build/emulator-screenshots -type f -name 'sura-intro-particles-emulator.png' -size +1000c -print -quit | grep -q .
-            find app/build/emulator-screenshots -type f -name 'sura-intro-mark-emulator.png' -size +1000c -print -quit | grep -q .
+          script: bash scripts/instrumentation-capture.sh
       - name: Verify captured emulator frames
         run: |
           find app/build/emulator-screenshots -type f -name '*.png' -printf '%f %s bytes\n'
