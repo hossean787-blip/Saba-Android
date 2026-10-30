@@ -151,7 +151,7 @@ fun MoadianScreen(
         county = county,
         mobile = MoadianFieldValidation.digits(mobile),
         certificateExpiry = certificateExpiry,
-        fiscalMemoryId = fiscalMemoryId.trim().uppercase(java.util.Locale.ROOT),
+        fiscalMemoryId = MoadianFieldValidation.digits(fiscalMemoryId).uppercase(java.util.Locale.ROOT),
         logoUri = logoPath
     )
     var error by remember { mutableStateOf<String?>(null) }
@@ -371,7 +371,7 @@ fun MoadianScreen(
                                 } else if (mode == "new") {
                                     val savedId = db.withTransaction {
                                         ensureUniqueTaxpayer(db, null, nationalId, economicId, fiscalMemoryId)
-                                        val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                        val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
                                         db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = vault.encrypt(id, privateKey), keyCheckStatus = "NEEDS_MATCH"))
                                         id
                                     }
@@ -385,7 +385,7 @@ fun MoadianScreen(
                                     val old = db.companyDao().byId(selectedId ?: -1) ?: throw IllegalStateException("مودی یافت نشد.")
                                     db.withTransaction {
                                         ensureUniqueTaxpayer(db, old.id, nationalId, economicId, fiscalMemoryId)
-                                        db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
+                                        db.companyDao().update(old.copy(name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
                                         val prior = db.moadianDetailsDao().byCompany(old.id)
                                         val encrypted = if (privateKey.isNotBlank()) vault.encrypt(old.id, privateKey) else storedKey
                                         db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false, nextInvoiceSerial = prior?.nextInvoiceSerial, nextReferenceSerial = prior?.nextReferenceSerial))
@@ -453,6 +453,6 @@ private suspend fun ensureUniqueTaxpayer(db: SabaDatabase, excludedId: Long?, na
         throw DuplicateTaxpayer("nationalId")
     if (rows.any { MoadianFieldValidation.digits(it.economicId) == MoadianFieldValidation.digits(economic) })
         throw DuplicateTaxpayer("economicId")
-    if (db.moadianDetailsDao().all().any { it.companyId != excludedId && it.fiscalMemoryId.equals(fiscal.trim(), ignoreCase = true) })
+    if (db.moadianDetailsDao().all().any { it.companyId != excludedId && MoadianFieldValidation.digits(it.fiscalMemoryId).equals(MoadianFieldValidation.digits(fiscal), ignoreCase = true) })
         throw DuplicateTaxpayer("fiscalMemoryId")
 }
