@@ -253,7 +253,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                                CompaniesScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it; page = Page.CUSTOMERS }, onNotice = ::notify, onEditing = { editing = it })
+                                MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it }, onNotice = ::notify, onEditing = { editing = it })
                             }
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
