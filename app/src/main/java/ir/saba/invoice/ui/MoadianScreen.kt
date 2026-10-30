@@ -148,7 +148,7 @@ fun MoadianScreen(
                                     close()
                                     onNotice("مودی ثبت شد.")
                                 } else {
-                                    val old = db.companyDao().byId(selectedId ?: -1) ?: error("مودی یافت نشد.")
+                                    val old = db.companyDao().byId(selectedId ?: -1) ?: throw IllegalStateException("مودی یافت نشد.")
                                     db.companyDao().update(old.copy(name = name.trim(), nationalId = nationalId.trim(), economicId = economicId.trim(), address = address.trim(), phone = phone.trim()))
                                     onChanged()
                                     close()
