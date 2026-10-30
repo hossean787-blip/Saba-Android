@@ -34,6 +34,7 @@ internal fun rial(amount: Long): String = NumberFormat.getIntegerInstance(Locale
 internal fun invoiceStatus(status: String) = when (status) {
     "DRAFT" -> "پیش‌نویس"
     "FINALIZED" -> "نهایی‌شده محلی"
+    "CANCELLED" -> "لغوشده"
     else -> status
 }
 
@@ -244,7 +245,7 @@ fun InvoiceScreen(
                 if (requested == "delete") { details = null; mode = "list" }
                 else details = repository.detailsForCompany(companyId, id)
                 onChanged()
-                onNotice(if (requested == "delete") "پیش‌نویس حذف شد." else "فاکتور محلی نهایی شد؛ شارژ هنگام ایجاد فاکتور مصرف شده است و ارسال واقعی انجام نشد.")
+                onNotice(if (requested == "delete") "پیش‌نویس لغو شد؛ شارژ مصرف‌شده بازگردانده نمی‌شود." else "فاکتور محلی نهایی شد؛ شارژ هنگام ایجاد فاکتور مصرف شده است و ارسال واقعی انجام نشد.")
             }
         }) { Text("تأیید") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { confirmation = "" }) { Text("بازگشت") } }
