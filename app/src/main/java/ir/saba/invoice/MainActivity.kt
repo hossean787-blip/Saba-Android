@@ -44,7 +44,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, COMPANIES, CUSTOMERS, INVOICES, QUOTA, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, COMPANIES, TAX_KEYS, CUSTOMERS, INVOICES, QUOTA, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -475,7 +475,7 @@ class MainActivity : ComponentActivity() {
                                 taxpayerOptions = companies.filter { it.id !in inactiveCompanyIds }.map { it.id to it.name },
                                 onTaxpayerSelected = { selectedCompanyId = it },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } } },
-                                onCustomers = { page = Page.CUSTOMERS },
+                                onTaxKeys = { page = Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
                             )
@@ -490,6 +490,13 @@ class MainActivity : ComponentActivity() {
                                 }
                                 MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it }, onNotice = ::notify, onEditing = { editing = it })
                             }
+                            Page.TAX_KEYS -> TaxpayerKeysScreen(
+                                db = db,
+                                companyId = company?.id,
+                                taxpayerName = company?.name,
+                                onNeedTaxpayer = { page = Page.COMPANIES },
+                                onNotice = ::notify
+                            )
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
