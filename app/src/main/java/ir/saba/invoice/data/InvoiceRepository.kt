@@ -131,9 +131,13 @@ class InvoiceRepository(private val db: SabaDatabase) {
     suspend fun deleteDraft(companyId: Long, invoiceId: Long) = db.withTransaction {
         val details = detailsForCompany(companyId, invoiceId)
         require(details.invoice.status == "DRAFT") { "فقط پیش‌نویس قابل حذف است؛ فاکتور نهایی قابل حذف نیست." }
-        require(db.quotaDao().useForInvoice(invoiceId) == null) { "این فاکتور سابقه مصرف سهمیه دارد و قابل حذف نیست." }
         require(db.moadianSimulationDao().latestForInvoice(invoiceId) == null) { "فاکتور دارای سابقه آزمایش قابل حذف نیست." }
-        require(db.invoiceDao().deleteDraft(companyId, invoiceId) == 1) { "فاکتور حذف نشد." }
+        if (db.quotaDao().useForInvoice(invoiceId) != null) {
+            // Keep a permanent invoice and consumption record; creating it already used one unit.
+            db.invoiceDao().update(details.invoice.copy(status = "CANCELLED"))
+        } else {
+            require(db.invoiceDao().deleteDraft(companyId, invoiceId) == 1) { "فاکتور حذف نشد." }
+        }
     }
 }
 
