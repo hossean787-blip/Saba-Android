@@ -1,6 +1,8 @@
 package ir.saba.invoice.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -20,11 +22,12 @@ fun AppSettingsScreen(
     onBackToAccount: () -> Unit
 ) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().background(Color(0xFFF2F9FF))
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("تنظیمات برنامه", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold)
+            fontWeight = FontWeight.ExtraBold, color = Color(0xFF16364E))
         ElevatedCard(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium,

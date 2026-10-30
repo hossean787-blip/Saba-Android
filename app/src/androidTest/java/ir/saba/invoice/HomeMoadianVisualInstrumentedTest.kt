@@ -54,7 +54,11 @@ class HomeMoadianVisualInstrumentedTest {
         compose.onNodeWithText("صورتحساب 1000000001").assertExists()
     }
     @Test fun ownerAccountHubRendersActualTwoColumnCardsOnAndroid() {
-        compose.setContent { MaterialTheme {
+        compose.setContent { MaterialTheme(colorScheme = lightColorScheme(
+            primary = Color(0xFF075F91), onPrimary = Color.White,
+            background = Color(0xFFF2F9FF), surface = Color.White,
+            onSurface = Color(0xFF172C3D)
+        )) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AccountScreen(
                     taxpayerCharge = 12L, ownerCharge = 36L, busy = false,
@@ -69,7 +73,11 @@ class HomeMoadianVisualInstrumentedTest {
     }
 
     @Test fun appSettingsAreSeparateFromOwnerAccountOnAndroid() {
-        compose.setContent { MaterialTheme {
+        compose.setContent { MaterialTheme(colorScheme = lightColorScheme(
+            primary = Color(0xFF075F91), onPrimary = Color.White,
+            background = Color(0xFFF2F9FF), surface = Color.White,
+            onSurface = Color(0xFF172C3D)
+        )) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AppSettingsScreen(
                     fontScale = 1f, busy = false,

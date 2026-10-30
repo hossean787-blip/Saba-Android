@@ -52,7 +52,8 @@ fun AccountScreen(
 ) {
     var selected by remember { mutableStateOf<AccountAction?>(null) }
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 26.dp),
+        Modifier.fillMaxSize().background(Color(0xFFF2F9FF))
+            .verticalScroll(rememberScrollState()).padding(bottom = 26.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("حساب کاربری", style = MaterialTheme.typography.headlineSmall,
