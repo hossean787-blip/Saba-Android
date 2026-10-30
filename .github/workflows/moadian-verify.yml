@@ -51,3 +51,33 @@ jobs:
             app/build/test-results/
           if-no-files-found: warn
           retention-days: 7
+
+  instrumentation:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Execute Android instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+      - name: Publish instrumentation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moadian-instrumentation-results
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: warn
+          retention-days: 7
