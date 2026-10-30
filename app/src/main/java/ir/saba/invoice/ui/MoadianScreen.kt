@@ -469,6 +469,24 @@ fun MoadianScreen(
                 }
             }
             if (storedKey != null) Text("برای محافظت از شناسه مالیاتی و دسترسی‌های موجود، ساخت کلید جدید برای مودی دارای کلید غیرفعال است. تعویض کلید نیازمند فرایند جداگانه و تأیید مجدد کارپوشه است.", style = MaterialTheme.typography.bodySmall)
+            if (storedKey != null && generatedPublicKey.isBlank() && mode == "edit") {
+                OutlinedButton(enabled = !busy && !pending, onClick = {
+                    val currentId = selectedId
+                    val envelope = storedKey
+                    if (currentId != null && envelope != null) {
+                        try {
+                            val decoded = vault.decrypt(currentId, envelope)
+                            try {
+                                generatedPublicKey = TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(decoded)
+                                publicKeyExported = false
+                                generatedNotice = "کلید عمومی از کلید خصوصی رمزنگاری‌شده همین مودی بازیابی شد؛ برای کارپوشه ذخیره کنید."
+                            } finally { decoded.fill(0) }
+                        } catch (_: Exception) {
+                            generatedNotice = "کلید عمومی بازیابی نشد؛ در صورت تعویض گوشی یا حذف کلید امن، از نسخه پشتیبان مجاز استفاده کنید."
+                        }
+                    }
+                }, modifier = Modifier.fillMaxWidth()) { Text("بازیابی فایل کلید عمومی همین مودی") }
+            }
             if (generatedPublicKey.isNotBlank()) {
                 OutlinedButton(enabled = !busy && !pending, onClick = {
                     exportPublicKey.launch("sura-taxpayer-public-key.pem")
