@@ -33,3 +33,10 @@ Tests executed: none. Build not run. Not production ready.
 Critical remaining: new form is intentionally incomplete and must NOT be presented as fully compliant: 17 fields, dependent province/city, full type-specific validation, real key status, encryption with Android Keystore, key import, non-destructive deactivation and Room migration, official tax documentation verification, automated tests, APK.
 Known issues to investigate: new screen Compose build correctness, screen vertical scrolling for editing, list layout on narrow devices; purchaserId fallback "owner" must be replaced by authenticated owner context before production.
 Next step: inspect/build current code, fix compile and layout errors, implement details entity migration and secure key vault; do not silently overwrite historical records.
+
+## Database phase — 2026-10-30
+Status: IN PROGRESS / UNTESTED.
+Commits: de97e6ea (MoadianDetails model), d74c30aa (Room version 3 and migration), 32c6cca3 (migration default correction).
+Files: data/MoadianDetails.kt; data/SabaDatabase.kt.
+Room details are stored separately from Company and its existing invoice/customer foreign keys. No existing rows are deleted. The new details table is NOT yet connected to the UI. No private key is stored.
+Tests: NONE executed; migration integrity and generated Room schema validation are still unverified. Next: implement and wire complete fields and safe persistence, then build and run migration tests. Do not mark this as complete.
