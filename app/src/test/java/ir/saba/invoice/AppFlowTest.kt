@@ -27,6 +27,10 @@ class AppFlowTest {
             )
         }
         compose.onNodeWithText("ایجاد حساب کاربری").performClick()
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("نام", substring = false)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("نام", substring = false).assertExists()
         compose.runOnIdle {
             assertEquals(
