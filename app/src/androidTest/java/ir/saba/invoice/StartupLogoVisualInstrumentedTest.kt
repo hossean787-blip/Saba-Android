@@ -23,7 +23,7 @@ class StartupLogoVisualInstrumentedTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val dir = context.getExternalFilesDir("screenshots")!!
         assertTrue(dir.mkdirs() || dir.isDirectory)
-        val file = File(dir, filename)
+        val file = File(dir, "$filename.png")
         file.outputStream().use { output ->
             assertTrue(compose.onRoot().captureToImage().asAndroidBitmap()
                 .compress(Bitmap.CompressFormat.PNG, 100, output))
