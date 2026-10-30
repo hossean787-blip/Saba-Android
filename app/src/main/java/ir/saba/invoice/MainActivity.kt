@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
                 )) as T
         })[ir.saba.invoice.auth.OwnerAuthViewModel::class.java]
         setContent {
+            var showStartupMotion by rememberSaveable { mutableStateOf(savedInstanceState == null) }
             androidx.compose.runtime.SideEffect {
                 if (auth.session == null) {
                     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
@@ -71,10 +72,12 @@ class MainActivity : ComponentActivity() {
             }
             ir.saba.invoice.auth.AuthTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    BackHandler(enabled = auth.session == null && auth.page == "register") {
+                    BackHandler(enabled = !showStartupMotion && auth.session == null && auth.page == "register") {
                         auth.navigate("login")
                     }
-                    if (auth.session != null) {
+                    if (showStartupMotion) {
+                        StartupLogoMotion(onFinished = { showStartupMotion = false })
+                    } else if (auth.session != null) {
                         SabaApp(onLogout = auth::logout)
                     } else if (auth.page == "register") {
                         RegistrationScreen(
