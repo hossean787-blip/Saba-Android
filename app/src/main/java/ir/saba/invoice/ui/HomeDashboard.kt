@@ -10,11 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -107,11 +104,11 @@ fun HomeDashboard(
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PremiumMetric("پیش‌نویس", draftCount.toLong(), Icons.Default.ReceiptLong,
+                PremiumMetric("پیش‌نویس", draftCount.toLong(), Icons.AutoMirrored.Filled.List,
                     Color(0xFFFFF0F2), Color(0xFFC45471), Modifier.weight(1f), onInvoices)
                 PremiumMetric("در صف ارسال", queueCount.toLong(), Icons.AutoMirrored.Filled.List,
                     Color(0xFFFFF3E2), Color(0xFFB88033), Modifier.weight(1f), onInvoices)
-                PremiumMetric("شارژ باقی‌مانده", remainingCharge, Icons.Default.AccountBalanceWallet,
+                PremiumMetric("شارژ باقی‌مانده", remainingCharge, Icons.Default.AccountCircle,
                     Color(0xFFE6F6F3), Color(0xFF117C6B), Modifier.weight(1f), onCharge)
             }
         }
@@ -150,7 +147,7 @@ fun HomeDashboard(
                 ) {
                     Column(Modifier.fillMaxSize().padding(16.dp),
                         verticalArrangement = Arrangement.SpaceBetween) {
-                        Icon(Icons.Default.People, contentDescription = null,
+                        Icon(Icons.Default.Person, contentDescription = null,
                             tint = Color(0xFF595DAD), modifier = Modifier.size(26.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("مشتریان", fontWeight = FontWeight.Bold, color = textNavy,
@@ -181,7 +178,7 @@ fun HomeDashboard(
                         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp))
                             .background(Color(0xFFE7F4F9)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.ReceiptLong, null, tint = teal)
+                            Icon(Icons.AutoMirrored.Filled.List, null, tint = teal)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text("هنوز صورتحسابی ثبت نشده", fontWeight = FontWeight.Bold,
