@@ -269,7 +269,7 @@ class MainActivity : ComponentActivity() {
                                 CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
                             Page.INVOICES -> if (current != null) key(current.companyId) {
-                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it })
+                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA })
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
                                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
