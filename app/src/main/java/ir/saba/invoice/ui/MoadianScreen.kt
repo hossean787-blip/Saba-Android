@@ -1,6 +1,8 @@
 package ir.saba.invoice.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -61,7 +63,7 @@ fun MoadianScreen(
         mode = which
         onEditing(true)
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("مودیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF168DC5))
         if (mode == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -88,7 +90,7 @@ fun MoadianScreen(
                         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text((index + 1).toString(), Modifier.weight(.5f))
                             Text(company.name, Modifier.weight(2f))
-                            Text("بررسی‌نشده", Modifier.weight(1.3f))
+                            Text("نامشخص", Modifier.weight(1.3f))
                             Text("بررسی‌نشده", Modifier.weight(1.3f))
                         }
                     }
@@ -102,6 +104,7 @@ fun MoadianScreen(
                 confirmButton = { TextButton(onClick = ::close) { Text("متوجه شدم") } }
             )
         } else {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (mode == "new") "ثبت مودی جدید" else "ویرایش مودی", style = MaterialTheme.typography.titleLarge)
             Text("اطلاعات تکمیلی مالیاتی و کلید خصوصی تا پیاده‌سازی ذخیره‌سازی امن قابل ثبت نیستند.", color = MaterialTheme.colorScheme.error)
             Text("نوع مودی")
@@ -163,6 +166,7 @@ fun MoadianScreen(
                 }
             }
             TextButton(onClick = ::close) { Text("انصراف") }
+            }
         }
     }
 }
