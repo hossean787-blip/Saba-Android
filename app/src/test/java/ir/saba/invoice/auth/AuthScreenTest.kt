@@ -53,12 +53,12 @@ class AuthScreenTest {
     }
 
     @Test fun matchingPasswordsRemainInFormWhenGatewayRejectsRegistration() {
-        var error by androidx.compose.runtime.mutableStateOf<String?>(null)
+        val error = androidx.compose.runtime.mutableStateOf<String?>(null)
         compose.setContent { AuthTheme {
             RegistrationScreen(
-                onSubmit = { error = "خطای سرور آزمایشی" },
+                onSubmit = { error.value = "خطای سرور آزمایشی" },
                 onSignIn = {},
-                serverError = error
+                serverError = error.value
             )
         } }
         compose.onNodeWithText("نام", substring = false).performTextInput("Ali")
