@@ -62,7 +62,7 @@ class QuotaAtomicityInstrumentedTest {
                 "BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
         try {
             invoices.saveDraft(company, customer, "100", "1405/07/01",
-                listOf(InvoiceLine(invoiceId = 0, description = "Service", quantity = 1, unitPriceRial = 100)))
+                listOf(InvoiceLine(invoiceId = 0, description = "Service", quantity = 1, unitPriceRial = 100, taxRatePercent = 0)))
             throw AssertionError("Expected database transaction to fail")
         } catch (expected: RuntimeException) {
             assertEquals(0, db.invoiceDao().forCompany(company).size)
