@@ -20,6 +20,13 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
     var message by mutableStateOf<String?>(null)
         private set
 
+    // Verified-session profile snapshot. Never cached on disk or derived from
+    // taxpayer/company data (which belongs to a separate identity).
+    var ownerEmail by mutableStateOf<String?>(null)
+        private set
+    var ownerName by mutableStateOf<String?>(null)
+        private set
+
     // Transient, never SavedState or disk; exposed only after the server accepts
     // a regular password login. Removed on consent decision or logout.
     var biometricEnrollment by mutableStateOf<StoredLoginCredentials?>(null)
@@ -51,6 +58,8 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
             }
             biometricEnrollment = if (fromBiometric) null
                 else StoredLoginCredentials(email.trim(), password)
+            ownerEmail = email.trim()
+            ownerName = null // The gateway does not return a trusted profile name.
             session = verifiedSession
         }
     }
@@ -62,8 +71,14 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
             return
         }
         submit {
-            session = gateway.registerWithPassword(input)
-            if (session == null) {
+            val registered = gateway.registerWithPassword(input)
+            session = registered
+            if (registered != null) {
+                ownerEmail = input.email.trim()
+                ownerName = listOf(input.firstName.trim(), input.lastName.trim())
+                    .filter { it.isNotBlank() }.joinToString(" ")
+            }
+            if (registered == null) {
                 page = "login"
                 message = "برای تکمیل ثبت‌نام، پیوند تأیید را در ایمیل خود بررسی کنید و سپس وارد شوید."
             }
@@ -74,6 +89,8 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
         if (busy) return
         val previous = session ?: return
         biometricEnrollment = null
+        ownerEmail = null
+        ownerName = null
         session = null // Lock access before making a network request, including offline failures.
         page = "login"
         submit {
