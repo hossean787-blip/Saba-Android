@@ -48,9 +48,9 @@ class MoadianScreenTest {
         val kinds = listOf("شخص حقیقی", "شخص حقوقی", "مشارکت مدنی", "اتباع غیرایرانی")
         val y = kinds.map { label ->
             compose.onNodeWithText(label).assertExists()
-                .fetchSemanticsNode().boundsInRoot.top
+                .fetchSemanticsNode().boundsInRoot.center.y
         }
-        assertTrue("Taxpayer kinds must share a single row", y.maxOrNull()!! - y.minOrNull()!! < 20f)
+        assertTrue("Taxpayer kinds must share a single row", y.maxOrNull()!! - y.minOrNull()!! < 4f)
         compose.onNodeWithContentDescription("راهنمای شماره اقتصادی *").assertExists()
     }
 
