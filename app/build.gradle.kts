@@ -16,6 +16,32 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    // Release signing is opt-in and never uses the ephemeral Android debug key.
+    // Values are supplied by the trusted build environment, never source control.
+    val releaseStorePath = System.getenv("SURA_RELEASE_STORE_FILE")
+    val releaseStorePassword = System.getenv("SURA_RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("SURA_RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("SURA_RELEASE_KEY_PASSWORD")
+    val releaseSigningReady = listOf(
+        releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword
+    ).all { !it.isNullOrBlank() }
+    if (releaseSigningReady) {
+        signingConfigs {
+            create("suraRelease") {
+                storeFile = file(requireNotNull(releaseStorePath))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            // An unsigned release remains possible locally for development,
+            // but the trusted release workflow refuses to publish it.
+            if (releaseSigningReady) signingConfig = signingConfigs.getByName("suraRelease")
+        }
+    }
     buildFeatures { compose = true }
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
