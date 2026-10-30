@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -218,6 +220,7 @@ fun MoadianScreen(
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("مودیان", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF168DC5))
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (mode == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 Button(onClick = { open("new") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Text("جدید") }
@@ -231,7 +234,10 @@ fun MoadianScreen(
                 Text("نوع مودی", Modifier.weight(1.3f), fontWeight = FontWeight.Bold)
                 Text("صحت کلیدها", Modifier.weight(1.3f), fontWeight = FontWeight.Bold)
             }
-            val rows = companies.filter { it.name.contains(query, ignoreCase = true) || it.nationalId.contains(query) }
+            fun searchText(value: String) = MoadianFieldValidation.digits(value).replace('ي', 'ی').replace('ك', 'ک')
+            val needle = searchText(query)
+            val rows = companies.filter { searchText(it.name).contains(needle, ignoreCase = true) ||
+                searchText(it.nationalId).contains(needle) || searchText(it.economicId).contains(needle) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(rows, key = { _, item -> item.id }) { index, company ->
                     val selected = selectedId == company.id
@@ -415,7 +421,7 @@ private fun MoadianHelpLabel(label: String, guidance: String) {
     Row {
         Text(label)
         IconButton(onClick = { visible = true }, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Default.Info, contentDescription = "راهنمای " + label)
+            Text("؟", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { contentDescription = "راهنمای " + label })
         }
     }
     if (visible) AlertDialog(onDismissRequest = { visible = false },

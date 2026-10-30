@@ -22,3 +22,6 @@ Additive Room migration 5->6 records pre-policy DRAFT invoices lacking a quota-u
 
 ## Device verification queued
 Updated existing API29 emulator workflow to run on main for device-test/workflow changes (no new runner purchase or permission changes). Updated device fixtures for charge-on-create, retained injected rollback checks; added real AndroidKeystore reopen/tamper/tenant checks and actual Compose screenshot tests using synthetic fixture data. Added androidTest Compose test dependency already used by JVM tests. Screenshots will be pulled from emulator and uploaded with device results. No device test has yet been claimed passed. Current main remains under CI verification. Next: inspect execution, fix failures, inspect captured PNGs.
+
+## Moadian focused review
+Preserved existing 17-field form and all eight guides. Replaced info glyph with requested question mark while preserving accessible field-specific description; added loading indicator; search now normalizes Persian/Arabic digits and Arabic kaf/yeh and includes economic identity. Private-key/ciphertext handling unchanged. Files: ui/MoadianScreen.kt. Static check: exactly eight help usages remain; functional device tests queued. Next: four-type real form create/edit verification and CI inspection.
