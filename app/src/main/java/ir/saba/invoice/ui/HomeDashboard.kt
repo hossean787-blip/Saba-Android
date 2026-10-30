@@ -46,7 +46,7 @@ fun HomeDashboard(
     invoices: List<Invoice>,
     onSelectTaxpayer: () -> Unit,
     onNewInvoice: () -> Unit,
-    onCustomers: () -> Unit,
+    onTaxKeys: () -> Unit,
     onInvoices: () -> Unit,
     onCharge: () -> Unit,
     taxpayerOptions: List<Pair<Long, String>> = emptyList(),
@@ -156,7 +156,7 @@ fun HomeDashboard(
                     }
                 }
                 Card(
-                    modifier = Modifier.weight(1f).height(151.dp).clickable(onClick = onCustomers),
+                    modifier = Modifier.weight(1f).height(151.dp).clickable(onClick = onTaxKeys),
                     shape = RoundedCornerShape(25.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFE9E9FA))
                 ) {
@@ -165,9 +165,9 @@ fun HomeDashboard(
                         Icon(Icons.Default.Person, contentDescription = null,
                             tint = Color(0xFF595DAD), modifier = Modifier.size(26.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("مشتریان", fontWeight = FontWeight.Bold, color = textNavy,
+                            Text("کلیدهای مالیاتی", fontWeight = FontWeight.Bold, color = textNavy,
                                 style = MaterialTheme.typography.titleMedium)
-                            Text("${numberFormat.format(customerCount)} مشتری ثبت‌شده",
+                            Text("تولید و دریافت کلید عمومی",
                                 style = MaterialTheme.typography.labelSmall, color = Color(0xFF6A7188))
                         }
                     }
