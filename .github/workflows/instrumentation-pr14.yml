@@ -66,8 +66,8 @@ jobs:
             # Pull files before android-emulator-runner shuts down the emulator.
             mkdir -p app/build/emulator-screenshots
             adb pull /sdcard/Android/data/ir.saba.invoice/files/screenshots/ app/build/emulator-screenshots/
-            test -s app/build/emulator-screenshots/screenshots/sura-intro-particles-emulator.png
-            test -s app/build/emulator-screenshots/screenshots/sura-intro-mark-emulator.png
+            find app/build/emulator-screenshots -type f -name 'sura-intro-particles-emulator.png' -size +1000c -print -quit | grep -q .
+            find app/build/emulator-screenshots -type f -name 'sura-intro-mark-emulator.png' -size +1000c -print -quit | grep -q .
       - name: Verify captured emulator frames
         run: |
           find app/build/emulator-screenshots -type f -name '*.png' -printf '%f %s bytes\n'
