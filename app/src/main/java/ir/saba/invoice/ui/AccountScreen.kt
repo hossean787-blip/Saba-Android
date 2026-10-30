@@ -15,7 +15,8 @@ import androidx.compose.ui.unit.dp
 fun AccountScreen(
     taxpayerCharge: Long, ownerCharge: Long, fontScale: Float, busy: Boolean,
     onCharge: () -> Unit, onFontScale: (Float) -> Unit, onCommitFontScale: () -> Unit,
-    onResetFont: () -> Unit, onLogout: () -> Unit
+    onResetFont: () -> Unit, onLogout: () -> Unit,
+    biometricEnabled: Boolean = false, onDisableBiometrics: () -> Unit = {}
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -34,6 +35,14 @@ fun AccountScreen(
         AnimatedVisibility(expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onCharge, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("انتقال شارژ") }
+                Text("ورود با اثر انگشت", style = MaterialTheme.typography.titleMedium)
+                Text(if (biometricEnabled) "فعال است؛ رمز ورود به‌صورت رمزنگاری‌شده روی این دستگاه نگهداری می‌شود."
+                     else "غیرفعال است؛ برای فعال‌سازی، یک‌بار با ایمیل و رمز وارد شوید.")
+                if (biometricEnabled) {
+                    OutlinedButton(onClick = onDisableBiometrics, enabled = !busy) {
+                        Text("غیرفعال‌کردن ورود با اثر انگشت")
+                    }
+                }
                 Text("تنظیمات نمایش", style = MaterialTheme.typography.titleMedium)
                 Text("اندازه متن برنامه: ${(fontScale * 100).toInt()}٪؛ اندازه متن سیستم نیز رعایت می‌شود.")
                 Card(Modifier.fillMaxWidth()) {

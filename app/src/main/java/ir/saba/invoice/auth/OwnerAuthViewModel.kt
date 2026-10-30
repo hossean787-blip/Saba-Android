@@ -20,18 +20,38 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
     var message by mutableStateOf<String?>(null)
         private set
 
+    // Transient, never SavedState or disk; exposed only after the server accepts
+    // a regular password login. Removed on consent decision or logout.
+    var biometricEnrollment by mutableStateOf<StoredLoginCredentials?>(null)
+        private set
+
+    fun discardBiometricEnrollment() { biometricEnrollment = null }
+
     fun navigate(destination: String) {
         if (!busy) { page = destination; message = null }
     }
 
-    fun login(email: String, password: String) {
+    fun login(
+        email: String, password: String,
+        fromBiometric: Boolean = false,
+        onInvalidBiometric: () -> Unit = {}
+    ) {
         if (busy) return
         if (!RegistrationValidator.validEmail(email) || password.isBlank() || password.length > 128) {
             message = "ایمیل و رمز عبور معتبر وارد کنید."
             return
         }
+        biometricEnrollment = null
         submit {
-            session = gateway.loginWithPassword(email.trim(), password)
+            val verifiedSession = try {
+                gateway.loginWithPassword(email.trim(), password)
+            } catch (e: AuthGatewayException) {
+                if (fromBiometric && e.httpStatus in listOf(401, 403)) onInvalidBiometric()
+                throw e
+            }
+            biometricEnrollment = if (fromBiometric) null
+                else StoredLoginCredentials(email.trim(), password)
+            session = verifiedSession
         }
     }
 
@@ -53,6 +73,7 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
     fun logout() {
         if (busy) return
         val previous = session ?: return
+        biometricEnrollment = null
         session = null // Lock access before making a network request, including offline failures.
         page = "login"
         submit {

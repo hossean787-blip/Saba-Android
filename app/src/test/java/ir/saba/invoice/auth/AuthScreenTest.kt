@@ -24,6 +24,18 @@ class AuthScreenTest {
         compose.runOnIdle { assertTrue(submitted) }
     }
 
+    @Test fun biometricEntryPointIsOptionalAndCallsHandler() {
+        var taps = 0
+        compose.setContent {
+            AuthTheme {
+                OwnerLoginScreen({ _, _ -> }, {}, {}, biometricEnabled = true,
+                    onBiometricLogin = { taps++ })
+            }
+        }
+        compose.onNodeWithText("ورود با اثر انگشت").performScrollTo().assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(1, taps) }
+    }
+
     @Test fun busyLoginDisablesNavigationAndSubmission() {
         compose.setContent { AuthTheme { OwnerLoginScreen({ _, _ -> }, {}, {}, busy = true) } }
         compose.onNodeWithText("ایجاد حساب کاربری").performScrollTo().assertIsNotEnabled()

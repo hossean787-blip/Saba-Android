@@ -17,7 +17,9 @@ fun OwnerLoginScreen(
     onSmsLogin: (mobile: String) -> Unit,
     onRegister: () -> Unit,
     busy: Boolean = false,
-    error: String? = null
+    error: String? = null,
+    biometricEnabled: Boolean = false,
+    onBiometricLogin: () -> Unit = {}
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     // Passwords must never enter Activity saved-instance state.
@@ -53,11 +55,19 @@ fun OwnerLoginScreen(
             if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             else Text("ورود با رمز ثابت")
         }
+        if (biometricEnabled) {
+            OutlinedButton(
+                onClick = onBiometricLogin, enabled = !busy,
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) { Text("ورود با اثر انگشت") }
+        }
         HorizontalDivider()
         OutlinedButton(onClick = onRegister, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             Text("ایجاد حساب کاربری")
         }
-        Text("برای حفظ امنیت، پس از بسته‌شدن کامل برنامه دوباره وارد شوید.",
+        Text(
+            if (biometricEnabled) "برای ورود می‌توانید از اثر انگشت یا رمز ثابت استفاده کنید."
+            else "برای حفظ امنیت، پس از بسته‌شدن کامل برنامه دوباره وارد شوید.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

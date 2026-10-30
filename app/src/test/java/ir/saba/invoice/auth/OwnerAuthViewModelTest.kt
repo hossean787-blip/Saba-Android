@@ -83,6 +83,31 @@ class OwnerAuthViewModelTest {
         advanceUntilIdle()
         assertNotNull(model.session)
     }
+    @Test fun successfulPasswordLoginOffersOptInButBiometricLoginDoesNot() = runTest(dispatcher) {
+        val model = OwnerAuthViewModel(Fake())
+        model.login("owner@example.com", "password123")
+        advanceUntilIdle()
+        assertEquals("owner@example.com", model.biometricEnrollment?.email)
+        model.discardBiometricEnrollment()
+        assertNull(model.biometricEnrollment)
+        model.logout()
+        advanceUntilIdle()
+        model.login("owner@example.com", "password123", fromBiometric = true)
+        advanceUntilIdle()
+        assertNotNull(model.session)
+        assertNull(model.biometricEnrollment)
+    }
+
+    @Test fun biometricRejectedPasswordInvokesCredentialInvalidation() = runTest(dispatcher) {
+        val model = OwnerAuthViewModel(Fake().apply { fail = true })
+        var invalidations = 0
+        model.login("owner@example.com", "password123", fromBiometric = true) { invalidations++ }
+        advanceUntilIdle()
+        assertEquals(1, invalidations)
+        assertNull(model.session)
+        assertNull(model.biometricEnrollment)
+    }
+
     @Test fun logoutLocksImmediatelyAndRevokesWithAccessToken() = runTest(dispatcher) {
         val service = Fake()
         val model = OwnerAuthViewModel(service)
