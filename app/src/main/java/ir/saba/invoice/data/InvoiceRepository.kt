@@ -92,7 +92,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
         }
     }
 
-    /** Finalization and quota consumption are one database transaction. */
+    /** Finalization does not consume charge again. Older drafts have explicit migration exemptions. */
     suspend fun finalizeDraft(companyId: Long, invoiceId: Long, nowEpochMillis: Long = System.currentTimeMillis()) {
         require(companyId > 0) { "شرکت نامعتبر است." }
         require(invoiceId > 0) { "شناسه فاکتور نامعتبر است." }
@@ -107,7 +107,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
             require(db.customerDao().byId(invoice.customerId)?.companyId == company.id) {
                 "مشتری به شرکت این فاکتور تعلق ندارد."
             }
-            require(db.quotaDao().useForInvoice(invoiceId) != null) {
+            require(db.quotaDao().useForInvoice(invoiceId) != null || db.legacyQuotaExemptionDao().contains(invoiceId) == 1) {
                 "این پیش‌نویس سابقه مصرف شارژ ندارد؛ برای بررسی به پشتیبانی مراجعه کنید."
             }
             db.invoiceDao().update(invoice.copy(
@@ -132,7 +132,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
         val details = detailsForCompany(companyId, invoiceId)
         require(details.invoice.status == "DRAFT") { "فقط پیش‌نویس قابل حذف است؛ فاکتور نهایی قابل حذف نیست." }
         require(db.moadianSimulationDao().latestForInvoice(invoiceId) == null) { "فاکتور دارای سابقه آزمایش قابل حذف نیست." }
-        if (db.quotaDao().useForInvoice(invoiceId) != null) {
+        if (db.quotaDao().useForInvoice(invoiceId) != null || db.legacyQuotaExemptionDao().contains(invoiceId) == 1) {
             // Keep a permanent invoice and consumption record; creating it already used one unit.
             db.invoiceDao().update(details.invoice.copy(status = "CANCELLED"))
         } else {

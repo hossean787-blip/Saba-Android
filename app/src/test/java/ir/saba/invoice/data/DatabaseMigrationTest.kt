@@ -34,16 +34,21 @@ class DatabaseMigrationTest {
         SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
             it.execSQL("DROP TABLE moadian_simulations")
             it.execSQL("DROP TABLE moadian_details")
+            it.execSQL("DROP TABLE legacy_quota_exemptions")
             it.version = 1
         }
         val upgraded = Room.databaseBuilder(context, SabaDatabase::class.java, name)
-            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5).build()
+            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6).build()
         try {
             val details = InvoiceRepository(upgraded).detailsForCompany(company, invoice)
             assertEquals(customer, details.invoice.customerId)
             assertEquals("OLD", details.invoice.invoiceNumber)
             assertEquals(220L, details.invoice.totalAmountRial)
             assertEquals(1, details.lines.size)
+            assertEquals(1, upgraded.legacyQuotaExemptionDao().contains(invoice))
+            InvoiceRepository(upgraded).finalizeDraft(company, invoice)
+            assertEquals("FINALIZED", upgraded.invoiceDao().byId(invoice)!!.status)
+            assertNull(upgraded.quotaDao().useForInvoice(invoice))
             assertEquals(3L, upgraded.quotaDao().companyQuota(company)!!.available)
             assertEquals(2L, upgraded.quotaDao().wallet("owner")!!.available)
             upgraded.moadianSimulationDao().insert(MoadianSimulation(companyId = company, invoiceId = invoice, requestId = "local", payloadHash = "hash", createdAtMillis = 1))

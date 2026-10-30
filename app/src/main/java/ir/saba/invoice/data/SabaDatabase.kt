@@ -29,6 +29,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     suspend fun all(): List<MoadianDetails>
 }
 
+@Dao interface LegacyQuotaExemptionDao {
+    @Query("SELECT COUNT(*) FROM legacy_quota_exemptions WHERE invoiceId = :invoiceId")
+    suspend fun contains(invoiceId: Long): Int
+}
+
 @Dao interface CustomerDao {
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insert(item: Customer): Long
     @Update suspend fun update(item: Customer)
@@ -53,7 +58,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class], version = 5, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class], version = 6, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
         internal val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -95,15 +100,23 @@ abstract class SabaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE moadian_details ADD COLUMN nextReferenceSerial INTEGER")
             }
         }
+        internal val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS legacy_quota_exemptions (invoiceId INTEGER NOT NULL PRIMARY KEY)")
+                // Record pre-policy drafts explicitly; do not fabricate consumption or debit retrospectively.
+                db.execSQL("INSERT INTO legacy_quota_exemptions (invoiceId) SELECT id FROM invoices WHERE status = 'DRAFT' AND id NOT IN (SELECT invoiceId FROM invoice_quota_uses)")
+            }
+        }
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
         }
     }
+    abstract fun legacyQuotaExemptionDao(): LegacyQuotaExemptionDao
     abstract fun moadianDetailsDao(): MoadianDetailsDao
     abstract fun companyDao(): CompanyDao
     abstract fun customerDao(): CustomerDao
