@@ -98,3 +98,6 @@ Current main inspected: Room v5, encrypted private-key support, 17-field editor,
 
 ## Android CI verification workflow
 Commit e928857bfdebc49ebcf4b0c5d2f021b0f74aad7c created .github/workflows/moadian-verify.yml on main: checkout, Java 17, Android SDK setup, Gradle wrapper check, :app:assembleDebug and :app:testDebugUnitTest, artifacts for APK and reports (7 days). Verified gradlew and wrapper binary path exist; binary could not be decoded by text-only fetch. Commit status API returned no statuses at time of inspection; no workflow job result or artifact has been verified. Pending: inspect actual GitHub Actions run, logs, compile and unit-test failures, instrumented tests, release acceptance. No APK should be claimed delivered yet.
+
+## Android SDK and emulator CI jobs
+Commit c10fcd133c2a60c37a3467fc1af40f5ae5859a23 adds explicit Android 35 SDK installation. Commit 09f6ea64bca97eb56f792744991272b299d7dc27 adds a dependent Android 35 emulator instrumentation job with report artifact. Workflow source exists on main, but this session did not observe a successful job execution, APK artifact, or test logs. The fetch_commit_workflow_runs connector filters to pull-request-triggered runs and cannot establish whether push runs occurred. Await real run evidence; fix actual errors if any. Do not merge unrelated branches or declare commercial readiness.
