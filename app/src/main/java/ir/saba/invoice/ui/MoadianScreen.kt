@@ -347,7 +347,7 @@ fun MoadianScreen(
                         check("postalCode", MoadianFieldValidation.postalCode(postalCode))
                         check("mobile", MoadianFieldValidation.mobile(mobile))
                         check("province", MoadianFieldValidation.required(province, "استان"))
-                        check("county", MoadianFieldValidation.required(county, "شهرستان"))
+                        check("county", MoadianFieldValidation.required(county, "شهرستان") ?: if (county !in IranDivisions.counties[province].orEmpty()) "شهرستان با استان مطابقت ندارد." else null)
                         check("invoiceSerialStart", MoadianFieldValidation.serial(invoiceSerialStart, "سریال اصلی"))
                         check("referenceSerialStart", MoadianFieldValidation.serial(referenceSerialStart, "سریال ارجاعی")
                             ?: MoadianFieldValidation.serialPair(invoiceSerialStart, referenceSerialStart))
@@ -427,6 +427,7 @@ private fun MoadianHelpLabel(label: String, guidance: String) {
 private fun MoadianChoice(label: String, value: String, options: List<String>, enabled: Boolean = true, onChange: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
+    LaunchedEffect(enabled) { if (!enabled) expanded = false }
     OutlinedButton(onClick = { search = ""; expanded = true }, enabled = enabled && options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
         Text(label + ": " + value.ifBlank { "انتخاب کنید" })
     }
