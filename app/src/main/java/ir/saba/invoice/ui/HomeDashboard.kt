@@ -54,7 +54,7 @@ fun HomeDashboard(
 ) {
     var selectorOpen by remember { mutableStateOf(false) }
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
         contentPadding = PaddingValues(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

@@ -10,7 +10,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import ir.saba.invoice.auth.AuthTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.graphics.Color
 import ir.saba.invoice.data.*
 import ir.saba.invoice.ui.*
 import kotlinx.coroutines.runBlocking
@@ -32,7 +34,11 @@ class HomeMoadianVisualInstrumentedTest {
         }
     }
     @Test fun homeUsesActualLayoutAndClearlyLocalInvoiceStatus() {
-        compose.setContent { AuthTheme {
+        compose.setContent { MaterialTheme(colorScheme = lightColorScheme(
+            primary = Color(0xFF075F91), onPrimary = Color.White,
+            background = Color(0xFFF2F9FF), surface = Color.White,
+            onSurface = Color(0xFF172C3D)
+        )) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 HomeDashboard("مودی آزمایشی اراک", 12, 1, 0, 3,
                     listOf(Invoice(id = 1, companyId = 1, customerId = 1, invoiceNumber = "1000000001",
@@ -53,7 +59,11 @@ class HomeMoadianVisualInstrumentedTest {
         try {
             runBlocking { db.companyDao().insert(Company(purchaserId = "test", name = "مودی آزمایشی", nationalId = "12345678901")) }
             val rows = runBlocking { db.companyDao().all() }
-            compose.setContent { AuthTheme {
+            compose.setContent { MaterialTheme(colorScheme = lightColorScheme(
+            primary = Color(0xFF075F91), onPrimary = Color.White,
+            background = Color(0xFFF2F9FF), surface = Color.White,
+            onSurface = Color(0xFF172C3D)
+        )) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     MoadianScreen(db, rows, {}, {}, {}, {})
                 }
