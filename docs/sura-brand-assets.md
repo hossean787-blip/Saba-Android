@@ -1,0 +1,1 @@
+Original icon supplied and authorized by the project owner in SURA_Complete_Design_Handoff.zip, 01_Brand_Assets/sura_icon_512.png. Used without pixel modification. PNG 512x512 RGBA. Source entry CRC verified. Not derived from HTML/PDF references.

@@ -224,7 +224,7 @@ fun MoadianScreen(
                 OutlinedButton(onClick = { open("edit") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Edit, null, Modifier.size(18.dp)); Text("ویرایش") }
                 OutlinedButton(onClick = { open("delete") }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Delete, null, Modifier.size(18.dp)); Text("حذف") }
             }
-            OutlinedTextField(query, { query = it }, label = { Text("جستجوی مودیان") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, value = query, onValueChange = { query = it }, label = { Text("جستجوی مودیان") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("ردیف", Modifier.weight(.5f), fontWeight = FontWeight.Bold)
                 Text("نام مودی", Modifier.weight(2f), fontWeight = FontWeight.Bold)
@@ -292,41 +292,41 @@ fun MoadianScreen(
             kinds.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     pair.forEach { item ->
-                        FilterChip(selected = kind == item, onClick = { kind = item }, label = { Text(item) })
+                        FilterChip(enabled = !busy && !pending, selected = kind == item, onClick = { kind = item }, label = { Text(item) })
                     }
                 }
             }
-            OutlinedTextField(isError = fieldErrors["name"] != null, supportingText = { fieldErrors["name"]?.let { Text(it) } }, value = name, onValueChange = { name = it }, label = { Text("نام *") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["economicId"] != null, supportingText = { fieldErrors["economicId"]?.let { Text(it) } }, value = economicId, onValueChange = { economicId = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شماره اقتصادی *", "برای شخص حقوقی، شناسه ملی ۱۱ رقمی را وارد کنید. برای شخص حقیقی، شماره اقتصادی پرونده مالیاتی را وارد کنید؛ شناسه هویتی این فرم نیز باید همان شماره اقتصادی باشد. قواعد نهایی باید با اطلاعات کارپوشه تطبیق داده شوند.") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["nationalId"] != null, supportingText = { fieldErrors["nationalId"]?.let { Text(it) } }, value = nationalId, onValueChange = { nationalId = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شناسه ملی *", "شناسه ملی، مدنی یا اتباع اجباری است. شناسه حقوقی ۱۱ رقمی است. برای شخص حقیقی در این فرم شماره اقتصادی را وارد کنید. شناسه باید متناسب با نوع مودی ۱۱، ۱۲ یا ۱۴ رقم باشد.") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(registrationNumber, { registrationNumber = it }, label = { Text("شماره ثبت") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["invoiceSerialStart"] != null, supportingText = { fieldErrors["invoiceSerialStart"]?.let { Text(it) } }, value = invoiceSerialStart, onValueChange = { invoiceSerialStart = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شروع سریال صورتحساب", "شماره شروع فاکتور داخلی سازمان شماست و باید ۱۰ رقم باشد. در صورت نداشتن سریال می‌توانید از 1000000001 شروع کنید.") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["referenceSerialStart"] != null, supportingText = { fieldErrors["referenceSerialStart"]?.let { Text(it) } }, value = referenceSerialStart, onValueChange = { referenceSerialStart = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شروع سریال صورتحساب ارجاعی", "برای فاکتور اصلاحی، ابطالی و برگشت از فروش است. باید ۱۰ رقم و متفاوت از سریال اصلی باشد. نمونه: 2000000001.") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(phone, { phone = MoadianFieldValidation.digits(it) }, label = { Text("تلفن") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(fax, { fax = MoadianFieldValidation.digits(it) }, label = { Text("فکس") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["postalCode"] != null, supportingText = { fieldErrors["postalCode"]?.let { Text(it) } }, value = postalCode, onValueChange = { postalCode = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("کدپستی *", "کدپستی باید ۱۰ رقم باشد. برای شعبه، کدپستی همان شعبه را وارد کنید.") }, modifier = Modifier.fillMaxWidth())
-            MoadianChoice("استان *", province, IranDivisions.counties.keys.toList()) { province = it; county = "" }
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["name"] != null, supportingText = { fieldErrors["name"]?.let { Text(it) } }, value = name, onValueChange = { name = it }, label = { Text("نام *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["economicId"] != null, supportingText = { fieldErrors["economicId"]?.let { Text(it) } }, value = economicId, onValueChange = { economicId = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شماره اقتصادی *", "برای شخص حقوقی، شناسه ملی ۱۱ رقمی را وارد کنید. برای شخص حقیقی، شماره اقتصادی پرونده مالیاتی را وارد کنید؛ شناسه هویتی این فرم نیز باید همان شماره اقتصادی باشد. قواعد نهایی باید با اطلاعات کارپوشه تطبیق داده شوند.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["nationalId"] != null, supportingText = { fieldErrors["nationalId"]?.let { Text(it) } }, value = nationalId, onValueChange = { nationalId = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شناسه ملی *", "شناسه ملی، مدنی یا اتباع اجباری است. شناسه حقوقی ۱۱ رقمی است. برای شخص حقیقی در این فرم شماره اقتصادی را وارد کنید. شناسه باید متناسب با نوع مودی ۱۱، ۱۲ یا ۱۴ رقم باشد.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, value = registrationNumber, onValueChange = { registrationNumber = it }, label = { Text("شماره ثبت") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["invoiceSerialStart"] != null, supportingText = { fieldErrors["invoiceSerialStart"]?.let { Text(it) } }, value = invoiceSerialStart, onValueChange = { invoiceSerialStart = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شروع سریال صورتحساب", "شماره شروع فاکتور داخلی سازمان شماست و باید ۱۰ رقم باشد. در صورت نداشتن سریال می‌توانید از 1000000001 شروع کنید.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["referenceSerialStart"] != null, supportingText = { fieldErrors["referenceSerialStart"]?.let { Text(it) } }, value = referenceSerialStart, onValueChange = { referenceSerialStart = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("شروع سریال صورتحساب ارجاعی", "برای فاکتور اصلاحی، ابطالی و برگشت از فروش است. باید ۱۰ رقم و متفاوت از سریال اصلی باشد. نمونه: 2000000001.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, value = phone, onValueChange = { phone = MoadianFieldValidation.digits(it) }, label = { Text("تلفن") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, value = fax, onValueChange = { fax = MoadianFieldValidation.digits(it) }, label = { Text("فکس") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["postalCode"] != null, supportingText = { fieldErrors["postalCode"]?.let { Text(it) } }, value = postalCode, onValueChange = { postalCode = MoadianFieldValidation.digits(it) }, label = { MoadianHelpLabel("کدپستی *", "کدپستی باید ۱۰ رقم باشد. برای شعبه، کدپستی همان شعبه را وارد کنید.") }, modifier = Modifier.fillMaxWidth())
+            MoadianChoice("استان *", province, IranDivisions.counties.keys.toList()) { if (!busy && !pending) { province = it; county = "" } }
             fieldErrors["province"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            MoadianChoice("شهرستان *", county, IranDivisions.counties[province].orEmpty()) { county = it }
+            MoadianChoice("شهرستان *", county, IranDivisions.counties[province].orEmpty()) { if (!busy && !pending) county = it }
             fieldErrors["county"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(isError = fieldErrors["address"] != null, supportingText = { fieldErrors["address"]?.let { Text(it) } }, value = address, onValueChange = { address = it }, label = { Text("آدرس *") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["mobile"] != null, supportingText = { fieldErrors["mobile"]?.let { Text(it) } }, value = mobile, onValueChange = { mobile = MoadianFieldValidation.digits(it) }, label = { Text("شماره موبایل *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["address"] != null, supportingText = { fieldErrors["address"]?.let { Text(it) } }, value = address, onValueChange = { address = it }, label = { Text("آدرس *") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["mobile"] != null, supportingText = { fieldErrors["mobile"]?.let { Text(it) } }, value = mobile, onValueChange = { mobile = MoadianFieldValidation.digits(it) }, label = { Text("شماره موبایل *") }, modifier = Modifier.fillMaxWidth())
             Text("لوگو")
-            OutlinedButton(onClick = { importLogo.launch("image/*") }, enabled = !busy) { Text(if (logoPath.isBlank()) "انتخاب لوگو" else "تغییر لوگوی انتخاب‌شده") }
+            OutlinedButton(onClick = { importLogo.launch("image/*") }, enabled = !busy && !pending) { Text(if (logoPath.isBlank()) "انتخاب لوگو" else "تغییر لوگوی انتخاب‌شده") }
             logoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(certificateExpiry, { certificateExpiry = it }, label = { MoadianHelpLabel("تاریخ انقضاء گواهی امضاء", "صرفاً برای یادآوری است و اجباری نیست. تاریخ واقعی درج‌شده در گواهی را وارد کنید؛ اعتبار گواهی‌ها معمولاً تا دو سال است.") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { MoadianHelpLabel("شناسه یکتا *", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, value = certificateExpiry, onValueChange = { certificateExpiry = it }, label = { MoadianHelpLabel("تاریخ انقضاء گواهی امضاء", "صرفاً برای یادآوری است و اجباری نیست. تاریخ واقعی درج‌شده در گواهی را وارد کنید؛ اعتبار گواهی‌ها معمولاً تا دو سال است.") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { MoadianHelpLabel("شناسه یکتا *", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.") }, modifier = Modifier.fillMaxWidth())
             MoadianHelpLabel("کلید خصوصی (PrivateKey) *", "متن کلید خصوصی را وارد کنید یا فایل را بارگذاری کنید. فقط یکی از دو روش استفاده می‌شود. بررسی ساختار به معنی تأیید تطابق با شناسه یکتا نیست.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; keyError = null }, label = { Text("ورود دستی") })
-                FilterChip(selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; keyError = null }, label = { Text("بارگذاری فایل") })
+                FilterChip(enabled = !busy && !pending, selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; keyError = null }, label = { Text("ورود دستی") })
+                FilterChip(enabled = !busy && !pending, selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; keyError = null }, label = { Text("بارگذاری فایل") })
             }
             if (storedKey != null) Text("کلید رمزنگاری‌شده موجود است؛ ورود کلید جدید آن را جایگزین می‌کند.")
-            if (keyMode == "manual") OutlinedTextField(privateKey, {
+            if (keyMode == "manual") OutlinedTextField(enabled = !busy && !pending, value = privateKey, onValueChange = {
                 if (it.length <= TaxpayerPrivateKey.MAX_BYTES) privateKey = it
             }, label = { Text("متن کلید خصوصی") }, visualTransformation = PasswordVisualTransformation(),
                 isError = keyError != null, modifier = Modifier.fillMaxWidth())
-            else OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }, enabled = !busy) {
+            else OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }, enabled = !busy && !pending) {
                 Text(if (privateKey.isEmpty()) "انتخاب فایل کلید" else "فایل کلید دریافت شد")
             }
             keyError?.let { Text(it, color = MaterialTheme.colorScheme.error) }

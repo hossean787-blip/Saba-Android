@@ -67,6 +67,7 @@ internal fun AuthLayout(title: String, subtitle: String, content: @Composable Co
                 .padding(horizontal = 28.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.sura_brand_icon), contentDescription = "نشان سورا", modifier = Modifier.size(64.dp))
             Text("سورا", style = MaterialTheme.typography.headlineLarge,
                 color = Color(0xFF103C59), fontWeight = FontWeight.Bold)
             Text("مدیریت یکپارچه صورتحساب", color = Color(0xFF234F6B),
