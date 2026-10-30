@@ -436,79 +436,10 @@ fun MoadianScreen(
             MoadianHelpLabel("شناسه یکتا (پس از صدور)", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.")
             OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { Text("شناسه یکتا (پس از صدور)") }, modifier = Modifier.fillMaxWidth())
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
-            MoadianHelpLabel("کلید خصوصی (PrivateKey) *", "متن کلید خصوصی را وارد کنید یا فایل را بارگذاری کنید. فقط یکی از دو روش استفاده می‌شود. بررسی ساختار به معنی تأیید تطابق با شناسه یکتا نیست.")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(enabled = !busy && !pending, selected = keyMode == "manual", onClick = { keyMode = "manual"; privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; keyError = null }, label = { Text("ورود دستی") })
-                FilterChip(enabled = !busy && !pending, selected = keyMode == "file", onClick = { keyMode = "file"; privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; keyError = null }, label = { Text("بارگذاری فایل") })
-            }
-            OutlinedButton(enabled = !busy && !pending && storedKey == null, onClick = {
-                busy = true
-                scope.launch {
-                    try {
-                        val pair = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                            TaxpayerKeyGenerator.generate()
-                        }
-                        privateKey = pair.privatePem
-                        generatedPublicKey = pair.publicPem
-                        publicKeyExported = false
-                        generatedKeyConfirmed = false
-                        keyMode = "generated"
-                        keyError = null
-                        generatedNotice = "کلید RSA اختصاصی ساخته شد. پیش از ثبت فرم، کلید عمومی را ذخیره کنید. کلید خصوصی هنگام ثبت مودی در حافظه رمزنگاری می‌شود."
-                    } catch (_: Exception) {
-                        generatedNotice = "تولید کلید در این دستگاه انجام نشد."
-                    } finally { busy = false }
-                }
-            }) { Text("تولید جفت کلید اختصاصی RSA") }
-            if (generatedPublicKey.isNotBlank() && keyMode == "generated") {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Checkbox(checked = generatedKeyConfirmed, enabled = !busy && !pending && publicKeyExported,
-                        onCheckedChange = { generatedKeyConfirmed = it })
-                    Text("فایل کلید عمومی را ذخیره کرده‌ام و می‌دانم کلید خصوصی این گوشی بدون پشتیبان امن قابل بازیابی نیست.",
-                        style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            if (storedKey != null) Text("برای محافظت از شناسه مالیاتی و دسترسی‌های موجود، ساخت کلید جدید برای مودی دارای کلید غیرفعال است. تعویض کلید نیازمند فرایند جداگانه و تأیید مجدد کارپوشه است.", style = MaterialTheme.typography.bodySmall)
-            if (storedKey != null && generatedPublicKey.isBlank() && mode == "edit") {
-                OutlinedButton(enabled = !busy && !pending, onClick = {
-                    val currentId = selectedId
-                    val envelope = storedKey
-                    if (currentId != null && envelope != null) {
-                        try {
-                            val decoded = vault.decrypt(currentId, envelope)
-                            try {
-                                generatedPublicKey = TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(decoded)
-                                publicKeyExported = false
-                                generatedNotice = "کلید عمومی از کلید خصوصی رمزنگاری‌شده همین مودی بازیابی شد؛ برای کارپوشه ذخیره کنید."
-                            } finally { decoded.fill(0) }
-                        } catch (_: Exception) {
-                            generatedNotice = "کلید عمومی بازیابی نشد؛ در صورت تعویض گوشی یا حذف کلید امن، از نسخه پشتیبان مجاز استفاده کنید."
-                        }
-                    }
-                }, modifier = Modifier.fillMaxWidth()) { Text("بازیابی فایل کلید عمومی همین مودی") }
-            }
-            if (generatedPublicKey.isNotBlank()) {
-                OutlinedButton(enabled = !busy && !pending, onClick = {
-                    exportPublicKey.launch("sura-taxpayer-public-key.pem")
-                }) { Text("ذخیره کلید عمومی برای کارپوشه") }
-            }
-            generatedNotice?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            if (storedKey != null) Text("کلید رمزنگاری‌شده موجود است؛ ورود کلید جدید آن را جایگزین می‌کند.")
-            if (keyMode == "manual") OutlinedTextField(enabled = !busy && !pending, value = privateKey, onValueChange = {
-                if (it.length <= TaxpayerPrivateKey.MAX_BYTES) privateKey = it
-            }, label = { Text("متن کلید خصوصی") }, visualTransformation = PasswordVisualTransformation(),
-                isError = keyError != null, modifier = Modifier.fillMaxWidth())
-            else if (keyMode == "file") OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }, enabled = !busy && !pending) {
-                Text(if (privateKey.isEmpty()) "انتخاب فایل کلید" else "فایل کلید دریافت شد")
-            }
-            keyError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
+            Text("مدیریت کلید عمومی و خصوصی از کارت «کلیدهای مالیاتی» در صفحه خانه انجام می‌شود.", style = MaterialTheme.typography.bodySmall)
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (!pending) {
                 Button(onClick = {
-                    keyError = if (privateKey.isBlank()) {
-                        if (storedKey == null) "کلید خصوصی اجباری است." else null
-                    } else try { TaxpayerPrivateKey.parse(privateKey); null } catch (e: IllegalArgumentException) { e.message }
                     fieldErrors = buildMap {
                         fun check(field: String, message: String?) { if (message != null) put(field, message) }
                         putAll(MoadianFieldValidation.identity(kind, nationalId, economicId))
@@ -526,10 +457,7 @@ fun MoadianScreen(
                         if (fiscalMemoryId.isNotBlank()) check("fiscalMemoryId", MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId))
                     }
                     error = if (fieldErrors.isEmpty()) null else "موارد مشخص‌شده در فرم را اصلاح کنید."
-                    if (keyMode == "generated" && (!publicKeyExported || !generatedKeyConfirmed)) {
-                        keyError = "ابتدا فایل کلید عمومی را در مکان امن ذخیره کنید؛ بدون آن امکان ثبت کلید در کارپوشه ندارید."
-                    }
-                    if (error == null && keyError == null) pending = true
+                    if (error == null) pending = true
                 }, enabled = !busy && !loadFailed, modifier = Modifier.fillMaxWidth()) {
                     Text(if (mode == "new") "ثبت مودی" else "ذخیره تغییرات")
                 }
@@ -547,7 +475,7 @@ fun MoadianScreen(
                                     val savedId = db.withTransaction {
                                         ensureUniqueTaxpayer(db, null, nationalId, economicId, fiscalMemoryId)
                                         val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
-                                        db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = vault.encrypt(id, privateKey), keyCheckStatus = "NEEDS_MATCH"))
+                                        db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = null, keyCheckStatus = "UNCHECKED"))
                                         id
                                     }
                                     selectedId = savedId
@@ -562,7 +490,7 @@ fun MoadianScreen(
                                         ensureUniqueTaxpayer(db, old.id, nationalId, economicId, fiscalMemoryId)
                                         db.companyDao().update(old.copy(name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
                                         val prior = db.moadianDetailsDao().byCompany(old.id)
-                                        val encrypted = if (privateKey.isNotBlank()) vault.encrypt(old.id, privateKey) else storedKey
+                                        val encrypted = prior?.encryptedPrivateKey
                                         db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false, nextInvoiceSerial = prior?.nextInvoiceSerial, nextReferenceSerial = prior?.nextReferenceSerial))
                                     }
                                     onChanged()
