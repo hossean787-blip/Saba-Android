@@ -33,3 +33,11 @@ CI 41048617977 stopped at Android-test compilation: missing required taxRatePerc
 
 ## Account and key-file verification
 Extracted existing account/settings UI into AccountScreen to test expand/collapse, charge entry and logout independently. Logout remains available when settings are collapsed. MainActivity keeps original callbacks and real balances. Key-file import moved to Dispatchers.IO and shared bounded TaxpayerKeyImport helper; no plaintext file or URI grant persisted. Added extension/size/invalid-content tests and real account interaction test. Files: ui/AccountScreen.kt, MainActivity.kt, ui/MoadianScreen.kt, security/TaxpayerKeyImport.kt, test/AccountScreenTest.kt, test/security/TaxpayerKeyImportTest.kt. Static call-site/type/stream-ownership checks done; CI execution pending.
+
+## Verified APK delivery — 2026-10-30
+Status: تکمیل و آزموده‌شده for debug build/JVM/lint; overall mission remains در حال اجرا.
+Verified source/main: 9957b6ab14b5aee4c81bd938514c00069009ba90. GitHub CI 41049232519 / job 124041356581 completed successfully: 157 JVM tests passed, 0 failures, 0 errors, 0 skipped; build and lint succeeded. APK artifact 12974780068 (11,720,832 ZIP bytes), includes Home/quota/navigation, migration v6, account/settings and bounded key import changes.
+Download: https://github.com/hossean787-blip/Saba-Android/actions/runs/41049232519/artifacts/12974780068
+Device evidence: run 41049064355 / job 124040315199 at 2862672aefdef5c2eb6f5ef2b86f6a9bb82561ba completed 13/13 tests, 0 skipped, 0 failed on API29 emulator. Artifact 12973497914. This device run predates final AccountScreen/key-import extraction; do not claim that final delta was device-tested. Captured screenshots have not yet been visually inspected.
+Push of source verified by reading main; this documentation checkpoint must also be read back. Latest validated source rollback point is 9957b6ab (never downgrade migrated data).
+Remaining: device validation of final delta; visual inspection; exhaustive four-type form flows; current official tax-rule confirmation; user phone installation. No commercial readiness claim. Next: deliver this updated APK, then continue remaining acceptance checks when requested.
