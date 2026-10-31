@@ -48,7 +48,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, COMPANIES, TAX_KEYS, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, EVENTS, COMPANIES, TAX_KEYS, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -537,6 +537,7 @@ class MainActivity : ComponentActivity() {
                                     SuraBrandBanner(
                                         subtitle = when (page) {
                                             Page.DASHBOARD -> "داشبورد صورتحساب‌های الکترونیکی"
+                                            Page.EVENTS -> "رویدادها"
                                             Page.COMPANIES -> "مدیریت مودیان مالیاتی"
                                             Page.INVOICES -> "صدور و مدیریت صورتحساب"
                                             Page.CUSTOMERS -> "مدیریت مشتریان"
@@ -557,7 +558,7 @@ class MainActivity : ComponentActivity() {
                     },
                     bottomBar = {
                         NavigationBar(containerColor = Color(0xFFE7F4FD), tonalElevation = 0.dp) {
-                            listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
+                            listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.EVENTS, "رویدادها", Icons.AutoMirrored.Filled.List), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
                                 Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
                                 Triple(Page.CREDIT_PURCHASE, "اعتبار", Icons.Default.AccountCircle), Triple(Page.SETTINGS, "حساب کاربری", Icons.Default.AccountCircle)).forEach { (destination, title, icon) ->
                                 NavigationBarItem(selected = page == destination, enabled = !editing && !busy,
@@ -592,6 +593,7 @@ class MainActivity : ComponentActivity() {
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
                             )
+                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES })
                             Page.COMPANIES -> MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
