@@ -361,6 +361,23 @@ class MainActivity : ComponentActivity() {
         var newInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
+        fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
+
+        suspend fun refreshCompany(id: Long) {
+            val company = db.companyDao().byId(id) ?: error("شرکت پیدا نشد.")
+            val snapshot = db.withTransaction { CompanyData(id, db.customerDao().forCompany(id), db.invoiceDao().forCompany(id),
+                db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id)) }
+            if (selectedCompanyId == id) data = snapshot
+        }
+        suspend fun refresh() {
+            val rows = db.companyDao().all()
+            companies = rows
+            inactiveCompanyIds = db.moadianDetailsDao().all().filter { it.inactive }.map { it.companyId }.toSet()
+            val activeRows = rows.filter { it.id !in inactiveCompanyIds }
+            val next = selectedCompanyId?.takeIf { id -> activeRows.any { it.id == id } } ?: activeRows.firstOrNull()?.id
+            if (next != null) selectTaxpayer(next) else { selectedCompanyId = null; data = null; preferences.edit().remove(ownerSelectionKey).apply() }
+            if (next != null) refreshCompany(next)
+        }
         val excelService = remember { ExcelTransferService(db) }
         var excelScope by remember { mutableStateOf("taxpayers") }
         var excelMode by remember { mutableStateOf("template") }
@@ -420,23 +437,6 @@ class MainActivity : ComponentActivity() {
             )) else exportExcel.launch("SURA_" + target + (if (action == "template") "_template" else "_export") + ".xlsx")
         }
 
-        fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
-
-        suspend fun refreshCompany(id: Long) {
-            val company = db.companyDao().byId(id) ?: error("شرکت پیدا نشد.")
-            val snapshot = db.withTransaction { CompanyData(id, db.customerDao().forCompany(id), db.invoiceDao().forCompany(id),
-                db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id)) }
-            if (selectedCompanyId == id) data = snapshot
-        }
-        suspend fun refresh() {
-            val rows = db.companyDao().all()
-            companies = rows
-            inactiveCompanyIds = db.moadianDetailsDao().all().filter { it.inactive }.map { it.companyId }.toSet()
-            val activeRows = rows.filter { it.id !in inactiveCompanyIds }
-            val next = selectedCompanyId?.takeIf { id -> activeRows.any { it.id == id } } ?: activeRows.firstOrNull()?.id
-            if (next != null) selectTaxpayer(next) else { selectedCompanyId = null; data = null; preferences.edit().remove(ownerSelectionKey).apply() }
-            if (next != null) refreshCompany(next)
-        }
         fun act(action: suspend () -> Unit) {
             if (busy) return
             busy = true
