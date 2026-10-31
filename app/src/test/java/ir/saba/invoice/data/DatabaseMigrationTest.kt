@@ -35,10 +35,11 @@ class DatabaseMigrationTest {
             it.execSQL("DROP TABLE moadian_simulations")
             it.execSQL("DROP TABLE moadian_details")
             it.execSQL("DROP TABLE legacy_quota_exemptions")
+            it.execSQL("DROP TABLE customer_profiles")
             it.version = 1
         }
         val upgraded = Room.databaseBuilder(context, SabaDatabase::class.java, name)
-            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6).build()
+            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7).build()
         try {
             val details = InvoiceRepository(upgraded).detailsForCompany(company, invoice)
             assertEquals(customer, details.invoice.customerId)
