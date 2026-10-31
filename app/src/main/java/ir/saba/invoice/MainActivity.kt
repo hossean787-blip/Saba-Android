@@ -606,14 +606,10 @@ class MainActivity : ComponentActivity() {
                                 InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
-                                Column(Modifier.fillMaxWidth().padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("مدیریت شارژ", style = MaterialTheme.typography.titleLarge)
-                                    Text("مؤدی: ${company.name}")
-                                    Text("خرید و انتقال شارژ تا اتصال و تأیید سرویس مالی غیرفعال است.")
-                                    Text("موجودی‌های آزمایشی قبلی مبنای شارژ واقعی نیستند.")
-                                    OutlinedButton(onClick = { page = Page.DASHBOARD }) { Text("بازگشت به خانه") }
-                                }
+                                CreditManagementScreen(
+                                    taxpayerName = company.name,
+                                    onBack = { page = Page.DASHBOARD }
+                                )
                             } else CompanyPlaceholder(loading)
                             Page.SIMULATION -> if (current != null) LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 item { Text("آزمایش آفلاین مؤدیان", style = MaterialTheme.typography.titleLarge); Text("هیچ اطلاعاتی به سامانه واقعی ارسال نمی‌شود.") }
