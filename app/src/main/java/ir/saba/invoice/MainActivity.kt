@@ -578,7 +578,7 @@ class MainActivity : ComponentActivity() {
                         when (page) {
                             Page.DASHBOARD -> HomeDashboard(
                                 taxpayerName = company?.name,
-                                remainingCharge = current?.quota?.available ?: 0L,
+                                remainingCharge = 0L,
                                 draftCount = current?.invoices?.count { it.status == "DRAFT" } ?: 0,
                                 queueCount = current?.invoices?.count { it.status == "QUEUED" } ?: 0,
                                 customerCount = current?.customers?.size ?: 0,
@@ -637,8 +637,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else CompanyPlaceholder(loading)
                             Page.SETTINGS -> AccountScreen(
-                                taxpayerCharge = current?.quota?.available ?: 0,
-                                ownerCharge = current?.wallet?.available ?: 0,
+                                taxpayerCharge = 0,
+                                ownerCharge = 0,
                                 busy = busy,
                                 ownerName = ownerName,
                                 ownerEmail = ownerEmail,
