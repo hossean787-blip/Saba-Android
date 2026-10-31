@@ -22,7 +22,13 @@ Deno.serve(async req=>{
  let body:any;try{body=await req.json()}catch{return reply({error:"invalid_json"},400)}
  const code=String(body?.code??"").trim();
  const deviceId=String(body?.deviceId??"").trim();
- if(code!=="justsaba")return reply({error:"invalid_code"},400);
+ if(code.length<1||code.length>128)return reply({error:"invalid_code"},400);
+ const check=await fetch(base+"/rest/v1/rpc/sura_validate_promo",{
+ method:"POST",headers:{"apikey":service,"authorization":"Bearer "+service,"content-type":"application/json"},
+ body:JSON.stringify({p_code:code})
+ });
+ if(!check.ok)return reply({error:"promo_configuration_error"},503);
+ if(await check.json()!==true)return reply({error:"invalid_code"},400);
  if(!/^[a-f0-9]{16}$/i.test(deviceId))return reply({error:"invalid_device"},400);
  const ip=(req.headers.get("cf-connecting-ip")??req.headers.get("x-forwarded-for")?.split(",")[0]??"").trim();
  const device=await digest("device:"+deviceId.toLowerCase());
