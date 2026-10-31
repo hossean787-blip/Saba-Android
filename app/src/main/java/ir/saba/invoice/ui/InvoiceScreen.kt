@@ -1,6 +1,9 @@
 package ir.saba.invoice.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -52,6 +55,20 @@ fun InvoiceScreen(
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    var exportBytes by remember { mutableStateOf<ByteArray?>(null) }
+    val pdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val data = exportBytes
+        if (uri != null && data != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(data) }
+                    ?: throw IllegalStateException("فایل باز نشد.")
+                onNotice("PDF صورتحساب ذخیره شد.")
+            } catch (_: Exception) { onNotice("ذخیره PDF ناموفق بود.") }
+        }
+        exportBytes = null
+    }
+    var templateCompany by remember { mutableStateOf<Company?>(null) }
     val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
     var automaticNumber by remember { mutableStateOf(false) }
@@ -109,7 +126,7 @@ fun InvoiceScreen(
     }
 
     LaunchedEffect(mode, invoiceId) {
-        if (mode == "details" && invoiceId != null) {
+        if ((mode == "details" || mode == "template") && invoiceId != null) {
             details = null
             busy = true
             try { details = repository.detailsForCompany(companyId, invoiceId!!) }
@@ -133,6 +150,20 @@ fun InvoiceScreen(
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         when (mode) {
+            "template" -> {
+                val loaded = details
+                val customer = loaded?.invoice?.let { inv -> customers.firstOrNull { it.id == inv.customerId } }
+                val company = templateCompany
+                if (loaded != null && customer != null && company != null) {
+                    InvoiceTemplateScreen(company, customer, loaded.invoice, loaded.lines,
+                        onExport = { bytes ->
+                            exportBytes = bytes
+                            pdfExport.launch("SURA-${loaded.invoice.invoiceNumber}.pdf")
+                        },
+                        onBack = { mode = "details" },
+                        onSend = { onNotice("ارسال واقعی به سامانه مؤدیان هنوز متصل و تأیید نشده است.") })
+                } else Text("در حال بارگذاری اطلاعات الگو…")
+            }
             "list" -> {
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
@@ -182,6 +213,13 @@ fun InvoiceScreen(
                         Text("وضعیت: ${invoiceStatus(invoice.status)}")
                         loaded.lines.forEachIndexed { index, row -> LineCard(index, row) }
                         TotalsCard(loaded.lines, invoice)
+                        OutlinedButton(onClick = {
+                            perform {
+                                templateCompany = db.companyDao().byId(companyId)
+                                    ?: throw IllegalStateException("مؤدی یافت نشد.")
+                                mode = "template"
+                            }
+                        }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
                         if (invoice.status == "DRAFT") {
                             Button(enabled = !busy, onClick = {
