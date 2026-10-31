@@ -274,8 +274,15 @@ fun InvoiceScreen(
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
                             val savedId = if (invoiceId == null && availableCharge <= 0 && promoRemaining > 0) {
                                 require(number.trim().isNotBlank()) { "برای استفاده از اعتبار هدیه، شماره فاکتور را وارد کنید." }
+                                InvoiceInput.date(date)
+                                InvoiceCalculator.calculate(lines)
+                                require(customers.any { it.id == selectedCustomer }) { "مشتری معتبر نیست." }
+                                require(invoices.none { InvoiceInput.digits(it.invoiceNumber).trim() == InvoiceInput.digits(number).trim() }) {
+                                    "شماره صورتحساب قبلاً ثبت شده است."
+                                }
                                 val company = db.companyDao().byId(companyId)
                                     ?: throw IllegalArgumentException("مودی یافت نشد.")
+                                require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
                                 val normalized = InvoiceInput.digits(number).trim()
                                 val identity = company.nationalId + ":" + normalized
                                 val claimKey = java.util.UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
