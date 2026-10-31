@@ -495,13 +495,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it }, onNotice = ::notify, onEditing = { editing = it })
                             }
-                            Page.TAX_KEYS -> TaxpayerKeysScreen(
-                                db = db,
-                                companyId = company?.id,
-                                taxpayerName = company?.name,
-                                onNeedTaxpayer = { page = Page.COMPANIES },
-                                onNotice = ::notify
-                            )
+                            Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
