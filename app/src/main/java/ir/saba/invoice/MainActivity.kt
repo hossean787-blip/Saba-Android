@@ -329,7 +329,23 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(savedFontScale) { fontScale = savedFontScale }
         var companies by remember { mutableStateOf(emptyList<Company>()) }
         var inactiveCompanyIds by remember { mutableStateOf(emptySet<Long>()) }
-        var selectedCompanyId by rememberSaveable { mutableStateOf<Long?>(null) }
+        // One taxpayer context shared by Home, Customers, Invoices and quota screens.
+        // Store its ID per authenticated owner to survive a complete app restart.
+        val ownerSelectionKey = remember(ownerEmail) {
+            "active_taxpayer_" + java.security.MessageDigest.getInstance("SHA-256")
+                .digest(ownerEmail.orEmpty().trim().lowercase(java.util.Locale.ROOT).toByteArray())
+                .joinToString("") { "%02x".format(it) }
+        }
+        var selectedCompanyId by rememberSaveable(ownerSelectionKey) {
+            mutableStateOf(preferences.getLong(ownerSelectionKey, -1L).takeIf { it > 0L })
+        }
+        fun selectTaxpayer(id: Long) {
+            if (selectedCompanyId != id) {
+                selectedCompanyId = id
+                data = null // Never show data belonging to the previous taxpayer.
+            }
+            preferences.edit().putLong(ownerSelectionKey, id).apply()
+        }
         var data by remember { mutableStateOf<CompanyData?>(null) }
         var loading by remember { mutableStateOf(false) }
         var busy by remember { mutableStateOf(false) }
@@ -356,8 +372,8 @@ class MainActivity : ComponentActivity() {
             inactiveCompanyIds = db.moadianDetailsDao().all().filter { it.inactive }.map { it.companyId }.toSet()
             val activeRows = rows.filter { it.id !in inactiveCompanyIds }
             val next = selectedCompanyId?.takeIf { id -> activeRows.any { it.id == id } } ?: activeRows.firstOrNull()?.id
-            selectedCompanyId = next
-            if (next != null) refreshCompany(next) else data = null
+            if (next != null) selectTaxpayer(next) else { selectedCompanyId = null; data = null; preferences.edit().remove(ownerSelectionKey).apply() }
+            if (next != null) refreshCompany(next)
         }
         fun act(action: suspend () -> Unit) {
             if (busy) return
@@ -478,7 +494,7 @@ class MainActivity : ComponentActivity() {
                                 invoices = current?.invoices.orEmpty(),
                                 onSelectTaxpayer = { page = Page.COMPANIES },
                                 taxpayerOptions = companies.filter { it.id !in inactiveCompanyIds }.map { it.id to it.name },
-                                onTaxpayerSelected = { selectedCompanyId = it },
+                                onTaxpayerSelected = { selectTaxpayer(it) },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } } },
                                 onTaxKeys = { page = Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
@@ -493,7 +509,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                                MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectedCompanyId = it }, onNotice = ::notify, onEditing = { editing = it })
+                                MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
                             }
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
