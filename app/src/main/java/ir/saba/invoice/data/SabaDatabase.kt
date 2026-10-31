@@ -34,6 +34,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     suspend fun contains(invoiceId: Long): Int
 }
 
+@Dao interface CustomerProfileDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(item: CustomerProfile)
+    @Query("SELECT * FROM customer_profiles WHERE companyId = :companyId")
+    suspend fun forCompany(companyId: Long): List<CustomerProfile>
+    @Query("SELECT * FROM customer_profiles WHERE customerId = :id LIMIT 1")
+    suspend fun byCustomer(id: Long): CustomerProfile?
+}
+
 @Dao interface CustomerDao {
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insert(item: Customer): Long
     @Update suspend fun update(item: Customer)
@@ -58,7 +66,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class], version = 6, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class], version = 7, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
         internal val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -107,18 +115,33 @@ abstract class SabaDatabase : RoomDatabase() {
                 db.execSQL("INSERT INTO legacy_quota_exemptions (invoiceId) SELECT id FROM invoices WHERE status = 'DRAFT' AND id NOT IN (SELECT invoiceId FROM invoice_quota_uses)")
             }
         }
+        internal val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS customer_profiles (
+                    customerId INTEGER NOT NULL PRIMARY KEY, companyId INTEGER NOT NULL,
+                    accountType TEXT NOT NULL, active INTEGER NOT NULL,
+                    isCustomer INTEGER NOT NULL, isSupplier INTEGER NOT NULL,
+                    mobile TEXT NOT NULL, fax TEXT NOT NULL, email TEXT NOT NULL,
+                    province TEXT NOT NULL, county TEXT NOT NULL,
+                    registrationNumber TEXT NOT NULL, birthCertificateNumber TEXT NOT NULL,
+                    nationality TEXT NOT NULL
+                )""".trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_profiles_companyId ON customer_profiles(companyId)")
+            }
+        }
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
         }
     }
     abstract fun legacyQuotaExemptionDao(): LegacyQuotaExemptionDao
     abstract fun moadianDetailsDao(): MoadianDetailsDao
     abstract fun companyDao(): CompanyDao
+    abstract fun customerProfileDao(): CustomerProfileDao
     abstract fun customerDao(): CustomerDao
     abstract fun invoiceDao(): InvoiceDao
     abstract fun invoiceLineDao(): InvoiceLineDao
