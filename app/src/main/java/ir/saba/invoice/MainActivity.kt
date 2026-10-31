@@ -648,7 +648,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             Page.INVOICES -> if (current != null) key(current.companyId) {
-                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, accessToken = accessToken, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
+                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, accessToken = accessToken, onNeedCharge = { page = Page.CREDIT_PURCHASE }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
                             Page.CREDIT_PURCHASE -> CreditPurchaseScreen(accessToken)
                             Page.QUOTA -> if (current != null && company != null) {
