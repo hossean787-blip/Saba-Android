@@ -45,7 +45,7 @@ class AccountScreenTest {
         compose.setContent { MaterialTheme {
             AccountScreen(3, 7, false, "مالک آزمایشی", "owner@example.com", {}, {})
         } }
-        compose.onNodeWithTag("personalInfo").performClick()
+        compose.onNodeWithTag("personalInfo").performScrollTo().performClick()
         compose.onNodeWithText("ویرایش مشخصات مالک").assertExists()
         compose.onNodeWithText("ایمیل ورود: owner@example.com").assertExists()
         compose.onNodeWithText("انصراف").performClick()
