@@ -437,6 +437,7 @@ fun MoadianScreen(
             OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { Text("شناسه یکتا (پس از صدور)") }, modifier = Modifier.fillMaxWidth())
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
             Text("مدیریت کلید عمومی و خصوصی از کارت «کلیدهای مالیاتی» در صفحه خانه انجام می‌شود.", style = MaterialTheme.typography.bodySmall)
+            }
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (!pending) {
                 Button(onClick = {
