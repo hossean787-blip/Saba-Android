@@ -42,8 +42,8 @@ object SuraInvoicePdf {
     private fun text(c: Canvas, value: String, right: Float, top: Float, width: Int = 230,
                      size: Float = 11f, bold: Boolean = false, color: Int = ink) {
         val p = TextPaint(3).apply { this.color = color; textSize = size
-            typeface = if (bold) android.graphics.Typeface.create("sans-serif", 1)
-                       else android.graphics.Typeface.create("sans-serif", 0) }
+            typeface = if (bold) android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+                       else android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL) }
         val layout = StaticLayout.Builder.obtain(value, 0, value.length, p, width)
             .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
             .setTextDirection(android.text.TextDirectionHeuristics.RTL)
