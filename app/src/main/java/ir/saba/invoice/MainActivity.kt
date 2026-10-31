@@ -586,7 +586,7 @@ class MainActivity : ComponentActivity() {
                                 onSelectTaxpayer = { page = Page.COMPANIES },
                                 taxpayerOptions = companies.filter { it.id !in inactiveCompanyIds }.map { it.id to it.name },
                                 onTaxpayerSelected = { selectTaxpayer(it) },
-                                onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else if ((current?.quota?.available ?: 0L) <= 0L) page = Page.QUOTA else { newInvoiceRequest++; page = Page.INVOICES } } },
+                                onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; notify("صدور فاکتور جدید تا اتصال شارژ معتبر غیرفعال است.") } } },
                                 onTaxKeys = { page = Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
