@@ -336,6 +336,7 @@ class MainActivity : ComponentActivity() {
                 .digest(ownerEmail.orEmpty().trim().lowercase(java.util.Locale.ROOT).toByteArray())
                 .joinToString("") { "%02x".format(it) }
         }
+        var data by remember { mutableStateOf<CompanyData?>(null) }
         var selectedCompanyId by rememberSaveable(ownerSelectionKey) {
             mutableStateOf(preferences.getLong(ownerSelectionKey, -1L).takeIf { it > 0L })
         }
@@ -346,7 +347,6 @@ class MainActivity : ComponentActivity() {
             }
             preferences.edit().putLong(ownerSelectionKey, id).apply()
         }
-        var data by remember { mutableStateOf<CompanyData?>(null) }
         var loading by remember { mutableStateOf(false) }
         var busy by remember { mutableStateOf(false) }
         var editing by rememberSaveable { mutableStateOf(false) }
