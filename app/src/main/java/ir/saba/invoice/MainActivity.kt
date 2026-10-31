@@ -48,7 +48,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, COMPANIES, TAX_KEYS, CUSTOMERS, INVOICES, QUOTA, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, COMPANIES, TAX_KEYS, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -540,6 +540,7 @@ class MainActivity : ComponentActivity() {
                                             Page.COMPANIES -> "مدیریت مودیان مالیاتی"
                                             Page.INVOICES -> "صدور و مدیریت صورتحساب"
                                             Page.CUSTOMERS -> "مدیریت مشتریان"
+                                            Page.CREDIT_PURCHASE -> "خرید اعتبار"
                                             Page.SETTINGS -> "حساب کاربری"
                                             Page.APP_SETTINGS -> "تنظیمات برنامه"
                                             else -> "سامانه صورتحساب سورا"
@@ -558,7 +559,7 @@ class MainActivity : ComponentActivity() {
                         NavigationBar(containerColor = Color(0xFFE7F4FD), tonalElevation = 0.dp) {
                             listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
                                 Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
-                                Triple(Page.SETTINGS, "حساب کاربری", Icons.Default.AccountCircle)).forEach { (destination, title, icon) ->
+                                Triple(Page.CREDIT_PURCHASE, "اعتبار", Icons.Default.AccountCircle), Triple(Page.SETTINGS, "حساب کاربری", Icons.Default.AccountCircle)).forEach { (destination, title, icon) ->
                                 NavigationBarItem(selected = page == destination, enabled = !editing && !busy,
                                     colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer),
                                     onClick = { page = destination }, icon = { Icon(icon, title) }, label = { Text(title, maxLines = 1) })
@@ -605,6 +606,7 @@ class MainActivity : ComponentActivity() {
                             Page.INVOICES -> if (current != null) key(current.companyId) {
                                 InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
+                            Page.CREDIT_PURCHASE -> CreditPurchaseScreen()
                             Page.QUOTA -> if (current != null && company != null) {
                                 CreditManagementScreen(
                                     taxpayerName = company.name,
