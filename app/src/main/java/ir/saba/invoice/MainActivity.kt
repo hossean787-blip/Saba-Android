@@ -296,7 +296,7 @@ class MainActivity : ComponentActivity() {
         onDisableBiometrics: () -> Unit
     ) {
         var confirmLogout by remember { mutableStateOf(false) }
-        var accountMenuOpen by remember { mutableStateOf(false) }
+        val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         var confirmDisableBiometrics by remember { mutableStateOf(false) }
         if (confirmDisableBiometrics) AlertDialog(
             onDismissRequest = { confirmDisableBiometrics = false },
@@ -416,6 +416,53 @@ class MainActivity : ComponentActivity() {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl,
                 LocalDensity provides Density(density.density, density.fontScale * fontScale)) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    ModalNavigationDrawer(
+                        drawerState = drawerState,
+                        gesturesEnabled = !editing && !busy,
+                        drawerContent = {
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                ModalDrawerSheet(
+                                    modifier = Modifier.width(290.dp),
+                                    drawerContainerColor = Color(0xFF09253C),
+                                    drawerContentColor = Color.White
+                                ) {
+                                    Column(
+                                        Modifier.fillMaxHeight().padding(horizontal = 18.dp, vertical = 20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        Text("سورا | SURA", color = Color(0xFFE8CE91),
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold)
+                                        Text("صبا گستر اراک", color = Color(0xFFB8D0DD))
+                                        HorizontalDivider(color = Color(0xFF345069))
+                                        NavigationDrawerItem(
+                                            label = { Text("تنظیمات برنامه") },
+                                            selected = page == Page.APP_SETTINGS,
+                                            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                                            onClick = {
+                                                scope.launch { drawerState.close() }
+                                                page = Page.APP_SETTINGS
+                                            },
+                                            colors = NavigationDrawerItemDefaults.colors(
+                                                unselectedContainerColor = Color.Transparent,
+                                                unselectedTextColor = Color.White,
+                                                unselectedIconColor = Color(0xFFE8CE91),
+                                                selectedContainerColor = Color(0xFF15526B),
+                                                selectedTextColor = Color.White,
+                                                selectedIconColor = Color(0xFFE8CE91)
+                                            )
+                                        )
+                                        Spacer(Modifier.weight(1f))
+                                        HorizontalDivider(color = Color(0xFF345069))
+                                        Text("سورا | صبا گستر اراک", color = Color(0xFFB8D0DD),
+                                            style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+                    ) {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Scaffold(
                     modifier = Modifier.imePadding(),
                     topBar = {
@@ -437,28 +484,10 @@ class MainActivity : ComponentActivity() {
                                         }, compact = true
                                     )
                                 }
-                                Box {
-                                    IconButton(
-                                        onClick = { accountMenuOpen = true },
-                                        enabled = !editing && !busy,
-                                        modifier = Modifier.size(47.dp)
-                                    ) {
-                                        Icon(Icons.Default.Menu, contentDescription = "باز کردن منوی کاربری",
-                                            tint = Color(0xFFDAEAF3), modifier = Modifier.size(28.dp))
-                                    }
-                                    DropdownMenu(expanded = accountMenuOpen,
-                                        onDismissRequest = { accountMenuOpen = false }) {
-                                        DropdownMenuItem(
-                                            text = { Text("حساب کاربری") },
-                                            leadingIcon = { Icon(Icons.Default.AccountCircle, null) },
-                                            onClick = { accountMenuOpen = false; page = Page.SETTINGS }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("تنظیمات برنامه") },
-                                            leadingIcon = { Icon(Icons.Default.Settings, null) },
-                                            onClick = { accountMenuOpen = false; page = Page.APP_SETTINGS }
-                                        )
-                                    }
+                                IconButton(onClick = { scope.launch { drawerState.open() } },
+                                    enabled = !editing && !busy, modifier = Modifier.size(48.dp)) {
+                                    Icon(Icons.Default.Menu, contentDescription = "باز کردن منوی کشویی",
+                                        tint = Color(0xFFE6D2A6), modifier = Modifier.size(30.dp))
                                 }
                             }
                         }
@@ -588,6 +617,9 @@ class MainActivity : ComponentActivity() {
                                 onDisableBiometrics = { confirmDisableBiometrics = true },
                                 onBackToAccount = { page = Page.SETTINGS }
                             )
+                        }
+                    }
+                }
                         }
                     }
                 }
