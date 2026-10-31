@@ -57,6 +57,35 @@ class BiometricLoginVault(context: Context) {
         prefs.contains("encrypted") && prefs.contains("iv") &&
             try { keystore().containsAlias(KEY_ALIAS) } catch (_: Exception) { false }
 
+    /** Call only immediately after a successful system biometric prompt. */
+    fun enrollAfterAuthentication(credentials: StoredLoginCredentials) {
+        val bytes = encodeCredentials(credentials)
+        try {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, createOrGetKey())
+            cipher.updateAAD(AAD)
+            val encrypted = cipher.doFinal(bytes)
+            check(prefs.edit()
+                .putString("encrypted", Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+                .commit())
+            check(isEnabled())
+        } finally { bytes.fill(0) }
+    }
+
+    /** Call only immediately after a successful system biometric prompt. */
+    fun unlockAfterAuthentication(): StoredLoginCredentials {
+        check(isEnabled())
+        val iv = Base64.decode(prefs.getString("iv", ""), Base64.NO_WRAP)
+        require(iv.size in 12..16)
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.DECRYPT_MODE,
+            keystore().getKey(KEY_ALIAS, null) as SecretKey, GCMParameterSpec(128, iv))
+        cipher.updateAAD(AAD)
+        val plain = cipher.doFinal(Base64.decode(prefs.getString("encrypted", ""), Base64.NO_WRAP))
+        return try { decodeCredentials(plain) } finally { plain.fill(0) }
+    }
+
     fun prepareEnrollment(): Cipher {
         check(canOffer()) { "Biometric authentication unavailable" }
         // Recover a damaged/invalidated Keystore alias without ever leaving
