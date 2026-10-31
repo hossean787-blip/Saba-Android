@@ -122,13 +122,10 @@ fun AccountScreen(
                 Icons.Default.AccountCircle, Color(0xFFE5F2FA), Color(0xFF146C92),
                 Modifier.weight(1f), !busy, "changeMobile") { selected = AccountAction.MOBILE }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
             AccountActionTile("انتقال شارژ به مودیان", "",
                 Icons.AutoMirrored.Filled.List, Color(0xFFE3F5F0), Color(0xFF14866D),
-                Modifier.weight(1f), !busy, "transferCharge", onTransferCharge)
-            AccountActionTile("خرید شارژ", "",
-                Icons.Default.Add, Color(0xFFFFF1E0), Color(0xFFB47A2F),
-                Modifier.weight(1f), !busy, "purchaseCharge") { selected = AccountAction.PURCHASE }
+                Modifier.fillMaxWidth(), !busy, "transferCharge", onTransferCharge)
         }
         Card(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White),
