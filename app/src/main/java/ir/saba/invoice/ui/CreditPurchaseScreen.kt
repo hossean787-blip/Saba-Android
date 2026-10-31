@@ -80,7 +80,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                 }
             }
         }
-        Card(shape = cardShape, colors = CardDefaults.cardColors(containerColor = Color.White),
+        if (plan != "free") Card(shape = cardShape, colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(3.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
                 Text(if (plan == "single") "تعداد اعتبار موردنیاز" else "اشتراک ماهانه",
