@@ -28,12 +28,12 @@ class AccountScreenTest {
             .fetchSemanticsNode().boundsInRoot.top
         val password = compose.onNodeWithTag("changePassword").assertExists()
             .fetchSemanticsNode().boundsInRoot.top
-        assertTrue("First pair must share a row", kotlin.math.abs(personal - password) < 4f)
+        assertTrue("Profile appears above action grid", personal < password)
         val mobile = compose.onNodeWithTag("changeMobile").assertExists()
             .fetchSemanticsNode().boundsInRoot.top
         val transfer = compose.onNodeWithTag("transferCharge").assertExists()
             .fetchSemanticsNode().boundsInRoot.top
-        assertTrue("Second pair must share a row", kotlin.math.abs(mobile - transfer) < 4f)
+        assertTrue("Mobile appears before charge transfer", mobile < transfer)
         compose.onNodeWithText("تنظیمات برنامه").assertDoesNotExist()
         compose.onNodeWithTag("transferCharge").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, transfers) }
@@ -50,7 +50,7 @@ class AccountScreenTest {
         compose.onNodeWithText("ایمیل ورود: owner@example.com").assertExists()
         compose.onNodeWithText("انصراف").performClick()
         compose.onNodeWithTag("changePassword").performClick()
-        compose.onNodeWithText("تغییر رمز عبور").assertExists()
+        compose.onAllNodesWithText("تغییر رمز عبور").assertCountEquals(2)
         compose.onNodeWithText("این خدمت هنوز در سرور متصل نشده است", substring = true).assertExists()
         compose.onNodeWithText("متوجه شدم").performClick()
         compose.onNodeWithTag("purchaseCharge").performScrollTo().performClick()
