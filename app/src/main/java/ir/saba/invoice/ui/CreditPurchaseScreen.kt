@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -24,7 +26,13 @@ private val sky = Color(0xFFDAEEFF)
 private val violet = Color(0xFF8046CE)
 
 @Composable
-fun CreditPurchaseScreen() {
+fun CreditPurchaseScreen(accessToken: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var promoCode by remember { mutableStateOf("") }
+    var promoBusy by remember { mutableStateOf(false) }
+    var promoMessage by remember { mutableStateOf("") }
+    var promoGranted by remember { mutableStateOf(false) }
     var quantity by remember { mutableStateOf("1") }
     var officialInvoice by remember { mutableStateOf(false) }
     var fullName by remember { mutableStateOf("") }
@@ -142,13 +150,54 @@ fun CreditPurchaseScreen() {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            listOf("پلن سوم", "پلن چهارم").forEach { title ->
-                Card(Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEBEFF6))) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(title, color = deepBlue, fontWeight = FontWeight.Bold)
-                        Text("به‌زودی", color = Color(0xFF74859A))
-                    }
+            Card(onClick = { plan = "free" }, modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    if (plan == "free") 2.dp else 1.dp, Color(0xFF359985)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F9F3))) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("صورتحساب رایگان", color = deepBlue, fontWeight = FontWeight.Bold)
+                    Text("۳ اعتبار هدیه", color = Color(0xFF168366))
+                    Text("یک‌بار برای هر حساب و دستگاه", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Card(Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEBEFF6))) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("پلن چهارم", color = deepBlue, fontWeight = FontWeight.Bold)
+                    Text("به‌زودی", color = Color(0xFF74859A))
+                }
+            }
+        }
+        if (plan == "free") {
+            Card(shape = cardShape, colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    Text("فعال‌سازی هدیه ۳ صورتحساب", color = deepBlue, fontWeight = FontWeight.Bold)
+                    Text("برای دریافت یک‌باره اعتبار، کد هدیه را وارد کنید.",
+                        style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(promoCode, { promoCode = it.take(48); promoMessage = "" },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text("کد هدیه") }, shape = RoundedCornerShape(14.dp))
+                    Button(enabled = !promoBusy && !promoGranted && promoCode.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            promoBusy = true
+                            promoMessage = ""
+                            scope.launch {
+                                val result = FreeCreditClient.redeem(context, accessToken, promoCode)
+                                promoMessage = result.fold(
+                                    onSuccess = { promoGranted = true; "۳ اعتبار هدیه در سرور ثبت شد." },
+                                    onFailure = { it.message ?: "دریافت هدیه ناموفق بود." }
+                                )
+                                promoBusy = false
+                            }
+                        }) { Text(if (promoBusy) "در حال بررسی…" else "فعال‌سازی هدیه") }
+                    if (promoMessage.isNotBlank()) Text(promoMessage, color = deepBlue,
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("شناسه دستگاه برای جلوگیری از دریافت تکراری بررسی می‌شود. IP به‌تنهایی معیار مسدودسازی نیست.",
+                        style = MaterialTheme.typography.labelSmall, color = Color(0xFF687A89))
+                    Text("مصرف این اعتبار برای ثبت فاکتور، پس از اتصال کیف پول سرور فعال می‌شود.",
+                        style = MaterialTheme.typography.labelSmall, color = Color(0xFF977425))
                 }
             }
         }
