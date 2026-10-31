@@ -10,6 +10,10 @@ import ir.saba.invoice.auth.StoredLoginCredentials
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -357,6 +361,64 @@ class MainActivity : ComponentActivity() {
         var newInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
+        val excelService = remember { ExcelTransferService(db) }
+        var excelScope by remember { mutableStateOf("taxpayers") }
+        var excelMode by remember { mutableStateOf("template") }
+        val exportExcel = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        ) { uri ->
+            if (uri != null) scope.launch {
+                try {
+                    val payload = withContext(Dispatchers.IO) {
+                        if (excelMode == "template") excelService.template(excelScope)
+                        else excelService.export(excelScope, selectedCompanyId)
+                    }
+                    withContext(Dispatchers.IO) {
+                        contentResolver.openOutputStream(uri)?.use { it.write(payload) }
+                            ?: error("فایل خروجی قابل نوشتن نیست.")
+                    }
+                    notify("فایل اکسل با موفقیت ذخیره شد.")
+                } catch (e: Exception) { notify(e.message ?: "ذخیره اکسل انجام نشد.") }
+            }
+        }
+        val importExcel = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) scope.launch {
+                try {
+                    val bytes = withContext(Dispatchers.IO) {
+                        contentResolver.openInputStream(uri)?.use { stream ->
+                            val data = java.io.ByteArrayOutputStream()
+                            val chunk = ByteArray(8192)
+                            while (true) {
+                                val size = stream.read(chunk)
+                                if (size < 0) break
+                                if (data.size() + size > 5_000_000) error("فایل اکسل بیش از حد بزرگ است.")
+                                data.write(chunk, 0, size)
+                            }
+                            data.toByteArray()
+                        } ?: error("فایل ورودی خوانده نشد.")
+                    }
+                    val count = withContext(Dispatchers.IO) {
+                        excelService.import(excelScope, selectedCompanyId, bytes)
+                    }
+                    refresh()
+                    notify("ورود اکسل انجام شد؛ $count رکورد جدید اضافه شد.")
+                } catch (e: Exception) { notify(e.message ?: "خواندن اکسل انجام نشد.") }
+            }
+        }
+        fun handleExcelAction(action: String, target: String) {
+            if (target == "customers" && selectedCompanyId == null && action != "template") {
+                notify("ابتدا در خانه یک مؤدی انتخاب کنید.")
+                return
+            }
+            excelScope = target
+            excelMode = action
+            if (action == "import") importExcel.launch(arrayOf(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/octet-stream"
+            )) else exportExcel.launch("SURA_" + target + (if (action == "template") "_template" else "_export") + ".xlsx")
+        }
 
         fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
 
@@ -605,7 +667,8 @@ class MainActivity : ComponentActivity() {
                                         notify("ابتدا یک مودی ثبت یا انتخاب کنید.")
                                     } else page = Page.QUOTA
                                 },
-                                onLogout = { confirmLogout = true }
+                                onLogout = { confirmLogout = true },
+                                onExcelAction = { action, target -> handleExcelAction(action, target) }
                             )
                             Page.APP_SETTINGS -> AppSettingsScreen(
                                 fontScale = fontScale,
