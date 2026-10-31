@@ -16,18 +16,17 @@ create or replace function public.sura_consume_promo_credit(p_account uuid,p_inv
 returns jsonb language plpgsql security invoker set search_path=public as $$
 declare claim public.sura_promo_redemptions%rowtype; existing bigint;
 begin
- if p_account is null or p_invoice_key is null then
-  return jsonb_build_object('error','invalid_request');
- end if;
- select id into existing from public.sura_promo_invoice_uses where account_id=p_account and invoice_key=p_invoice_key;
- if existing is not null then
-  select credits_remaining into claim.credits_remaining from public.sura_promo_redemptions where account_id=p_account;
-  return jsonb_build_object('consumed',false,'already_consumed',true,'remaining',claim.credits_remaining);
- end if;
+ if p_account is null or p_invoice_key is null then return jsonb_build_object('error','invalid_request'); end if;
+ -- Serialize all credits and replays for this account before checking for duplicate claims.
  select * into claim from public.sura_promo_redemptions where account_id=p_account for update;
  if not found then return jsonb_build_object('error','no_promo'); end if;
+ select id into existing from public.sura_promo_invoice_uses where account_id=p_account and invoice_key=p_invoice_key;
+ if existing is not null then
+  return jsonb_build_object('consumed',false,'already_consumed',true,'remaining',claim.credits_remaining);
+ end if;
  if claim.credits_remaining<1 then return jsonb_build_object('error','no_credit'); end if;
- insert into public.sura_promo_invoice_uses(redemption_id,account_id,invoice_key) values(claim.id,p_account,p_invoice_key);
+ insert into public.sura_promo_invoice_uses(redemption_id,account_id,invoice_key)
+ values(claim.id,p_account,p_invoice_key);
  update public.sura_promo_redemptions set credits_remaining=credits_remaining-1 where id=claim.id;
  return jsonb_build_object('consumed',true,'remaining',claim.credits_remaining-1);
 end $$;
