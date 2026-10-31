@@ -51,11 +51,21 @@ fun InvoiceScreen(
     onNotice: (String) -> Unit,
     onEditorActive: (Boolean) -> Unit,
     availableCharge: Long = 0,
+    accessToken: String = "",
     onNeedCharge: () -> Unit = {},
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    var promoRemaining by remember { mutableIntStateOf(0) }
+    var promoLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(accessToken, companyId) {
+        promoLoading = true
+        promoRemaining = runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
+        promoLoading = false
+    }
+    val usableCharge = availableCharge + promoRemaining
+
     var exportBytes by remember { mutableStateOf<ByteArray?>(null) }
     val pdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val data = exportBytes
@@ -95,7 +105,7 @@ fun InvoiceScreen(
         if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
             lastHandledNewInvoiceRequest = newInvoiceRequest
             onNewInvoiceRequestHandled()
-            if (availableCharge <= 0L) onNeedCharge()
+            if (usableCharge <= 0L) onNeedCharge()
             else {
                 invoiceId = null
                 number = ""
@@ -168,12 +178,12 @@ fun InvoiceScreen(
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 Button(enabled = !busy && customers.isNotEmpty(), onClick = {
-                    if (availableCharge <= 0) { onNeedCharge(); return@Button }
+                    if (usableCharge <= 0) { onNeedCharge(); return@Button }
                     invoiceId = null; number = ""; date = ""; customerId = customers.firstOrNull()?.id
                     lines = emptyList(); error = ""; mode = "edit"
                 }) { Text("صدور فاکتور جدید") }
                 if (customers.isEmpty()) Text("برای صدور فاکتور ابتدا مشتری این شرکت را ثبت کنید.")
-                if (availableCharge <= 0) Text("شارژ مودی صفر است؛ برای صدور فاکتور جدید به انتقال شارژ هدایت می‌شوید.")
+                if (usableCharge <= 0 && !promoLoading) Text("اعتبار معتبر برای صدور فاکتور موجود نیست.")
                 OutlinedTextField(search, { search = it }, label = { Text("جستجوی شماره فاکتور یا مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("ALL" to "همه", "DRAFT" to "پیش‌نویس", "FINALIZED" to "نهایی").forEach { (value, title) ->
@@ -258,7 +268,17 @@ fun InvoiceScreen(
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
-                            val savedId = repository.saveDraft(companyId, selectedCustomer, number, date, lines, invoiceId)
+                            val savedId = if (invoiceId == null && availableCharge <= 0 && promoRemaining > 0) {
+                                require(number.trim().isNotBlank()) { "برای استفاده از اعتبار هدیه، شماره فاکتور را وارد کنید." }
+                                val company = db.companyDao().byId(companyId)
+                                    ?: throw IllegalArgumentException("مودی یافت نشد.")
+                                val normalized = InvoiceInput.digits(number).trim()
+                                val identity = company.nationalId + ":" + normalized
+                                val claimKey = java.util.UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
+                                promoRemaining = FreeCreditClient.consume(accessToken, claimKey)
+                                InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
+                                    serverPromoConfirmed = true)
+                            } else repository.saveDraft(companyId, selectedCustomer, number, date, lines, invoiceId)
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             onChanged()
