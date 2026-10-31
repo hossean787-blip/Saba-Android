@@ -7,6 +7,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -51,9 +59,8 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
     var birthCertificate by remember(editorOpen, editorId) { mutableStateOf(oldProfile?.birthCertificateNumber.orEmpty()) }
     if (!editorOpen) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("مشتریان و تأمین‌کنندگان", style = MaterialTheme.typography.titleLarge)
-            Button(onClick = { editorId = null; editorOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("ثبت مشتری / تأمین‌کننده جدید") }
-            OutlinedTextField(search, { search = it }, label = { Text("جستجوی نام، شناسه ملی یا کد اقتصادی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Button(onClick = { editorId = null; editorOpen = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("جدید") }
+            OutlinedTextField(search, { search = it }, placeholder = { Text("جست‌وجوی مشتریان و تأمین‌کنندگان") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
             val rows = customers.filter {
                 it.name.contains(search, true) || it.nationalId.contains(InvoiceInput.digits(search)) || it.economicId.contains(InvoiceInput.digits(search))
             }
@@ -89,22 +96,47 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
                     FilterChip(selected = type == value, onClick = { type = value }, label = { Text(title) }, modifier = Modifier.padding(end = 6.dp))
                 } }
             }
-            @Composable fun Field(label: String, value: String, change: (String) -> Unit) {
-                OutlinedTextField(value, change, enabled = !busy, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            @Composable fun Field(label: String, value: String, help: String = "", modifier: Modifier = Modifier.fillMaxWidth(), change: (String) -> Unit) {
+                var showHelp by remember { mutableStateOf(false) }
+                OutlinedTextField(value, change, enabled = !busy,
+                    placeholder = { Text(label, maxLines = 1) },
+                    trailingIcon = if (help.isEmpty()) null else { {
+                        IconButton(onClick = { showHelp = true }) {
+                            Icon(Icons.Default.Info, contentDescription = "راهنمای $label", tint = Color(0xFF12819B))
+                        }
+                    } },
+                    shape = RoundedCornerShape(14.dp), modifier = modifier, singleLine = true)
+                if (showHelp) AlertDialog(onDismissRequest = { showHelp = false },
+                    title = { Text(label) }, text = { Text(help) },
+                    confirmButton = { TextButton(onClick = { showHelp = false }) { Text("متوجه شدم") } })
             }
             Field("نام / عنوان *", name) { name = it }
-            Field(if (type == "LEGAL") "شناسه ملی ۱۱ رقمی *" else "کد ملی / شناسه هویتی", national) { national = InvoiceInput.digits(it) }
-            Field("شماره اقتصادی", economic) { economic = InvoiceInput.digits(it) }
-            Field("تلفن", phone) { phone = InvoiceInput.digits(it) }
-            Field("فکس", fax) { fax = InvoiceInput.digits(it) }
-            Field("موبایل", mobile) { mobile = InvoiceInput.digits(it) }
-            Field("شماره ثبت", registration) { registration = it }
-            Field("شماره شناسنامه", birthCertificate) { birthCertificate = it }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Field(if (type == "LEGAL") "شناسه ملی *" else "کد ملی / شناسه", national,
+                    "شناسه هویتی مرتبط با نوع طرف حساب را وارد کنید.", Modifier.weight(1f)) { national = InvoiceInput.digits(it) }
+                Field("شماره اقتصادی", economic, "شماره اقتصادی ثبت‌شده برای طرف حساب.", Modifier.weight(1f)) { economic = InvoiceInput.digits(it) }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Field("تلفن", phone, modifier = Modifier.weight(1f)) { phone = InvoiceInput.digits(it) }
+                Field("فکس", fax, modifier = Modifier.weight(1f)) { fax = InvoiceInput.digits(it) }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Field("موبایل", mobile, modifier = Modifier.weight(1f)) { mobile = InvoiceInput.digits(it) }
+                Field("کد پستی", postal, "کد پستی ده رقمی محل طرف حساب.", Modifier.weight(1f)) { postal = InvoiceInput.digits(it) }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Field("شماره ثبت", registration, modifier = Modifier.weight(1f)) { registration = it }
+                Field("شماره شناسنامه", birthCertificate, modifier = Modifier.weight(1f)) { birthCertificate = it }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Field("استان", province, modifier = Modifier.weight(1f)) { province = it }
+                Field("شهرستان", county, modifier = Modifier.weight(1f)) { county = it }
+            }
             Field("ایمیل", email) { email = it.trim() }
-            Field("کد پستی", postal) { postal = InvoiceInput.digits(it) }
-            Field("استان", province) { province = it }
-            Field("شهرستان", county) { county = it }
-            OutlinedTextField(address, { address = it }, enabled = !busy, label = { Text("آدرس") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            OutlinedTextField(address, { address = it }, enabled = !busy,
+                placeholder = { Text("آدرس") }, shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth(), minLines = 2)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(enabled = !busy, onClick = {
                 busy = true; error = ""
                 scope.launch {
@@ -135,8 +167,9 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
                     } catch (e: Exception) { error = e.message ?: "خطا در ذخیره اطلاعات" }
                     finally { busy = false }
                 }
-            }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره اطلاعات") }
-            OutlinedButton(enabled = !busy, onClick = { editorOpen = false }, modifier = Modifier.fillMaxWidth()) { Text("انصراف") }
+            }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("ذخیره اطلاعات") }
+            OutlinedButton(enabled = !busy, onClick = { editorOpen = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("انصراف") }
+            }
         }
     }
 }
