@@ -80,105 +80,84 @@ fun AccountScreen(
     }
     Column(
         Modifier.fillMaxSize().background(Color(0xFFF2F9FF))
-            .verticalScroll(rememberScrollState()).padding(bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("حساب کاربری", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold, color = accountText)
-
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            colors = CardDefaults.cardColors(containerColor = accountNavy),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(
-                Modifier.fillMaxWidth().background(Brush.horizontalGradient(
-                    listOf(accountNavy, Color(0xFF12445B), accountNavy)
-                )).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(52.dp).clip(CircleShape)
-                        .background(Color(0xFF285569)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = null,
-                            tint = accountGold, modifier = Modifier.size(37.dp))
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(displayName,
-                            color = Color.White, fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium)
-                        Text(ownerEmail ?: "اطلاعات ایمیل در دسترس نیست",
-                            color = Color(0xFFB6D7E3), style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    Text("SURA", color = accountGold, fontWeight = FontWeight.ExtraBold,
-                        style = MaterialTheme.typography.labelMedium)
+            Row(Modifier.fillMaxWidth().padding(15.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(60.dp).clip(CircleShape)
+                    .background(Color(0xFFD9E8F7)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.AccountCircle, contentDescription = null,
+                        tint = Color(0xFF39739A), modifier = Modifier.size(42.dp))
                 }
-                HorizontalDivider(color = Color(0xFF37586A))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AccountBalance("شارژ آزاد مالک", ownerCharge, Modifier.weight(1f))
-                    AccountBalance("شارژ مودی فعال", taxpayerCharge, Modifier.weight(1f))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(displayName, color = accountText, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(ownerEmail ?: "ایمیل ثبت نشده", color = Color(0xFF657C97),
+                        style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                    Text(localMobile.ifBlank { "موبایل ثبت نشده" }, color = Color(0xFF657C97),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = ::openProfile, enabled = !busy && profileKey != null,
+                    modifier = Modifier.testTag("personalInfo")) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF075F91))
+                    Spacer(Modifier.width(4.dp))
+                    Text("اطلاعات شخصی", style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF075F91))
                 }
             }
         }
-
-        ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("مشخصات مالک حساب", style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold, color = accountText)
-                Text("نام: " + displayName)
-                Text("ایمیل: " + (ownerEmail ?: "دریافت نشده"))
-                Text("موبایل: " + localMobile.ifBlank { "ثبت نشده" })
-                Text("نام و شماره موبایل در این بخش فقط روی همین دستگاه ذخیره می‌شوند و با سرور همگام نیستند.",
-                    style = MaterialTheme.typography.bodySmall, color = Color(0xFF6B8093))
-                Button(onClick = ::openProfile, enabled = !busy && profileKey != null,
-                    modifier = Modifier.fillMaxWidth()) { Text("ویرایش مشخصات شخصی") }
-            }
-        }
-
-        Text("خدمات حساب", style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold, color = accountText)
-
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccountActionTile("اطلاعات شخصی", "مشخصات مالک حساب",
-                Icons.Default.Person, Color(0xFFE5F2FA), Color(0xFF146C92),
-                Modifier.weight(1f), !busy, "personalInfo") { openProfile() }
-            AccountActionTile("تغییر رمز", "امنیت حساب کاربری",
+            AccountActionTile("تغییر رمز عبور", "",
                 Icons.Default.Edit, Color(0xFFE8EDFB), Color(0xFF515FAD),
                 Modifier.weight(1f), !busy, "changePassword") { selected = AccountAction.PASSWORD }
+            AccountActionTile("تغییر شماره موبایل", "",
+                Icons.Default.AccountCircle, Color(0xFFE5F2FA), Color(0xFF146C92),
+                Modifier.weight(1f), !busy, "changeMobile") { selected = AccountAction.MOBILE }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccountActionTile("تغییر شماره موبایل", "مدیریت شماره تماس",
-                Icons.Default.AccountCircle, Color(0xFFF1EAF9), Color(0xFF8057A5),
-                Modifier.weight(1f), !busy, "changeMobile") { selected = AccountAction.MOBILE }
-            AccountActionTile("انتقال شارژ به مودیان", "تخصیص شارژ موجود",
+            AccountActionTile("انتقال شارژ به مودیان", "",
                 Icons.AutoMirrored.Filled.List, Color(0xFFE3F5F0), Color(0xFF14866D),
                 Modifier.weight(1f), !busy, "transferCharge", onTransferCharge)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccountActionTile("خرید شارژ", "مدیریت خرید سهمیه",
+            AccountActionTile("خرید شارژ", "",
                 Icons.Default.Add, Color(0xFFFFF1E0), Color(0xFFB47A2F),
                 Modifier.weight(1f), !busy, "purchaseCharge") { selected = AccountAction.PURCHASE }
-            AccountActionTile("خروج از حساب", "خروج امن از پنل",
-                Icons.Default.Settings, Color(0xFFF1F2F5), Color(0xFF566B7D),
-                Modifier.weight(1f), !busy, "accountLogout", onLogout)
         }
-        Text("مدیریت اکسل", style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold, color = accountText)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccountActionTile("ورود اطلاعات", "ورود اطلاعات",
-                Icons.Default.Add, Color(0xFFE3F5F0), Color(0xFF14866D),
-                Modifier.weight(1f), !busy, "excelImport") { excelAction = "import" }
-            AccountActionTile("خروجی اطلاعات", "دریافت اطلاعات",
-                Icons.AutoMirrored.Filled.List, Color(0xFFE8EDFB), Color(0xFF515FAD),
-                Modifier.weight(1f), !busy, "excelExport") { excelAction = "export" }
+        Card(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.List, null, tint = Color(0xFF11846E))
+                    Text("مدیریت اطلاعات اکسل", style = MaterialTheme.typography.titleMedium,
+                        color = accountText, fontWeight = FontWeight.Bold)
+                }
+                ExcelActionRow("ورود اطلاعات", Icons.Default.Add,
+                    Color(0xFFEAF3FF), Color(0xFF155DA8),
+                    !busy, "excelImport", onTaxpayers = { onExcelAction("import", "taxpayers") },
+                    onCustomers = { onExcelAction("import", "customers") })
+                ExcelActionRow("خروجی اطلاعات", Icons.AutoMirrored.Filled.List,
+                    Color(0xFFFFEBF0), Color(0xFFAC4767),
+                    !busy, "excelExport", onTaxpayers = { onExcelAction("export", "taxpayers") },
+                    onCustomers = { onExcelAction("export", "customers") })
+                ExcelActionRow("دریافت فایل الگو", Icons.Default.Edit,
+                    Color(0xFFFFF4E1), Color(0xFFAA7827),
+                    !busy, "excelTemplate", onTaxpayers = { onExcelAction("template", "taxpayers") },
+                    onCustomers = { onExcelAction("template", "customers") })
+            }
         }
-        OutlinedButton(onClick = { excelAction = "template" }, modifier = Modifier.fillMaxWidth(),
-            enabled = !busy) { Text("دریافت فایل الگو") }
-        Text("انتقال شارژ فعلاً محلی و آزمایشی است؛ خرید آنلاین تا اتصال درگاه امن فعال نیست.",
-            color = Color(0xFF6E8394), style = MaterialTheme.typography.labelSmall)
+        OutlinedButton(onClick = onLogout, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().testTag("accountLogout")) {
+            Text("خروج از حساب")
+        }
     }
 
     excelAction?.let { action ->
@@ -280,6 +259,35 @@ fun AccountScreen(
 private enum class AccountAction { PROFILE, PASSWORD, MOBILE, PURCHASE }
 
 @Composable
+private fun ExcelActionRow(
+    title: String, icon: ImageVector, background: Color, accent: Color,
+    enabled: Boolean, tag: String, onTaxpayers: () -> Unit, onCustomers: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+            .background(background).testTag(tag)
+            .padding(horizontal = 9.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(21.dp))
+        Text(title, color = accountText, fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1.2f),
+            maxLines = 2)
+        OutlinedButton(onClick = onTaxpayers, enabled = enabled,
+            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 1.dp),
+            modifier = Modifier.weight(1f).heightIn(min = 39.dp)) {
+            Text("مودیان", maxLines = 1, style = MaterialTheme.typography.labelSmall)
+        }
+        OutlinedButton(onClick = onCustomers, enabled = enabled,
+            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 1.dp),
+            modifier = Modifier.weight(1f).heightIn(min = 39.dp)) {
+            Text("مشتریان", maxLines = 1, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
 private fun AccountBalance(label: String, value: Long, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, color = Color(0xFFACCED9), style = MaterialTheme.typography.labelSmall)
@@ -295,24 +303,25 @@ private fun AccountActionTile(
     enabled: Boolean, tag: String, onClick: () -> Unit
 ) {
     Card(
-        modifier = modifier.height(143.dp).testTag(tag)
+        modifier = modifier.height(80.dp).testTag(tag)
             .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(23.dp),
         colors = CardDefaults.cardColors(containerColor = surface)
     ) {
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp))
                 .background(Color.White.copy(alpha = 0.74f)), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, modifier = Modifier.size(21.dp), tint = accent)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(title, color = accountText, fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium, maxLines = 2,
                     overflow = TextOverflow.Ellipsis)
-                Text(subtitle, color = accent, style = MaterialTheme.typography.labelSmall,
+                if (subtitle.isNotBlank()) Text(subtitle, color = accent, style = MaterialTheme.typography.labelSmall,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
