@@ -46,9 +46,9 @@ class AccountScreenTest {
             AccountScreen(3, 7, false, "مالک آزمایشی", "owner@example.com", {}, {})
         } }
         compose.onNodeWithTag("personalInfo").performClick()
-        compose.onNodeWithText("اطلاعات شخصی مالک").assertExists()
-        compose.onNodeWithText("ایمیل حساب: owner@example.com").assertExists()
-        compose.onNodeWithText("متوجه شدم").performClick()
+        compose.onNodeWithText("ویرایش مشخصات مالک").assertExists()
+        compose.onNodeWithText("ایمیل ورود: owner@example.com").assertExists()
+        compose.onNodeWithText("انصراف").performClick()
         compose.onNodeWithTag("changePassword").performClick()
         compose.onNodeWithText("تغییر رمز عبور").assertExists()
         compose.onNodeWithText("این خدمت هنوز در سرور متصل نشده است", substring = true).assertExists()
