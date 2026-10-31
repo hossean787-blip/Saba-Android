@@ -40,4 +40,28 @@ internal object FreeCreditClient {
                 } finally { connection.disconnect() }
             }
         }
+
+    suspend fun remaining(token: String): Int = call(token, "/status", JSONObject()).getInt("remaining")
+
+    suspend fun consume(token: String, invoiceKey: String): Int =
+        call(token, "/consume", JSONObject().put("invoiceKey", invoiceKey)).getInt("remaining")
+
+    private suspend fun call(token: String, path: String, payload: JSONObject): JSONObject =
+        withContext(Dispatchers.IO) {
+            require(token.isNotBlank()) { "نشست ورود معتبر نیست." }
+            val connection = URL(ENDPOINT + path).openConnection() as HttpURLConnection
+            try {
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+                connection.instanceFollowRedirects = false
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+                if (connection.responseCode !in 200..299)
+                    throw IllegalStateException("اعتبار سروری قابل تأیید نیست (کد ${connection.responseCode}).")
+                JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            } finally { connection.disconnect() }
+        }
 }
