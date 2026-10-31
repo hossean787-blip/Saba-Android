@@ -10,174 +10,133 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import ir.saba.invoice.data.SabaDatabase
-import ir.saba.invoice.data.MoadianDetails
 import ir.saba.invoice.security.TaxpayerCsr
-import ir.saba.invoice.security.TaxpayerPrivateKey
 import ir.saba.invoice.security.TaxpayerKeyGenerator
-import ir.saba.invoice.security.TaxpayerKeyVault
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Fiscal credentials are managed separately from taxpayer identity registration. */
+/**
+ * Standalone certificate-request workshop. It does not select, create, or
+ * mutate a taxpayer record or the device-bound fiscal signing vault.
+ */
 @Composable
-fun TaxpayerKeysScreen(
-    db: SabaDatabase,
-    companyId: Long?,
-    taxpayerName: String?,
-    onNeedTaxpayer: () -> Unit,
-    onNotice: (String) -> Unit
-) {
+fun TaxpayerKeysScreen(onNotice: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val vault = remember { TaxpayerKeyVault() }
-    var busy by remember(companyId) { mutableStateOf(false) }
-    var encrypted by remember(companyId) { mutableStateOf<String?>(null) }
-    var publicPem by remember(companyId) { mutableStateOf("") }
-    var pendingPrivatePem by remember(companyId) { mutableStateOf("") }
-    var exported by remember(companyId) { mutableStateOf(false) }
-    var confirmed by remember(companyId) { mutableStateOf(false) }
-    var loaded by remember(companyId) { mutableStateOf(false) }
-    var loadError by remember(companyId) { mutableStateOf(false) }
-    var province by remember(companyId) { mutableStateOf("") }
-    var city by remember(companyId) { mutableStateOf("") }
-    var csrEmail by remember(companyId) { mutableStateOf("") }
-    var csrName by remember(companyId) { mutableStateOf("") }
-    var csrPem by remember(companyId) { mutableStateOf("") }
-    val csrExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
+    var busy by remember { mutableStateOf(false) }
+    var officialName by remember { mutableStateOf("") }
+    var latinName by remember { mutableStateOf("") }
+    var nationalId by remember { mutableStateOf("") }
+    var province by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var privatePem by remember { mutableStateOf("") }
+    var publicPem by remember { mutableStateOf("") }
+    var csrPem by remember { mutableStateOf("") }
+    var privateSaved by remember { mutableStateOf(false) }
+    var privateExportConfirmed by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+
+    val exportPublic = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
+        if (uri != null && publicPem.isNotBlank()) try {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(publicPem.toByteArray(Charsets.US_ASCII)) }
+                ?: error("File unavailable")
+            onNotice("کلید عمومی ذخیره شد.")
+        } catch (_: Exception) { onNotice("ذخیره کلید عمومی ناموفق بود.") }
+    }
+    val exportPrivate = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
+        if (uri != null && privatePem.isNotBlank()) try {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(privatePem.toByteArray(Charsets.US_ASCII)) }
+                ?: error("File unavailable")
+            privateSaved = true
+            onNotice("کلید خصوصی ذخیره شد. فایل را در مکانی امن و خارج از دسترس دیگران نگهداری کنید.")
+        } catch (_: Exception) { onNotice("ذخیره کلید خصوصی انجام نشد.") }
+    }
+    val exportCsr = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
         if (uri != null && csrPem.isNotBlank()) try {
             context.contentResolver.openOutputStream(uri)?.use { it.write(csrPem.toByteArray(Charsets.US_ASCII)) }
-                ?: error("No output")
-            onNotice("فایل CSR ذخیره شد.")
-        } catch (_: Exception) { onNotice("ذخیره CSR انجام نشد.") }
+                ?: error("File unavailable")
+            onNotice("فایل درخواست گواهی CSR ذخیره شد.")
+        } catch (_: Exception) { onNotice("ذخیره CSR ناموفق بود.") }
     }
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
-        if (uri != null && publicPem.isNotBlank()) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use {
-                    it.write(publicPem.toByteArray(Charsets.US_ASCII))
-                } ?: error("No output")
-                exported = true
-                onNotice("فایل عمومی ذخیره شد؛ فقط همین فایل را در کارپوشه بارگذاری کنید.")
-            } catch (_: Exception) { onNotice("ذخیره کلید عمومی انجام نشد.") }
-        }
-    }
-    LaunchedEffect(companyId) {
-        if (companyId == null) return@LaunchedEffect
-        try {
-            val info = db.moadianDetailsDao().byCompany(companyId)
-            encrypted = info?.encryptedPrivateKey
-            province = info?.province.orEmpty()
-            city = info?.county.orEmpty()
-            csrName = taxpayerName.orEmpty()
-            loadError = false
-        } catch (_: Exception) { loadError = true }
-        loaded = true
-    }
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text("کلیدهای مالیاتی", style = MaterialTheme.typography.headlineSmall)
-        if (companyId == null) {
-            Text("ابتدا مؤدی را ثبت یا انتخاب کنید.")
-            Button(onClick = onNeedTaxpayer) { Text("انتخاب مؤدی") }
-        } else {
-            Text("مؤدی: ${taxpayerName.orEmpty()}")
-            Text("کلید خصوصی فقط به‌صورت رمزنگاری‌شده در این دستگاه نگهداری می‌شود. شناسه یکتا را سازمان امور مالیاتی صادر می‌کند.")
-            if (!loaded) CircularProgressIndicator()
-            if (loadError) Text("خواندن وضعیت کلید ممکن نشد؛ برای حفظ امنیت، تولید کلید غیرفعال است.", color = MaterialTheme.colorScheme.error)
-            if (loaded && !loadError && encrypted == null) {
-                Button(enabled = !busy && pendingPrivatePem.isBlank(), onClick = {
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("ساخت کلید و گواهی مالیاتی", style = MaterialTheme.typography.headlineSmall)
+        Text("این ابزار مستقل از فهرست مؤدیان سورا است. مشخصات متقاضی را وارد کنید و کلیدها و درخواست گواهی را بسازید.",
+            style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(officialName, { officialName = it.take(120) },
+            label = { Text("نام شخص یا شرکت *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(latinName, { latinName = it.take(120) },
+            label = { Text("نام لاتین شخص یا شرکت *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(nationalId, { nationalId = it.filter { c -> c.isDigit() }.take(14) },
+            label = { Text("شناسه ملی / کد ملی *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(province, { province = it.take(120) },
+            label = { Text("استان *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(city, { city = it.take(120) },
+            label = { Text("شهرستان *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(email, { email = it.take(254) },
+            label = { Text("پست الکترونیکی *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+        Button(enabled = !busy && privatePem.isBlank(), modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                error = ""
+                if (officialName.isBlank() || latinName.isBlank() || nationalId.length !in 10..14 ||
+                    province.isBlank() || city.isBlank() || !email.contains("@") || !email.substringAfter("@").contains(".")) {
+                    error = "مشخصات ضروری را به‌طور صحیح وارد کنید."
+                } else {
                     busy = true
                     scope.launch {
                         try {
-                            val pair = withContext(Dispatchers.Default) { TaxpayerKeyGenerator.generate() }
-                            pendingPrivatePem = pair.privatePem
-                            publicPem = pair.publicPem
-                            confirmed = false
-                            exported = false
-                        } catch (_: Exception) { onNotice("تولید کلید انجام نشد.") }
-                        finally { busy = false }
-                    }
-                }) { Text("تولید جفت کلید اختصاصی RSA") }
-            } else if (encrypted != null) {
-                Text("کلید خصوصی رمزنگاری‌شده برای این مؤدی ثبت شده است.")
-                OutlinedButton(enabled = !busy, onClick = {
-                    busy = true
-                    scope.launch {
-                        try {
-                            val bytes = withContext(Dispatchers.Default) { vault.decrypt(companyId, encrypted!!) }
-                            try { publicPem = TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(bytes) }
-                            finally { bytes.fill(0) }
-                        } catch (_: Exception) { onNotice("بازیابی کلید عمومی ممکن نشد.") }
-                        finally { busy = false }
-                    }
-                }) { Text("بازیابی کلید عمومی این مؤدی") }
-            }
-            if (publicPem.isNotBlank()) {
-                OutlinedButton(enabled = !busy, onClick = { export.launch("sura-taxpayer-${companyId}-public.pem") }) {
-                    Text("دریافت فایل کلید عمومی")
-                }
-            }
-            if (pendingPrivatePem.isNotBlank()) {
-                Row {
-                    Checkbox(checked = confirmed, enabled = exported && !busy, onCheckedChange = { confirmed = it })
-                    Text("فایل عمومی را ذخیره کرده‌ام و می‌دانم حذف برنامه ممکن است کلید خصوصی را غیرقابل‌بازیابی کند.")
-                }
-                Button(enabled = !busy && exported && confirmed, onClick = {
-                    busy = true
-                    scope.launch {
-                        try {
-                            val envelope = withContext(Dispatchers.Default) { vault.encrypt(companyId, pendingPrivatePem) }
-                            val prior = db.moadianDetailsDao().byCompany(companyId) ?: error("Taxpayer details missing")
-                            check(prior.encryptedPrivateKey == null) { "Key already exists" }
-                            db.moadianDetailsDao().upsert(prior.copy(encryptedPrivateKey = envelope, keyCheckStatus = "NEEDS_MATCH"))
-                            encrypted = envelope
-                            pendingPrivatePem = ""
-                            onNotice("کلید خصوصی مؤدی با رمزنگاری ذخیره شد.")
-                        } catch (_: Exception) { onNotice("ذخیره کلید انجام نشد؛ دوباره تلاش کنید.") }
-                        finally { busy = false }
-                    }
-                }) { Text("ذخیره امن کلید خصوصی") }
-            }
-            HorizontalDivider()
-            Text("تولید درخواست گواهی امضا (CSR)", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(value = csrName, onValueChange = { csrName = it }, label = { Text("نام رسمی مؤدی") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = province, onValueChange = { province = it }, label = { Text("استان") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = city, onValueChange = { city = it }, label = { Text("شهرستان") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = csrEmail, onValueChange = { csrEmail = it }, label = { Text("ایمیل") }, modifier = Modifier.fillMaxWidth())
-            Button(enabled = !busy && (encrypted != null || pendingPrivatePem.isNotBlank()), onClick = {
-                busy = true
-                scope.launch {
-                    try {
-                        val bytes = if (pendingPrivatePem.isBlank()) withContext(Dispatchers.Default) {
-                            vault.decrypt(companyId, encrypted ?: error("No key"))
-                        } else null
-                        try {
-                            val key = if (bytes == null) TaxpayerPrivateKey.parse(pendingPrivatePem)
-                                else java.security.KeyFactory.getInstance("RSA").generatePrivate(
-                                    java.security.spec.PKCS8EncodedKeySpec(bytes)) as java.security.interfaces.RSAPrivateKey
-                            val pub = if (bytes == null) publicPem else TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(bytes)
-                            csrPem = withContext(Dispatchers.Default) {
-                                TaxpayerCsr.generate(key, pub,
-                                    TaxpayerCsr.Subject(csrName, csrName, province, city, email = csrEmail))
+                            val keys = withContext(Dispatchers.Default) { TaxpayerKeyGenerator.generate() }
+                            val csr = withContext(Dispatchers.Default) {
+                                TaxpayerCsr.generate(keys.privatePem, keys.publicPem,
+                                    TaxpayerCsr.Subject(latinName, latinName, province, city, email = email))
                             }
-                        } finally { bytes?.fill(0) }
-                        onNotice("درخواست CSR ساخته شد.")
-                    } catch (_: Exception) { csrPem = ""; onNotice("تولید CSR انجام نشد؛ مشخصات را بررسی کنید.") }
-                    finally { busy = false }
+                            privatePem = keys.privatePem
+                            publicPem = keys.publicPem
+                            csrPem = csr
+                            privateSaved = false
+                            privateExportConfirmed = false
+                            onNotice("جفت کلید و درخواست CSR ساخته شد.")
+                        } catch (_: Exception) { error = "ساخت کلیدها یا CSR انجام نشد." }
+                        finally { busy = false }
+                    }
                 }
-            }) { Text("تولید CSR") }
-            if (csrPem.isNotBlank()) OutlinedButton(onClick = {
-                csrExport.launch("sura-taxpayer-${companyId}.csr")
-            }) { Text("دریافت فایل CSR") }
-            Text("پس از دریافت فایل عمومی، آن را در کارپوشه مالیاتی ثبت و شناسه یکتای صادرشده را در بخش ویرایش مؤدی وارد کنید.")
-            TextButton(onClick = {
-                try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://my.tax.gov.ir"))) }
-                catch (_: Exception) { onNotice("مرورگر باز نشد.") }
-            }) { Text("ورود به کارپوشه رسمی مالیاتی") }
+            }) { Text("تولید کلید عمومی، خصوصی و CSR") }
+
+        if (publicPem.isNotBlank()) {
+            OutlinedButton(onClick = { exportPublic.launch("sura-public-key.pem") },
+                modifier = Modifier.fillMaxWidth()) { Text("دریافت فایل کلید عمومی") }
+            Text("کلید خصوصی محرمانه است و نباید در کارپوشه یا پیام‌رسان بارگذاری شود.",
+                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Row {
+                Checkbox(checked = privateExportConfirmed, onCheckedChange = { privateExportConfirmed = it })
+                Text("مسئولیت نگهداری امن کلید خصوصی را می‌پذیرم.",
+                    modifier = Modifier.padding(top = 10.dp))
+            }
+            OutlinedButton(enabled = privateExportConfirmed, onClick = {
+                exportPrivate.launch("sura-private-key-SECRET.pem")
+            }, modifier = Modifier.fillMaxWidth()) { Text("دریافت کلید خصوصی (محرمانه)") }
+            OutlinedButton(onClick = { exportCsr.launch("sura-certificate-request.csr") },
+                modifier = Modifier.fillMaxWidth()) { Text("دریافت فایل CSR") }
+            Text(if (privateSaved) "کلید خصوصی در محل انتخاب‌شده ذخیره شد."
+                else "پیش از خروج از صفحه، کلید خصوصی را در محل امن ذخیره کنید.",
+                style = MaterialTheme.typography.bodySmall)
+            Button(enabled = privateSaved && !busy, onClick = {
+                privatePem = ""; publicPem = ""; csrPem = ""; privateSaved = false
+                privateExportConfirmed = false
+                onNotice("کلیدهای موقت صفحه پاک شدند.")
+            }, modifier = Modifier.fillMaxWidth()) { Text("پایان و پاک‌سازی کلیدهای موقت") }
         }
+        HorizontalDivider()
+        Text("تولید CSR به‌معنای صدور گواهی معتبر نیست. ثبت کلید عمومی و اخذ شناسه یکتا یا گواهی نزد مراجع مربوط انجام می‌شود.",
+            style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = {
+            try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://my.tax.gov.ir"))) }
+            catch (_: Exception) { onNotice("امکان بازکردن کارپوشه وجود ندارد.") }
+        }) { Text("ورود به کارپوشه رسمی مالیاتی") }
     }
 }
