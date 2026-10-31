@@ -591,17 +591,7 @@ class MainActivity : ComponentActivity() {
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
                             )
-                            Page.COMPANIES -> {
-                                if (companies.isEmpty() && !loading) {
-                                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("شروع کار با سورا", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                            Text("برای ثبت مشتری و صدور صورتحساب، ابتدا اطلاعات شرکت یا مؤدی خود را ثبت کنید.", style = MaterialTheme.typography.bodyMedium)
-                                        }
-                                    }
-                                }
-                                MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
-                            }
+                            Page.COMPANIES -> MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
