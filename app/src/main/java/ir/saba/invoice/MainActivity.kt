@@ -498,7 +498,13 @@ class MainActivity : ComponentActivity() {
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
-                            } else CompanyPlaceholder(loading)
+                            } else Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("مشتریان و تأمین‌کنندگان", style = MaterialTheme.typography.headlineSmall)
+                                Text("فرم مشتریان آماده است. ابتدا مؤدی صاحب این مشتریان را ثبت یا انتخاب کنید تا اطلاعات طرف‌حساب‌ها در پرونده درست ذخیره شوند.")
+                                Button(onClick = { page = Page.COMPANIES }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("ثبت یا انتخاب مؤدی")
+                                }
+                            }
                             Page.INVOICES -> if (current != null) key(current.companyId) {
                                 InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
