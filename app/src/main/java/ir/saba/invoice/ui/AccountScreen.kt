@@ -50,9 +50,11 @@ fun AccountScreen(
     ownerName: String?,
     ownerEmail: String?,
     onTransferCharge: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onExcelAction: (String, String) -> Unit = { _, _ -> }
 ) {
     var selected by remember { mutableStateOf<AccountAction?>(null) }
+    var excelAction by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     // Account-scoped, device-local profile. Never misrepresent this as a server update.
     val profileKey = remember(ownerEmail) {
@@ -163,10 +165,44 @@ fun AccountScreen(
                 Icons.Default.Settings, Color(0xFFF1F2F5), Color(0xFF566B7D),
                 Modifier.weight(1f), !busy, "accountLogout", onLogout)
         }
+        Text("مدیریت اکسل", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold, color = accountText)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AccountActionTile("ورودی از اکسل", "ورود اطلاعات",
+                Icons.Default.Add, Color(0xFFE3F5F0), Color(0xFF14866D),
+                Modifier.weight(1f), !busy, "excelImport") { excelAction = "import" }
+            AccountActionTile("خروجی از اکسل", "دریافت اطلاعات",
+                Icons.AutoMirrored.Filled.List, Color(0xFFE8EDFB), Color(0xFF515FAD),
+                Modifier.weight(1f), !busy, "excelExport") { excelAction = "export" }
+        }
+        OutlinedButton(onClick = { excelAction = "template" }, modifier = Modifier.fillMaxWidth(),
+            enabled = !busy) { Text("دانلود الگوی اکسل") }
         Text("انتقال شارژ فعلاً محلی و آزمایشی است؛ خرید آنلاین تا اتصال درگاه امن فعال نیست.",
             color = Color(0xFF6E8394), style = MaterialTheme.typography.labelSmall)
     }
 
+    excelAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { excelAction = null },
+            title = { Text(when (action) {
+                "import" -> "ورود از اکسل"
+                "export" -> "خروجی اکسل"
+                else -> "دانلود الگوی اکسل"
+            }) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("نوع اطلاعات را انتخاب کنید:")
+                    TextButton(onClick = { excelAction = null; onExcelAction(action, "taxpayers") }) {
+                        Text("مودیان")
+                    }
+                    TextButton(onClick = { excelAction = null; onExcelAction(action, "customers") }) {
+                        Text("مشتریان")
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { excelAction = null }) { Text("بستن") } }
+        )
+    }
     if (editingProfile) AlertDialog(
         onDismissRequest = { editingProfile = false },
         title = { Text("ویرایش مشخصات مالک") },
