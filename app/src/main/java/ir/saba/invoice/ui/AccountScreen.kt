@@ -168,15 +168,15 @@ fun AccountScreen(
         Text("مدیریت اکسل", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = accountText)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccountActionTile("ورودی از اکسل", "ورود اطلاعات",
+            AccountActionTile("ورود اطلاعات", "ورود اطلاعات",
                 Icons.Default.Add, Color(0xFFE3F5F0), Color(0xFF14866D),
                 Modifier.weight(1f), !busy, "excelImport") { excelAction = "import" }
-            AccountActionTile("خروجی از اکسل", "دریافت اطلاعات",
+            AccountActionTile("خروجی اطلاعات", "دریافت اطلاعات",
                 Icons.AutoMirrored.Filled.List, Color(0xFFE8EDFB), Color(0xFF515FAD),
                 Modifier.weight(1f), !busy, "excelExport") { excelAction = "export" }
         }
         OutlinedButton(onClick = { excelAction = "template" }, modifier = Modifier.fillMaxWidth(),
-            enabled = !busy) { Text("دانلود الگوی اکسل") }
+            enabled = !busy) { Text("دریافت فایل الگو") }
         Text("انتقال شارژ فعلاً محلی و آزمایشی است؛ خرید آنلاین تا اتصال درگاه امن فعال نیست.",
             color = Color(0xFF6E8394), style = MaterialTheme.typography.labelSmall)
     }
@@ -187,7 +187,7 @@ fun AccountScreen(
             title = { Text(when (action) {
                 "import" -> "ورود از اکسل"
                 "export" -> "خروجی اکسل"
-                else -> "دانلود الگوی اکسل"
+                else -> "دریافت فایل الگو"
             }) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
