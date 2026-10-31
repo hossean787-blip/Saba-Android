@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/android-signed-release.yml'
+      - 'app/src/main/**'
+      - 'app/build.gradle.kts'
 
 permissions:
   contents: read
@@ -81,6 +83,11 @@ jobs:
           bash ./gradlew --no-daemon --no-build-cache :app:assembleRelease :app:lintRelease
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
+          # Verify update identity/version on the actual signed package.
+          BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -n 1)"
+          printf '%s\n' "$BADGING"
+          [[ "$BADGING" == *"name='ir.saba.invoice'"* ]]
+          [[ "$BADGING" == *"versionCode='2'"* ]]
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK" |
             grep -E 'Signer #1 certificate SHA-256 digest:' |
