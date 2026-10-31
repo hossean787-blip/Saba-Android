@@ -125,17 +125,19 @@ class BiometricLoginVault(context: Context) {
             spec.setInvalidatedByBiometricEnrollment(true)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            spec.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+            // A short authentication window avoids vendor-specific AES-GCM CryptoObject
+            // failures while keeping the key gated by a fresh strong biometric check.
+            spec.setUserAuthenticationParameters(30, KeyProperties.AUTH_BIOMETRIC_STRONG)
         } else {
             @Suppress("DEPRECATION")
-            spec.setUserAuthenticationValidityDurationSeconds(-1)
+            spec.setUserAuthenticationValidityDurationSeconds(30)
         }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
             .apply { init(spec.build()) }.generateKey()
     }
 
     companion object {
-        private const val KEY_ALIAS = "sura_biometric_login_aes_v1"
+        private const val KEY_ALIAS = "sura_biometric_login_aes_v2"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private val AAD = "SURA biometric login v1".toByteArray(StandardCharsets.UTF_8)
     }
