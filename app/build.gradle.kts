@@ -12,7 +12,7 @@ android {
         applicationId = "ir.saba.invoice"
         minSdk = 23
         targetSdk = 35
-        versionCode = 16
+        versionCode = 17
         versionName = "0.16.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
