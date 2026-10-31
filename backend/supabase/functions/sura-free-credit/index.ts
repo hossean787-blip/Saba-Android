@@ -20,6 +20,22 @@ Deno.serve(async req=>{
  const user=await userResponse.json();
  if(!user?.id||!user?.email_confirmed_at)return reply({error:"unverified_account"},403);
  let body:any;try{body=await req.json()}catch{return reply({error:"invalid_json"},400)}
+ if(new URL(req.url).pathname.endsWith("/consume")) {
+ const key=String(body?.invoiceKey??"");
+ if(!/^[0-9a-f-]{36}$/i.test(key)) return reply({error:"invalid_invoice_key"},400);
+ const use=await fetch(base+"/rest/v1/rpc/sura_consume_promo_credit",{method:"POST",headers:{"apikey":service,"authorization":"Bearer "+service,"content-type":"application/json"},body:JSON.stringify({p_account:user.id,p_invoice_key:key})});
+ if(!use.ok)return reply({error:"consume_unavailable"},503);
+ const result=await use.json();
+ return reply(result,result.error?409:200);
+}
+if(new URL(req.url).pathname.endsWith("/status")) {
+ const query=await fetch(base+"/rest/v1/sura_promo_redemptions?select=credits_remaining&account_id=eq."+encodeURIComponent(user.id),{
+ headers:{"apikey":service,"authorization":"Bearer "+service}
+ });
+ if(!query.ok)return reply({error:"balance_unavailable"},503);
+ const rows=await query.json();
+ return reply({remaining:rows[0]?.credits_remaining??0});
+}
  const code=String(body?.code??"").trim();
  const deviceId=String(body?.deviceId??"").trim();
  if(code.length<1||code.length>128)return reply({error:"invalid_code"},400);
