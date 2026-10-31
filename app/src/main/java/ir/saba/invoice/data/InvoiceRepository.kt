@@ -15,7 +15,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
         invoiceNumber: String,
         issueDate: String,
         lines: List<InvoiceLine>,
-        existingInvoiceId: Long? = null
+        existingInvoiceId: Long? = null,
+        serverPromoConfirmed: Boolean = false
     ): Long {
         require(companyId > 0) { "شرکت را انتخاب کنید." }
         require(customerId > 0) { "مشتری را انتخاب کنید." }
@@ -42,7 +43,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
 
             // A quota unit is consumed when a NEW invoice is first created, not when sent or finalized.
             // Keep consumption and invoice insertion in the same Room transaction.
-            val newQuota = if (existingInvoiceId == null) {
+            val newQuota = if (existingInvoiceId == null && !serverPromoConfirmed) {
                 val company = db.companyDao().byId(companyId)!!
                 val quota = db.quotaDao().companyQuota(companyId)
                     ?: throw IllegalArgumentException("شارژ مودی صفر است؛ از تنظیمات، انتقال شارژ انجام دهید.")
@@ -77,6 +78,15 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 )
                 db.invoiceLineDao().deleteForInvoice(existingInvoiceId)
                 existingInvoiceId
+            }
+            if (serverPromoConfirmed && existingInvoiceId == null) {
+                val owner = db.companyDao().byId(companyId)!!.purchaserId
+                db.quotaDao().insertQuotaUse(InvoiceQuotaUse(
+                    invoiceId = invoiceId,
+                    purchaserId = owner,
+                    companyId = companyId,
+                    usedAtEpochMillis = System.currentTimeMillis()
+                ))
             }
             if (newQuota != null) {
                 db.quotaDao().updateCompanyQuota(newQuota.copy(available = newQuota.available - 1))
