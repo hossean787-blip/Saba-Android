@@ -155,6 +155,23 @@ class InvoiceWorkflowTest {
         assertEquals("FINALIZED", db.invoiceDao().byId(id)!!.status)
     }
 
+    @Test fun serverConfirmedPromoInvoiceCanBeSavedAndFinalizedWithoutLocalWallet() = runBlocking {
+        val id = repository.saveDraft(company, customer, "promo-1", "1405/07/02",
+            listOf(line()), serverPromoConfirmed = true)
+        assertNull(db.quotaDao().companyQuota(company))
+        assertEquals("owner", db.quotaDao().useForInvoice(id)?.purchaserId)
+        repository.finalizeDraft(company, id)
+        assertEquals("FINALIZED", db.invoiceDao().byId(id)?.status)
+    }
+
+    @Test fun invalidServerConfirmedPromoInvoiceDoesNotWriteQuotaUse() = runBlocking {
+        expectRejected {
+            repository.saveDraft(company, customer, "promo-invalid", "1405/07/02",
+                listOf(line().copy(quantity = 0)), serverPromoConfirmed = true)
+        }
+        assertTrue(db.invoiceDao().forCompany(company).isEmpty())
+    }
+
     @Test fun missingQuotaRejectsCreationWithoutPartialRows() = runBlocking {
         expectRejected { draft(funded = false) }
         assertTrue(db.invoiceDao().forCompany(company).isEmpty())
