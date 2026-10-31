@@ -583,10 +583,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         if (isNewInvoice) {
                                             if (selectedCompanyId == null) page = Page.COMPANIES
-                                            else if (false) {
-                                                newInvoiceRequest++
-                                                page = Page.INVOICES
-                                            } else {
+                                            else {
                                                 page = Page.INVOICES
                                                 notify("ثبت صورتحساب جدید تا اتصال شارژ معتبر غیرفعال است.")
                                             }
