@@ -50,8 +50,7 @@ fun CreditPurchaseScreen() {
                 Triple("monthly", "اشتراک ماهانه", "تا ۲۰ فاکتور در ۳۰ روز")
             ).forEach { (id, title, subtitle) ->
                 val selected = plan == id
-                Card(Modifier.weight(1f).height(168.dp),
-                    onClick = { plan = id },
+                Card(onClick = { plan = id }, modifier = Modifier.weight(1f).height(168.dp),
                     shape = cardShape,
                     border = androidx.compose.foundation.BorderStroke(
                         if (selected) 2.dp else 1.dp,
