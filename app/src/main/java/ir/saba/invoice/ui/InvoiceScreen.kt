@@ -105,7 +105,11 @@ fun InvoiceScreen(
         if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
             lastHandledNewInvoiceRequest = newInvoiceRequest
             onNewInvoiceRequestHandled()
-            if (usableCharge <= 0L) onNeedCharge()
+            val serverCharge = if (availableCharge <= 0L)
+                runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
+                else 0
+            promoRemaining = serverCharge
+            if (availableCharge + serverCharge <= 0L) onNeedCharge()
             else {
                 invoiceId = null
                 number = ""
