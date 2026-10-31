@@ -606,22 +606,13 @@ class MainActivity : ComponentActivity() {
                                 InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
-                                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("انتقال شارژ مودی", style = MaterialTheme.typography.titleLarge)
-                                    Text("شرکت: ${company.name}")
-                                    Text("شارژ آزاد حساب مالک: ${current.wallet?.available ?: 0}")
-                                    Text("شارژ باقی‌مانده مودی: ${current.quota?.available ?: 0}")
-                                    OutlinedTextField(purchased, { purchased = it }, label = { Text("تعداد سهمیه آزمایشی") }, enabled = !busy && current.wallet == null, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                    Button(enabled = !busy && current.wallet == null, onClick = { act {
-                                        QuotaRepository(db).initializeWallet(company.purchaserId, InvoiceInput.wholeNumber(purchased, "سهمیه")); refresh(); notify("کیف آزمایشی ایجاد شد.")
-                                    } }) { Text("ایجاد کیف آزمایشی") }
-                                    OutlinedTextField(allocation, { allocation = it }, label = { Text("تعداد شارژ برای انتقال") }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                    Button(enabled = !busy && current.wallet != null, onClick = { act {
-                                        if (transferOperationId.isEmpty()) transferOperationId = java.util.UUID.randomUUID().toString()
-                                        QuotaRepository(db).transferFromMaster(company.purchaserId, company.id, InvoiceInput.wholeNumber(allocation, "تخصیص"), transferOperationId)
-                                        refresh(); transferOperationId = ""; notify("شارژ با موفقیت به مودی منتقل شد.")
-                                    } }) { Text("تأیید انتقال شارژ") }
-                                    Text("این سهمیه فقط محلی و آزمایشی است؛ خرید و مجوز تجاری فعال نیست.")
+                                Column(Modifier.fillMaxWidth().padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("مدیریت شارژ", style = MaterialTheme.typography.titleLarge)
+                                    Text("مؤدی: ${company.name}")
+                                    Text("خرید و انتقال شارژ تا اتصال و تأیید سرویس مالی غیرفعال است.")
+                                    Text("موجودی‌های آزمایشی قبلی مبنای شارژ واقعی نیستند.")
+                                    OutlinedButton(onClick = { page = Page.DASHBOARD }) { Text("بازگشت به خانه") }
                                 }
                             } else CompanyPlaceholder(loading)
                             Page.SIMULATION -> if (current != null) LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
