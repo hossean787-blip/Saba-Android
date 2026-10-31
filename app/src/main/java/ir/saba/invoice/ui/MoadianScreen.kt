@@ -363,39 +363,35 @@ fun MoadianScreen(
                     }
                 }
             }
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["name"] != null, supportingText = { fieldErrors["name"]?.let { Text(it) } }, value = name, onValueChange = { name = it }, label = { Text("نام *") }, modifier = Modifier.fillMaxWidth())
-            /* help:شماره اقتصادی * */
+            MoadianInput("نام مؤدی *", name, { name = it }, !busy && !pending, fieldErrors["name"], "", Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["economicId"] != null, supportingText = { fieldErrors["economicId"]?.let { Text(it) } }, value = economicId, onValueChange = { economicId = MoadianFieldValidation.digits(it) }, label = { Text("شماره اقتصادی *") }, modifier = Modifier.weight(1f))
-            /* help:شناسه ملی * */
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["nationalId"] != null, supportingText = { fieldErrors["nationalId"]?.let { Text(it) } }, value = nationalId, onValueChange = { nationalId = MoadianFieldValidation.digits(it) }, label = { Text("شناسه ملی *") }, modifier = Modifier.weight(1f))
+            MoadianInput("شماره اقتصادی *", economicId, { economicId = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["economicId"], "شماره اقتصادی پرونده مالیاتی مؤدی را وارد کنید.", Modifier.weight(1f))
+            MoadianInput("شناسه ملی *", nationalId, { nationalId = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["nationalId"], "شناسه هویتی متناسب با نوع مؤدی را وارد کنید.", Modifier.weight(1f))
             }
-            OutlinedTextField(enabled = !busy && !pending, value = registrationNumber, onValueChange = { registrationNumber = it }, label = { Text("شماره ثبت") }, modifier = Modifier.fillMaxWidth())
-            /* help:شروع سریال صورتحساب */
+            MoadianInput("شماره ثبت", registrationNumber, { registrationNumber = it }, !busy && !pending, fieldErrors["registrationNumber"], "", Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["invoiceSerialStart"] != null, supportingText = { fieldErrors["invoiceSerialStart"]?.let { Text(it) } }, value = invoiceSerialStart, onValueChange = { invoiceSerialStart = MoadianFieldValidation.digits(it) }, label = { Text("شروع سریال صورتحساب") }, modifier = Modifier.weight(1f))
-            /* help:شروع سریال صورتحساب ارجاعی */
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["referenceSerialStart"] != null, supportingText = { fieldErrors["referenceSerialStart"]?.let { Text(it) } }, value = referenceSerialStart, onValueChange = { referenceSerialStart = MoadianFieldValidation.digits(it) }, label = { Text("شروع سریال صورتحساب ارجاعی") }, modifier = Modifier.weight(1f))
+            MoadianInput("شروع سریال صورتحساب", invoiceSerialStart, { invoiceSerialStart = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["invoiceSerialStart"], "سریال داخلی صورتحساب؛ در صورت ورود باید ۱۰ رقم باشد.", Modifier.weight(1f))
+            MoadianInput("شروع سریال ارجاعی", referenceSerialStart, { referenceSerialStart = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["referenceSerialStart"], "سریال صورتحساب اصلاحی، ابطالی و برگشت از فروش.", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(enabled = !busy && !pending, value = phone, onValueChange = { phone = MoadianFieldValidation.digits(it) }, label = { Text("تلفن") }, modifier = Modifier.weight(1f))
-            OutlinedTextField(enabled = !busy && !pending, value = fax, onValueChange = { fax = MoadianFieldValidation.digits(it) }, label = { Text("فکس") }, modifier = Modifier.weight(1f))
+            MoadianInput("تلفن", phone, { phone = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["phone"], "", Modifier.weight(1f))
+            MoadianInput("فکس", fax, { fax = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["fax"], "", Modifier.weight(1f))
             }
-            /* help:کدپستی * */
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["postalCode"] != null, supportingText = { fieldErrors["postalCode"]?.let { Text(it) } }, value = postalCode, onValueChange = { postalCode = MoadianFieldValidation.digits(it) }, label = { Text("کدپستی *") }, modifier = Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MoadianInput("کد پستی *", postalCode, { postalCode = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["postalCode"], "کد پستی ده رقمی محل مؤدی.", Modifier.weight(1f))
+            MoadianInput("شماره موبایل *", mobile, { mobile = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["mobile"], "", Modifier.weight(1f))
             }
-            MoadianChoice("استان *", province, IranDivisions.counties.keys.toList(), enabled = !busy && !pending) { if (!busy && !pending) { province = it; county = "" } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MoadianChoice("استان *", province, IranDivisions.counties.keys.toList(), enabled = !busy && !pending, modifier = Modifier.weight(1f)) { if (!busy && !pending) { province = it; county = "" } }
+                MoadianChoice("شهرستان *", county, IranDivisions.counties[province].orEmpty(), enabled = !busy && !pending, modifier = Modifier.weight(1f)) { if (!busy && !pending) county = it }
+            }
             fieldErrors["province"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            MoadianChoice("شهرستان *", county, IranDivisions.counties[province].orEmpty(), enabled = !busy && !pending) { if (!busy && !pending) county = it }
             fieldErrors["county"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["address"] != null, supportingText = { fieldErrors["address"]?.let { Text(it) } }, value = address, onValueChange = { address = it }, label = { Text("آدرس *") }, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["mobile"] != null, supportingText = { fieldErrors["mobile"]?.let { Text(it) } }, value = mobile, onValueChange = { mobile = MoadianFieldValidation.digits(it) }, label = { Text("شماره موبایل *") }, modifier = Modifier.weight(1f))
+            MoadianInput("آدرس *", address, { address = it }, !busy && !pending, fieldErrors["address"], "", Modifier.fillMaxWidth())
             Text("لوگو")
             OutlinedButton(onClick = { importLogo.launch("image/*") }, enabled = !busy && !pending) { Text(if (logoPath.isBlank()) "انتخاب لوگو" else "تغییر لوگوی انتخاب‌شده") }
             logoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            MoadianHelpLabel("تاریخ انقضاء گواهی امضاء", "صرفاً برای یادآوری است و اجباری نیست. تاریخ واقعی درج‌شده در گواهی را وارد کنید؛ اعتبار گواهی‌ها معمولاً تا دو سال است.")
-            OutlinedTextField(enabled = !busy && !pending, value = certificateExpiry, onValueChange = { certificateExpiry = it }, label = { Text("تاریخ انقضاء گواهی امضاء") }, modifier = Modifier.fillMaxWidth())
+            MoadianInput("تاریخ انقضای گواهی (اختیاری)", certificateExpiry, { certificateExpiry = it }, !busy && !pending, fieldErrors["certificateExpiry"], "پرکردن این تاریخ برای ثبت مؤدی الزامی نیست.", Modifier.fillMaxWidth())
             ElevatedCard(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE7F5FA))) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("دریافت شناسه یکتای حافظه مالیاتی", fontWeight = FontWeight.Bold, color = Color(0xFF16384E))
@@ -413,8 +409,7 @@ fun MoadianScreen(
                     ) { Text("ورود به کارپوشه و دریافت شناسه یکتا") }
                 }
             }
-            MoadianHelpLabel("شناسه یکتا (پس از صدور)", "شناسه ۶ کاراکتری حافظه مالیاتی را از بخش عضویت کارپوشه دریافت کنید. شروع با A برای همه اجباری نشده است. در صورت نبود کلید خصوصی متناظر، شناسه و کلیدهای جدید دریافت کنید.")
-            OutlinedTextField(enabled = !busy && !pending, isError = fieldErrors["fiscalMemoryId"] != null, supportingText = { fieldErrors["fiscalMemoryId"]?.let { Text(it) } }, value = fiscalMemoryId, onValueChange = { fiscalMemoryId = it }, label = { Text("شناسه یکتا (پس از صدور)") }, modifier = Modifier.fillMaxWidth())
+            MoadianInput("شناسه یکتا (اختیاری)", fiscalMemoryId, { fiscalMemoryId = it }, !busy && !pending, fieldErrors["fiscalMemoryId"], "پس از دریافت از کارپوشه مالیاتی می‌توانید وارد کنید.", Modifier.fillMaxWidth())
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
             Text("مدیریت کلید عمومی و خصوصی از کارت «کلیدهای مالیاتی» در صفحه خانه انجام می‌شود.", style = MaterialTheme.typography.bodySmall)
             }
@@ -497,6 +492,32 @@ fun MoadianScreen(
 }
 
 @Composable
+private fun MoadianInput(
+    title: String, value: String, onValueChange: (String) -> Unit,
+    enabled: Boolean, error: String?, guidance: String = "",
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    var showHelp by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange, enabled = enabled,
+        isError = error != null, singleLine = true,
+        placeholder = { Text(title, maxLines = 1) },
+        supportingText = if (error == null) null else { { Text(error) } },
+        trailingIcon = if (guidance.isBlank()) null else { {
+            IconButton(onClick = { showHelp = true }) {
+                Icon(Icons.Default.Info, contentDescription = "راهنمای " + title, tint = Color(0xFF16869C))
+            }
+        } },
+        shape = RoundedCornerShape(14.dp), modifier = modifier
+    )
+    if (showHelp) AlertDialog(
+        onDismissRequest = { showHelp = false }, title = { Text(title) },
+        text = { Text(guidance) },
+        confirmButton = { TextButton(onClick = { showHelp = false }) { Text("متوجه شدم") } }
+    )
+}
+
+@Composable
 private fun MoadianHelpLabel(label: String, guidance: String) {
     var visible by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(),
@@ -515,11 +536,11 @@ private fun MoadianHelpLabel(label: String, guidance: String) {
 }
 
 @Composable
-private fun MoadianChoice(label: String, value: String, options: List<String>, enabled: Boolean = true, onChange: (String) -> Unit) {
+private fun MoadianChoice(label: String, value: String, options: List<String>, enabled: Boolean = true, modifier: Modifier = Modifier.fillMaxWidth(), onChange: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
-    OutlinedButton(onClick = { search = ""; expanded = true }, enabled = enabled && options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { search = ""; expanded = true }, enabled = enabled && options.isNotEmpty(), modifier = modifier.heightIn(min = 56.dp)) {
         Text(label + ": " + value.ifBlank { "انتخاب کنید" })
     }
     if (expanded) AlertDialog(onDismissRequest = { expanded = false },
