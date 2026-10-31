@@ -227,6 +227,7 @@ class MainActivity : ComponentActivity() {
                             onLogout = auth::logout,
                             ownerName = auth.ownerName,
                             ownerEmail = auth.ownerEmail,
+                            accessToken = auth.session?.accessToken.orEmpty(),
                             biometricEnabled = biometricEnabled,
                             onDisableBiometrics = {
                                 biometricVault.clear()
@@ -300,6 +301,7 @@ class MainActivity : ComponentActivity() {
         onLogout: () -> Unit,
         ownerName: String?,
         ownerEmail: String?,
+        accessToken: String,
         biometricEnabled: Boolean,
         onDisableBiometrics: () -> Unit
     ) {
@@ -648,7 +650,7 @@ class MainActivity : ComponentActivity() {
                             Page.INVOICES -> if (current != null) key(current.companyId) {
                                 InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
-                            Page.CREDIT_PURCHASE -> CreditPurchaseScreen()
+                            Page.CREDIT_PURCHASE -> CreditPurchaseScreen(accessToken)
                             Page.QUOTA -> if (current != null && company != null) {
                                 CreditManagementScreen(
                                     taxpayerName = company.name,
