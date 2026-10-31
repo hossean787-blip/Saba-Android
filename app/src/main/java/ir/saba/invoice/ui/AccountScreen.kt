@@ -52,6 +52,7 @@ fun AccountScreen(
     onTransferCharge: () -> Unit,
     onLogout: () -> Unit
 ) {
+    var selected by remember { mutableStateOf<AccountAction?>(null) }
     val context = LocalContext.current
     // Account-scoped, device-local profile. Never misrepresent this as a server update.
     val profileKey = remember(ownerEmail) {
@@ -178,7 +179,7 @@ fun AccountScreen(
                         in '۰'..'۹' -> ('0'.code + ch.code - '۰'.code).toChar()
                         in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar()
                         else -> ch
-                    } }.filter(Char::isDigit).take(11)
+                    } }.filter(Char::isDigit).take(11).joinToString("")
                 }, label = { Text("شماره موبایل") }, singleLine = true)
                 Text("ایمیل ورود: " + ownerEmail.orEmpty(), style = MaterialTheme.typography.bodySmall)
                 Text("تغییرات فقط روی همین گوشی ذخیره می‌شوند؛ شماره تأییدشده سرور تغییر نمی‌کند.",
