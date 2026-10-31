@@ -27,6 +27,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -537,7 +541,7 @@ class MainActivity : ComponentActivity() {
                                     SuraBrandBanner(
                                         subtitle = when (page) {
                                             Page.DASHBOARD -> "داشبورد صورتحساب‌های الکترونیکی"
-                                            Page.EVENTS -> "رویدادها"
+                                            Page.EVENTS -> "فاکتورها"
                                             Page.COMPANIES -> "مدیریت مودیان مالیاتی"
                                             Page.INVOICES -> "صدور و مدیریت صورتحساب"
                                             Page.CUSTOMERS -> "مدیریت مشتریان"
@@ -558,12 +562,51 @@ class MainActivity : ComponentActivity() {
                     },
                     bottomBar = {
                         NavigationBar(containerColor = Color(0xFFE7F4FD), tonalElevation = 0.dp) {
-                            listOf(Triple(Page.DASHBOARD, "خانه", Icons.Default.Home), Triple(Page.EVENTS, "رویدادها", Icons.AutoMirrored.Filled.List), Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
-                                Triple(Page.INVOICES, "فاکتورها", Icons.AutoMirrored.Filled.List), Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
-                                Triple(Page.CREDIT_PURCHASE, "اعتبار", Icons.Default.AccountCircle), Triple(Page.SETTINGS, "حساب کاربری", Icons.Default.AccountCircle)).forEach { (destination, title, icon) ->
-                                NavigationBarItem(selected = page == destination, enabled = !editing && !busy,
-                                    colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer),
-                                    onClick = { page = destination }, icon = { Icon(icon, title) }, label = { Text(title, maxLines = 1) })
+                            listOf(
+                                Triple(Page.DASHBOARD, "خانه", Icons.Default.Home),
+                                Triple(Page.EVENTS, "فاکتورها", Icons.AutoMirrored.Filled.List),
+                                Triple(Page.COMPANIES, "مودیان", Icons.Default.AccountCircle),
+                                Triple(Page.INVOICES, "ثبت فاکتور", Icons.Default.Add),
+                                Triple(Page.CUSTOMERS, "مشتریان", Icons.Default.Person),
+                                Triple(Page.CREDIT_PURCHASE, "اعتبار", Icons.Default.ShoppingCart),
+                                Triple(Page.SETTINGS, "حساب", Icons.Default.Settings)
+                            ).forEach { (destination, title, icon) ->
+                                val isNewInvoice = destination == Page.INVOICES
+                                NavigationBarItem(
+                                    selected = page == destination,
+                                    enabled = !editing && !busy,
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Color(0xFF115CC7),
+                                        selectedTextColor = Color(0xFF115CC7),
+                                        indicatorColor = if (isNewInvoice) Color(0xFFB5DDFF)
+                                            else MaterialTheme.colorScheme.primaryContainer),
+                                    onClick = {
+                                        if (isNewInvoice) {
+                                            if (selectedCompanyId == null) page = Page.COMPANIES
+                                            else if (false) {
+                                                newInvoiceRequest++
+                                                page = Page.INVOICES
+                                            } else {
+                                                page = Page.INVOICES
+                                                notify("ثبت صورتحساب جدید تا اتصال شارژ معتبر غیرفعال است.")
+                                            }
+                                        } else page = destination
+                                    },
+                                    icon = {
+                                        if (isNewInvoice) {
+                                            Surface(shape = RoundedCornerShape(20.dp),
+                                                color = Color(0xFF276DEB),
+                                                modifier = Modifier.size(48.dp)) {
+                                                Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                                    Icon(icon, title, tint = Color.White,
+                                                        modifier = Modifier.size(29.dp))
+                                                }
+                                            }
+                                        } else Icon(icon, title)
+                                    },
+                                    label = { Text(title, maxLines = 1,
+                                        style = MaterialTheme.typography.labelSmall) }
+                                )
                             }
                         }
                     },
