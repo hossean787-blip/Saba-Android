@@ -53,8 +53,7 @@ class AccountScreenTest {
         compose.onAllNodesWithText("تغییر رمز عبور").assertCountEquals(2)
         compose.onNodeWithText("این خدمت هنوز در سرور متصل نشده است", substring = true).assertExists()
         compose.onNodeWithText("متوجه شدم").performClick()
-        compose.onNodeWithTag("purchaseCharge").performScrollTo().performClick()
-        compose.onNodeWithText("خرید واقعی فعال نیست", substring = true).assertExists()
+        compose.onNodeWithTag("purchaseCharge").assertDoesNotExist()
     }
 
     @Test fun applicationSettingsRemainAccessibleAsSeparateScreen() {
