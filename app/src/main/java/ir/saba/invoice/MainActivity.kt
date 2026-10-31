@@ -63,6 +63,29 @@ class MainActivity : ComponentActivity() {
     private var biometricNotice by mutableStateOf<String?>(null)
 
     @android.annotation.TargetApi(Build.VERSION_CODES.P)
+    private fun confirmBiometric(title: String, onSuccess: () -> Unit, onDismiss: () -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { onDismiss(); return }
+        var finished = false
+        fun finish(action: () -> Unit) { if (!finished) { finished = true; action() } }
+        try {
+            val prompt = BiometricPrompt.Builder(this)
+                .setTitle(title)
+                .setSubtitle("اثر انگشت ثبت‌شده دستگاه را تأیید کنید.")
+                .setNegativeButton("انصراف", mainExecutor) { _, _ -> finish(onDismiss) }
+                .build()
+            prompt.authenticate(CancellationSignal(), mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        finish(onSuccess)
+                    }
+                    override fun onAuthenticationError(code: Int, message: CharSequence) {
+                        finish(onDismiss)
+                    }
+                })
+        } catch (_: Exception) { finish(onDismiss) }
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.P)
     private fun showBiometricPrompt(
         cipher: Cipher, title: String,
         onSuccess: (Cipher) -> Unit,
@@ -130,18 +153,12 @@ class MainActivity : ComponentActivity() {
 
         fun unlockWithBiometric() {
             if (auth.busy || biometricBusy || !biometricEnabled) return
-            val cipher = try { biometricVault.prepareUnlock() } catch (_: Exception) {
-                biometricVault.clear()
-                biometricEnabled = false
-                biometricNotice = "اثر انگشت این دستگاه تغییر کرده یا کلید معتبر نیست؛ با رمز ثابت وارد شوید."
-                return
-            }
             biometricBusy = true
-            showBiometricPrompt(cipher, "ورود به سورا",
-                onSuccess = { verified ->
+            confirmBiometric("ورود به سورا",
+                onSuccess = {
                     biometricBusy = false
                     try {
-                        val credentials = biometricVault.unlock(verified)
+                        val credentials = biometricVault.unlockAfterAuthentication()
                         auth.login(credentials.email, credentials.password, fromBiometric = true) {
                             biometricVault.clear()
                             biometricEnabled = false
@@ -149,7 +166,7 @@ class MainActivity : ComponentActivity() {
                     } catch (_: Exception) {
                         biometricVault.clear()
                         biometricEnabled = false
-                        biometricNotice = "ورود با اثر انگشت در دسترس نیست؛ با ایمیل و رمز ثابت وارد شوید."
+                        biometricNotice = "کلید ورود امن معتبر نیست؛ یک‌بار با رمز ثابت وارد شوید و اثر انگشت را دوباره فعال کنید."
                     }
                 },
                 onDismiss = { biometricBusy = false }
@@ -159,35 +176,23 @@ class MainActivity : ComponentActivity() {
         fun enableBiometricLogin(credentials: StoredLoginCredentials) {
             if (biometricBusy || !biometricVault.canOffer()) {
                 auth.discardBiometricEnrollment()
-                return
-            }
-            val cipher = try { biometricVault.prepareEnrollment() } catch (_: Exception) {
-                auth.discardBiometricEnrollment()
-                biometricNotice = "اثر انگشت این گوشی برای ورود امن آماده نیست."
+                biometricNotice = "اثر انگشت قوی در تنظیمات گوشی در دسترس نیست."
                 return
             }
             biometricBusy = true
-            showBiometricPrompt(cipher, "فعال‌سازی ورود با اثر انگشت",
-                onSuccess = { verified ->
+            confirmBiometric("فعال‌سازی ورود با اثر انگشت",
+                onSuccess = {
                     biometricBusy = false
                     try {
-                        biometricVault.enroll(verified, credentials)
+                        biometricVault.enrollAfterAuthentication(credentials)
                         biometricEnabled = biometricVault.isEnabled()
                         biometricNotice = if (biometricEnabled)
-                            "ورود با اثر انگشت فعال شد؛ دفعه بعد بدون تایپ رمز می‌توانید وارد شوید."
-                            else "فعال‌سازی اثر انگشت انجام نشد."
-                    } catch (e: Exception) {
+                            "ورود با اثر انگشت فعال شد."
+                        else "فعال‌سازی اثر انگشت انجام نشد."
+                    } catch (_: Exception) {
                         biometricVault.clear()
                         biometricEnabled = false
-                        // Report only a nonsensitive failure category, never
-                        // exception messages, keys or credential contents.
-                        val category = when (e) {
-                            is android.security.keystore.UserNotAuthenticatedException -> "تأیید هویت دستگاه"
-                            is android.security.keystore.KeyPermanentlyInvalidatedException -> "تغییر اثر انگشت ثبت‌شده"
-                            is java.security.GeneralSecurityException -> "سازگاری رمزنگاری دستگاه"
-                            else -> "ذخیره امن اطلاعات"
-                        }
-                        biometricNotice = "فعال‌سازی اثر انگشت انجام نشد ($category). اثر انگشت ثبت‌شده در تنظیمات گوشی را بررسی کنید؛ ورود با رمز ثابت همچنان فعال است."
+                        biometricNotice = "رمزنگاری گوشی با این روش سازگار نیست؛ ورود با رمز ثابت همچنان فعال است."
                     } finally { auth.discardBiometricEnrollment() }
                 },
                 onDismiss = { biometricBusy = false; auth.discardBiometricEnrollment() }
