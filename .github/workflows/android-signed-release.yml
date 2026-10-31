@@ -87,7 +87,7 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -n 1)"
           printf '%s\n' "$BADGING"
           [[ "$BADGING" == *"name='ir.saba.invoice'"* ]]
-          [[ "$BADGING" == *"versionCode='2'"* ]]
+          [[ "$BADGING" == *"versionCode='3'"* ]]
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK" |
             grep -E 'Signer #1 certificate SHA-256 digest:' |
