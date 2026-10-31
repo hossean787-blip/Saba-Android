@@ -603,7 +603,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             Page.INVOICES -> if (current != null) key(current.companyId) {
-                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
+                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
                             Page.QUOTA -> if (current != null && company != null) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp),
