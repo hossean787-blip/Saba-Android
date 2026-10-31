@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import java.security.MessageDigest
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -50,7 +52,29 @@ fun AccountScreen(
     onTransferCharge: () -> Unit,
     onLogout: () -> Unit
 ) {
-    var selected by remember { mutableStateOf<AccountAction?>(null) }
+    val context = LocalContext.current
+    // Account-scoped, device-local profile. Never misrepresent this as a server update.
+    val profileKey = remember(ownerEmail) {
+        ownerEmail?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotEmpty() }?.let { email ->
+            MessageDigest.getInstance("SHA-256")
+                .digest(email.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+        }
+    }
+    val profilePrefs = remember { context.getSharedPreferences("sura_owner_profile_local_v1", android.content.Context.MODE_PRIVATE) }
+    var localName by remember(profileKey) { mutableStateOf(profileKey?.let { profilePrefs.getString("name_$it", "") }.orEmpty()) }
+    var localMobile by remember(profileKey) { mutableStateOf(profileKey?.let { profilePrefs.getString("mobile_$it", "") }.orEmpty()) }
+    var editingProfile by remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf("") }
+    var editMobile by remember { mutableStateOf("") }
+    var profileError by remember { mutableStateOf("") }
+    val displayName = localName.ifBlank { ownerName?.takeIf(String::isNotBlank) ?: "مالک حساب سورا" }
+    fun openProfile() {
+        editName = localName.ifBlank { ownerName.orEmpty() }
+        editMobile = localMobile
+        profileError = ""
+        editingProfile = true
+    }
     Column(
         Modifier.fillMaxSize().background(Color(0xFFF2F9FF))
             .verticalScroll(rememberScrollState()).padding(bottom = 26.dp),
@@ -79,7 +103,7 @@ fun AccountScreen(
                             tint = accountGold, modifier = Modifier.size(37.dp))
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(ownerName?.takeIf(String::isNotBlank) ?: "مالک حساب سورا",
+                        Text(displayName,
                             color = Color.White, fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium)
                         Text(ownerEmail ?: "اطلاعات ایمیل در دسترس نیست",
@@ -97,13 +121,27 @@ fun AccountScreen(
             }
         }
 
+        ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("مشخصات مالک حساب", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold, color = accountText)
+                Text("نام: " + displayName)
+                Text("ایمیل: " + (ownerEmail ?: "دریافت نشده"))
+                Text("موبایل: " + localMobile.ifBlank { "ثبت نشده" })
+                Text("نام و شماره موبایل در این بخش فقط روی همین دستگاه ذخیره می‌شوند و با سرور همگام نیستند.",
+                    style = MaterialTheme.typography.bodySmall, color = Color(0xFF6B8093))
+                Button(onClick = ::openProfile, enabled = !busy && profileKey != null,
+                    modifier = Modifier.fillMaxWidth()) { Text("ویرایش مشخصات شخصی") }
+            }
+        }
+
         Text("خدمات حساب", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = accountText)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AccountActionTile("اطلاعات شخصی", "مشخصات مالک حساب",
                 Icons.Default.Person, Color(0xFFE5F2FA), Color(0xFF146C92),
-                Modifier.weight(1f), !busy, "personalInfo") { selected = AccountAction.PROFILE }
+                Modifier.weight(1f), !busy, "personalInfo") { openProfile() }
             AccountActionTile("تغییر رمز", "امنیت حساب کاربری",
                 Icons.Default.Edit, Color(0xFFE8EDFB), Color(0xFF515FAD),
                 Modifier.weight(1f), !busy, "changePassword") { selected = AccountAction.PASSWORD }
@@ -127,6 +165,44 @@ fun AccountScreen(
         Text("انتقال شارژ فعلاً محلی و آزمایشی است؛ خرید آنلاین تا اتصال درگاه امن فعال نیست.",
             color = Color(0xFF6E8394), style = MaterialTheme.typography.labelSmall)
     }
+
+    if (editingProfile) AlertDialog(
+        onDismissRequest = { editingProfile = false },
+        title = { Text("ویرایش مشخصات مالک") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(editName, { editName = it.take(100) },
+                    label = { Text("نام و نام خانوادگی") }, singleLine = true)
+                OutlinedTextField(editMobile, {
+                    editMobile = it.map { ch -> when (ch) {
+                        in '۰'..'۹' -> ('0'.code + ch.code - '۰'.code).toChar()
+                        in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar()
+                        else -> ch
+                    } }.filter(Char::isDigit).take(11)
+                }, label = { Text("شماره موبایل") }, singleLine = true)
+                Text("ایمیل ورود: " + ownerEmail.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                Text("تغییرات فقط روی همین گوشی ذخیره می‌شوند؛ شماره تأییدشده سرور تغییر نمی‌کند.",
+                    style = MaterialTheme.typography.bodySmall)
+                if (profileError.isNotBlank()) Text(profileError, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = { TextButton(onClick = {
+            val key = profileKey
+            if (key == null) profileError = "ابتدا وارد حساب شوید."
+            else if (editName.isBlank()) profileError = "نام را وارد کنید."
+            else if (editMobile.isNotBlank() && !Regex("09[0-9]{9}").matches(editMobile))
+                profileError = "شماره موبایل باید ۱۱ رقم و با ۰۹ آغاز شود."
+            else if (!profilePrefs.edit().putString("name_$key", editName.trim())
+                    .putString("mobile_$key", editMobile).commit())
+                profileError = "ذخیره در دستگاه انجام نشد."
+            else {
+                localName = editName.trim()
+                localMobile = editMobile
+                editingProfile = false
+            }
+        }) { Text("ذخیره در دستگاه") } },
+        dismissButton = { TextButton(onClick = { editingProfile = false }) { Text("انصراف") } }
+    )
 
     selected?.let { action ->
         val title = when (action) {
