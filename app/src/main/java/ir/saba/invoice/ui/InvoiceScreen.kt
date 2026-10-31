@@ -57,6 +57,16 @@ fun InvoiceScreen(
     onNewInvoiceRequestHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val pendingPrefs = remember(context) {
+        context.getSharedPreferences("sura_promo_pending", android.content.Context.MODE_PRIVATE)
+    }
+    var pendingClaims by remember {
+        mutableStateOf(pendingPrefs.getStringSet("claimKeys", emptySet())?.toSet().orEmpty())
+    }
+    fun setClaimPending(key: String, active: Boolean) {
+        pendingClaims = if (active) pendingClaims + key else pendingClaims - key
+        pendingPrefs.edit().putStringSet("claimKeys", pendingClaims).apply()
+    }
     var promoRemaining by remember { mutableIntStateOf(0) }
     var promoLoading by remember { mutableStateOf(false) }
     LaunchedEffect(accessToken, companyId) {
@@ -109,7 +119,7 @@ fun InvoiceScreen(
                 runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
                 else 0
             promoRemaining = serverCharge
-            if (availableCharge + serverCharge <= 0L) onNeedCharge()
+            if (availableCharge + serverCharge <= 0L && pendingClaims.isEmpty()) onNeedCharge()
             else {
                 invoiceId = null
                 number = ""
@@ -182,7 +192,7 @@ fun InvoiceScreen(
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 Button(enabled = !busy && customers.isNotEmpty(), onClick = {
-                    if (usableCharge <= 0) { onNeedCharge(); return@Button }
+                    if (usableCharge <= 0 && pendingClaims.isEmpty()) { onNeedCharge(); return@Button }
                     invoiceId = null; number = ""; date = ""; customerId = customers.firstOrNull()?.id
                     lines = emptyList(); error = ""; mode = "edit"
                 }) { Text("صدور فاکتور جدید") }
@@ -272,7 +282,7 @@ fun InvoiceScreen(
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
-                            val savedId = if (invoiceId == null && availableCharge <= 0 && promoRemaining > 0) {
+                            val savedId = if (invoiceId == null && availableCharge <= 0 && (promoRemaining > 0 || pendingClaims.isNotEmpty())) {
                                 require(number.trim().isNotBlank()) { "برای استفاده از اعتبار هدیه، شماره فاکتور را وارد کنید." }
                                 InvoiceInput.date(date)
                                 InvoiceCalculator.calculate(lines)
@@ -286,9 +296,12 @@ fun InvoiceScreen(
                                 val normalized = InvoiceInput.digits(number).trim()
                                 val identity = company.nationalId + ":" + normalized
                                 val claimKey = java.util.UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
+                                setClaimPending(claimKey, true)
                                 promoRemaining = FreeCreditClient.consume(accessToken, claimKey)
-                                InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
+                                val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
                                     serverPromoConfirmed = true)
+                                setClaimPending(claimKey, false)
+                                saved
                             } else repository.saveDraft(companyId, selectedCustomer, number, date, lines, invoiceId)
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
