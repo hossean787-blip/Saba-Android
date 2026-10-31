@@ -36,98 +36,126 @@ fun CreditPurchaseScreen() {
     var county by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
 
-    Column(
-        Modifier.fillMaxSize().background(Color(0xFFF3F9FE))
-            .verticalScroll(rememberScrollState()).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp)
-    ) {
-        Card(colors = CardDefaults.cardColors(containerColor = sky), shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("کیف اعتبار سورا", color = deepBlue, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Text("موجودی قابل استفاده پس از اتصال به سرور نمایش داده می‌شود.", color = deepBlue, style = MaterialTheme.typography.bodySmall)
-                Text("اعتبار تأییدنشده قابل مصرف نیست", style = MaterialTheme.typography.labelSmall, color = Color(0xFF52758D))
+    var plan by remember { mutableStateOf("single") }
+    val cardShape = RoundedCornerShape(22.dp)
+    Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
+        .padding(horizontal = 12.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("خرید اعتبار", fontWeight = FontWeight.ExtraBold, color = deepBlue,
+            style = MaterialTheme.typography.headlineSmall)
+        Text("با خرید اعتبار، صورتحساب‌های خود را مدیریت کنید.",
+            style = MaterialTheme.typography.bodySmall, color = Color(0xFF5F7391))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                Triple("single", "اعتبار تکی", "هر صورتحساب یک اعتبار"),
+                Triple("monthly", "اشتراک ماهانه", "تا ۲۰ فاکتور در ۳۰ روز")
+            ).forEach { (id, title, subtitle) ->
+                val selected = plan == id
+                Card(Modifier.weight(1f).height(168.dp),
+                    onClick = { plan = id },
+                    shape = cardShape,
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (selected) 2.dp else 1.dp,
+                        if (selected) Color(0xFF356DF0) else Color(0xFFE4EAF3)),
+                    colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFFE8F4FF) else Color.White),
+                    elevation = CardDefaults.cardElevation(3.dp)
+                ) {
+                    Column(Modifier.fillMaxSize().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text(if (selected) "●" else "○",
+                            color = if (selected) Color(0xFF176AF0) else Color.Gray)
+                        Text(title, fontWeight = FontWeight.ExtraBold, color = deepBlue,
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(subtitle, color = if (id == "monthly") violet else Color(0xFF526D8F),
+                            style = MaterialTheme.typography.bodySmall)
+                        Text(if (id == "single") "بدون تعهد ماهانه" else "سقف ۲۰ فاکتور",
+                            color = deepBlue, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         }
-        Text("خرید اعتبار و اشتراک", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = deepBlue)
-        Text("پلن موردنیاز خود را انتخاب کنید.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF54718B))
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(22.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(Color(0xFFB7DFFF),Color(0xFFEAF6FF))),RoundedCornerShape(14.dp)).padding(15.dp)) {
-                    Text("خرید اعتبار تکی", fontWeight = FontWeight.Bold, color = deepBlue, style = MaterialTheme.typography.titleMedium)
+        Card(shape = cardShape, colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(3.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Text(if (plan == "single") "تعداد اعتبار موردنیاز" else "اشتراک ماهانه",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = deepBlue)
+                if (plan == "single") {
+                    Text("برای هر صورتحساب یک اعتبار مصرف می‌شود.",
+                        color = Color(0xFF60768B), style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            quantity = ((quantity.toIntOrNull() ?: 1) - 1).coerceAtLeast(1).toString()
+                        }) { Text("−") }
+                        OutlinedTextField(quantity, onValueChange = {
+                            if (it.all(Char::isDigit) && it.length <= 6) quantity = it
+                        }, modifier = Modifier.weight(1f), singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            label = { Text("تعداد اعتبار") }, shape = RoundedCornerShape(14.dp))
+                        Button(onClick = {
+                            quantity = ((quantity.toIntOrNull() ?: 0) + 1).coerceAtMost(999999).toString()
+                        }) { Text("+") }
+                    }
+                } else {
+                    Text("۳۰ روز اعتبار و حداکثر ۲۰ صورتحساب در هر دوره.",
+                        color = deepBlue, style = MaterialTheme.typography.bodyMedium)
                 }
-                Text("برای هر صورتحساب یک اعتبار مصرف می‌شود؛ اعتبار تکی محدودیت زمانی ندارد.", style = MaterialTheme.typography.bodySmall)
-                Text("تعداد اعتبار موردنیاز", color = deepBlue, fontWeight = FontWeight.SemiBold)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = { quantity = ((quantity.toIntOrNull() ?: 1) - 1).coerceAtLeast(1).toString() }) { Text("−") }
-                    OutlinedTextField(
-                        value = quantity,
-                        onValueChange = { if(it.all(Char::isDigit) && it.length <= 6) quantity = it },
-                        modifier = Modifier.weight(1f), singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        label = { Text("تعداد") }
-                    )
-                    OutlinedButton(onClick = { quantity = ((quantity.toIntOrNull() ?: 0) + 1).coerceAtMost(999999).toString() }) { Text("+") }
-                }
+                HorizontalDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = officialInvoice, onCheckedChange = { officialInvoice = it })
-                    Text("فاکتور رسمی می‌خواهم", fontWeight = FontWeight.SemiBold, color = deepBlue)
+                    Switch(checked = officialInvoice, onCheckedChange = { officialInvoice = it })
+                    Spacer(Modifier.width(10.dp))
+                    Text("فاکتور رسمی می‌خواهم", color = deepBlue, fontWeight = FontWeight.Bold)
                 }
                 if (officialInvoice) {
-                    Text("مشخصات دریافت‌کننده فاکتور رسمی", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = deepBlue)
-                    @Composable fun Field(label: String, value: String, update: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(value = value, onValueChange = update,
-                            placeholder = { Text(label) }, singleLine = true,
-                            shape = RoundedCornerShape(12.dp), modifier = modifier)
+                    Card(shape = RoundedCornerShape(17.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F2FF))) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Text("اطلاعات فاکتور رسمی", fontWeight = FontWeight.Bold, color = violet)
+                            @Composable fun Field(label: String, value: String, change: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(value, change, modifier = modifier,
+                                    placeholder = { Text(label, maxLines = 1) }, singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color.White, focusedContainerColor = Color.White))
+                            }
+                            Field("نام و نام خانوادگی / نام شرکت", fullName, { fullName = it })
+                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Field("کد اقتصادی", economicId, { economicId = it }, Modifier.weight(1f))
+                                Field("شناسه ملی", nationalId, { nationalId = it }, Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Field("شماره ثبت", registration, { registration = it }, Modifier.weight(1f))
+                                Field("شماره تماس", phone, { phone = it }, Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                ProvincePicker(province, IranDivisions.counties.keys.toList(),
+                                    { province = it; county = "" }, Modifier.weight(1f), "استان")
+                                ProvincePicker(county, IranDivisions.counties[province].orEmpty(),
+                                    { county = it }, Modifier.weight(1f), "شهرستان")
+                            }
+                            Field("آدرس کامل", address, { address = it })
+                        }
                     }
-                    Field("نام و نام خانوادگی / نام شرکت", fullName, { fullName = it })
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Field("کد اقتصادی", economicId, { economicId = it }, Modifier.weight(1f))
-                        Field("شناسه ملی", nationalId, { nationalId = it }, Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Field("شماره ثبت", registration, { registration = it }, Modifier.weight(1f))
-                        Field("شماره تماس", phone, { phone = it }, Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProvincePicker(province, IranDivisions.counties.keys.toList(), { province = it; county = "" }, Modifier.weight(1f), "استان")
-                        ProvincePicker(county, IranDivisions.counties[province].orEmpty(), { county = it }, Modifier.weight(1f), "شهرستان")
-                    }
-                    Field("آدرس کامل", address, { address = it })
-                    Text("مشخصات صرفاً در فرم وارد شده‌اند و تا اتصال سرور ارسال نمی‌شوند.", style = MaterialTheme.typography.labelSmall, color = Color(0xFF56758D))
                 }
-                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(disabledContainerColor = Color(0xFF83B9DF))) {
-                    Text("خرید اعتبار تکی — در انتظار تعیین قیمت")
+                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)) {
+                    Text(if (plan == "single") "خرید اعتبار تکی — در انتظار تعیین قیمت"
+                         else "خرید اشتراک — در انتظار تعیین قیمت")
                 }
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF0E7FA))) {
-            Column(Modifier.fillMaxWidth().padding(17.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Text("اشتراک ماهانه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = violet)
-                Text("۳۰ روز اعتبار • سقف ۲۰ صورتحساب در هر دوره", color = deepBlue)
-                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("خرید اشتراک — در انتظار تعیین قیمت") }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("پلن سوم", "پلن چهارم").forEach { plan ->
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            listOf("پلن سوم", "پلن چهارم").forEach { title ->
                 Card(Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE7ECF4))) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(plan, fontWeight = FontWeight.Bold, color = deepBlue)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEBEFF6))) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(title, color = deepBlue, fontWeight = FontWeight.Bold)
                         Text("به‌زودی", color = Color(0xFF74859A))
                     }
                 }
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = sky), shape = RoundedCornerShape(17.dp)) {
-            Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, null, tint = deepBlue)
-                Spacer(Modifier.width(9.dp))
-                Text("پرداخت امن زرین‌پال پس از اتصال و تأیید سرور فعال خواهد شد.", style = MaterialTheme.typography.bodySmall, color = deepBlue)
-            }
-        }
-        Spacer(Modifier.height(18.dp))
+        Text("پرداخت امن زرین‌پال پس از تعیین تعرفه و تأیید سرور فعال می‌شود.",
+            color = Color(0xFF5F7391), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(12.dp))
     }
 }
 
