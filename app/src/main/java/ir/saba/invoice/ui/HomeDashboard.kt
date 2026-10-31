@@ -56,36 +56,28 @@ fun HomeDashboard(
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
         contentPadding = PaddingValues(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("نمای کلی فعالیت‌ها", style = MaterialTheme.typography.titleLarge,
-                    color = textNavy, fontWeight = FontWeight.ExtraBold)
-                Text("صورتحساب‌ها و وضعیت مالیاتی در یک نگاه",
-                    color = Color(0xFF668299), style = MaterialTheme.typography.bodySmall)
-            }
-        }
         item {
             Box(Modifier.fillMaxWidth()) {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable {
                     if (taxpayerOptions.isNotEmpty()) selectorOpen = true else onSelectTaxpayer()
                 },
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = midnight),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
                     listOf(midnight, ocean, Color(0xFF0A334D))
                 ))) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                    Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(Modifier.size(40.dp).clip(CircleShape)
+                            Box(Modifier.size(34.dp).clip(CircleShape)
                                 .background(Color(0xFF1C5970)), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.AccountCircle, contentDescription = null,
-                                    tint = gold, modifier = Modifier.size(26.dp))
+                                    tint = gold, modifier = Modifier.size(23.dp))
                             }
                             Column(Modifier.weight(1f)) {
                                 Text("مودی فعال", color = Color(0xFFA7CBD4),
@@ -96,14 +88,10 @@ fun HomeDashboard(
                             }
                             Surface(shape = RoundedCornerShape(12.dp),
                                 color = Color(0xFF174E62)) {
-                                Text("تغییر مودی  ‹", modifier = Modifier.padding(10.dp),
+                                Text("تغییر مودی  ‹", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.labelSmall, color = cool)
                             }
                         }
-                        HorizontalDivider(color = Color(0xFF315568), thickness = 1.dp)
-                        Text(if (taxpayerName == null) "برای شروع، مودی موردنظر را ثبت یا انتخاب کنید."
-                            else "گزارش اعداد این صفحه مربوط به مودی انتخاب‌شده است.",
-                            color = Color(0xFFBBD7E2), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -133,45 +121,10 @@ fun HomeDashboard(
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                Card(
-                    modifier = Modifier.weight(1.12f).height(151.dp).clickable(onClick = onNewInvoice),
-                    shape = RoundedCornerShape(25.dp),
-                    colors = CardDefaults.cardColors(containerColor = teal),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-                ) {
-                    Box(Modifier.fillMaxSize().background(
-                        Brush.linearGradient(listOf(Color(0xFF0B7886), Color(0xFF0A4A73)))
-                    )) {
-                        Column(Modifier.fillMaxSize().padding(16.dp),
-                            verticalArrangement = Arrangement.SpaceBetween) {
-                            Icon(Icons.Default.Add, contentDescription = null, tint = gold,
-                                modifier = Modifier.size(28.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("ثبت فاکتور جدید", color = Color.White,
-                                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("شروع صدور صورتحساب", color = cool,
-                                    style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
-                Card(
-                    modifier = Modifier.weight(1f).height(151.dp).clickable(onClick = onTaxKeys),
-                    shape = RoundedCornerShape(25.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE9E9FA))
-                ) {
-                    Column(Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween) {
-                        Icon(Icons.Default.Person, contentDescription = null,
-                            tint = Color(0xFF595DAD), modifier = Modifier.size(26.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("کلیدهای مالیاتی", fontWeight = FontWeight.Bold, color = textNavy,
-                                style = MaterialTheme.typography.titleMedium)
-                            Text("تولید و دریافت کلید عمومی",
-                                style = MaterialTheme.typography.labelSmall, color = Color(0xFF6A7188))
-                        }
-                    }
-                }
+                QuickAction("ثبت فاکتور جدید", Icons.Default.Add, Color(0xFF0B607A),
+                    Color.White, gold, Modifier.weight(1f), onNewInvoice)
+                QuickAction("کلیدهای مالیاتی", Icons.Default.Person, Color(0xFFE9E9FA),
+                    textNavy, Color(0xFF595DAD), Modifier.weight(1f), onTaxKeys)
             }
         }
         item {
@@ -268,17 +221,41 @@ private fun PremiumMetric(
     title: String, count: Long, icon: ImageVector,
     background: Color, accent: Color, modifier: Modifier, onClick: () -> Unit
 ) {
-    Card(modifier = modifier.height(119.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
+    Card(modifier = modifier.height(76.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(15.dp),
         colors = CardDefaults.cardColors(containerColor = background)) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 7.dp, vertical = 11.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+        Column(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 5.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
-            Text(numberFormat.format(count), style = MaterialTheme.typography.titleLarge,
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
+            Text(numberFormat.format(count), style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold, color = accent)
             Text(title, style = MaterialTheme.typography.labelSmall, color = accent,
                 maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun QuickAction(
+    title: String, icon: ImageVector, background: Color, titleColor: Color,
+    iconColor: Color, modifier: Modifier = Modifier, onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier.height(65.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = background)
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(21.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(title, color = titleColor, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }
