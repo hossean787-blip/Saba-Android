@@ -498,7 +498,7 @@ class MainActivity : ComponentActivity() {
                                 onNotice = ::notify
                             )
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
-                                CustomersScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
+                                CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else CompanyPlaceholder(loading)
                             Page.INVOICES -> if (current != null) key(current.companyId) {
                                 InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = current.quota?.available ?: 0, onNeedCharge = { page = Page.QUOTA }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
