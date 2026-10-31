@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/android-signed-release.yml'
       - 'app/src/main/**'
+      - 'app/src/test/**'
       - 'app/build.gradle.kts'
 
 permissions:
