@@ -21,6 +21,6 @@ Deno.serve(async(req)=>{
   });
   if(!response.ok)return json({error:"price_unavailable"},503);
   const quote=await response.json();
-  return json({...quote,payment_enabled:false});
+  return json({...quote,payment_enabled:/^[0-9a-f-]{36}$/i.test(Deno.env.get("ZARINPAL_MERCHANT_ID")??"")});
  }catch{return json({error:"service_unavailable"},503);}
 });
