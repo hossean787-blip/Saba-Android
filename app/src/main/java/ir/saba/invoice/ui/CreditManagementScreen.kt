@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +46,7 @@ fun CreditManagementScreen(
     paymentServiceReady: Boolean = false
 ) {
     var amount by remember(taxpayerName) { mutableStateOf("") }
+    var confirmationRequested by remember(taxpayerName) { mutableStateOf(false) }
     val parsedAmount = amount.toLongOrNull()
     val amountValid = parsedAmount != null && parsedAmount > 0L
     // No confirmed server-side balance/atomic transaction API is currently wired here.
@@ -69,7 +72,7 @@ fun CreditManagementScreen(
             }
         }
 
-        Card(shape = RoundedCornerShape(24.dp),
+        Card(shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = transferNavy),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
             Column(
@@ -85,8 +88,12 @@ fun CreditManagementScreen(
                     Text("کیف پول مالک حساب", color = Color(0xFFE4F4FF),
                         fontWeight = FontWeight.SemiBold)
                 }
-                Text("—", color = Color.White, style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("—", color = Color.White, style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.width(8.dp))
+                    Text("اعتبار", color = Color(0xFFB9E4FC), style = MaterialTheme.typography.bodyMedium)
+                }
                 Text("موجودی پس از تأیید سرور مالی نمایش داده می‌شود",
                     color = Color(0xFFB9D6E7), style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
@@ -123,7 +130,7 @@ fun CreditManagementScreen(
             border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
             Column(Modifier.fillMaxWidth().padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("مقدار اعتبار انتقالی", color = transferNavy,
+                Text("تعیین تعداد اعتبار", color = transferNavy,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 OutlinedTextField(
                     value = amount,
@@ -139,6 +146,15 @@ fun CreditManagementScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(14.dp)
                 )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(5L, 10L, 25L, 50L).forEach { preset ->
+                        FilterChip(selected = parsedAmount == preset,
+                            onClick = { amount = preset.toString() },
+                            label = { Text("$preset") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp))
+                    }
+                }
                 Text("هر ۱ اعتبار، امکان ایجاد ۱ صورتحساب جدید است.",
                     color = transferMuted, style = MaterialTheme.typography.bodySmall)
                 if (amount.isNotBlank() && !amountValid) {
@@ -146,8 +162,15 @@ fun CreditManagementScreen(
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall)
                 }
+                Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFF2F7FB)) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("اعتبار پس از انتقال", color = transferMuted, modifier = Modifier.weight(1f))
+                        Text(if (amountValid) "$parsedAmount اعتبار" else "—",
+                            color = transferNavy, fontWeight = FontWeight.Bold)
+                    }
+                }
                 Button(
-                    onClick = { /* Enabled only after a verified server transfer API is wired. */ },
+                    onClick = { confirmationRequested = true },
                     enabled = transferAvailable,
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RoundedCornerShape(16.dp),
@@ -155,7 +178,7 @@ fun CreditManagementScreen(
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("تأیید و انتقال اعتبار", fontWeight = FontWeight.Bold)
+                    Text("بررسی و تأیید انتقال", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -166,7 +189,7 @@ fun CreditManagementScreen(
                 Icon(Icons.Default.Info, contentDescription = null, tint = transferBlue,
                     modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("انتقال اعتبار پس از اتصال سرور مالی، استعلام موجودی و ثبت امن تراکنش فعال می‌شود. اکنون هیچ اعتباری جابه‌جا نمی‌شود.",
+                Text("انتقال امن فقط پس از استعلام آنلاین موجودی و تأیید تراکنش توسط سرور مالی فعال می‌شود. در حال حاضر امکان انتقال وجود ندارد.",
                     color = transferNavy, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -193,5 +216,12 @@ fun CreditManagementScreen(
             Text("بازگشت")
         }
         Spacer(Modifier.height(12.dp))
+    }
+    if (confirmationRequested && transferAvailable) {
+        AlertDialog(onDismissRequest = { confirmationRequested = false },
+            title = { Text("تأیید انتقال اعتبار") },
+            text = { Text("انتقال $parsedAmount اعتبار به $taxpayerName را تأیید می‌کنید؟") },
+            confirmButton = { TextButton(onClick = { confirmationRequested = false }) { Text("تأیید") } },
+            dismissButton = { TextButton(onClick = { confirmationRequested = false }) { Text("انصراف") } })
     }
 }
