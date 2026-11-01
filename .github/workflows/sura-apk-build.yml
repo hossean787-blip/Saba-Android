@@ -35,12 +35,37 @@ jobs:
         run: chmod +x ./gradlew
       - name: JVM unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+      - name: Restore original release signing key
+        shell: bash
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SURA_RELEASE_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SURA_RELEASE_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SURA_RELEASE_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SURA_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for n in SIGNING_KEYSTORE_BASE64 SIGNING_STORE_PASSWORD SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD; do
+            if [[ -z "${!n}" ]]; then echo "::error::Missing release signing secret: $n"; exit 1; fi
+          done
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sura-release.jks"
+          test -s "$RUNNER_TEMP/sura-release.jks"
+          echo "SURA_RELEASE_STORE_FILE=$RUNNER_TEMP/sura-release.jks" >> "$GITHUB_ENV"
+          echo "SURA_RELEASE_STORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SURA_RELEASE_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "SURA_RELEASE_KEY_PASSWORD=$SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
+      - name: Build signed release APK
+        run: ./gradlew :app:assembleRelease --stacktrace --no-daemon
+      - name: Verify release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SURA-debug-apk-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/*.apk
+          name: SURA-signed-release-apk-${{ github.run_number }}
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
