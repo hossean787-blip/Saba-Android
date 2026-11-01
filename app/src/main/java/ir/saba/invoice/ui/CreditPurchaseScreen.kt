@@ -54,11 +54,13 @@ fun CreditPurchaseScreen(accessToken: String) {
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
     var quotedTotalRial by remember { mutableStateOf<Long?>(null) }
+    var quotedVatRial by remember { mutableStateOf<Long?>(null) }
     var gatewayReady by remember { mutableStateOf(false) }
     var quoteError by remember { mutableStateOf(false) }
     LaunchedEffect(accessToken, selectedQuantity) {
         quotedUnitRial = null
         quotedTotalRial = null
+        quotedVatRial = null
         gatewayReady = false
         quoteError = false
         val count = selectedQuantity ?: return@LaunchedEffect
@@ -68,9 +70,13 @@ fun CreditPurchaseScreen(accessToken: String) {
                 if (response.optLong("quantity") == count &&
                     response.optString("currency") == "IRR" &&
                     response.optLong("unit_price_rial") > 0 &&
-                    response.optLong("total_rial") == count * response.optLong("unit_price_rial")) {
+                    response.optLong("vat_rate_percent") == 10L &&
+                    response.optLong("subtotal_rial") == count * response.optLong("unit_price_rial") &&
+                    response.optLong("vat_rial") == (response.optLong("subtotal_rial") * 10 + 50) / 100 &&
+                    response.optLong("total_rial") == response.optLong("subtotal_rial") + response.optLong("vat_rial")) {
                     quotedUnitRial = response.optLong("unit_price_rial")
                     quotedTotalRial = response.optLong("total_rial")
+                    quotedVatRial = response.optLong("vat_rial")
                     gatewayReady = response.optBoolean("payment_enabled", false)
                 } else quoteError = true
             }
@@ -138,7 +144,8 @@ fun CreditPurchaseScreen(accessToken: String) {
                         color = deepBlue, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (plan == "single") {
-                    Text("مبلغ کل: " + (quotedTotalRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
+                    Text("مالیات ارزش افزوده (۱۰٪): " + (quotedVatRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال", color = deepBlue)
+                    Text("مبلغ نهایی قابل پرداخت: " + (quotedTotalRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
                         color = deepBlue, fontWeight = FontWeight.Bold)
                 }
                 HorizontalDivider()
