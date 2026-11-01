@@ -40,7 +40,7 @@ Deno.serve(async(req)=>{
    if(!paid)return finish("پرداخت تأیید نشده است.");
    if(!merchant)return finish("درگاه هنوز پیکربندی نشده است.");
    const v=await gateway("verify.json",{merchant_id:merchant,amount:order.amount_rial,authority});
-   if(v?.data?.code!==100 && v?.data?.code!==101)return finish("تأیید پرداخت ناموفق بود.");
+   if(v?.data?.code!==100)return finish("پرداخت جدید تأیید نشد؛ نیازمند تطبیق با درگاه است.");
    if(!v?.data?.ref_id)return finish("شماره پیگیری معتبر دریافت نشد.");
    const result=await db("rpc/sura_settle_verified_payment","POST",{p_order_id:order.id,p_authority:authority,p_ref_id:String(v.data.ref_id)});
    return finish(result===true||result===false?"پرداخت در سرور بررسی و ثبت شد.":"وضعیت پرداخت نیازمند بررسی است.");
