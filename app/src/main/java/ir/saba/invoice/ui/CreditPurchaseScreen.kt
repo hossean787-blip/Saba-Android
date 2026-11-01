@@ -129,7 +129,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                         color = deepBlue, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (plan == "single") {
-                    Text("مبلغ کل: " + (selectedQuantity?.let { count -> unitPriceRial?.let { count * it } }?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
+                    Text("مبلغ کل: " + (quotedTotalRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
                         color = deepBlue, fontWeight = FontWeight.Bold)
                 }
                 HorizontalDivider()
