@@ -656,7 +656,8 @@ class MainActivity : ComponentActivity() {
                                     taxpayerName = company.name,
                                     taxpayerId = current.companyId,
                                     accessToken = accessToken,
-                                    onBack = { page = Page.DASHBOARD }
+                                    onBack = { page = Page.DASHBOARD },
+                                    onPurchase = { page = Page.CREDIT_PURCHASE }
                                 )
                             } else CompanyPlaceholder(loading)
                             Page.SIMULATION -> if (current != null) LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
