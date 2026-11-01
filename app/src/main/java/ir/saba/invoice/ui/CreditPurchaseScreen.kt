@@ -45,7 +45,13 @@ fun CreditPurchaseScreen(accessToken: String) {
     var address by remember { mutableStateOf("") }
 
     var plan by remember { mutableStateOf("single") }
-    val unitPriceRial = 100_000L
+    var unitPriceRial by remember { mutableStateOf<Long?>(null) }
+    var priceError by remember { mutableStateOf(false) }
+    LaunchedEffect(accessToken) {
+        if (accessToken.isNotBlank()) runCatching { CreditQuoteClient.quote(accessToken, 1).optLong("unit_price_rial") }
+            .onSuccess { unitPriceRial = it.takeIf { price -> price > 0 }; priceError = unitPriceRial == null }
+            .onFailure { unitPriceRial = null; priceError = true }
+    }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     val cardShape = RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
@@ -88,7 +94,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                 Text(if (plan == "single") "تعداد اعتبار موردنیاز" else "اشتراک ماهانه",
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = deepBlue)
                 if (plan == "single") {
-                    Text("قیمت هر اعتبار: ۱۰۰٬۰۰۰ ریال؛ هر صورتحساب یک اعتبار.",
+                    Text("قیمت هر اعتبار: " + (unitPriceRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "در انتظار استعلام") + " ریال؛ هر صورتحساب یک اعتبار.",
                         color = Color(0xFF60768B), style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -109,7 +115,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                         color = deepBlue, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (plan == "single") {
-                    Text("مبلغ کل: " + (selectedQuantity?.times(unitPriceRial)?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
+                    Text("مبلغ کل: " + (selectedQuantity?.let { count -> unitPriceRial?.let { count * it } }?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
                         color = deepBlue, fontWeight = FontWeight.Bold)
                 }
                 HorizontalDivider()
