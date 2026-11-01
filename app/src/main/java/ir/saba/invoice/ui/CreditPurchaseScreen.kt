@@ -48,6 +48,7 @@ fun CreditPurchaseScreen(accessToken: String) {
 
     var paymentBusy by remember { mutableStateOf(false) }
     var paymentMessage by remember { mutableStateOf("") }
+    var pendingOrderId by remember { mutableStateOf<String?>(null) }
     var plan by remember { mutableStateOf("single") }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
@@ -174,6 +175,26 @@ fun CreditPurchaseScreen(accessToken: String) {
                 }
                 if (quoteError && plan == "single") Text("استعلام قیمت از سرور انجام نشد؛ اتصال اینترنت را بررسی کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (paymentMessage.isNotBlank()) Text(paymentMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (pendingOrderId != null && plan == "single") {
+                    OutlinedButton(onClick = {
+                        val orderId = pendingOrderId ?: return@OutlinedButton
+                        paymentBusy = true
+                        scope.launch {
+                            runCatching { ZarinPalPurchaseClient.status(accessToken, orderId) }
+                                .onSuccess { result ->
+                                    paymentMessage = when (result.optString("state")) {
+                                        "verified" -> { pendingOrderId = null; "پرداخت تأیید شده و اعتبار در سرور ثبت شده است." }
+                                        "failed" -> { pendingOrderId = null; "پرداخت ناموفق بوده است." }
+                                        else -> "پرداخت هنوز توسط سرور تأیید نشده است؛ مجدداً پرداخت نکنید."
+                                    }
+                                }
+                                .onFailure { paymentMessage = it.message ?: "استعلام پرداخت ناموفق بود." }
+                            paymentBusy = false
+                        }
+                    }, enabled = !paymentBusy, modifier = Modifier.fillMaxWidth()) {
+                        Text("استعلام نتیجه آخرین پرداخت")
+                    }
+                }
                 Button(onClick = {
                     val count = selectedQuantity ?: return@Button
                     paymentBusy = true
@@ -181,6 +202,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                     scope.launch {
                         runCatching { ZarinPalPurchaseClient.create(accessToken, count) }
                             .onSuccess { response ->
+                                pendingOrderId = response.optString("orderId").takeIf { it.isNotBlank() }
                                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(response.getString("paymentUrl")))) }
                                 catch (_: Exception) { paymentMessage = "بازکردن درگاه پرداخت امکان‌پذیر نیست." }
                             }
