@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -48,7 +49,7 @@ fun CreditPurchaseScreen(accessToken: String) {
 
     var paymentBusy by remember { mutableStateOf(false) }
     var paymentMessage by remember { mutableStateOf("") }
-    var pendingOrderId by remember { mutableStateOf<String?>(null) }
+    var pendingOrderId by rememberSaveable { mutableStateOf<String?>(null) }
     var plan by remember { mutableStateOf("single") }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
