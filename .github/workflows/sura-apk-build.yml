@@ -22,7 +22,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Check preinstalled Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-}"
+          test -n "${ANDROID_HOME:-}" && test -d "$ANDROID_HOME" || { echo "Android SDK is unavailable"; exit 1; }
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          ls "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/build-tools"
       - name: Gradle permissions
         run: chmod +x ./gradlew
       - name: JVM unit tests
