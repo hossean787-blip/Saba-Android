@@ -69,7 +69,8 @@ fun CreditManagementScreen(
                 scope.launch {
                     runCatching { CreditTransferClient.request(accessToken, taxpayerId, n, requestId) }
                         .onSuccess {
-                            message = "نتیجه درخواست انتقال دریافت شد؛ مانده را دوباره بررسی کنید."
+                            message = "انتقال ثبت شد؛ موجودی در حال به‌روزرسانی است."
+                            pendingRequestId = null
                             reload++
                         }
                         .onFailure { message = "وضعیت انتقال نامشخص است: ${it.message.orEmpty()}. پیش از تلاش مجدد مانده را بررسی کنید." }
@@ -77,7 +78,7 @@ fun CreditManagementScreen(
                 }
             },
             enabled = !busy && accessToken.isNotBlank() && count != null &&
-                count in 1..100000000 && ownerBalance != null && count <= (ownerBalance ?: 0L),
+                count in 1L..100000000L && ownerBalance != null && count <= (ownerBalance ?: 0L),
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (busy) "در حال انتقال…" else "تأیید انتقال اعتبار") }
         OutlinedButton(onClick = { reload++ }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("به‌روزرسانی موجودی") }
