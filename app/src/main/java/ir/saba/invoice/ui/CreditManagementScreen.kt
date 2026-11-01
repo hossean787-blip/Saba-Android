@@ -15,6 +15,9 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
+import java.util.UUID
+import org.json.JSONObject
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,14 +44,30 @@ private val transferOutline = Color(0xFFDCE9F1)
 fun CreditManagementScreen(
     taxpayerName: String,
     onBack: () -> Unit,
-    paymentServiceReady: Boolean = false
+    paymentServiceReady: Boolean = false,
+    taxpayerId: Long = 0L,
+    accessToken: String = ""
 ) {
     var amount by remember(taxpayerName) { mutableStateOf("") }
     val parsedAmount = amount.toLongOrNull()
     val amountValid = parsedAmount != null && parsedAmount > 0L
     // No confirmed server-side balance/atomic transaction API is currently wired here.
-    val balanceVerified = false
-    val transferAvailable = paymentServiceReady && balanceVerified && amountValid
+    val scope = rememberCoroutineScope()
+    var snapshot by remember(taxpayerId, accessToken) { mutableStateOf<JSONObject?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf(false) }
+    var requestId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(taxpayerId, accessToken) {
+        if (taxpayerId > 0 && accessToken.isNotBlank()) {
+            runCatching { CreditTransferClient.request(accessToken, taxpayerId) }
+                .onSuccess { snapshot = it; notice = "" }
+                .onFailure { notice = "دریافت موجودی از سرور مالی ناموفق بود." }
+        }
+    }
+    val balanceVerified = snapshot != null
+    val ownerBalance = snapshot?.optLong("ownerBalance") ?: 0L
+    val transferAvailable = balanceVerified && amountValid && parsedAmount!! <= ownerBalance && !busy
     var showUnavailable by remember { mutableStateOf(false) }
 
     Column(
@@ -87,18 +106,18 @@ fun CreditManagementScreen(
                         fontWeight = FontWeight.SemiBold)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("—", color = Color.White, style = MaterialTheme.typography.headlineLarge,
+                    Text(if (balanceVerified) "$ownerBalance" else "—", color = Color.White, style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.ExtraBold)
                     Spacer(Modifier.width(8.dp))
                     Text("اعتبار", color = Color(0xFFB9E4FC), style = MaterialTheme.typography.bodyMedium)
                 }
-                Text("موجودی پس از تأیید سرور مالی نمایش داده می‌شود",
+                Text(if (balanceVerified) "موجودی تأییدشده از سرور مالی" else "در انتظار دریافت موجودی از سرور مالی",
                     color = Color(0xFFB9D6E7), style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("اعتبار قابل انتقال", color = Color.White,
                         modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                    Text("نامشخص", color = Color(0xFFB9E4FC), fontWeight = FontWeight.Bold)
+                    Text(if (balanceVerified) "$ownerBalance" else "نامشخص", color = Color(0xFFB9E4FC), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -117,7 +136,7 @@ fun CreditManagementScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("موجودی فعلی مودی", color = transferMuted,
                         modifier = Modifier.weight(1f))
-                    Text("در انتظار استعلام", color = transferBlue,
+                    Text(if (balanceVerified) "${snapshot?.optLong("taxpayerBalance")}" else "در انتظار استعلام", color = transferBlue,
                         style = MaterialTheme.typography.labelLarge)
                 }
             }
@@ -133,6 +152,7 @@ fun CreditManagementScreen(
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { proposed ->
+                        requestId = null
                         if (proposed.length <= 9 && proposed.all { it in '0'..'9' }) amount = proposed
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -147,7 +167,7 @@ fun CreditManagementScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(5L, 10L, 25L, 50L).forEach { preset ->
                         FilterChip(selected = parsedAmount == preset,
-                            onClick = { amount = preset.toString() },
+                            onClick = { amount = preset.toString(); requestId = null },
                             label = { Text("$preset") },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp))
@@ -168,15 +188,15 @@ fun CreditManagementScreen(
                     }
                 }
                 Button(
-                    onClick = { showUnavailable = true },
-                    enabled = amountValid && taxpayerName.isNotBlank(),
+                    onClick = { confirmation = true },
+                    enabled = transferAvailable && taxpayerName.isNotBlank(),
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = transferBlue)
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("بررسی امکان انتقال", fontWeight = FontWeight.Bold)
+                    Text(if (busy) "در حال ثبت انتقال…" else "تأیید انتقال اعتبار", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -187,7 +207,7 @@ fun CreditManagementScreen(
                 Icon(Icons.Default.Info, contentDescription = null, tint = transferBlue,
                     modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("انتقال امن فقط پس از استعلام آنلاین موجودی و تأیید تراکنش توسط سرور مالی فعال می‌شود. در حال حاضر امکان انتقال وجود ندارد.",
+                Text(if (balanceVerified) "انتقال با ثبت تراکنش اتمیک در سرور انجام می‌شود." else "ابتدا باید موجودی واقعی کیف پول از سرور دریافت شود.",
                     color = transferNavy, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -201,7 +221,7 @@ fun CreditManagementScreen(
         }
         Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
             border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
-            Text("سوابق پس از اتصال به سرور مالی نمایش داده می‌شود.",
+            Text(if (snapshot == null) "سوابق در انتظار اتصال به سرور مالی است." else if ((snapshot?.optJSONArray("history")?.length() ?: 0) == 0) "هنوز انتقالی ثبت نشده است." else "۱۰ انتقال اخیر در سرور ثبت شده است.",
                 modifier = Modifier.fillMaxWidth().padding(19.dp),
                 textAlign = TextAlign.Center, color = transferMuted,
                 style = MaterialTheme.typography.bodySmall)
@@ -214,6 +234,33 @@ fun CreditManagementScreen(
             Text("بازگشت")
         }
         Spacer(Modifier.height(12.dp))
+    }
+    if (notice.isNotBlank()) {
+        AlertDialog(onDismissRequest = { notice = "" }, title = { Text("وضعیت انتقال") },
+            text = { Text(notice) },
+            confirmButton = { TextButton(onClick = { notice = "" }) { Text("تأیید") } })
+    }
+    if (confirmation) {
+        AlertDialog(onDismissRequest = { confirmation = false },
+            title = { Text("تأیید انتقال اعتبار") },
+            text = { Text("انتقال $parsedAmount اعتبار به $taxpayerName انجام شود؟") },
+            confirmButton = { TextButton(onClick = {
+                confirmation = false
+                if (!transferAvailable) return@TextButton
+                busy = true
+                val id = requestId ?: UUID.randomUUID().toString().also { requestId = it }
+                scope.launch {
+                    runCatching { CreditTransferClient.request(accessToken, taxpayerId, parsedAmount!!, id) }
+                        .onSuccess {
+                            notice = "انتقال اعتبار در سرور ثبت شد."
+                            amount = ""
+                            requestId = null
+                            runCatching { CreditTransferClient.request(accessToken, taxpayerId) }.onSuccess { snapshot = it }
+                        }.onFailure { notice = if (it.message == "insufficient_balance") "موجودی کیف پول کافی نیست." else "نتیجه انتقال تأیید نشد؛ قبل از تلاش مجدد موجودی را بررسی کنید." }
+                    busy = false
+                }
+            }) { Text("انتقال") } },
+            dismissButton = { TextButton(onClick = { confirmation = false }) { Text("انصراف") } })
     }
     if (showUnavailable) {
         AlertDialog(
