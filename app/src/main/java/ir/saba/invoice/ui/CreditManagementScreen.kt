@@ -1,16 +1,41 @@
 package ir.saba.invoice.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
+private val transferNavy = Color(0xFF07283F)
+private val transferBlue = Color(0xFF116AA4)
+private val transferMuted = Color(0xFF668195)
+private val transferBackground = Color(0xFFF1F7FB)
+private val transferOutline = Color(0xFFDCE9F1)
+
 /**
- * Purchase and allocation UI. Server-verified balances and payment APIs are mandatory
- * before enabling financial operations. No local values are represented as money.
+ * Owner wallet → selected taxpayer only.
+ * Balances and transfers MUST be sourced from the authoritative financial backend.
+ * paymentServiceReady is retained for compatibility with existing navigation callers;
+ * it never unlocks a transfer on its own.
  */
 @Composable
 fun CreditManagementScreen(
@@ -18,60 +43,155 @@ fun CreditManagementScreen(
     onBack: () -> Unit,
     paymentServiceReady: Boolean = false
 ) {
-    var tab by remember { mutableIntStateOf(0) }
-    var pack by remember { mutableIntStateOf(100) }
-    var amount by remember { mutableStateOf("10") }
+    var amount by remember(taxpayerName) { mutableStateOf("") }
+    val parsedAmount = amount.toLongOrNull()
+    val amountValid = parsedAmount != null && parsedAmount > 0L
+    // No confirmed server-side balance/atomic transaction API is currently wired here.
+    val balanceVerified = false
+    val transferAvailable = paymentServiceReady && balanceVerified && amountValid
+
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.fillMaxSize().background(transferBackground)
+            .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("اعتبار صورتحساب سورا", style = MaterialTheme.typography.headlineSmall)
-        Text("هر ۱ اعتبار = امکان ایجاد ۱ صورتحساب جدید")
-        ElevatedCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("مودی انتخاب‌شده: $taxpayerName")
-                Text("موجودی تأییدشده: در انتظار اتصال به سرور مالی")
-                Text("اعتبار کیف پول مالک: در انتظار اتصال به سرور مالی")
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Text("انتقال اعتبار", style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold, color = transferNavy)
+                Text("از کیف پول مالک به مودی", color = transferMuted,
+                    style = MaterialTheme.typography.bodyMedium)
+            }
+            Spacer(Modifier.width(10.dp))
+            Surface(shape = RoundedCornerShape(17.dp), color = Color(0xFFDFEEFA)) {
+                Icon(Icons.Default.SwapHoriz, contentDescription = null,
+                    tint = transferBlue, modifier = Modifier.padding(13.dp).size(28.dp))
             }
         }
-        TabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("خرید اعتبار") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("انتقال اعتبار") })
+
+        Card(shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = transferNavy),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
+            Column(
+                Modifier.fillMaxWidth().background(
+                    Brush.linearGradient(listOf(transferNavy, Color(0xFF135578)))
+                ).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null,
+                        tint = Color(0xFFB9E4FC))
+                    Spacer(Modifier.width(9.dp))
+                    Text("کیف پول مالک حساب", color = Color(0xFFE4F4FF),
+                        fontWeight = FontWeight.SemiBold)
+                }
+                Text("—", color = Color.White, style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold)
+                Text("موجودی پس از تأیید سرور مالی نمایش داده می‌شود",
+                    color = Color(0xFFB9D6E7), style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("اعتبار قابل انتقال", color = Color.White,
+                        modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                    Text("نامشخص", color = Color(0xFFB9E4FC), fontWeight = FontWeight.Bold)
+                }
+            }
         }
-        if (tab == 0) {
-            Text("بسته‌های اعتباری", style = MaterialTheme.typography.titleMedium)
-            Text("قیمت بسته‌ها پس از دریافت از سرور فروش نمایش داده می‌شود.")
-            listOf(50, 100, 250, 500).forEach { count ->
-                FilterChip(
-                    selected = pack == count,
-                    onClick = { pack = count },
-                    label = { Text("$count اعتبار") }
+
+        Card(shape = RoundedCornerShape(21.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("مودی دریافت‌کننده", color = transferMuted,
+                    style = MaterialTheme.typography.labelLarge)
+                Text(taxpayerName.ifBlank { "مودی انتخاب نشده" },
+                    color = transferNavy, style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold)
+                HorizontalDivider(color = transferOutline)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("موجودی فعلی مودی", color = transferMuted,
+                        modifier = Modifier.weight(1f))
+                    Text("در انتظار استعلام", color = transferBlue,
+                        style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+
+        Card(shape = RoundedCornerShape(21.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("مقدار اعتبار انتقالی", color = transferNavy,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { proposed ->
+                        if (proposed.length <= 9 && proposed.all { it in '0'..'9' }) amount = proposed
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("تعداد اعتبار") },
+                    placeholder = { Text("مثلاً ۱۰") },
+                    suffix = { Text("اعتبار") },
+                    isError = amount.isNotBlank() && !amountValid,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(14.dp)
                 )
-            }
-            Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Text("پرداخت امن (در انتظار اتصال و تأیید درگاه)")
-            }
-        } else {
-            Text("انتقال از کیف پول مالک به مودی انتخاب‌شده", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = amount,
-                onValueChange = { if (it.length <= 9 && it.all(Char::isDigit)) amount = it },
-                label = { Text("تعداد اعتبار") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text("انتقال فقط پس از دریافت مانده معتبر و ثبت تراکنش اتمیک در سرور مجاز است.")
-            Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Text("تأیید انتقال (در انتظار سرویس مالی)")
+                Text("هر ۱ اعتبار، امکان ایجاد ۱ صورتحساب جدید است.",
+                    color = transferMuted, style = MaterialTheme.typography.bodySmall)
+                if (amount.isNotBlank() && !amountValid) {
+                    Text("تعداد اعتبار باید بیشتر از صفر باشد.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Button(
+                    onClick = { /* Enabled only after a verified server transfer API is wired. */ },
+                    enabled = transferAvailable,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = transferBlue)
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("تأیید و انتقال اعتبار", fontWeight = FontWeight.Bold)
+                }
             }
         }
-        if (!paymentServiceReady) {
-            Text(
-                "این صفحه پیش‌نمایش عملیاتی بدون پرداخت است؛ هیچ وجهی دریافت و هیچ اعتباری جابه‌جا نمی‌شود.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
+
+        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFE6F1F9)) {
+            Row(Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.Top) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = transferBlue,
+                    modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("انتقال اعتبار پس از اتصال سرور مالی، استعلام موجودی و ثبت امن تراکنش فعال می‌شود. اکنون هیچ اعتباری جابه‌جا نمی‌شود.",
+                    color = transferNavy, style = MaterialTheme.typography.bodySmall)
+            }
         }
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("بازگشت") }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.ReceiptLong, contentDescription = null,
+                tint = transferBlue, modifier = Modifier.size(21.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("سوابق انتقال اعتبار", color = transferNavy,
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
+            border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
+            Text("سوابق پس از اتصال به سرور مالی نمایش داده می‌شود.",
+                modifier = Modifier.fillMaxWidth().padding(19.dp),
+                textAlign = TextAlign.Center, color = transferMuted,
+                style = MaterialTheme.typography.bodySmall)
+        }
+
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(15.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("بازگشت")
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
