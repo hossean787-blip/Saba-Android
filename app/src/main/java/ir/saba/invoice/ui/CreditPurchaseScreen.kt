@@ -45,14 +45,28 @@ fun CreditPurchaseScreen(accessToken: String) {
     var address by remember { mutableStateOf("") }
 
     var plan by remember { mutableStateOf("single") }
-    var unitPriceRial by remember { mutableStateOf<Long?>(null) }
-    var priceError by remember { mutableStateOf(false) }
-    LaunchedEffect(accessToken) {
-        if (accessToken.isNotBlank()) runCatching { CreditQuoteClient.quote(accessToken, 1).optLong("unit_price_rial") }
-            .onSuccess { unitPriceRial = it.takeIf { price -> price > 0 }; priceError = unitPriceRial == null }
-            .onFailure { unitPriceRial = null; priceError = true }
-    }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
+    var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
+    var quotedTotalRial by remember { mutableStateOf<Long?>(null) }
+    var quoteError by remember { mutableStateOf(false) }
+    LaunchedEffect(accessToken, selectedQuantity) {
+        quotedUnitRial = null
+        quotedTotalRial = null
+        quoteError = false
+        val count = selectedQuantity ?: return@LaunchedEffect
+        if (accessToken.isBlank()) { quoteError = true; return@LaunchedEffect }
+        runCatching { CreditQuoteClient.quote(accessToken, count) }
+            .onSuccess { response ->
+                if (response.optLong("quantity") == count &&
+                    response.optString("currency") == "IRR" &&
+                    response.optLong("unit_price_rial") > 0 &&
+                    response.optLong("total_rial") == count * response.optLong("unit_price_rial")) {
+                    quotedUnitRial = response.optLong("unit_price_rial")
+                    quotedTotalRial = response.optLong("total_rial")
+                } else quoteError = true
+            }
+            .onFailure { quoteError = true }
+    }
     val cardShape = RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
         .padding(horizontal = 12.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -94,7 +108,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                 Text(if (plan == "single") "تعداد اعتبار موردنیاز" else "اشتراک ماهانه",
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = deepBlue)
                 if (plan == "single") {
-                    Text("قیمت هر اعتبار: " + (unitPriceRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "در انتظار استعلام") + " ریال؛ هر صورتحساب یک اعتبار.",
+                    Text("قیمت هر اعتبار: " + (quotedUnitRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "در انتظار استعلام") + " ریال؛ هر صورتحساب یک اعتبار.",
                         color = Color(0xFF60768B), style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -154,6 +168,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                         }
                     }
                 }
+                if (quoteError && plan == "single") Text("استعلام قیمت از سرور انجام نشد؛ اتصال اینترنت را بررسی کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)) {
                     Text(if (plan == "single") "پرداخت — در انتظار فعال‌سازی درگاه"
