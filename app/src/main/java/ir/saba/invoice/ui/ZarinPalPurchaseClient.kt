@@ -6,6 +6,24 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 internal object ZarinPalPurchaseClient {
+    suspend fun status(token: String, orderId: String): JSONObject = withContext(Dispatchers.IO) {
+        require(token.isNotBlank() && orderId.matches(Regex("[0-9a-fA-F-]{36}")))
+        val conn = URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-zarinpal/status").openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(JSONObject().put("orderId", orderId).toString().toByteArray(Charsets.UTF_8)) }
+            val status = conn.responseCode
+            val raw = (if (status in 200..299) conn.inputStream else conn.errorStream)
+                .bufferedReader().use { it.readText() }
+            if (status !in 200..299) error("استعلام وضعیت پرداخت ناموفق بود.")
+            JSONObject(raw)
+        } finally { conn.disconnect() }
+    }
     suspend fun create(token:String, quantity:Long):JSONObject = withContext(Dispatchers.IO) {
         require(token.isNotBlank() && quantity in 1L..999999L)
         val conn=URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-zarinpal/create").openConnection() as HttpURLConnection
