@@ -13,8 +13,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,7 +44,6 @@ fun CreditManagementScreen(
     paymentServiceReady: Boolean = false
 ) {
     var amount by remember(taxpayerName) { mutableStateOf("") }
-    var confirmationRequested by remember(taxpayerName) { mutableStateOf(false) }
     val parsedAmount = amount.toLongOrNull()
     val amountValid = parsedAmount != null && parsedAmount > 0L
     // No confirmed server-side balance/atomic transaction API is currently wired here.
@@ -170,7 +167,7 @@ fun CreditManagementScreen(
                     }
                 }
                 Button(
-                    onClick = { confirmationRequested = true },
+                    onClick = { /* Replace with verified atomic backend transfer before enabling. */ },
                     enabled = transferAvailable,
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RoundedCornerShape(16.dp),
@@ -216,12 +213,5 @@ fun CreditManagementScreen(
             Text("بازگشت")
         }
         Spacer(Modifier.height(12.dp))
-    }
-    if (confirmationRequested && transferAvailable) {
-        AlertDialog(onDismissRequest = { confirmationRequested = false },
-            title = { Text("تأیید انتقال اعتبار") },
-            text = { Text("انتقال $parsedAmount اعتبار به $taxpayerName را تأیید می‌کنید؟") },
-            confirmButton = { TextButton(onClick = { confirmationRequested = false }) { Text("تأیید") } },
-            dismissButton = { TextButton(onClick = { confirmationRequested = false }) { Text("انصراف") } })
     }
 }
