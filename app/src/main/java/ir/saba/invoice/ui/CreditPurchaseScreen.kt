@@ -45,6 +45,8 @@ fun CreditPurchaseScreen(accessToken: String) {
     var address by remember { mutableStateOf("") }
 
     var plan by remember { mutableStateOf("single") }
+    val unitPriceRial = 100_000L
+    val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     val cardShape = RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
         .padding(horizontal = 12.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -86,7 +88,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                 Text(if (plan == "single") "تعداد اعتبار موردنیاز" else "اشتراک ماهانه",
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = deepBlue)
                 if (plan == "single") {
-                    Text("برای هر صورتحساب یک اعتبار مصرف می‌شود.",
+                    Text("قیمت هر اعتبار: ۱۰۰٬۰۰۰ ریال؛ هر صورتحساب یک اعتبار.",
                         color = Color(0xFF60768B), style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -105,6 +107,10 @@ fun CreditPurchaseScreen(accessToken: String) {
                 } else {
                     Text("۳۰ روز اعتبار و حداکثر ۲۰ صورتحساب در هر دوره.",
                         color = deepBlue, style = MaterialTheme.typography.bodyMedium)
+                }
+                if (plan == "single") {
+                    Text("مبلغ کل: " + (selectedQuantity?.times(unitPriceRial)?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
+                        color = deepBlue, fontWeight = FontWeight.Bold)
                 }
                 HorizontalDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -144,8 +150,8 @@ fun CreditPurchaseScreen(accessToken: String) {
                 }
                 Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)) {
-                    Text(if (plan == "single") "خرید اعتبار تکی — در انتظار تعیین قیمت"
-                         else "خرید اشتراک — در انتظار تعیین قیمت")
+                    Text(if (plan == "single") "پرداخت — در انتظار فعال‌سازی درگاه"
+                         else "خرید اشتراک — در انتظار تعیین تعرفه اشتراک")
                 }
             }
         }
@@ -201,7 +207,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                 }
             }
         }
-        Text("پرداخت امن زرین‌پال پس از تعیین تعرفه و تأیید سرور فعال می‌شود.",
+        Text("مبالغ به ریال نمایش داده می‌شوند. پرداخت پس از اتصال و تأیید درگاه زرین‌پال فعال می‌شود.",
             color = Color(0xFF5F7391), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
     }
