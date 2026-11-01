@@ -53,10 +53,12 @@ fun CreditPurchaseScreen(accessToken: String) {
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
     var quotedTotalRial by remember { mutableStateOf<Long?>(null) }
+    var gatewayReady by remember { mutableStateOf(false) }
     var quoteError by remember { mutableStateOf(false) }
     LaunchedEffect(accessToken, selectedQuantity) {
         quotedUnitRial = null
         quotedTotalRial = null
+        gatewayReady = false
         quoteError = false
         val count = selectedQuantity ?: return@LaunchedEffect
         if (accessToken.isBlank()) { quoteError = true; return@LaunchedEffect }
@@ -68,6 +70,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                     response.optLong("total_rial") == count * response.optLong("unit_price_rial")) {
                     quotedUnitRial = response.optLong("unit_price_rial")
                     quotedTotalRial = response.optLong("total_rial")
+                    gatewayReady = response.optBoolean("payment_enabled", false)
                 } else quoteError = true
             }
             .onFailure { quoteError = true }
@@ -175,6 +178,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                 }
                 if (quoteError && plan == "single") Text("استعلام قیمت از سرور انجام نشد؛ اتصال اینترنت را بررسی کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (paymentMessage.isNotBlank()) Text(paymentMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (plan == "single" && !gatewayReady && quotedTotalRial != null) Text("پذیرنده پرداخت در سرور هنوز فعال نشده است.", color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
                 if (pendingOrderId != null && plan == "single") {
                     OutlinedButton(onClick = {
                         val orderId = pendingOrderId ?: return@OutlinedButton
@@ -209,7 +213,7 @@ fun CreditPurchaseScreen(accessToken: String) {
                             .onFailure { paymentMessage = it.message ?: "درگاه پرداخت در دسترس نیست." }
                         paymentBusy = false
                     }
-                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && !paymentBusy,
+                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)) {
                     Text(if (plan == "single") (if (paymentBusy) "در حال ایجاد سفارش…" else "پرداخت امن زرین‌پال")
