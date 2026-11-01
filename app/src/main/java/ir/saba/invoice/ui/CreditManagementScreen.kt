@@ -8,11 +8,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
@@ -84,7 +84,7 @@ fun CreditManagementScreen(
             }
             Spacer(Modifier.width(10.dp))
             Surface(shape = RoundedCornerShape(17.dp), color = Color(0xFFDFEEFA)) {
-                Icon(Icons.Default.SwapHoriz, contentDescription = null,
+                Icon(Icons.Default.Home, contentDescription = null,
                     tint = transferBlue, modifier = Modifier.padding(13.dp).size(28.dp))
             }
         }
@@ -99,7 +99,7 @@ fun CreditManagementScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null,
+                    Icon(Icons.Default.AccountCircle, contentDescription = null,
                         tint = Color(0xFFB9E4FC))
                     Spacer(Modifier.width(9.dp))
                     Text("کیف پول مالک حساب", color = Color(0xFFE4F4FF),
@@ -213,7 +213,7 @@ fun CreditManagementScreen(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.ReceiptLong, contentDescription = null,
+            Icon(Icons.Default.List, contentDescription = null,
                 tint = transferBlue, modifier = Modifier.size(21.dp))
             Spacer(Modifier.width(8.dp))
             Text("سوابق انتقال اعتبار", color = transferNavy,
