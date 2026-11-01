@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -44,6 +46,8 @@ fun CreditPurchaseScreen(accessToken: String) {
     var county by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
 
+    var paymentBusy by remember { mutableStateOf(false) }
+    var paymentMessage by remember { mutableStateOf("") }
     var plan by remember { mutableStateOf("single") }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
@@ -169,9 +173,24 @@ fun CreditPurchaseScreen(accessToken: String) {
                     }
                 }
                 if (quoteError && plan == "single") Text("استعلام قیمت از سرور انجام نشد؛ اتصال اینترنت را بررسی کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
+                if (paymentMessage.isNotBlank()) Text(paymentMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Button(onClick = {
+                    val count = selectedQuantity ?: return@Button
+                    paymentBusy = true
+                    paymentMessage = ""
+                    scope.launch {
+                        runCatching { ZarinPalPurchaseClient.create(accessToken, count) }
+                            .onSuccess { response ->
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(response.getString("paymentUrl")))) }
+                                catch (_: Exception) { paymentMessage = "بازکردن درگاه پرداخت امکان‌پذیر نیست." }
+                            }
+                            .onFailure { paymentMessage = it.message ?: "درگاه پرداخت در دسترس نیست." }
+                        paymentBusy = false
+                    }
+                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && !paymentBusy,
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)) {
-                    Text(if (plan == "single") "پرداخت — در انتظار فعال‌سازی درگاه"
+                    Text(if (plan == "single") (if (paymentBusy) "در حال ایجاد سفارش…" else "پرداخت امن زرین‌پال")
                          else "خرید اشتراک — در انتظار تعیین تعرفه اشتراک")
                 }
             }
