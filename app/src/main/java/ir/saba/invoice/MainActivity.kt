@@ -654,6 +654,8 @@ class MainActivity : ComponentActivity() {
                             Page.QUOTA -> if (current != null && company != null) {
                                 CreditManagementScreen(
                                     taxpayerName = company.name,
+                                    taxpayerId = current.companyId,
+                                    accessToken = accessToken,
                                     onBack = { page = Page.DASHBOARD }
                                 )
                             } else CompanyPlaceholder(loading)
