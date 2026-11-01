@@ -1,288 +1,90 @@
 package ir.saba.invoice.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import java.util.UUID
-import org.json.JSONObject
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 
-private val transferNavy = Color(0xFF07283F)
-private val transferBlue = Color(0xFF116AA4)
-private val transferMuted = Color(0xFF668195)
-private val transferBackground = Color(0xFFF1F7FB)
-private val transferOutline = Color(0xFFDCE9F1)
-
-/**
- * Owner wallet → selected taxpayer only.
- * Balances and transfers MUST be sourced from the authoritative financial backend.
- * paymentServiceReady is retained for compatibility with existing navigation callers;
- * it never unlocks a transfer on its own.
- */
 @Composable
 fun CreditManagementScreen(
     taxpayerName: String,
+    taxpayerId: Long,
+    accessToken: String,
     onBack: () -> Unit,
-    paymentServiceReady: Boolean = false,
-    taxpayerId: Long = 0L,
-    accessToken: String = ""
+    onPurchase: () -> Unit
 ) {
-    var amount by remember(taxpayerName) { mutableStateOf("") }
-    val parsedAmount = amount.toLongOrNull()
-    val amountValid = parsedAmount != null && parsedAmount > 0L
-    // No confirmed server-side balance/atomic transaction API is currently wired here.
     val scope = rememberCoroutineScope()
-    var snapshot by remember(taxpayerId, accessToken) { mutableStateOf<JSONObject?>(null) }
+    var ownerBalance by remember(taxpayerId) { mutableStateOf<Long?>(null) }
+    var taxpayerBalance by remember(taxpayerId) { mutableStateOf<Long?>(null) }
+    var amount by remember(taxpayerId) { mutableStateOf("1") }
+    var pendingRequestId by remember(taxpayerId) { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var notice by remember { mutableStateOf("") }
-    var confirmation by remember { mutableStateOf(false) }
-    var requestId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(taxpayerId, accessToken) {
-        if (taxpayerId > 0 && accessToken.isNotBlank()) {
-            runCatching { CreditTransferClient.request(accessToken, taxpayerId) }
-                .onSuccess { snapshot = it; notice = "" }
-                .onFailure { notice = "دریافت موجودی از سرور مالی ناموفق بود." }
-        }
+    var message by remember { mutableStateOf("") }
+    var reload by remember { mutableIntStateOf(0) }
+    LaunchedEffect(taxpayerId, accessToken, reload) {
+        ownerBalance = null
+        taxpayerBalance = null
+        runCatching { CreditTransferClient.request(accessToken, taxpayerId) }
+            .onSuccess {
+                if (it.has("ownerBalance") && it.has("taxpayerBalance")) {
+                    ownerBalance = it.getLong("ownerBalance").takeIf { n -> n >= 0 }
+                    taxpayerBalance = it.getLong("taxpayerBalance").takeIf { n -> n >= 0 }
+                } else message = "مانده معتبر از سرور دریافت نشد."
+            }
+            .onFailure { message = "دریافت موجودی ناموفق بود: ${it.message.orEmpty()}" }
     }
-    val balanceVerified = snapshot != null
-    val ownerBalance = snapshot?.optLong("ownerBalance") ?: 0L
-    val transferAvailable = balanceVerified && amountValid && parsedAmount!! <= ownerBalance && !busy
-    var showUnavailable by remember { mutableStateOf(false) }
-
+    val count = amount.toLongOrNull()
     Column(
-        modifier = Modifier.fillMaxSize().background(transferBackground)
-            .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                Text("انتقال اعتبار", style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold, color = transferNavy)
-                Text("از کیف پول مالک به مودی", color = transferMuted,
-                    style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(Modifier.width(10.dp))
-            Surface(shape = RoundedCornerShape(17.dp), color = Color(0xFFDFEEFA)) {
-                Icon(Icons.Default.Home, contentDescription = null,
-                    tint = transferBlue, modifier = Modifier.padding(13.dp).size(28.dp))
+        Text("انتقال اعتبار صورتحساب", style = MaterialTheme.typography.headlineSmall)
+        Text("هر ۱ اعتبار = ایجاد ۱ صورتحساب")
+        ElevatedCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("مودی: $taxpayerName")
+                Text("موجودی مالک: ${ownerBalance?.toString() ?: "در حال استعلام"} اعتبار")
+                Text("موجودی مودی: ${taxpayerBalance?.toString() ?: "در حال استعلام"} اعتبار")
             }
         }
-
-        Card(shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = transferNavy),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
-            Column(
-                Modifier.fillMaxWidth().background(
-                    Brush.linearGradient(listOf(transferNavy, Color(0xFF135578)))
-                ).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccountCircle, contentDescription = null,
-                        tint = Color(0xFFB9E4FC))
-                    Spacer(Modifier.width(9.dp))
-                    Text("کیف پول مالک حساب", color = Color(0xFFE4F4FF),
-                        fontWeight = FontWeight.SemiBold)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (balanceVerified) "$ownerBalance" else "—", color = Color.White, style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.ExtraBold)
-                    Spacer(Modifier.width(8.dp))
-                    Text("اعتبار", color = Color(0xFFB9E4FC), style = MaterialTheme.typography.bodyMedium)
-                }
-                Text(if (balanceVerified) "موجودی تأییدشده از سرور مالی" else "در انتظار دریافت موجودی از سرور مالی",
-                    color = Color(0xFFB9D6E7), style = MaterialTheme.typography.bodySmall)
-                HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("اعتبار قابل انتقال", color = Color.White,
-                        modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                    Text(if (balanceVerified) "$ownerBalance" else "نامشخص", color = Color(0xFFB9E4FC), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Card(shape = RoundedCornerShape(21.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("مودی دریافت‌کننده", color = transferMuted,
-                    style = MaterialTheme.typography.labelLarge)
-                Text(taxpayerName.ifBlank { "مودی انتخاب نشده" },
-                    color = transferNavy, style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold)
-                HorizontalDivider(color = transferOutline)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("موجودی فعلی مودی", color = transferMuted,
-                        modifier = Modifier.weight(1f))
-                    Text(if (balanceVerified) "${snapshot?.optLong("taxpayerBalance")}" else "در انتظار استعلام", color = transferBlue,
-                        style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-
-        Card(shape = RoundedCornerShape(21.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("تعیین تعداد اعتبار", color = transferNavy,
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { proposed ->
-                        requestId = null
-                        if (proposed.length <= 9 && proposed.all { it in '0'..'9' }) amount = proposed
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("تعداد اعتبار") },
-                    placeholder = { Text("مثلاً ۱۰") },
-                    suffix = { Text("اعتبار") },
-                    isError = amount.isNotBlank() && !amountValid,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5L, 10L, 25L, 50L).forEach { preset ->
-                        FilterChip(selected = parsedAmount == preset,
-                            onClick = { amount = preset.toString(); requestId = null },
-                            label = { Text("$preset") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp))
-                    }
-                }
-                Text("هر ۱ اعتبار، امکان ایجاد ۱ صورتحساب جدید است.",
-                    color = transferMuted, style = MaterialTheme.typography.bodySmall)
-                if (amount.isNotBlank() && !amountValid) {
-                    Text("تعداد اعتبار باید بیشتر از صفر باشد.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFF2F7FB)) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("اعتبار پس از انتقال", color = transferMuted, modifier = Modifier.weight(1f))
-                        Text(if (amountValid) "$parsedAmount اعتبار" else "—",
-                            color = transferNavy, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Button(
-                    onClick = { confirmation = true },
-                    enabled = transferAvailable && taxpayerName.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = transferBlue)
-                ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (busy) "در حال ثبت انتقال…" else "تأیید انتقال اعتبار", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFE6F1F9)) {
-            Row(Modifier.fillMaxWidth().padding(14.dp),
-                verticalAlignment = Alignment.Top) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = transferBlue,
-                    modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(if (balanceVerified) "انتقال با ثبت تراکنش اتمیک در سرور انجام می‌شود." else "ابتدا باید موجودی واقعی کیف پول از سرور دریافت شود.",
-                    color = transferNavy, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.List, contentDescription = null,
-                tint = transferBlue, modifier = Modifier.size(21.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("سوابق انتقال اعتبار", color = transferNavy,
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        }
-        Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
-            border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
-            val records = snapshot?.optJSONArray("history")
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (records == null || records.length() == 0) {
-                    Text(if (snapshot == null) "سوابق در انتظار اتصال به سرور مالی است." else "هنوز انتقالی ثبت نشده است.",
-                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
-                        color = transferMuted, style = MaterialTheme.typography.bodySmall)
-                } else {
-                    for (index in 0 until records.length()) {
-                        val record = records.optJSONObject(index) ?: continue
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(record.optString("created_at").take(10), color = transferMuted,
-                                modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            Text("${record.optLong("credits")} اعتبار", color = transferNavy,
-                                fontWeight = FontWeight.Bold)
-                        }
-                        if (index < records.length() - 1) HorizontalDivider(color = transferOutline)
-                    }
-                }
-            }
-        }
-
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(15.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("بازگشت")
-        }
-        Spacer(Modifier.height(12.dp))
-    }
-    if (notice.isNotBlank()) {
-        AlertDialog(onDismissRequest = { notice = "" }, title = { Text("وضعیت انتقال") },
-            text = { Text(notice) },
-            confirmButton = { TextButton(onClick = { notice = "" }) { Text("تأیید") } })
-    }
-    if (confirmation) {
-        AlertDialog(onDismissRequest = { confirmation = false },
-            title = { Text("تأیید انتقال اعتبار") },
-            text = { Text("انتقال $parsedAmount اعتبار به $taxpayerName انجام شود؟") },
-            confirmButton = { TextButton(onClick = {
-                confirmation = false
-                if (!transferAvailable) return@TextButton
+        OutlinedTextField(
+            value = amount,
+            onValueChange = { if (it.length <= 9 && it.all(Char::isDigit)) { amount = it; pendingRequestId = null } },
+            label = { Text("تعداد اعتبار برای انتقال") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text("انتقال از کیف پول مالک به مودی انتخاب‌شده انجام می‌شود.")
+        Button(
+            onClick = {
+                val n = count ?: return@Button
+                val requestId = pendingRequestId ?: UUID.randomUUID().toString().also { pendingRequestId = it }
                 busy = true
-                val id = requestId ?: UUID.randomUUID().toString().also { requestId = it }
+                message = ""
                 scope.launch {
-                    runCatching { CreditTransferClient.request(accessToken, taxpayerId, parsedAmount!!, id) }
+                    runCatching { CreditTransferClient.request(accessToken, taxpayerId, n, requestId) }
                         .onSuccess {
-                            notice = "انتقال اعتبار در سرور ثبت شد."
-                            amount = ""
-                            requestId = null
-                            runCatching { CreditTransferClient.request(accessToken, taxpayerId) }.onSuccess { snapshot = it }
-                        }.onFailure { notice = if (it.message == "insufficient_balance") "موجودی کیف پول کافی نیست." else "نتیجه انتقال تأیید نشد؛ قبل از تلاش مجدد موجودی را بررسی کنید." }
+                            message = "نتیجه درخواست انتقال دریافت شد؛ مانده را دوباره بررسی کنید."
+                            reload++
+                        }
+                        .onFailure { message = "وضعیت انتقال نامشخص است: ${it.message.orEmpty()}. پیش از تلاش مجدد مانده را بررسی کنید." }
                     busy = false
                 }
-            }) { Text("انتقال") } },
-            dismissButton = { TextButton(onClick = { confirmation = false }) { Text("انصراف") } })
-    }
-    if (showUnavailable) {
-        AlertDialog(
-            onDismissRequest = { showUnavailable = false },
-            title = { Text("انتقال اعتبار هنوز فعال نیست") },
-            text = { Text("درخواست شما بررسی شد؛ سرویس مالی هنوز موجودی قابل انتقال را تأیید نکرده است. هیچ اعتباری کسر یا منتقل نشده است.") },
-            confirmButton = { TextButton(onClick = { showUnavailable = false }) { Text("متوجه شدم") } }
-        )
+            },
+            enabled = !busy && accessToken.isNotBlank() && count != null &&
+                count in 1..100000000 && ownerBalance != null && count <= (ownerBalance ?: 0L),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (busy) "در حال انتقال…" else "تأیید انتقال اعتبار") }
+        OutlinedButton(onClick = { reload++ }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("به‌روزرسانی موجودی") }
+        if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall)
+        HorizontalDivider()
+        OutlinedButton(onClick = onPurchase, modifier = Modifier.fillMaxWidth()) { Text("رفتن به خرید اعتبار") }
+        Text("قیمت هر اعتبار: ۱۰۰٬۰۰۰ ریال؛ مبلغ پرداخت قطعی از سرور دریافت می‌شود.")
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("بازگشت") }
     }
 }
