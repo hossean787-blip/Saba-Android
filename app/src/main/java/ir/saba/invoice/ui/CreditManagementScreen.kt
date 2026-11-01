@@ -221,10 +221,25 @@ fun CreditManagementScreen(
         }
         Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
             border = androidx.compose.foundation.BorderStroke(1.dp, transferOutline)) {
-            Text(if (snapshot == null) "سوابق در انتظار اتصال به سرور مالی است." else if ((snapshot?.optJSONArray("history")?.length() ?: 0) == 0) "هنوز انتقالی ثبت نشده است." else "۱۰ انتقال اخیر در سرور ثبت شده است.",
-                modifier = Modifier.fillMaxWidth().padding(19.dp),
-                textAlign = TextAlign.Center, color = transferMuted,
-                style = MaterialTheme.typography.bodySmall)
+            val records = snapshot?.optJSONArray("history")
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (records == null || records.length() == 0) {
+                    Text(if (snapshot == null) "سوابق در انتظار اتصال به سرور مالی است." else "هنوز انتقالی ثبت نشده است.",
+                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                        color = transferMuted, style = MaterialTheme.typography.bodySmall)
+                } else {
+                    for (index in 0 until records.length()) {
+                        val record = records.optJSONObject(index) ?: continue
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(record.optString("created_at").take(10), color = transferMuted,
+                                modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text("${record.optLong("credits")} اعتبار", color = transferNavy,
+                                fontWeight = FontWeight.Bold)
+                        }
+                        if (index < records.length() - 1) HorizontalDivider(color = transferOutline)
+                    }
+                }
+            }
         }
 
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(50.dp),
