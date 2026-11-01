@@ -5,7 +5,7 @@ const pepper=Deno.env.get("SURA_PROMO_PEPPER")??service;
 const headers={"content-type":"application/json","cache-control":"no-store"};
 const reply=(obj:unknown,status=200)=>new Response(JSON.stringify(obj),{status,headers});
 async function digest(input:string) {
- const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(pepper),"HMAC",false,["sign"]);
+ const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(pepper),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
  const bytes=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(input)));
  return Array.from(bytes,x=>x.toString(16).padStart(2,"0")).join("");
 }
