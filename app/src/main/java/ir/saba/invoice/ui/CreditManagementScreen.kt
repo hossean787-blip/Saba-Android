@@ -49,6 +49,7 @@ fun CreditManagementScreen(
     // No confirmed server-side balance/atomic transaction API is currently wired here.
     val balanceVerified = false
     val transferAvailable = paymentServiceReady && balanceVerified && amountValid
+    var showUnavailable by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().background(transferBackground)
@@ -167,15 +168,15 @@ fun CreditManagementScreen(
                     }
                 }
                 Button(
-                    onClick = { /* Replace with verified atomic backend transfer before enabling. */ },
-                    enabled = transferAvailable,
+                    onClick = { showUnavailable = true },
+                    enabled = amountValid && taxpayerName.isNotBlank(),
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = transferBlue)
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("بررسی و تأیید انتقال", fontWeight = FontWeight.Bold)
+                    Text("بررسی امکان انتقال", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -213,5 +214,13 @@ fun CreditManagementScreen(
             Text("بازگشت")
         }
         Spacer(Modifier.height(12.dp))
+    }
+    if (showUnavailable) {
+        AlertDialog(
+            onDismissRequest = { showUnavailable = false },
+            title = { Text("انتقال اعتبار هنوز فعال نیست") },
+            text = { Text("درخواست شما بررسی شد؛ سرویس مالی هنوز موجودی قابل انتقال را تأیید نکرده است. هیچ اعتباری کسر یا منتقل نشده است.") },
+            confirmButton = { TextButton(onClick = { showUnavailable = false }) { Text("متوجه شدم") } }
+        )
     }
 }
