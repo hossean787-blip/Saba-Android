@@ -79,6 +79,8 @@ fun InvoiceScreen(
         pendingPaid = if (active) pendingPaid + key else pendingPaid - key
         paidPrefs.edit().putStringSet("paidKeys_$companyId", pendingPaid).apply()
     }
+    // Stable idempotency key for the current unsaved invoice.
+    var operationKey by rememberSaveable(companyId) { mutableStateOf(java.util.UUID.randomUUID().toString()) }
     suspend fun refreshPaidBalance(): Long {
         val response = CreditTransferClient.request(accessToken, companyId)
         val value = response.getLong("taxpayerBalance")
@@ -139,9 +141,15 @@ fun InvoiceScreen(
         if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
             lastHandledNewInvoiceRequest = newInvoiceRequest
             onNewInvoiceRequestHandled()
-            val paid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
-            val serverCharge = runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
+            val paidResult = runCatching { refreshPaidBalance() }
+            val promoResult = runCatching { FreeCreditClient.remaining(accessToken) }
+            val paid = paidResult.getOrDefault(0L)
+            val serverCharge = promoResult.getOrDefault(0)
             promoRemaining = serverCharge
+            if (paid + serverCharge <= 0L && (paidResult.isFailure || promoResult.isFailure) && pendingClaims.isEmpty() && pendingPaid.isEmpty()) {
+                onNotice("اتصال به سرور برقرار نشد؛ موجودی اعتبار نامشخص است. دوباره تلاش کنید.")
+                return@LaunchedEffect
+            }
             if (paid + serverCharge <= 0L && pendingClaims.isEmpty() && pendingPaid.isEmpty()) onNeedCharge()
             else {
                 invoiceId = null
@@ -317,9 +325,7 @@ fun InvoiceScreen(
                                 val company = db.companyDao().byId(companyId)
                                     ?: throw IllegalArgumentException("مودی یافت نشد.")
                                 require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
-                                val normalized = InvoiceInput.digits(number).trim()
-                                val identity = company.nationalId + ":" + normalized
-                                val claimKey = java.util.UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
+                                val claimKey = pendingPaid.firstOrNull() ?: operationKey
                                 setPaidPending(claimKey, true)
                                 val response = CreditTransferClient.consume(accessToken, companyId, claimKey)
                                 paidRemaining = response.optLong("remaining", 0L)
@@ -338,18 +344,23 @@ fun InvoiceScreen(
                                 val company = db.companyDao().byId(companyId)
                                     ?: throw IllegalArgumentException("مودی یافت نشد.")
                                 require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
-                                val normalized = InvoiceInput.digits(number).trim()
-                                val identity = company.nationalId + ":" + normalized
-                                val claimKey = java.util.UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
+                                val claimKey = pendingClaims.firstOrNull() ?: operationKey
                                 setClaimPending(claimKey, true)
                                 promoRemaining = FreeCreditClient.consume(accessToken, claimKey)
                                 val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
                                     serverPromoConfirmed = true)
                                 setClaimPending(claimKey, false)
                                 saved
-                            } else repository.saveDraft(companyId, selectedCustomer, number, date, lines, invoiceId)
+                            } else {
+                                if (invoiceId == null) {
+                                    onNeedCharge()
+                                    throw IllegalStateException("اعتبار کافی نیست یا موجودی از سرور تأیید نشد؛ اتصال را بررسی یا اعتبار تهیه کنید.")
+                                }
+                                repository.saveDraft(companyId, selectedCustomer, number, date, lines, invoiceId)
+                            }
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
+                            operationKey = java.util.UUID.randomUUID().toString()
                             onChanged()
                             runCatching { refreshPaidBalance() }
                             mode = "details"
