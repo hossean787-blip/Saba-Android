@@ -55,17 +55,34 @@ jobs:
           echo "SURA_RELEASE_KEY_PASSWORD=$SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
       - name: Build signed release APK
         run: ./gradlew :app:assembleRelease --stacktrace --no-daemon
-      - name: Verify release signature
+      - name: Verify release signature and identity
         shell: bash
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.SURA_EXPECTED_CERT_SHA256 }}
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          BT="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          TOOLS="$ANDROID_HOME/build-tools/$BT"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/certs.txt"
+          ACTUAL="$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | tr 'A-F' 'a-f')"
+          test -n "$ACTUAL"
+          if [[ -n "${EXPECTED_CERT_SHA256:-}" ]]; then
+            EXP="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr 'A-F' 'a-f')"
+            [[ "$ACTUAL" == "$EXP" ]] || { echo "::error::Signer certificate differs from the previously installed app"; exit 1; }
+          else
+            echo "::warning::SURA_EXPECTED_CERT_SHA256 not set; upgrade compatibility was not checked"
+          fi
+          "$TOOLS/aapt" dump badging "$APK" | grep '^package:' | tee "$RUNNER_TEMP/badging.txt"
+          grep -q "name='ir.saba.invoice'" "$RUNNER_TEMP/badging.txt"
+          sha256sum "$APK" | tee app/build/outputs/apk/release/app-release.apk.sha256
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SURA-signed-release-apk-${{ github.run_number }}
-          path: app/build/outputs/apk/release/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/release/*.sha256
           if-no-files-found: error
           retention-days: 14
