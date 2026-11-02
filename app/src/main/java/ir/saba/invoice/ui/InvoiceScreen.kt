@@ -152,6 +152,7 @@ fun InvoiceScreen(
             }
             if (paid + serverCharge <= 0L && pendingClaims.isEmpty() && pendingPaid.isEmpty()) onNeedCharge()
             else {
+                if (pendingPaid.isEmpty() && pendingClaims.isEmpty()) operationKey = java.util.UUID.randomUUID().toString()
                 invoiceId = null
                 number = ""
                 date = ""
@@ -225,6 +226,7 @@ fun InvoiceScreen(
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 Button(enabled = !busy && customers.isNotEmpty(), onClick = {
                     if (usableCharge <= 0 && pendingClaims.isEmpty() && pendingPaid.isEmpty()) { onNeedCharge(); return@Button }
+                    if (pendingPaid.isEmpty() && pendingClaims.isEmpty()) operationKey = java.util.UUID.randomUUID().toString()
                     invoiceId = null; number = ""; date = ""; customerId = customers.firstOrNull()?.id
                     lines = emptyList(); error = ""; mode = "edit"
                 }) { Text("صدور فاکتور جدید") }
