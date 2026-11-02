@@ -67,6 +67,30 @@ fun InvoiceScreen(
         pendingClaims = if (active) pendingClaims + key else pendingClaims - key
         pendingPrefs.edit().putStringSet("claimKeys", pendingClaims).apply()
     }
+    var paidRemaining by remember(companyId) { mutableLongStateOf(0L) }
+    var paidLoading by remember { mutableStateOf(false) }
+    val paidPrefs = remember(context) {
+        context.getSharedPreferences("sura_paid_pending", android.content.Context.MODE_PRIVATE)
+    }
+    var pendingPaid by remember(companyId) {
+        mutableStateOf(paidPrefs.getStringSet("paidKeys", emptySet())?.toSet().orEmpty())
+    }
+    fun setPaidPending(key: String, active: Boolean) {
+        pendingPaid = if (active) pendingPaid + key else pendingPaid - key
+        paidPrefs.edit().putStringSet("paidKeys", pendingPaid).apply()
+    }
+    suspend fun refreshPaidBalance(): Long {
+        val response = CreditTransferClient.request(accessToken, companyId)
+        val value = response.getLong("taxpayerBalance")
+        require(value >= 0) { "موجودی معتبر نیست." }
+        paidRemaining = value
+        return value
+    }
+    LaunchedEffect(accessToken, companyId) {
+        paidLoading = true
+        runCatching { refreshPaidBalance() }.onFailure { paidRemaining = 0 }
+        paidLoading = false
+    }
     var promoRemaining by remember { mutableIntStateOf(0) }
     var promoLoading by remember { mutableStateOf(false) }
     LaunchedEffect(accessToken, companyId) {
@@ -74,7 +98,7 @@ fun InvoiceScreen(
         promoRemaining = runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
         promoLoading = false
     }
-    val usableCharge = availableCharge + promoRemaining
+    val usableCharge = paidRemaining + promoRemaining
 
     var exportBytes by remember { mutableStateOf<ByteArray?>(null) }
     val pdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -115,11 +139,10 @@ fun InvoiceScreen(
         if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
             lastHandledNewInvoiceRequest = newInvoiceRequest
             onNewInvoiceRequestHandled()
-            val serverCharge = if (availableCharge <= 0L)
-                runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
-                else 0
+            val paid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
+            val serverCharge = runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
             promoRemaining = serverCharge
-            if (availableCharge + serverCharge <= 0L && pendingClaims.isEmpty()) onNeedCharge()
+            if (paid + serverCharge <= 0L && pendingClaims.isEmpty() && pendingPaid.isEmpty()) onNeedCharge()
             else {
                 invoiceId = null
                 number = ""
@@ -192,12 +215,12 @@ fun InvoiceScreen(
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 Button(enabled = !busy && customers.isNotEmpty(), onClick = {
-                    if (usableCharge <= 0 && pendingClaims.isEmpty()) { onNeedCharge(); return@Button }
+                    if (usableCharge <= 0 && pendingClaims.isEmpty() && pendingPaid.isEmpty()) { onNeedCharge(); return@Button }
                     invoiceId = null; number = ""; date = ""; customerId = customers.firstOrNull()?.id
                     lines = emptyList(); error = ""; mode = "edit"
                 }) { Text("صدور فاکتور جدید") }
                 if (customers.isEmpty()) Text("برای صدور فاکتور ابتدا مشتری این شرکت را ثبت کنید.")
-                if (usableCharge <= 0 && !promoLoading) Text("اعتبار معتبر برای صدور فاکتور موجود نیست.")
+                if (usableCharge <= 0 && !promoLoading && !paidLoading) Text("اعتبار معتبر برای صدور فاکتور موجود نیست.")
                 OutlinedTextField(search, { search = it }, label = { Text("جستجوی شماره فاکتور یا مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("ALL" to "همه", "DRAFT" to "پیش‌نویس", "FINALIZED" to "نهایی").forEach { (value, title) ->
@@ -282,7 +305,28 @@ fun InvoiceScreen(
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
-                            val savedId = if (invoiceId == null && availableCharge <= 0 && (promoRemaining > 0 || pendingClaims.isNotEmpty())) {
+                            val savedId = if (invoiceId == null && (paidRemaining > 0 || pendingPaid.isNotEmpty())) {
+                                require(number.trim().isNotBlank()) { "برای مصرف اعتبار، شماره فاکتور را وارد کنید." }
+                                InvoiceInput.date(date)
+                                InvoiceCalculator.calculate(lines)
+                                require(customers.any { it.id == selectedCustomer }) { "مشتری معتبر نیست." }
+                                require(invoices.none { InvoiceInput.digits(it.invoiceNumber).trim() == InvoiceInput.digits(number).trim() }) {
+                                    "شماره صورتحساب قبلاً ثبت شده است."
+                                }
+                                val company = db.companyDao().byId(companyId)
+                                    ?: throw IllegalArgumentException("مودی یافت نشد.")
+                                require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
+                                val normalized = InvoiceInput.digits(number).trim()
+                                val identity = company.nationalId + ":" + normalized
+                                val claimKey = java.util.UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
+                                setPaidPending(claimKey, true)
+                                val response = CreditTransferClient.consume(accessToken, companyId, claimKey)
+                                paidRemaining = response.optLong("remaining", 0L)
+                                val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
+                                    serverPromoConfirmed = true)
+                                setPaidPending(claimKey, false)
+                                saved
+                            } else if (invoiceId == null && (promoRemaining > 0 || pendingClaims.isNotEmpty())) {
                                 require(number.trim().isNotBlank()) { "برای استفاده از اعتبار هدیه، شماره فاکتور را وارد کنید." }
                                 InvoiceInput.date(date)
                                 InvoiceCalculator.calculate(lines)
@@ -306,6 +350,7 @@ fun InvoiceScreen(
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             onChanged()
+                            runCatching { refreshPaidBalance() }
                             mode = "details"
                             onNotice("فاکتور جدید ثبت شد؛ شارژ هنگام ایجاد اولیه مصرف می‌شود، نه هنگام ارسال.")
                         }
