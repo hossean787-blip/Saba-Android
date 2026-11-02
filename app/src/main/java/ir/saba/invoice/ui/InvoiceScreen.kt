@@ -73,11 +73,11 @@ fun InvoiceScreen(
         context.getSharedPreferences("sura_paid_pending", android.content.Context.MODE_PRIVATE)
     }
     var pendingPaid by remember(companyId) {
-        mutableStateOf(paidPrefs.getStringSet("paidKeys", emptySet())?.toSet().orEmpty())
+        mutableStateOf(paidPrefs.getStringSet("paidKeys_$companyId", emptySet())?.toSet().orEmpty())
     }
     fun setPaidPending(key: String, active: Boolean) {
         pendingPaid = if (active) pendingPaid + key else pendingPaid - key
-        paidPrefs.edit().putStringSet("paidKeys", pendingPaid).apply()
+        paidPrefs.edit().putStringSet("paidKeys_$companyId", pendingPaid).apply()
     }
     suspend fun refreshPaidBalance(): Long {
         val response = CreditTransferClient.request(accessToken, companyId)
@@ -213,6 +213,7 @@ fun InvoiceScreen(
             }
             "list" -> {
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining", style = MaterialTheme.typography.bodySmall)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 Button(enabled = !busy && customers.isNotEmpty(), onClick = {
                     if (usableCharge <= 0 && pendingClaims.isEmpty() && pendingPaid.isEmpty()) { onNeedCharge(); return@Button }
