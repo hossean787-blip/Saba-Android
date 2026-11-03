@@ -36,13 +36,24 @@ class MoadianV2Signer(private val credentials: TaxpayerCredentialRepository) {
             .joinToString("") { "%02x".format(java.util.Locale.ROOT,it.toInt() and 255) }
         check(consumed.putIfAbsent(fingerprint,challenge.expiresAtEpochMillis) == null) { "این چالش قبلاً امضا شده است." }
         val payload = JSONObject().put("nonce",nonce).put("clientId",material.identity.fiscalMemoryId)
+        return sign(material, payload.toString(), nowEpochMillis)
+    }
+
+    suspend fun invoice(companyId: Long, expected: TaxpayerIdentity, payload: String, nowEpochMillis: Long): String {
+        val material = credentials.material(companyId,nowEpochMillis) ?: error("کلید و گواهی این مؤدی ثبت نشده است.")
+        require(material.identity == expected)
+        require(payload.length in 1..2_000_000)
+        return sign(material,payload,nowEpochMillis)
+    }
+
+    private fun sign(material: TaxpayerSigningMaterial, payload: String, nowEpochMillis: Long): String {
         val header = JSONObject().put("alg","RS256")
             .put("x5c",JSONArray().put(Base64.getEncoder().encodeToString(material.certificate.encoded)))
             .put("sigT",Instant.ofEpochMilli(nowEpochMillis).truncatedTo(ChronoUnit.SECONDS).toString())
             .put("crit",JSONArray().put("sigT")).put("typ","jose").put("cty","text/plain")
         val encoder = Base64.getUrlEncoder().withoutPadding()
         val input = encoder.encodeToString(header.toString().toByteArray(Charsets.UTF_8)) + "." +
-            encoder.encodeToString(payload.toString().toByteArray(Charsets.UTF_8))
+            encoder.encodeToString(payload.toByteArray(Charsets.UTF_8))
         val signature = Signature.getInstance("SHA256withRSA").run {
             initSign(material.key); update(input.toByteArray(Charsets.US_ASCII)); sign()
         }
