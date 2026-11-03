@@ -54,7 +54,8 @@ fun InvoiceScreen(
     accessToken: String = "",
     onNeedCharge: () -> Unit = {},
     newInvoiceRequest: Int = 0,
-    onNewInvoiceRequestHandled: () -> Unit = {}
+    onNewInvoiceRequestHandled: () -> Unit = {},
+    creditGateway: InvoiceCreditGateway = ServerInvoiceCreditGateway
 ) {
     val context = LocalContext.current
     val pendingPrefs = remember(context) {
@@ -82,8 +83,7 @@ fun InvoiceScreen(
     // Stable idempotency key for the current unsaved invoice.
     var operationKey by rememberSaveable(companyId) { mutableStateOf(java.util.UUID.randomUUID().toString()) }
     suspend fun refreshPaidBalance(): Long {
-        val response = CreditTransferClient.request(accessToken, companyId)
-        val value = response.getLong("taxpayerBalance")
+        val value = creditGateway.paidBalance(accessToken, companyId)
         require(value >= 0) { "موجودی معتبر نیست." }
         paidRemaining = value
         return value
@@ -97,7 +97,7 @@ fun InvoiceScreen(
     var promoLoading by remember { mutableStateOf(false) }
     LaunchedEffect(accessToken, companyId) {
         promoLoading = true
-        promoRemaining = runCatching { FreeCreditClient.remaining(accessToken) }.getOrDefault(0)
+        promoRemaining = runCatching { creditGateway.giftBalance(accessToken) }.getOrDefault(0)
         promoLoading = false
     }
     val usableCharge = paidRemaining + promoRemaining
@@ -142,7 +142,7 @@ fun InvoiceScreen(
             lastHandledNewInvoiceRequest = newInvoiceRequest
             onNewInvoiceRequestHandled()
             val paidResult = runCatching { refreshPaidBalance() }
-            val promoResult = runCatching { FreeCreditClient.remaining(accessToken) }
+            val promoResult = runCatching { creditGateway.giftBalance(accessToken) }
             val paid = paidResult.getOrDefault(0L)
             val serverCharge = promoResult.getOrDefault(0)
             promoRemaining = serverCharge
@@ -329,8 +329,7 @@ fun InvoiceScreen(
                                 require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
                                 val claimKey = pendingPaid.firstOrNull() ?: operationKey
                                 setPaidPending(claimKey, true)
-                                val response = CreditTransferClient.consume(accessToken, companyId, claimKey)
-                                paidRemaining = response.optLong("remaining", 0L)
+                                paidRemaining = creditGateway.consumePaid(accessToken, companyId, claimKey)
                                 val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
                                     serverPromoConfirmed = true)
                                 setPaidPending(claimKey, false)
@@ -348,7 +347,7 @@ fun InvoiceScreen(
                                 require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
                                 val claimKey = pendingClaims.firstOrNull() ?: operationKey
                                 setClaimPending(claimKey, true)
-                                promoRemaining = FreeCreditClient.consume(accessToken, claimKey)
+                                promoRemaining = creditGateway.consumeGift(accessToken, claimKey)
                                 val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
                                     serverPromoConfirmed = true)
                                 setClaimPending(claimKey, false)
