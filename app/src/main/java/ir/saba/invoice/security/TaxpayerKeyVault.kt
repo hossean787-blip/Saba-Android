@@ -42,5 +42,23 @@ class TaxpayerKeyVault internal constructor(private val keyProvider: (() -> Secr
         cipher.updateAAD("SURA:taxpayer:$companyId:v1".toByteArray())
         return cipher.doFinal(bytes.copyOfRange(12, bytes.size))
     }
+    /** Account-aware envelopes intentionally never fall back to legacy company-only AAD. */
+    fun encrypt(identity: TaxpayerIdentity, pem: String): String {
+        val bytes = TaxpayerPrivateKey.parse(pem).encoded
+        try {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE,key())
+            cipher.updateAAD(identity.aad())
+            return Base64.getEncoder().encodeToString(cipher.iv + cipher.doFinal(bytes))
+        } finally { bytes.fill(0) }
+    }
+    fun decrypt(identity: TaxpayerIdentity, envelope: String): ByteArray {
+        val bytes = Base64.getDecoder().decode(envelope)
+        require(bytes.size > 28 && bytes.size <= TaxpayerPrivateKey.MAX_BYTES)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,bytes.copyOfRange(0,12)))
+        cipher.updateAAD(identity.aad())
+        return cipher.doFinal(bytes.copyOfRange(12,bytes.size))
+    }
     private companion object { const val ALIAS = "sura.taxpayer.private-key.v1" }
 }

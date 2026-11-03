@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,6 +45,7 @@ internal fun invoiceStatus(status: String) = when (status) {
 @Composable
 fun InvoiceScreen(
     db: SabaDatabase,
+    ownerId: String,
     companyId: Long,
     customers: List<Customer>,
     invoices: List<Invoice>,
@@ -57,29 +59,33 @@ fun InvoiceScreen(
     onNewInvoiceRequestHandled: () -> Unit = {},
     creditGateway: InvoiceCreditGateway = ServerInvoiceCreditGateway
 ) {
+    val states = rememberSaveableStateHolder()
+    states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
+        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, creditGateway) }
+    }
+}
+
+@Composable
+private fun InvoiceScreenContent(
+    db: SabaDatabase,
+    ownerId: String,
+    companyId: Long,
+    customers: List<Customer>,
+    invoices: List<Invoice>,
+    onChanged: suspend () -> Unit,
+    onNotice: (String) -> Unit,
+    onEditorActive: (Boolean) -> Unit,
+    availableCharge: Long = 0,
+    accessToken: String = "",
+    onNeedCharge: () -> Unit = {},
+    newInvoiceRequest: Int = 0,
+    onNewInvoiceRequestHandled: () -> Unit = {},
+    creditGateway: InvoiceCreditGateway = ServerInvoiceCreditGateway
+) {
+    val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
     val context = LocalContext.current
-    val pendingPrefs = remember(context) {
-        context.getSharedPreferences("sura_promo_pending", android.content.Context.MODE_PRIVATE)
-    }
-    var pendingClaims by remember {
-        mutableStateOf(pendingPrefs.getStringSet("claimKeys", emptySet())?.toSet().orEmpty())
-    }
-    fun setClaimPending(key: String, active: Boolean) {
-        pendingClaims = if (active) pendingClaims + key else pendingClaims - key
-        pendingPrefs.edit().putStringSet("claimKeys", pendingClaims).apply()
-    }
     var paidRemaining by remember(companyId) { mutableLongStateOf(0L) }
     var paidLoading by remember { mutableStateOf(false) }
-    val paidPrefs = remember(context) {
-        context.getSharedPreferences("sura_paid_pending", android.content.Context.MODE_PRIVATE)
-    }
-    var pendingPaid by remember(companyId) {
-        mutableStateOf(paidPrefs.getStringSet("paidKeys_$companyId", emptySet())?.toSet().orEmpty())
-    }
-    fun setPaidPending(key: String, active: Boolean) {
-        pendingPaid = if (active) pendingPaid + key else pendingPaid - key
-        paidPrefs.edit().putStringSet("paidKeys_$companyId", pendingPaid).apply()
-    }
     // Stable idempotency key for the current unsaved invoice.
     var operationKey by rememberSaveable(companyId) { mutableStateOf(java.util.UUID.randomUUID().toString()) }
     suspend fun refreshPaidBalance(): Long {
@@ -135,32 +141,44 @@ fun InvoiceScreen(
     var confirmation by rememberSaveable { mutableStateOf("") }
     var actionId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // Consume each Home quick-action request once; do not reopen the editor on recomposition.
+    var pendingCreation by remember { mutableStateOf<InvoiceCreationClaim?>(null) }
+    val creation = remember(db,account,accessToken,creditGateway) {
+        InvoiceCreationCoordinator(db,account) { kind,id,key ->
+            if(kind==InvoiceCreditKind.PAID) paidRemaining=creditGateway.consumePaid(accessToken,id,key)
+            else promoRemaining=creditGateway.consumeGift(accessToken,key)
+        }
+    }
+    val editorLocked = invoiceId==null && pendingCreation?.requestId==operationKey
+    fun restoreClaim(claim:InvoiceCreationClaim) {
+        val saved=creation.snapshot(claim)
+        pendingCreation=claim;operationKey=claim.requestId;invoiceId=null
+        customerId=saved.customerId;number=saved.number;date=saved.date;lines=saved.lines
+        error="";mode="edit"
+    }
+    suspend fun beginInvoice() {
+        val recovery=creation.pending(companyId)
+        pendingCreation=recovery
+        if(recovery!=null){restoreClaim(recovery);return}
+        val paidResult=runCatching{refreshPaidBalance()}
+        val giftResult=runCatching{creditGateway.giftBalance(accessToken)}
+        promoRemaining=giftResult.getOrDefault(0)
+        if(paidResult.getOrDefault(0L)+promoRemaining<=0) {
+            if(paidResult.isFailure || giftResult.isFailure) onNotice("اتصال به سرور برقرار نشد؛ موجودی اعتبار نامشخص است.")
+            else onNeedCharge()
+            return
+        }
+        operationKey=java.util.UUID.randomUUID().toString()
+        invoiceId=null;number="";date="";customerId=customers.firstOrNull()?.id
+        lines=emptyList();error="";mode="edit"
+    }
+    LaunchedEffect(companyId,account) {
+        runCatching{creation.pending(companyId)}.onSuccess{pendingCreation=it}
+    }
     var lastHandledNewInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(newInvoiceRequest) {
-        if (newInvoiceRequest > lastHandledNewInvoiceRequest) {
-            lastHandledNewInvoiceRequest = newInvoiceRequest
-            onNewInvoiceRequestHandled()
-            val paidResult = runCatching { refreshPaidBalance() }
-            val promoResult = runCatching { creditGateway.giftBalance(accessToken) }
-            val paid = paidResult.getOrDefault(0L)
-            val serverCharge = promoResult.getOrDefault(0)
-            promoRemaining = serverCharge
-            if (paid + serverCharge <= 0L && (paidResult.isFailure || promoResult.isFailure) && pendingClaims.isEmpty() && pendingPaid.isEmpty()) {
-                onNotice("اتصال به سرور برقرار نشد؛ موجودی اعتبار نامشخص است. دوباره تلاش کنید.")
-                return@LaunchedEffect
-            }
-            if (paid + serverCharge <= 0L && pendingClaims.isEmpty() && pendingPaid.isEmpty()) onNeedCharge()
-            else {
-                if (pendingPaid.isEmpty() && pendingClaims.isEmpty()) operationKey = java.util.UUID.randomUUID().toString()
-                invoiceId = null
-                number = ""
-                date = ""
-                customerId = customers.firstOrNull()?.id
-                lines = emptyList()
-                error = ""
-                mode = "edit"
-            }
+        if(newInvoiceRequest>lastHandledNewInvoiceRequest) {
+            lastHandledNewInvoiceRequest=newInvoiceRequest;onNewInvoiceRequestHandled()
+            beginInvoice()
         }
     }
 
@@ -224,12 +242,8 @@ fun InvoiceScreen(
                 Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining", style = MaterialTheme.typography.bodySmall)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
-                Button(enabled = !busy && customers.isNotEmpty(), onClick = {
-                    if (usableCharge <= 0 && pendingClaims.isEmpty() && pendingPaid.isEmpty()) { onNeedCharge(); return@Button }
-                    if (pendingPaid.isEmpty() && pendingClaims.isEmpty()) operationKey = java.util.UUID.randomUUID().toString()
-                    invoiceId = null; number = ""; date = ""; customerId = customers.firstOrNull()?.id
-                    lines = emptyList(); error = ""; mode = "edit"
-                }) { Text("صدور فاکتور جدید") }
+                if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.")
+                Button(enabled = !busy && customers.isNotEmpty(), onClick = { perform { beginInvoice() } }) { Text("صدور فاکتور جدید") }
                 if (customers.isEmpty()) Text("برای صدور فاکتور ابتدا مشتری این شرکت را ثبت کنید.")
                 if (usableCharge <= 0 && !promoLoading && !paidLoading) Text("اعتبار معتبر برای صدور فاکتور موجود نیست.")
                 OutlinedTextField(search, { search = it }, label = { Text("جستجوی شماره فاکتور یا مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -295,11 +309,12 @@ fun InvoiceScreen(
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(if (invoiceId == null) "صدور فاکتور جدید" else "ویرایش پیش‌نویس", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("مبالغ به ریال؛ تعداد در این نسخه فقط عدد صحیح است.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(number, { number = it }, enabled = !busy, label = { Text("شماره فاکتور") }, supportingText = { if (automaticNumber) Text("برای تخصیص خودکار سریال مودی، این کادر را خالی بگذارید.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(date, { date = it }, enabled = !busy, label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+                    if(editorLocked) Text("این درخواست محفوظ است؛ برای جلوگیری از مصرف تکراری اعتبار، اطلاعات آن تا تعیین نتیجه ثابت می‌ماند.")
+                    OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked, label = { Text("شماره فاکتور") }, supportingText = { if (automaticNumber) Text("برای تخصیص خودکار سریال مودی، این کادر را خالی بگذارید.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked, label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
                     var expanded by remember { mutableStateOf(false) }
                     Box {
-                        OutlinedButton(enabled = !busy, onClick = { expanded = true }) { Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید")) }
+                        OutlinedButton(enabled = !busy && !editorLocked, onClick = { expanded = true }) { Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید")) }
                         DropdownMenu(expanded, { expanded = false }) {
                             customers.forEach { customer -> DropdownMenuItem(text = { Text(customer.name) }, onClick = { customerId = customer.id; expanded = false }) }
                         }
@@ -307,58 +322,23 @@ fun InvoiceScreen(
                     Text("اقلام فاکتور (${lines.size})", style = MaterialTheme.typography.titleMedium)
                     lines.forEachIndexed { index, row ->
                         LineCard(index, row) {
-                            OutlinedButton(enabled = !busy, onClick = { lineIndex = index; lineDialog = true }) { Text("ویرایش ردیف") }
-                            TextButton(enabled = !busy, onClick = { lines = lines.filterIndexed { i, _ -> i != index } }) { Text("حذف ردیف") }
+                            OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = index; lineDialog = true }) { Text("ویرایش ردیف") }
+                            TextButton(enabled = !busy && !editorLocked, onClick = { lines = lines.filterIndexed { i, _ -> i != index } }) { Text("حذف ردیف") }
                         }
                     }
-                    OutlinedButton(enabled = !busy, onClick = { lineIndex = -1; lineDialog = true }) { Text("افزودن کالا یا خدمت") }
+                    OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = -1; lineDialog = true }) { Text("افزودن کالا یا خدمت") }
                     TotalsCard(lines)
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
-                            val savedId = if (invoiceId == null && (paidRemaining > 0 || pendingPaid.isNotEmpty())) {
-                                require(number.trim().isNotBlank()) { "برای مصرف اعتبار، شماره فاکتور را وارد کنید." }
-                                InvoiceInput.date(date)
-                                InvoiceCalculator.calculate(lines)
-                                require(customers.any { it.id == selectedCustomer }) { "مشتری معتبر نیست." }
-                                require(invoices.none { InvoiceInput.digits(it.invoiceNumber).trim() == InvoiceInput.digits(number).trim() }) {
-                                    "شماره صورتحساب قبلاً ثبت شده است."
-                                }
-                                val company = db.companyDao().byId(companyId)
-                                    ?: throw IllegalArgumentException("مودی یافت نشد.")
-                                require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
-                                val claimKey = pendingPaid.firstOrNull() ?: operationKey
-                                setPaidPending(claimKey, true)
-                                paidRemaining = creditGateway.consumePaid(accessToken, companyId, claimKey)
-                                val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
-                                    serverPromoConfirmed = true)
-                                setPaidPending(claimKey, false)
-                                saved
-                            } else if (invoiceId == null && (promoRemaining > 0 || pendingClaims.isNotEmpty())) {
-                                require(number.trim().isNotBlank()) { "برای استفاده از اعتبار هدیه، شماره فاکتور را وارد کنید." }
-                                InvoiceInput.date(date)
-                                InvoiceCalculator.calculate(lines)
-                                require(customers.any { it.id == selectedCustomer }) { "مشتری معتبر نیست." }
-                                require(invoices.none { InvoiceInput.digits(it.invoiceNumber).trim() == InvoiceInput.digits(number).trim() }) {
-                                    "شماره صورتحساب قبلاً ثبت شده است."
-                                }
-                                val company = db.companyDao().byId(companyId)
-                                    ?: throw IllegalArgumentException("مودی یافت نشد.")
-                                require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
-                                val claimKey = pendingClaims.firstOrNull() ?: operationKey
-                                setClaimPending(claimKey, true)
-                                promoRemaining = creditGateway.consumeGift(accessToken, claimKey)
-                                val saved = InvoiceRepository(db).saveDraft(companyId, selectedCustomer, number, date, lines,
-                                    serverPromoConfirmed = true)
-                                setClaimPending(claimKey, false)
-                                saved
-                            } else {
-                                if (invoiceId == null) {
-                                    onNeedCharge()
-                                    throw IllegalStateException("اعتبار کافی نیست یا موجودی از سرور تأیید نشد؛ اتصال را بررسی یا اعتبار تهیه کنید.")
-                                }
-                                repository.saveDraft(companyId, selectedCustomer, number, date, lines, invoiceId)
-                            }
+                            val savedId = if(invoiceId==null) {
+                                val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)}
+                                    ?: if(paidRemaining>0) InvoiceCreditKind.PAID else if(promoRemaining>0) InvoiceCreditKind.GIFT
+                                    else throw IllegalStateException("اعتبار از سرور تأیید نشده است؛ اتصال یا موجودی را بررسی کنید.")
+                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines),operationKey,kind)
+                                restoreClaim(claim)
+                                creation.finish(claim.requestId).also{pendingCreation=null}
+                            } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId)
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             operationKey = java.util.UUID.randomUUID().toString()
@@ -391,9 +371,9 @@ fun InvoiceScreen(
         onDismissRequest = { if (!busy) confirmation = "" },
         title = { Text(when (confirmation) { "delete" -> "حذف پیش‌نویس؟"; "finalize" -> "نهایی‌سازی فاکتور؟"; else -> "خروج از ویرایش؟" }) },
         text = { Text(when (confirmation) {
-            "delete" -> "پیش‌نویس و ردیف‌های آن حذف می‌شوند. سهمیه‌ای مصرف نمی‌شود."
-            "finalize" -> "یک سهمیه مصرف می‌شود و سند دیگر قابل ویرایش نیست. این کار ارسال به مؤدیان نیست."
-            else -> "تغییرات ذخیره‌نشده کنار گذاشته می‌شوند."
+            "delete" -> "پیش‌نویس لغو می‌شود؛ سوابق و مصرف اعتبار آن باقی می‌ماند."
+            "finalize" -> "اعتبار هنگام ایجاد اولیه مصرف شده است؛ نهایی‌سازی اعتبار دیگری مصرف نمی‌کند. سند دیگر قابل ویرایش نخواهد بود و ارسال رسمی انجام نمی‌شود."
+            else -> if(editorLocked) "درخواست ناتمام محفوظ می‌ماند و با همان اطلاعات قابل ادامه است." else "تغییرات ذخیره‌نشده کنار گذاشته می‌شوند."
         }) },
         confirmButton = { TextButton(enabled = !busy, onClick = {
             val requested = confirmation

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +30,15 @@ private val sky = Color(0xFFDAEEFF)
 private val violet = Color(0xFF8046CE)
 
 @Composable
-fun CreditPurchaseScreen(accessToken: String) {
+fun CreditPurchaseScreen(ownerId: String, accessToken: String) {
+    val states = rememberSaveableStateHolder()
+    states.SaveableStateProvider(ir.saba.invoice.security.AccountScope.of(ownerId).storageKey) {
+        key(ownerId) { CreditPurchaseContent(accessToken) }
+    }
+}
+
+@Composable
+private fun CreditPurchaseContent(accessToken: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var promoCode by remember { mutableStateOf("") }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -13,6 +14,22 @@ import java.util.UUID
 
 @Composable
 fun CreditManagementScreen(
+    ownerId: String,
+    taxpayerName: String,
+    taxpayerId: Long,
+    accessToken: String,
+    onBack: () -> Unit,
+    onPurchase: () -> Unit
+) {
+    val states = rememberSaveableStateHolder()
+    states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$taxpayerId") {
+        key(ownerId,taxpayerId) { CreditManagementContent(ownerId,taxpayerName,taxpayerId,accessToken,onBack,onPurchase) }
+    }
+}
+
+@Composable
+private fun CreditManagementContent(
+    ownerId: String,
     taxpayerName: String,
     taxpayerId: Long,
     accessToken: String,

@@ -43,21 +43,22 @@ class InvoiceScreenTest {
         }
         override suspend fun consumeGift(token: String, invoiceKey: String): Int = error("No gift credit in this fixture")
     }
+    private val ownerId = "11111111-1111-4111-8111-111111111111"
     private var company = 0L
     private var customer = 0L
     private var invoices by mutableStateOf(emptyList<Invoice>())
 
     @Before fun setup() = runBlocking {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
-        company = db.companyDao().insert(Company(purchaserId = "test", name = "شرکت", nationalId = "1"))
+        company = db.companyDao().insert(Company(purchaserId = ownerId, name = "شرکت", nationalId = "1"))
         customer = db.customerDao().insert(Customer(companyId = company, name = "خریدار"))
-        QuotaRepository(db).initializeWallet("test", 10)
-        QuotaRepository(db).transferFromMaster("test", company, 10, "seed")
+        QuotaRepository(db).initializeWallet(ownerId, 10)
+        QuotaRepository(db).transferFromMaster(ownerId, company, 10, "seed")
     }
     @After fun close() { db.close() }
     @Composable private fun Screen() {
         MaterialTheme {
-            InvoiceScreen(db, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
+            InvoiceScreen(db, ownerId, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
                 onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = {}, onEditorActive = {}, availableCharge = 10, creditGateway = creditGateway)
         }
     }
@@ -66,6 +67,7 @@ class InvoiceScreenTest {
             compose.onAllNodesWithText("اعتبار مودی: 10 | اعتبار هدیه: 0").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("صدور فاکتور جدید").performClick()
+        compose.waitUntil(15000){compose.onAllNodesWithText("شماره فاکتور").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("شماره فاکتور").performTextInput("۱۲")
         compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextInput("۱۴۰۵/۰۷/۰۲")
     }
@@ -89,6 +91,19 @@ class InvoiceScreenTest {
             check(db.invoiceLineDao().forInvoice(invoices.single().id).single().description == "خدمت آزمایشی")
             check(invoices.single().status == "DRAFT")
         }
+    }
+
+    @Test fun switchingAccountDiscardsUnsavedInvoiceFields() {
+        var activeOwner by mutableStateOf(ownerId)
+        compose.setContent { MaterialTheme {
+            InvoiceScreen(db,activeOwner,company,listOf(Customer(id=customer,companyId=company,name="خریدار")),invoices,
+                onChanged={},onNotice={},onEditorActive={},creditGateway=creditGateway)
+        } }
+        openNew();addLine()
+        compose.runOnIdle { activeOwner="22222222-2222-4222-8222-222222222222" }
+        compose.onNodeWithText("شماره فاکتور").assertDoesNotExist()
+        compose.onNodeWithText("1. خدمت آزمایشی").assertDoesNotExist()
+        compose.onNodeWithText("صدور فاکتور جدید").assertExists()
     }
 
     @Test fun localQuotaCannotBypassZeroServerBalance() {

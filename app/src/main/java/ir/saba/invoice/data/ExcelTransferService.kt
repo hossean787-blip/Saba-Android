@@ -3,7 +3,7 @@ package ir.saba.invoice.data
 import androidx.room.withTransaction
 
 /** Imports new records only; never overwrites an existing taxpayer or customer. */
-class ExcelTransferService(private val db: SabaDatabase) {
+class ExcelTransferService(private val db: SabaDatabase, private val ownerId: String, private val reserveTaxpayerId: () -> Long) {
     companion object {
         val taxpayerHeaders = listOf("نام", "شناسه ملی", "شماره اقتصادی", "آدرس", "تلفن",
             "نوع مؤدی", "شماره ثبت", "شروع سریال صورتحساب", "شروع سریال ارجاعی",
@@ -16,7 +16,7 @@ class ExcelTransferService(private val db: SabaDatabase) {
     suspend fun export(scope: String, currentCompanyId: Long?): ByteArray {
         return if (scope == "taxpayers") {
             val details = db.moadianDetailsDao().all().associateBy { it.companyId }
-            ExcelWorkbook.write(taxpayerHeaders, db.companyDao().all().map { c ->
+            ExcelWorkbook.write(taxpayerHeaders, db.companyDao().all().filter { it.purchaserId == ownerId }.map { c ->
                 val d = details[c.id] ?: MoadianDetails(c.id)
                 listOf(c.name, c.nationalId, c.economicId, c.address, c.phone,
                     d.taxpayerType, d.registrationNumber, d.invoiceSerialStart,
@@ -25,6 +25,7 @@ class ExcelTransferService(private val db: SabaDatabase) {
             })
         } else {
             val id = requireNotNull(currentCompanyId) { "ابتدا در خانه یک مؤدی انتخاب کنید." }
+            require(db.companyDao().byId(id)?.purchaserId == ownerId) { "مودی متعلق به این حساب نیست." }
             val profiles = db.customerProfileDao().forCompany(id).associateBy { it.customerId }
             ExcelWorkbook.write(customerHeaders, db.customerDao().forCompany(id).map { c ->
                 val d = profiles[c.id] ?: CustomerProfile(c.id, id)
@@ -55,6 +56,8 @@ class ExcelTransferService(private val db: SabaDatabase) {
                 require(cell(row, 1).isNotEmpty()) { "شناسه ملی ردیف ${i + 2} خالی است." }
             }
         }
+        require(ownerId.isNotBlank())
+        if (scope != "taxpayers") require(db.companyDao().byId(requireNotNull(currentCompanyId))?.purchaserId == ownerId) { "مودی متعلق به این حساب نیست." }
         return db.withTransaction {
             var inserted = 0
             if (scope == "taxpayers") {
@@ -63,7 +66,8 @@ class ExcelTransferService(private val db: SabaDatabase) {
                     val national = cell(row, 1)
                     if (!current.add(national)) continue
                     val id = db.companyDao().insert(Company(
-                        purchaserId = "owner",
+                        id = reserveTaxpayerId(),
+                        purchaserId = ownerId,
                         name = cell(row, 0), nationalId = national,
                         economicId = cell(row, 2), address = cell(row, 3),
                         phone = cell(row, 4)

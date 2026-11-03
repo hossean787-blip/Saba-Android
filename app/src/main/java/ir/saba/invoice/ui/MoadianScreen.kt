@@ -48,12 +48,15 @@ import kotlinx.coroutines.launch
 @Composable
 fun MoadianScreen(
     db: SabaDatabase,
+    ownerId: String,
     companies: List<Company>,
     onChanged: suspend () -> Unit,
     onSelect: (Long) -> Unit,
     onNotice: (String) -> Unit,
     onEditing: (Boolean) -> Unit
 ) {
+    require(ownerId.isNotBlank())
+    val ownedCompanies = companies.filter { it.purchaserId == ownerId }
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -135,7 +138,7 @@ fun MoadianScreen(
     var economicId by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var purchaserId by remember { mutableStateOf("owner") }
+    var purchaserId by remember { mutableStateOf(ownerId) }
     var kind by remember { mutableStateOf("شخص حقوقی") }
     var registrationNumber by remember { mutableStateOf("") }
     var invoiceSerialStart by remember { mutableStateOf("") }
@@ -173,7 +176,7 @@ fun MoadianScreen(
     var loadFailed by remember { mutableStateOf(false) }
     fun close() { privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedKeyConfirmed = false; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
-        val current = if (which == "new") null else companies.firstOrNull { it.id == selectedId }
+        val current = if (which == "new") null else ownedCompanies.firstOrNull { it.id == selectedId }
         if (which != "new" && current == null) {
             onNotice("ابتدا یک مودی از جدول انتخاب کنید.")
             return
@@ -185,7 +188,7 @@ fun MoadianScreen(
         economicId = current?.economicId.orEmpty()
         address = current?.address.orEmpty()
         phone = current?.phone.orEmpty()
-        purchaserId = current?.purchaserId ?: "owner"
+        purchaserId = current?.purchaserId ?: ownerId
         kind = "شخص حقوقی"
         registrationNumber = ""
         invoiceSerialStart = ""
@@ -256,7 +259,7 @@ fun MoadianScreen(
                 color = Color(0xFF153A51), style = MaterialTheme.typography.titleMedium)
             fun searchText(value: String) = MoadianFieldValidation.digits(value).replace('ي', 'ی').replace('ك', 'ک')
             val needle = searchText(query)
-            val rows = companies.filter { searchText(it.name).contains(needle, ignoreCase = true) ||
+            val rows = ownedCompanies.filter { searchText(it.name).contains(needle, ignoreCase = true) ||
                 searchText(it.nationalId).contains(needle) || searchText(it.economicId).contains(needle) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(rows, key = { _, item -> item.id }) { index, company ->
@@ -453,7 +456,7 @@ fun MoadianScreen(
                                 } else if (mode == "new") {
                                     val savedId = db.withTransaction {
                                         ensureUniqueTaxpayer(db, null, nationalId, economicId, fiscalMemoryId)
-                                        val id = db.companyDao().insert(Company(purchaserId = purchaserId, name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
+                                        val id = db.companyDao().insert(Company(id = ir.saba.invoice.data.TaxpayerIdAllocator(context).use { it.reserve() }, purchaserId = purchaserId, name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
                                         db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = null, keyCheckStatus = "UNCHECKED"))
                                         id
                                     }
