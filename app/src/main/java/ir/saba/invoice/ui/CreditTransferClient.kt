@@ -27,6 +27,26 @@ internal object CreditTransferClient {
     response
    } finally { connection.disconnect() }
   }
+ suspend fun receipt(token:String, taxpayerId:Long, requestId:String):JSONObject =
+  withContext(Dispatchers.IO) {
+   require(token.isNotBlank() && taxpayerId>0L && requestId.matches(Regex("[0-9a-fA-F-]{36}")))
+   val connection = URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-credit-transfer").openConnection() as HttpURLConnection
+   try {
+    connection.requestMethod="POST"
+    connection.doOutput=true
+    connection.connectTimeout=15000
+    connection.readTimeout=15000
+    connection.setRequestProperty("Authorization","Bearer "+token)
+    connection.setRequestProperty("Content-Type","application/json")
+    val body=JSONObject().put("operation","receipt").put("taxpayerId",taxpayerId).put("requestId",requestId)
+    connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+    val code=connection.responseCode
+    val raw=(if(code in 200..299)connection.inputStream else connection.errorStream).bufferedReader().use { it.readText() }
+    val response=JSONObject(raw)
+    if(code !in 200..299 || response.has("error")) error(response.optString("error","receipt_unavailable"))
+    response
+   } finally { connection.disconnect() }
+  }
  suspend fun request(token:String, taxpayerId:Long, amount:Long?=null, requestId:String?=null):JSONObject =
   withContext(Dispatchers.IO) {
    val connection = URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-credit-transfer").openConnection() as HttpURLConnection
