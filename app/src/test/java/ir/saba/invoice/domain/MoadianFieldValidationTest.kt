@@ -13,6 +13,7 @@ class MoadianFieldValidationTest {
         assertNotNull(MoadianFieldValidation.mobile("9123456789"))
         assertNotNull(MoadianFieldValidation.postalCode("123"))
         assertNull(MoadianFieldValidation.serial("", "serial"))
+        assertNotNull(MoadianFieldValidation.serial("۰۰۰۰۰۰۰۰۰۰", "serial"))
         assertNotNull(MoadianFieldValidation.serial("123", "serial"))
         assertNotNull(MoadianFieldValidation.serialPair("۱۰۰۰۰۰۰۰۰۱", "1000000001"))
         assertNull(MoadianFieldValidation.serialPair("1000000001", "2000000001"))

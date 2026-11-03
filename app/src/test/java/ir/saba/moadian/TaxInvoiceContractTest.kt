@@ -43,4 +43,11 @@ class TaxInvoiceContractTest {
     }
     @Test(expected = IllegalArgumentException::class) fun rejectNonHttps() { GatewayConfig("http://tp.tax.gov.ir") }
     @Test(expected = IllegalArgumentException::class) fun rejectForeignHost() { GatewayConfig("https://example.com") }
+    @Test fun rejectsEconomicIdsWithTwelveOrThirteenDigits() {
+        for(length in listOf(12,13)) {
+            assertThrows(IllegalArgumentException::class.java){TaxInvoiceValidation.validate(sample().copy(header=sample().header.copy(sellerEconomicId="1".repeat(length))))}
+            assertThrows(IllegalArgumentException::class.java){TaxInvoiceValidation.validate(sample().copy(header=sample().header.copy(buyerEconomicId="1".repeat(length))))}
+        }
+    }
+
 }

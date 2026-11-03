@@ -41,7 +41,7 @@ class OfficialSubmissionServiceTest {
         db=Room.databaseBuilder(context,SabaDatabase::class.java,name).build()
         val prefs=context.getSharedPreferences(name,0)
         credentials=TaxpayerCredentialRepository(db,account,prefs,TaxpayerKeyVault{wrapping})
-        service=OfficialSubmissionService(db,account,credentials,api){now}
+        service=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now}
     }
     @Before fun setup()=runBlocking {
         api=FakeApi();open()
@@ -161,7 +161,7 @@ class OfficialSubmissionServiceTest {
         val row=prepare();assertEquals(row,prepare())
         reject{service.prepare(company,invoice,"2026-11-03T13:00:00+03:30","164")}
         val other=AccountScope.of("22222222-2222-4222-8222-222222222222")
-        val foreign=OfficialSubmissionService(db,other,credentials,api){now}
+        val foreign=OfficialSubmissionService(db,other,credentials,api,sessionCheck={}){now}
         reject{foreign.submit(row.requestId)};reject{foreign.history(company)}
         assertEquals(0,api.gets);assertEquals(0,api.posts)
     }
@@ -227,6 +227,28 @@ class OfficialSubmissionServiceTest {
         assertEquals("official-reference",db.invoiceDao().byId(invoice)!!.trackingCode)
         assertEquals(row.requestId,service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164").requestId)
         assertEquals(1,api.posts)
+    }
+
+    @Test fun missingAppSessionNeverStartsOfficialHttp()=runBlocking {
+        val row=prepare()
+        val unbound=OfficialSubmissionService(db,account,credentials,api){now}
+        reject{unbound.submit(row.requestId)}
+        assertEquals(0,api.gets);assertEquals(0,api.posts)
+    }
+    @Test fun expiredAppSessionBetweenMetadataAndPostDoesNotClaimOrSend()=runBlocking {
+        val row=prepare();var checks=0
+        val gated=OfficialSubmissionService(db,account,credentials,api,sessionCheck={checks++;require(checks<3)}){now}
+        reject{gated.submit(row.requestId)}
+        assertEquals("PREPARED",db.officialSubmissionDao().byId(row.requestId)!!.state)
+        assertEquals(0,api.posts);assertTrue(api.gets>0)
+    }
+
+    @Test fun unsubmittedPreparationCanBeDiscardedAfterFiscalMemoryChanges()=runBlocking {
+        val row=prepare()
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId=company,fiscalMemoryId="ABC123"))
+        reject{service.submit(row.requestId)}
+        service.discardPrepared(row.requestId)
+        assertNull(db.officialSubmissionDao().byId(row.requestId));assertEquals(0,api.posts)
     }
 
 }

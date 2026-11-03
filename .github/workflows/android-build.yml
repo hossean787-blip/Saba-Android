@@ -56,7 +56,7 @@ jobs:
           test -f gradle/wrapper/gradle-wrapper.jar
       - name: Test and lint invoice development without APK packaging
         if: github.head_ref == 'codex/sura-invoice' || github.ref_name == 'codex/sura-invoice'
-        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
       - name: Test, build and lint
         if: github.head_ref != 'codex/sura-invoice' && github.ref_name != 'codex/sura-invoice'
         run: bash scripts/build-offline-ci.sh

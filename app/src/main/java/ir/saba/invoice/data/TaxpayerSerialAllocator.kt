@@ -22,9 +22,11 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
         var next = maxOf(start, previous ?: start)
         // Existing numeric invoice numbers share one namespace per taxpayer.
         val used = db.invoiceDao().forCompany(companyId).mapNotNull {
-            val number = MoadianFieldValidation.digits(it.invoiceNumber)
-            if (number.length == 10) number.toLongOrNull() else null
-        }.toSet()
+            ir.saba.invoice.domain.InvoiceInput.number(it.invoiceNumber).toLongOrNull()
+        }.toMutableSet()
+        db.invoiceCreationClaimDao().pending(companyId)?.let {
+            ir.saba.invoice.domain.InvoiceInput.number(org.json.JSONObject(it.payloadJson).getString("number")).toLongOrNull()?.let(used::add)
+        }
         while (next in used) next++
         require(next <= 9999999999L) { "ظرفیت سریال ۱۰ رقمی تمام شده است." }
         // Do not allow the primary sequence to enter the reference reservation range.

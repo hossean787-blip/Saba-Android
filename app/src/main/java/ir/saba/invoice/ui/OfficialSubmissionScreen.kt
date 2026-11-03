@@ -17,14 +17,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-fun OfficialSubmissionScreen(db: SabaDatabase, account: AccountScope, companyId: Long, onNotice: (String) -> Unit, onChanged: suspend () -> Unit = {}) {
-    key(account.ownerId,companyId) { OfficialSubmissionContent(db,account,companyId,onNotice,onChanged) }
+fun OfficialSubmissionScreen(db: SabaDatabase, account: AccountScope, companyId: Long, onNotice: (String) -> Unit, onChanged: suspend () -> Unit = {}, accessToken: String = "") {
+    key(account.ownerId,companyId) { OfficialSubmissionContent(db,account,companyId,onNotice,onChanged,accessToken) }
 }
 @Composable
-private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, companyId: Long, onNotice: (String) -> Unit, onChanged: suspend () -> Unit) {
+private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, companyId: Long, onNotice: (String) -> Unit, onChanged: suspend () -> Unit, accessToken: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val service = remember(db,account) { OfficialSubmissionService(db,account,TaxpayerCredentialRepository(context,db,account)) }
+    val service = remember(db,account,accessToken) { OfficialSubmissionService(db,account,TaxpayerCredentialRepository(context,db,account),sessionCheck={AccountSession.requireOwner(accessToken,account)}) }
     var invoices by remember { mutableStateOf<List<Invoice>>(emptyList()) }
     var history by remember { mutableStateOf<List<OfficialSubmission>>(emptyList()) }
     var selected by remember { mutableStateOf<Invoice?>(null) }
@@ -79,7 +79,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                 Text("فاکتور ${invoice.invoiceNumber} — ${invoice.issueDate} — ${invoice.totalAmountRial} ریال")
                 Text("زمان پیشنهادی ساعت ۱۲ تهران است؛ زمان واقعی صدور را با قالب ISO و منطقه زمانی وارد کنید.")
                 OutlinedTextField(value=issueTime,onValueChange={issueTime=it},enabled=!busy,label={Text("زمان واقعی صدور ISO")},modifier=Modifier.fillMaxWidth())
-                OutlinedTextField(value=unit,onValueChange={unit=it},enabled=!busy,label={Text("کد واحد مشترک همه ردیف‌ها")},supportingText={Text("فقط وقتی تمام ردیف‌ها همین واحد را دارند؛ برای نمونه کد 1627 = عدد")},modifier=Modifier.fillMaxWidth())
+                OutlinedTextField(value=unit,onValueChange={unit=ir.saba.invoice.domain.InvoiceInput.digits(it).trim()},enabled=!busy,label={Text("کد واحد مشترک همه ردیف‌ها")},supportingText={Text("فقط وقتی تمام ردیف‌ها همین واحد را دارند؛ برای نمونه کد 1627 = عدد")},modifier=Modifier.fillMaxWidth())
                 Button(enabled=!busy,onClick={act { service.prepare(companyId,invoice.id,issueTime,unit);selected=null;onNotice("محتوا ثبت شد؛ هنوز ارسال نشده است.") }}) { Text("اعتبارسنجی و ثبت محتوای ثابت") }
             }
         }
@@ -90,7 +90,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                     Text("شماره مالیاتی: ${row.taxId}")
                     Text(when(row.state) {
                         "PREPARED" -> "آماده؛ ارسال نشده"
-                        "SUBMITTED" -> "رسید ارسال دریافت شد؛ نتیجه نهایی نشده"
+                        "SUBMITTED" -> "در سامانه در انتظار اعتبارسنجی؛ نتیجه نهایی نشده"
                         "ACCEPTED" -> "پذیرفته‌شده؛ امضای رسید سازمان بررسی شد"
                         "REJECTED" -> "ردشده در سامانه"
                         else -> "نتیجه نامشخص؛ استعلام لازم است"
@@ -98,7 +98,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                     row.referenceNumber?.let { Text("شماره پیگیری: $it") }
                     row.lastError?.let { Text(it) }
                     if(row.state=="PREPARED") {
-                        Button(enabled=!busy,onClick={confirmation=row}) { Text("بررسی و ارسال رسمی") }
+                        Button(enabled=!busy,onClick={act { confirmation=service.reviewPrepared(row.requestId) }}) { Text("بررسی و ارسال رسمی") }
                         TextButton(enabled=!busy,onClick={act { service.discardPrepared(row.requestId) }}) { Text("لغو آماده‌سازی؛ هنوز ارسال نشده") }
                     }
                     if(row.state in setOf("SENDING","UNKNOWN","SUBMITTED")) OutlinedButton(enabled=!busy,onClick={act { service.inquire(row.requestId) }}) { Text("استعلام همان درخواست") }

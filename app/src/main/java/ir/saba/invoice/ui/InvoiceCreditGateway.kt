@@ -8,20 +8,17 @@ interface InvoiceCreditGateway {
     suspend fun consumeGift(token: String, invoiceKey: String): Int
 }
 
-internal object ServerInvoiceCreditGateway : InvoiceCreditGateway {
+internal class ServerInvoiceCreditGateway(private val account: ir.saba.invoice.security.AccountScope) : InvoiceCreditGateway {
+    private fun requireSession(token: String) = ir.saba.invoice.security.AccountSession.requireOwner(token,account)
     override suspend fun paidBalance(token: String, companyId: Long): Long =
-        CreditTransferClient.request(token, companyId).getLong("taxpayerBalance").also {
-            require(it >= 0) { "موجودی معتبر نیست." }
-        }
+        run { requireSession(token); CreditServerResponse.balance(CreditTransferClient.request(token,companyId),"taxpayerBalance") }
 
     override suspend fun giftBalance(token: String): Int =
-        FreeCreditClient.remaining(token).also { require(it >= 0) { "موجودی هدیه معتبر نیست." } }
+        run { requireSession(token); FreeCreditClient.remaining(token) }
 
     override suspend fun consumePaid(token: String, companyId: Long, invoiceKey: String): Long =
-        CreditTransferClient.consume(token, companyId, invoiceKey).getLong("remaining").also {
-            require(it >= 0) { "پاسخ مصرف اعتبار معتبر نیست." }
-        }
+        run { requireSession(token); CreditServerResponse.consumed(CreditTransferClient.consume(token,companyId,invoiceKey)) }
 
     override suspend fun consumeGift(token: String, invoiceKey: String): Int =
-        FreeCreditClient.consume(token, invoiceKey).also { require(it >= 0) { "پاسخ مصرف هدیه معتبر نیست." } }
+        run { requireSession(token); FreeCreditClient.consume(token,invoiceKey) }
 }

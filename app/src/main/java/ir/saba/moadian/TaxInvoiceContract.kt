@@ -33,8 +33,8 @@ object TaxInvoiceValidation {
         require(taxId.dayHex.toLong(16) == h.issuedAtEpochMillis / 86_400_000L) {
             "تاریخ شماره مالیاتی با تاریخ صدور صورتحساب مطابقت ندارد."
         }
-        require(h.sellerEconomicId.matches(Regex("[0-9]{11,14}")))
-        require(h.buyerEconomicId.matches(Regex("[0-9]{11,14}")))
+        require(h.sellerEconomicId.matches(Regex("(?:[0-9]{11}|[0-9]{14})")))
+        require(h.buyerEconomicId.matches(Regex("(?:[0-9]{11}|[0-9]{14})")))
         require(h.issuedAtEpochMillis > 0L && h.invoiceType == 1 && h.pattern == 1 && h.subject == 1)
         require(invoice.items.isNotEmpty())
         val lines = invoice.items.map {

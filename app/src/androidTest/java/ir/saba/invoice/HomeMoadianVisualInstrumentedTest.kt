@@ -61,6 +61,7 @@ class HomeMoadianVisualInstrumentedTest {
         )) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AccountScreen(
+                    ownerId = "11111111-1111-4111-8111-111111111111",
                     taxpayerCharge = 12L, ownerCharge = 36L, busy = false,
                     ownerName = "مالک آزمایشی", ownerEmail = "test-owner@example.invalid",
                     onTransferCharge = {}, onLogout = {}

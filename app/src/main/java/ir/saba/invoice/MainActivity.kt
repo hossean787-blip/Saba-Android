@@ -302,10 +302,10 @@ class MainActivity : ComponentActivity() {
         onLogout: () -> Unit, ownerName: String?, ownerEmail: String?, accessToken: String,
         biometricEnabled: Boolean, onDisableBiometrics: () -> Unit
     ) {
-        val account = remember(accessToken) { runCatching { AccountScope.fromAuthenticatedToken(accessToken) }.getOrNull() }
+        val account = rememberAuthenticatedAccount(accessToken)
         if (account == null) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("نشست فاقد شناسه حساب معتبر است؛ برای حفاظت از اطلاعات دوباره وارد شوید.")
+                Text("نشست معتبر نیست یا منقضی شده است؛ برای حفاظت از اطلاعات دوباره وارد شوید.")
                 Button(onClick = onLogout) { Text("بازگشت به ورود") }
             }
             return
@@ -675,7 +675,7 @@ class MainActivity : ComponentActivity() {
                                         onCreateKeys = { page = Page.TAX_KEYS },onEditTaxpayer = { page = Page.COMPANIES },onNotice = ::notify)
                                 }
                             } else CompanyPlaceholder(loading)
-                            Page.OFFICIAL_SUBMISSION -> if (current != null) OfficialSubmissionScreen(db,account,current.companyId,::notify,onChanged={refresh()}) else CompanyPlaceholder(loading)
+                            Page.OFFICIAL_SUBMISSION -> if (current != null) OfficialSubmissionScreen(db,account,current.companyId,::notify,onChanged={refresh()},accessToken=accessToken) else CompanyPlaceholder(loading)
                             Page.LEGACY_RECOVERY -> LegacyRecoveryScreen(db,account,onChanged={refresh()})
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
@@ -692,6 +692,7 @@ class MainActivity : ComponentActivity() {
                             Page.CREDIT_PURCHASE -> CreditPurchaseScreen(account.ownerId,accessToken)
                             Page.QUOTA -> if (current != null && company != null) {
                                 CreditManagementScreen(
+                                    db = db,
                                     ownerId = account.ownerId,
                                     taxpayerName = company.name,
                                     taxpayerId = current.companyId,
@@ -724,6 +725,7 @@ class MainActivity : ComponentActivity() {
                             Page.SETTINGS -> Column(Modifier.fillMaxSize()) {
                                 TextButton(onClick={page=Page.LEGACY_RECOVERY}) { Text("بازیابی سوابق قدیمی این حساب") }
                                 AccountScreen(
+                                ownerId = account.ownerId,
                                 taxpayerCharge = 0,
                                 ownerCharge = 0,
                                 busy = busy,

@@ -21,7 +21,8 @@ class AccountScope private constructor(val ownerId: String) {
         }
         fun fromAuthenticatedToken(token: String): AccountScope {
             try {
-                val parts = token.split('.')
+                require(token.length in 1..32768)
+                val parts = token.split('.',limit=4)
                 require(parts.size == 3 && parts.all { it.isNotBlank() } && token.length <= 32768)
                 return of(JSONObject(String(Base64.getUrlDecoder().decode(parts[1]),Charsets.UTF_8)).getString("sub"))
             } catch (_: Exception) { throw IllegalArgumentException("نشست فاقد شناسه حساب معتبر است؛ دوباره وارد شوید.") }

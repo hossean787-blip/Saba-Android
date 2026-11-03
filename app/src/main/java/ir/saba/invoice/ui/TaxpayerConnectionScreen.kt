@@ -90,7 +90,7 @@ private fun TaxpayerConnectionContent(
             Text("تطبیق محلی کلید و گواهی انجام شده است.")
             Text("اثر انگشت گواهی: ${profile!!.certificateSha256.take(16)}…",style=MaterialTheme.typography.bodySmall)
         }
-        Text("تطبیق محلی، تأیید سازمان امور مالیاتی نیست. ارسال رسمی هنوز فعال نشده است.",style=MaterialTheme.typography.bodySmall)
+        Text("تطبیق محلی، تأیید سازمان امور مالیاتی نیست. این بررسی هیچ صورتحسابی ارسال نمی‌کند.",style=MaterialTheme.typography.bodySmall)
         if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
         val memoryReady = memoryId.matches(Regex("[A-Z0-9]{6}"))
         OutlinedButton(enabled=!busy,onClick=onEditTaxpayer,modifier=Modifier.fillMaxWidth()) { Text("ویرایش مشخصات و شناسه حافظه") }
@@ -119,7 +119,7 @@ private fun TaxpayerConnectionContent(
                 try {
                     if(action=="probe") {
                         MoadianConnectionProbe(repository,OfficialMoadianPublicTransport()).check(companyId)
-                        onNotice("اطلاعات سرور رسمی دریافت شد. ارسال صورتحساب هنوز فعال نشده است.")
+                        onNotice("اطلاعات سرور رسمی دریافت شد؛ این نتیجه به معنی ارسال یا پذیرش صورتحساب نیست.")
                     } else {
                         if(action=="save") profile=repository.save(companyId,privatePem,requireNotNull(certificate),System.currentTimeMillis())
                         else { repository.remove(companyId);profile=null }

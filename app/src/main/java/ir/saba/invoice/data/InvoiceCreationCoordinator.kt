@@ -29,6 +29,7 @@ class InvoiceCreationCoordinator(
     }
     fun snapshot(claim:InvoiceCreationClaim):InvoiceCreationSnapshot {
         require(claim.ownerId==account.ownerId)
+        require(claim.payloadJson.length in 1..2_000_000)
         val root=JSONObject(claim.payloadJson)
         val rows=root.getJSONArray("lines")
         val lines=(0 until rows.length()).map { index ->
@@ -63,9 +64,21 @@ class InvoiceCreationCoordinator(
             return@withTransaction existing
         }
         val number=InvoiceInput.digits(input.number).trim().ifBlank { TaxpayerSerialAllocator(db).reserve(companyId) }
-        require(db.invoiceDao().forCompany(companyId).none{InvoiceInput.digits(it.invoiceNumber).trim()==number}){"شماره صورتحساب قبلاً ثبت شده است."}
+        require(db.invoiceDao().forCompany(companyId).none{InvoiceInput.number(it.invoiceNumber)==InvoiceInput.number(number)}){"شماره صورتحساب قبلاً ثبت شده است."}
         val normalized=input.copy(number=number,date=InvoiceInput.date(input.date),lines=lines)
         InvoiceCreationClaim(key,account.ownerId,companyId,kind.name,encode(normalized)).also{db.invoiceCreationClaimDao().insert(it)}
+    }
+    private suspend fun validatePending(claim: InvoiceCreationClaim): InvoiceCreationSnapshot {
+        val content = snapshot(claim)
+        InvoiceCreditKind.valueOf(claim.creditKind)
+        InvoiceInput.date(content.date)
+        InvoiceCalculator.calculate(content.lines)
+        require(InvoiceInput.number(content.number).isNotEmpty()) { "شماره صورتحساب محفوظ معتبر نیست." }
+        require(db.customerDao().byId(content.customerId)?.companyId == claim.companyId) { "مشتری درخواست محفوظ متعلق به این مؤدی نیست." }
+        require(db.invoiceDao().forCompany(claim.companyId).none {
+            InvoiceInput.number(it.invoiceNumber) == InvoiceInput.number(content.number)
+        }) { "شماره درخواست محفوظ قبلاً در فاکتور دیگری ثبت شده است." }
+        return content
     }
     suspend fun finish(requestId:String):Long {
         val key=UUID.fromString(requestId).toString()
@@ -73,6 +86,7 @@ class InvoiceCreationCoordinator(
             val claim=db.invoiceCreationClaimDao().byKey(key)?:error("درخواست ایجاد فاکتور یافت نشد.")
             requireOwner(claim.companyId,claim.invoiceId==null)
             require(claim.ownerId==account.ownerId)
+            if (claim.invoiceId == null) validatePending(claim)
             claim
         }
         initial.invoiceId?.let {
@@ -87,7 +101,7 @@ class InvoiceCreationCoordinator(
                 claim.creditKind==initial.creditKind && claim.payloadJson==initial.payloadJson)
             claim.invoiceId?.let{return@withTransaction it}
             requireOwner(claim.companyId)
-            val content=snapshot(claim)
+            val content=validatePending(claim)
             val id=InvoiceRepository(db).saveDraft(claim.companyId,content.customerId,content.number,content.date,content.lines,serverPromoConfirmed=true)
             check(db.invoiceCreationClaimDao().complete(claim.requestId,id)==1)
             id

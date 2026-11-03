@@ -36,8 +36,8 @@ object MoadianFieldValidation {
         if (digits(value).matches(Regex("09[0-9]{9}"))) null else "شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود."
 
     fun serial(value: String, label: String): String? =
-        if (value.isEmpty() || digits(value).matches(Regex("[0-9]{10}"))) null
-        else "$label باید دقیقاً ۱۰ رقم باشد."
+        if (value.isEmpty() || (digits(value).matches(Regex("[0-9]{10}")) && digits(value).toLong() > 0)) null
+        else "$label باید ۱۰ رقم و بزرگ‌تر از صفر باشد."
 
     fun serialPair(primary: String, reference: String): String? =
         if (digits(primary).ifBlank { "1000000001" } == digits(reference).ifBlank { "2000000001" })

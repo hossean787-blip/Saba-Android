@@ -11,7 +11,7 @@ class LegacyAccountImporter(private val source: SabaDatabase, private val target
     private data class Snapshot(val company: Company, val details: MoadianDetails?, val customers: List<Customer>,
         val profiles: List<CustomerProfile>, val invoices: List<Invoice>, val lines: List<InvoiceLine>,
         val uses: List<InvoiceQuotaUse>, val exemptions: List<Long>, val simulations: List<MoadianSimulation>,
-        val claims: List<InvoiceCreationClaim>)
+        val claims: List<InvoiceCreationClaim>, val transfers: List<CreditTransferClaim>)
 
     /** Source stays intact; target imports all eligible selected-company records or none. IDs stay stable. */
     suspend fun importCompany(companyId: Long, now: Long = System.currentTimeMillis()): Boolean {
@@ -22,6 +22,8 @@ class LegacyAccountImporter(private val source: SabaDatabase, private val target
             val invoices = source.invoiceDao().forCompany(companyId)
             val uses = invoices.mapNotNull { source.quotaDao().useForInvoice(it.id) }
             require(uses.all { owns(it.purchaserId) && it.companyId == companyId })
+            val transfers = source.creditTransferClaimDao().forCompany(companyId)
+            require(transfers.all { owns(it.ownerId) })
             val claims = source.invoiceCreationClaimDao().forCompany(companyId)
             require(claims.all { owns(it.ownerId) && (it.invoiceId == null || invoices.any { invoice -> invoice.id == it.invoiceId }) })
             claims.filter { it.invoiceId == null }.forEach {
@@ -33,7 +35,7 @@ class LegacyAccountImporter(private val source: SabaDatabase, private val target
             Snapshot(company,source.moadianDetailsDao().byCompany(companyId),source.customerDao().forCompany(companyId),
                 source.customerProfileDao().forCompany(companyId),invoices,invoices.flatMap { source.invoiceLineDao().forInvoice(it.id) },
                 uses,invoices.filter { source.legacyQuotaExemptionDao().contains(it.id) == 1 }.map { it.id },
-                source.moadianSimulationDao().forCompany(companyId),claims)
+                source.moadianSimulationDao().forCompany(companyId),claims,transfers)
         }
         return target.withTransaction {
             val receipt = target.legacyImportReceiptDao().byCompany(companyId)
@@ -58,6 +60,7 @@ class LegacyAccountImporter(private val source: SabaDatabase, private val target
             snapshot.exemptions.forEach { target.legacyQuotaExemptionDao().insert(LegacyQuotaExemption(it)) }
             snapshot.simulations.forEach { target.moadianSimulationDao().insert(it) }
             snapshot.claims.forEach { target.invoiceCreationClaimDao().insert(it.copy(ownerId=account.ownerId)) }
+            snapshot.transfers.forEach { target.creditTransferClaimDao().insert(it.copy(ownerId=account.ownerId)) }
             // Cached wallet/allocation balances are not proof of paid credits and are never imported.
             target.legacyImportReceiptDao().insert(LegacyImportReceipt(companyId,account.ownerId,now))
             true

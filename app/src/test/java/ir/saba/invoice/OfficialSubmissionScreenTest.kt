@@ -50,11 +50,12 @@ class OfficialSubmissionScreenTest {
         scrollTo("آماده‌سازی فاکتور 12")
         compose.onNodeWithText("آماده‌سازی فاکتور 12").performClick()
         scrollTo("کد واحد مشترک همه ردیف‌ها")
-        compose.onNodeWithText("کد واحد مشترک همه ردیف‌ها").performScrollTo().performTextInput("1627")
+        compose.onNodeWithText("کد واحد مشترک همه ردیف‌ها").performScrollTo().performTextInput("۱۶۲۷")
         compose.onNodeWithText("اعتبارسنجی و ثبت محتوای ثابت").performScrollTo().performClick()
         waitForReady()
         scrollTo("بررسی و ارسال رسمی")
         compose.onNodeWithText("بررسی و ارسال رسمی").performScrollTo().performClick()
+        compose.waitUntil(15000){compose.onAllNodesWithText("تأیید ارسال واقعی به سامانه مؤدیان").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("تأیید ارسال واقعی به سامانه مؤدیان").assertExists()
         compose.onNodeWithText("انصراف").performClick()
         runBlocking {assertEquals("PREPARED",db.officialSubmissionDao().forInvoice(invoice)!!.state)}
@@ -70,4 +71,16 @@ class OfficialSubmissionScreenTest {
         compose.onNodeWithText("بررسی و ارسال رسمی").assertDoesNotExist()
         compose.onNodeWithText("پذیرفته‌شده؛ امضای رسید سازمان بررسی شد").assertDoesNotExist()
     }
+    @Test fun corruptPersistedPayloadCannotCrashOrOpenSubmissionConfirmation()=runBlocking {
+        val service=OfficialSubmissionService(db,account,TaxpayerCredentialRepository(ApplicationProvider.getApplicationContext(),db,account))
+        val row=service.prepare(company,invoice,"2025-03-21T12:00:00+03:30","1627")
+        db.openHelper.writableDatabase.execSQL("UPDATE official_submissions SET payload='{' WHERE requestId=?",arrayOf(row.requestId))
+        compose.setContent {MaterialTheme {OfficialSubmissionScreen(db,account,company,{})}}
+        waitForReady();scrollTo("بررسی و ارسال رسمی")
+        compose.onNodeWithText("بررسی و ارسال رسمی").performClick()
+        compose.waitUntil(15000){compose.onAllNodesWithText("محتوای محفوظ صورتحساب تغییر کرده یا خراب است؛ ارسال متوقف شد.").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText("تأیید ارسال واقعی به سامانه مؤدیان").assertDoesNotExist()
+        assertEquals("PREPARED",db.officialSubmissionDao().byId(row.requestId)!!.state)
+    }
+
 }

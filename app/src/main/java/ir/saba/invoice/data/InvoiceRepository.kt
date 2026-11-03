@@ -37,9 +37,15 @@ class InvoiceRepository(private val db: SabaDatabase) {
             require(customer.companyId == companyId) { "مشتری به شرکت انتخاب‌شده تعلق ندارد." }
             val duplicate = db.invoiceDao().byNumber(companyId, normalizedNumber)
                 ?: db.invoiceDao().forCompany(companyId).firstOrNull {
-                    InvoiceInput.digits(it.invoiceNumber).trim() == normalizedNumber
+                    InvoiceInput.number(it.invoiceNumber) == InvoiceInput.number(normalizedNumber)
                 }
             require(duplicate == null || duplicate.id == existingInvoiceId) { "این شماره فاکتور برای شرکت قبلاً ثبت شده است." }
+            if (existingInvoiceId != null) {
+                val pending = db.invoiceCreationClaimDao().pending(companyId)
+                require(pending == null || InvoiceInput.number(org.json.JSONObject(pending.payloadJson).getString("number")) != InvoiceInput.number(normalizedNumber)) {
+                    "شماره فاکتور در یک درخواست صدور ناتمام رزرو شده است."
+                }
+            }
 
             // A quota unit is consumed when a NEW invoice is first created, not when sent or finalized.
             // Keep consumption and invoice insertion in the same Room transaction.

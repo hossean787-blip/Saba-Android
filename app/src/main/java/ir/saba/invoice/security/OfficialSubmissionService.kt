@@ -16,6 +16,7 @@ class OfficialSubmissionService(
     private val account: AccountScope,
     private val credentials: TaxpayerCredentialRepository,
     private val transport: OfficialTaxTransport = OfficialMoadianTransport(),
+    private val sessionCheck: () -> Unit = { error("نشست معتبر حساب برای این عملیات لازم است.") },
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val signer = MoadianV2Signer(credentials)
@@ -33,7 +34,7 @@ class OfficialSubmissionService(
         require(invoice.companyId == row.companyId && invoice.status == "FINALIZED")
         require(invoice.trackingCode.isNullOrBlank() || invoice.trackingCode == row.referenceNumber) { "کد پیگیری موجود با دفتر ارسال مطابقت ندارد؛ بررسی پشتیبانی لازم است." }
         require(db.moadianDetailsDao().byCompany(row.companyId)?.fiscalMemoryId == row.fiscalId) { "حافظه مالیاتی تغییر کرده است؛ حافظه اصلی درخواست را بازیابی کنید." }
-        require(SubmissionPreparation.sha256Hex(row.payload.toByteArray(Charsets.UTF_8)) == row.payloadHash)
+        require(SubmissionPreparation.sha256Hex(row.payload.toByteArray(Charsets.UTF_8)) == row.payloadHash) { "محتوای محفوظ صورتحساب تغییر کرده یا خراب است؛ ارسال متوقف شد." }
         row
     }
     suspend fun history(companyId: Long): List<OfficialSubmission> = db.withTransaction {
@@ -64,8 +65,16 @@ class OfficialSubmissionService(
         OfficialSubmission(UUID.randomUUID().toString(),account.ownerId,companyId,invoiceId,details.fiscalMemoryId,taxId,payload,
             SubmissionPreparation.sha256Hex(payload.toByteArray(Charsets.UTF_8)),clock()).also { db.officialSubmissionDao().insert(it) }
     }
+    suspend fun reviewPrepared(id: String): OfficialSubmission = row(id).also {
+        require(it.state == "PREPARED")
+        val payload=JSONObject(it.payload)
+        require(payload.getJSONObject("header").getString("taxid")==it.taxId)
+        require(payload.getJSONArray("body").length()>0)
+    }
     suspend fun discardPrepared(id: String) = db.withTransaction {
-        row(id)
+        val existing=requireNotNull(db.officialSubmissionDao().byId(id))
+        require(existing.ownerId==account.ownerId && db.companyDao().byId(existing.companyId)?.purchaserId==account.ownerId)
+        // PREPARED has never reached POST; even a changed memory or corrupt preview can be discarded.
         require(db.officialSubmissionDao().discardPrepared(id) == 1) { "درخواست شروع شده و قابل حذف نیست؛ استعلام کنید." }
     }
     /** Keep the PDF/history tracking field and the outbox receipt in one local transaction. */
@@ -82,6 +91,7 @@ class OfficialSubmissionService(
         changed
     }
     private suspend fun authorization(row: OfficialSubmission): String {
+        sessionCheck()
         val raw = JSONObject(transport.request("GET","nonce?timeToLive=30"))
         return signer.authorization(row.companyId,TaxpayerNonce(TaxpayerIdentity(account,row.companyId,row.fiscalId),
             raw.getString("nonce"),Instant.parse(raw.getString("expDate")).toEpochMilli()),clock())
@@ -91,6 +101,7 @@ class OfficialSubmissionService(
 
     /** Caller must get explicit user confirmation before invoking this real financial document operation. */
     suspend fun submit(id: String): OfficialSubmission {
+        sessionCheck()
         val initial = row(id)
         require(initial.state == "PREPARED") { "این درخواست ممکن است ارسال شده باشد؛ ابتدا استعلام کنید." }
         val keys = keys(initial)
@@ -101,6 +112,7 @@ class OfficialSubmissionService(
             .put("header",JSONObject().put("requestTraceId",initial.requestId).put("fiscalId",initial.fiscalId))
         val token = authorization(initial)
         db.withTransaction {
+            sessionCheck()
             row(id)
             check(db.officialSubmissionDao().claim(id) == 1) { "درخواست قبلاً شروع شده است؛ استعلام کنید." }
         }
@@ -122,6 +134,7 @@ class OfficialSubmissionService(
         return requireNotNull(db.officialSubmissionDao().byId(id))
     }
     suspend fun inquire(id: String): OfficialSubmission {
+        sessionCheck()
         val initial = row(id)
         require(initial.state in setOf("SENDING","UNKNOWN","SUBMITTED")) { "درخواست در وضعیت قابل استعلام نیست." }
         fun encode(s: String) = URLEncoder.encode(s,"UTF-8")

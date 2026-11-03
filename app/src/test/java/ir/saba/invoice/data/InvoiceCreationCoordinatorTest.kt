@@ -9,10 +9,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.SQLiteMode
 import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk=[28])
+@SQLiteMode(SQLiteMode.Mode.NATIVE)
 class InvoiceCreationCoordinatorTest {
     private val account=AccountScope.of("11111111-1111-4111-8111-111111111111")
     private val context get()=ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -118,4 +120,34 @@ class InvoiceCreationCoordinatorTest {
             assertEquals(2,backend.consumed.size);assertEquals(2,db.invoiceDao().forCompany(company).size)
         }finally{db.close()}
     }
+    @Test fun corruptedPendingPayloadIsRejectedBeforeRemoteDebit()=runBlocking {
+        val db=database();try{
+            val (company,customer)=seed(db);val backend=Backend();val coordinator=InvoiceCreationCoordinator(db,account,backend::authorize)
+            val claim=coordinator.prepare(company,input(customer),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)
+            db.openHelper.writableDatabase.execSQL("UPDATE invoice_creation_claims SET payloadJson='{}' WHERE requestId=?",arrayOf(claim.requestId))
+            try{coordinator.finish(claim.requestId);fail("Expected corrupt snapshot rejection")}catch(_:Exception){}
+            assertTrue("Malformed persisted invoice must not debit",backend.calls.isEmpty())
+            assertTrue(db.invoiceDao().forCompany(company).isEmpty())
+        }finally{db.close()}
+    }
+    @Test fun editingAnotherDraftCannotTakePendingInvoiceNumber()=runBlocking {
+        val db=database();try{
+            val (company,customer)=seed(db);val coordinator=InvoiceCreationCoordinator(db,account){_,_,_->}
+            val id=InvoiceRepository(db).saveDraft(company,customer,"13","1405/08/12",input(customer).lines,serverPromoConfirmed=true)
+            coordinator.prepare(company,input(customer,"12"),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)
+            expectRejected{InvoiceRepository(db).saveDraft(company,customer,"۱۲","1405/08/12",input(customer).lines,id)}
+            assertEquals("13",db.invoiceDao().byId(id)!!.invoiceNumber)
+        }finally{db.close()}
+    }
+    @Test fun numericAliasesDoNotCreateTwoInvoiceNumbers()=runBlocking {
+        val db=database();try{
+            val (company,customer)=seed(db);val coordinator=InvoiceCreationCoordinator(db,account){_,_,_->}
+            val claim=coordinator.prepare(company,input(customer,"00012"),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)
+            coordinator.finish(claim.requestId)
+            assertEquals("00012",db.invoiceDao().forCompany(company).single().invoiceNumber)
+            expectRejected{coordinator.prepare(company,input(customer,"۱۲"),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)}
+            assertEquals(1,db.invoiceDao().forCompany(company).size)
+        }finally{db.close()}
+    }
+
 }

@@ -87,4 +87,12 @@ class LegacyAccountImporterTest {
         source.openHelper.writableDatabase.execSQL("UPDATE invoice_quota_uses SET purchaserId='owner'")
         reject{importer.importCompany(17)};assertTrue(target.companyDao().all().isEmpty())
     }
+    @Test fun pendingTransferIdentityIsPreservedDuringOwnedLegacyRecovery()=runBlocking {
+        val pending=CreditTransferClaim("11111111-1111-4111-8111-111111111111",account.ownerId,17,3)
+        source.creditTransferClaimDao().insert(pending)
+        importer.importCompany(17)
+        assertEquals(pending,target.creditTransferClaimDao().pending(17))
+        assertEquals(pending,source.creditTransferClaimDao().pending(17))
+    }
+
 }

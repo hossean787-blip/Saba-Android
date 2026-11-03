@@ -57,7 +57,7 @@ fun InvoiceScreen(
     onNeedCharge: () -> Unit = {},
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {},
-    creditGateway: InvoiceCreditGateway = ServerInvoiceCreditGateway
+    creditGateway: InvoiceCreditGateway? = null
 ) {
     val states = rememberSaveableStateHolder()
     states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
@@ -80,16 +80,17 @@ private fun InvoiceScreenContent(
     onNeedCharge: () -> Unit = {},
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {},
-    creditGateway: InvoiceCreditGateway = ServerInvoiceCreditGateway
+    creditGateway: InvoiceCreditGateway? = null
 ) {
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
+    val activeGateway = remember(account,creditGateway) { creditGateway ?: ServerInvoiceCreditGateway(account) }
     val context = LocalContext.current
     var paidRemaining by remember(companyId) { mutableLongStateOf(0L) }
     var paidLoading by remember { mutableStateOf(false) }
     // Stable idempotency key for the current unsaved invoice.
     var operationKey by rememberSaveable(companyId) { mutableStateOf(java.util.UUID.randomUUID().toString()) }
     suspend fun refreshPaidBalance(): Long {
-        val value = creditGateway.paidBalance(accessToken, companyId)
+        val value = activeGateway.paidBalance(accessToken, companyId)
         require(value >= 0) { "موجودی معتبر نیست." }
         paidRemaining = value
         return value
@@ -103,7 +104,7 @@ private fun InvoiceScreenContent(
     var promoLoading by remember { mutableStateOf(false) }
     LaunchedEffect(accessToken, companyId) {
         promoLoading = true
-        promoRemaining = runCatching { creditGateway.giftBalance(accessToken) }.getOrDefault(0)
+        promoRemaining = runCatching { activeGateway.giftBalance(accessToken) }.getOrDefault(0)
         promoLoading = false
     }
     val usableCharge = paidRemaining + promoRemaining
@@ -142,10 +143,10 @@ private fun InvoiceScreenContent(
     var actionId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     var pendingCreation by remember { mutableStateOf<InvoiceCreationClaim?>(null) }
-    val creation = remember(db,account,accessToken,creditGateway) {
+    val creation = remember(db,account,accessToken,activeGateway) {
         InvoiceCreationCoordinator(db,account) { kind,id,key ->
-            if(kind==InvoiceCreditKind.PAID) paidRemaining=creditGateway.consumePaid(accessToken,id,key)
-            else promoRemaining=creditGateway.consumeGift(accessToken,key)
+            if(kind==InvoiceCreditKind.PAID) paidRemaining=activeGateway.consumePaid(accessToken,id,key)
+            else promoRemaining=activeGateway.consumeGift(accessToken,key)
         }
     }
     val editorLocked = invoiceId==null && pendingCreation?.requestId==operationKey
@@ -160,7 +161,7 @@ private fun InvoiceScreenContent(
         pendingCreation=recovery
         if(recovery!=null){restoreClaim(recovery);return}
         val paidResult=runCatching{refreshPaidBalance()}
-        val giftResult=runCatching{creditGateway.giftBalance(accessToken)}
+        val giftResult=runCatching{activeGateway.giftBalance(accessToken)}
         promoRemaining=giftResult.getOrDefault(0)
         if(paidResult.getOrDefault(0L)+promoRemaining<=0) {
             if(paidResult.isFailure || giftResult.isFailure) onNotice("اتصال به سرور برقرار نشد؛ موجودی اعتبار نامشخص است.")

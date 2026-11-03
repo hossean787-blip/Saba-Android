@@ -38,7 +38,7 @@ data class Customer(
         ForeignKey(entity = Company::class, parentColumns = ["id"], childColumns = ["companyId"], onDelete = ForeignKey.RESTRICT),
         ForeignKey(entity = Customer::class, parentColumns = ["companyId", "id"], childColumns = ["companyId", "customerId"], onDelete = ForeignKey.RESTRICT)
     ],
-    indices = [Index("companyId"), Index("customerId"), Index(value = ["companyId", "invoiceNumber"], unique = true)]
+    indices = [Index("companyId"), Index("customerId"), Index(value = ["companyId", "customerId"]), Index(value = ["companyId", "invoiceNumber"], unique = true)]
 )
 data class Invoice(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

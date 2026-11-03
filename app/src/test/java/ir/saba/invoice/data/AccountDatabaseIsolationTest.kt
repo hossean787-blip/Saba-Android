@@ -8,9 +8,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.SQLiteMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
+@SQLiteMode(SQLiteMode.Mode.NATIVE)
 class AccountDatabaseIsolationTest {
     @Test fun equalLocalIdsAndNationalIdsRemainSeparateAcrossAccounts() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -23,6 +25,8 @@ class AccountDatabaseIsolationTest {
             assertTrue(second.companyDao().all().isEmpty())
             val idB = second.companyDao().insert(Company(id=41, purchaserId=b.ownerId,name="دوم",nationalId="12345678901"))
             assertEquals(idA,idB)
+            first.openHelper.writableDatabase.query("PRAGMA synchronous").use { assertTrue(it.moveToFirst());assertEquals(2,it.getInt(0)) }
+            first.openHelper.writableDatabase.query("PRAGMA journal_mode").use { assertTrue(it.moveToFirst());assertEquals("truncate",it.getString(0)) }
             assertEquals("اول",first.companyDao().byId(idA)!!.name)
             assertEquals("دوم",second.companyDao().byId(idB)!!.name)
             try {first.companyDao().insert(Company(id=99,purchaserId=b.ownerId,name="بیگانه",nationalId="foreign"));fail("Expected owner isolation trigger")}catch(_:RuntimeException){}
