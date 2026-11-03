@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -47,12 +48,13 @@ import ir.saba.invoice.auth.RegistrationScreen
 import ir.saba.invoice.auth.OwnerLoginScreen
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceInput
+import ir.saba.invoice.security.AccountScope
 import ir.saba.invoice.ui.*
 import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, EVENTS, COMPANIES, TAX_KEYS, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, OFFICIAL_SUBMISSION, LEGACY_RECOVERY, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -63,7 +65,6 @@ private data class CompanyData(
 )
 
 class MainActivity : ComponentActivity() {
-    private val db by lazy { SabaDatabase.getInstance(applicationContext) }
     private val settings by lazy { SabaPreferences(applicationContext) }
     private val biometricVault by lazy { BiometricLoginVault(applicationContext) }
     private var biometricEnabled by mutableStateOf(false)
@@ -298,6 +299,28 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun SabaApp(
+        onLogout: () -> Unit, ownerName: String?, ownerEmail: String?, accessToken: String,
+        biometricEnabled: Boolean, onDisableBiometrics: () -> Unit
+    ) {
+        val account = rememberAuthenticatedAccount(accessToken)
+        if (account == null) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("نشست معتبر نیست یا منقضی شده است؛ برای حفاظت از اطلاعات دوباره وارد شوید.")
+                Button(onClick = onLogout) { Text("بازگشت به ورود") }
+            }
+            return
+        }
+        val accountStates = rememberSaveableStateHolder()
+        accountStates.SaveableStateProvider(account.storageKey) {
+            key(account.ownerId) {
+                SabaAccountApp(account, onLogout, ownerName, ownerEmail, accessToken, biometricEnabled, onDisableBiometrics)
+            }
+        }
+    }
+
+    @Composable
+    private fun SabaAccountApp(
+        account: AccountScope,
         onLogout: () -> Unit,
         ownerName: String?,
         ownerEmail: String?,
@@ -305,6 +328,8 @@ class MainActivity : ComponentActivity() {
         biometricEnabled: Boolean,
         onDisableBiometrics: () -> Unit
     ) {
+        val db = remember(account) { SabaDatabase.openAccount(applicationContext, account) }
+        DisposableEffect(db) { onDispose { db.close() } }
         var confirmLogout by remember { mutableStateOf(false) }
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         var confirmDisableBiometrics by remember { mutableStateOf(false) }
@@ -341,11 +366,7 @@ class MainActivity : ComponentActivity() {
         var inactiveCompanyIds by remember { mutableStateOf(emptySet<Long>()) }
         // One taxpayer context shared by Home, Customers, Invoices and quota screens.
         // Store its ID per authenticated owner to survive a complete app restart.
-        val ownerSelectionKey = remember(ownerEmail) {
-            "active_taxpayer_" + java.security.MessageDigest.getInstance("SHA-256")
-                .digest(ownerEmail.orEmpty().trim().lowercase(java.util.Locale.ROOT).toByteArray())
-                .joinToString("") { "%02x".format(it) }
-        }
+        val ownerSelectionKey = "active_taxpayer_${account.storageKey}"
         var data by remember { mutableStateOf<CompanyData?>(null) }
         var selectedCompanyId by rememberSaveable(ownerSelectionKey) {
             mutableStateOf(preferences.getLong(ownerSelectionKey, -1L).takeIf { it > 0L })
@@ -368,15 +389,19 @@ class MainActivity : ComponentActivity() {
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
+        LaunchedEffect(account) {
+            if (getDatabasePath("saba_local.db").exists()) notify("سوابق نسخهٔ قبلی محفوظ‌اند؛ از تنظیمات، بازیابی سوابق همین حساب را بررسی کنید.")
+        }
 
         suspend fun refreshCompany(id: Long) {
             val company = db.companyDao().byId(id) ?: error("شرکت پیدا نشد.")
+            require(company.purchaserId == account.ownerId) { "مودی متعلق به این حساب نیست." }
             val snapshot = db.withTransaction { CompanyData(id, db.customerDao().forCompany(id), db.invoiceDao().forCompany(id),
                 db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id)) }
             if (selectedCompanyId == id) data = snapshot
         }
         suspend fun refresh() {
-            val rows = db.companyDao().all()
+            val rows = db.companyDao().all().filter { it.purchaserId == account.ownerId }
             companies = rows
             inactiveCompanyIds = db.moadianDetailsDao().all().filter { it.inactive }.map { it.companyId }.toSet()
             val activeRows = rows.filter { it.id !in inactiveCompanyIds }
@@ -384,7 +409,7 @@ class MainActivity : ComponentActivity() {
             if (next != null) selectTaxpayer(next) else { selectedCompanyId = null; data = null; preferences.edit().remove(ownerSelectionKey).apply() }
             if (next != null) refreshCompany(next)
         }
-        val excelService = remember { ExcelTransferService(db) }
+        val excelService = remember(db, account) { ExcelTransferService(db, account.ownerId) { TaxpayerIdAllocator(applicationContext).use { it.reserve() } } }
         var excelScope by remember { mutableStateOf("taxpayers") }
         var excelMode by remember { mutableStateOf("template") }
         val exportExcel = rememberLauncherForActivityResult(
@@ -546,6 +571,8 @@ class MainActivity : ComponentActivity() {
                                             Page.EVENTS -> "فاکتورها"
                                             Page.COMPANIES -> "مدیریت مودیان مالیاتی"
                                             Page.INVOICES -> "صدور و مدیریت صورتحساب"
+                                            Page.OFFICIAL_SUBMISSION -> "ارسال و پیگیری مالیاتی"
+                                            Page.LEGACY_RECOVERY -> "بازیابی سوابق قدیمی"
                                             Page.CUSTOMERS -> "مدیریت مشتریان"
                                             Page.CREDIT_PURCHASE -> "خرید اعتبار"
                                             Page.SETTINGS -> "حساب کاربری"
@@ -631,13 +658,25 @@ class MainActivity : ComponentActivity() {
                                 taxpayerOptions = companies.filter { it.id !in inactiveCompanyIds }.map { it.id to it.name },
                                 onTaxpayerSelected = { selectTaxpayer(it) },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; newInvoiceRequest++ } } },
-                                onTaxKeys = { page = Page.TAX_KEYS },
+                                onTaxKeys = { page = if (company != null) Page.TAX_CONNECTION else Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
                             )
                             Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES })
-                            Page.COMPANIES -> MoadianScreen(db, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
-                            Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
+                            Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
+                            Page.TAX_KEYS -> Column(Modifier.fillMaxSize()) {
+                                if (company != null) TextButton(onClick = { page = Page.TAX_CONNECTION }) { Text("اتصال مالیاتی مؤدی انتخاب‌شده") }
+                                TaxpayerKeysScreen(onNotice = ::notify)
+                            }
+                            Page.TAX_CONNECTION -> if (current != null) key(current.companyId) {
+                                Column(Modifier.fillMaxSize()) {
+                                    TextButton(onClick = { page = Page.OFFICIAL_SUBMISSION }) { Text("ارسال و پیگیری صورتحساب رسمی") }
+                                    TaxpayerConnectionScreen(db,account,current.companyId,
+                                        onCreateKeys = { page = Page.TAX_KEYS },onEditTaxpayer = { page = Page.COMPANIES },onNotice = ::notify)
+                                }
+                            } else CompanyPlaceholder(loading)
+                            Page.OFFICIAL_SUBMISSION -> if (current != null) OfficialSubmissionScreen(db,account,current.companyId,::notify,onChanged={refresh()},accessToken=accessToken) else CompanyPlaceholder(loading)
+                            Page.LEGACY_RECOVERY -> LegacyRecoveryScreen(db,account,onChanged={refresh()})
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -648,11 +687,13 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             Page.INVOICES -> if (current != null) key(current.companyId) {
-                                InvoiceScreen(db, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, accessToken = accessToken, onNeedCharge = { page = Page.CREDIT_PURCHASE }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
+                                InvoiceScreen(db, account.ownerId, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, accessToken = accessToken, onNeedCharge = { page = Page.CREDIT_PURCHASE }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 })
                             } else CompanyPlaceholder(loading)
-                            Page.CREDIT_PURCHASE -> CreditPurchaseScreen(accessToken)
+                            Page.CREDIT_PURCHASE -> CreditPurchaseScreen(account.ownerId,accessToken)
                             Page.QUOTA -> if (current != null && company != null) {
                                 CreditManagementScreen(
+                                    db = db,
+                                    ownerId = account.ownerId,
                                     taxpayerName = company.name,
                                     taxpayerId = current.companyId,
                                     accessToken = accessToken,
@@ -681,7 +722,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             } else CompanyPlaceholder(loading)
-                            Page.SETTINGS -> AccountScreen(
+                            Page.SETTINGS -> Column(Modifier.fillMaxSize()) {
+                                TextButton(onClick={page=Page.LEGACY_RECOVERY}) { Text("بازیابی سوابق قدیمی این حساب") }
+                                AccountScreen(
+                                ownerId = account.ownerId,
                                 taxpayerCharge = 0,
                                 ownerCharge = 0,
                                 busy = busy,
@@ -696,6 +740,7 @@ class MainActivity : ComponentActivity() {
                                 onLogout = { confirmLogout = true },
                                 onExcelAction = { action, target -> handleExcelAction(action, target) }
                             )
+                            }
                             Page.APP_SETTINGS -> AppSettingsScreen(
                                 fontScale = fontScale,
                                 busy = busy,

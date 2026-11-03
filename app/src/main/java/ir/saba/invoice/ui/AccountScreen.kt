@@ -27,7 +27,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.security.MessageDigest
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -44,6 +43,7 @@ private val accountNumber = NumberFormat.getIntegerInstance(Locale.forLanguageTa
  */
 @Composable
 fun AccountScreen(
+    ownerId: String,
     taxpayerCharge: Long,
     ownerCharge: Long,
     busy: Boolean,
@@ -53,18 +53,22 @@ fun AccountScreen(
     onLogout: () -> Unit,
     onExcelAction: (String, String) -> Unit = { _, _ -> }
 ) {
+    key(ownerId) { AccountContent(ownerId,taxpayerCharge,ownerCharge,busy,ownerName,ownerEmail,onTransferCharge,onLogout,onExcelAction) }
+}
+
+@Composable
+private fun AccountContent(
+    ownerId: String, taxpayerCharge: Long, ownerCharge: Long, busy: Boolean,
+    ownerName: String?, ownerEmail: String?, onTransferCharge: () -> Unit, onLogout: () -> Unit,
+    onExcelAction: (String, String) -> Unit
+) {
     var selected by remember { mutableStateOf<AccountAction?>(null) }
     var excelAction by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     // Account-scoped, device-local profile. Never misrepresent this as a server update.
-    val profileKey = remember(ownerEmail) {
-        ownerEmail?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotEmpty() }?.let { email ->
-            MessageDigest.getInstance("SHA-256")
-                .digest(email.toByteArray(Charsets.UTF_8))
-                .joinToString("") { "%02x".format(it) }
-        }
-    }
-    val profilePrefs = remember { context.getSharedPreferences("sura_owner_profile_local_v1", android.content.Context.MODE_PRIVATE) }
+    val profileKey: String? = remember(ownerId) { runCatching { ir.saba.invoice.security.AccountScope.of(ownerId).storageKey }.getOrNull() }
+    // Do not assign old email-scoped contact details to a different UUID after email reassignment.
+    val profilePrefs = remember { context.getSharedPreferences("sura_owner_profile_local_v2", android.content.Context.MODE_PRIVATE) }
     var localName by remember(profileKey) { mutableStateOf(profileKey?.let { profilePrefs.getString("name_$it", "") }.orEmpty()) }
     var localMobile by remember(profileKey) { mutableStateOf(profileKey?.let { profilePrefs.getString("mobile_$it", "") }.orEmpty()) }
     var editingProfile by remember { mutableStateOf(false) }

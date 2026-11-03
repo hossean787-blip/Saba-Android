@@ -6,13 +6,36 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import java.util.UUID
+import ir.saba.invoice.security.AccountScope
+import ir.saba.invoice.security.AccountSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 
 @Composable
 fun CreditManagementScreen(
+    db: ir.saba.invoice.data.SabaDatabase,
+    ownerId: String,
+    taxpayerName: String,
+    taxpayerId: Long,
+    accessToken: String,
+    onBack: () -> Unit,
+    onPurchase: () -> Unit
+) {
+    val states = rememberSaveableStateHolder()
+    states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$taxpayerId") {
+        key(ownerId,taxpayerId) { CreditManagementContent(db,ownerId,taxpayerName,taxpayerId,accessToken,onBack,onPurchase) }
+    }
+}
+
+@Composable
+private fun CreditManagementContent(
+    db: ir.saba.invoice.data.SabaDatabase,
+    ownerId: String,
     taxpayerName: String,
     taxpayerId: Long,
     accessToken: String,
@@ -20,6 +43,8 @@ fun CreditManagementScreen(
     onPurchase: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val account = remember(ownerId) { AccountScope.of(ownerId) }
+    val journal = remember(db,account,taxpayerId) { CreditTransferJournal(db,account,taxpayerId) }
     var ownerBalance by remember(taxpayerId) { mutableStateOf<Long?>(null) }
     var taxpayerBalance by remember(taxpayerId) { mutableStateOf<Long?>(null) }
     var amount by rememberSaveable(taxpayerId) { mutableStateOf("1") }
@@ -28,30 +53,27 @@ fun CreditManagementScreen(
     var message by remember { mutableStateOf("") }
     var reload by remember { mutableIntStateOf(0) }
     LaunchedEffect(taxpayerId, accessToken, reload) {
-        ownerBalance = null
-        taxpayerBalance = null
-        runCatching { CreditTransferClient.request(accessToken, taxpayerId) }
-            .onSuccess {
-                if (it.has("ownerBalance") && it.has("taxpayerBalance")) {
-                    ownerBalance = it.getLong("ownerBalance").takeIf { n -> n >= 0 }
-                    taxpayerBalance = it.getLong("taxpayerBalance").takeIf { n -> n >= 0 }
-                    val pending = pendingRequestId
-                    if (pending != null) {
-                        runCatching { CreditTransferClient.receipt(accessToken, taxpayerId, pending) }
-                            .onSuccess { receipt ->
-                                if (receipt.optString("status") == "transferred" &&
-                                    receipt.optJSONObject("receipt")?.optLong("credits") == amount.toLongOrNull()) {
-                                    pendingRequestId = null
-                                    message = "انتقال قبلی با رسید معتبر در سرور تأیید شد."
-                                } else {
-                                    message = "رسید انتقال قبلی تأیید نشد؛ فقط همان شناسه را تکرار کنید."
-                                }
-                            }
-                            .onFailure { message = "استعلام رسید ناموفق بود؛ درخواست قبلی را با همان شناسه تکرار کنید." }
-                    }
-                } else message = "مانده معتبر از سرور دریافت نشد."
+        ownerBalance=null;taxpayerBalance=null
+        try {
+            val restored = withContext(Dispatchers.IO) {
+                journal.pending() ?: pendingRequestId?.let { journal.begin(requireNotNull(amount.toLongOrNull()),it) }
             }
-            .onFailure { message = "دریافت موجودی ناموفق بود: ${it.message.orEmpty()}" }
+            if (restored != null) { pendingRequestId=restored.requestId;amount=restored.amount.toString() }
+            AccountSession.requireOwner(accessToken,account)
+            val response = CreditTransferClient.request(accessToken,taxpayerId)
+            val owner = CreditServerResponse.balance(response,"ownerBalance")
+            val taxpayer = CreditServerResponse.balance(response,"taxpayerBalance")
+            ownerBalance=owner;taxpayerBalance=taxpayer
+            if (restored != null) {
+                AccountSession.requireOwner(accessToken,account)
+                val receipt = CreditTransferClient.receipt(accessToken,taxpayerId,restored.requestId)
+                if (withContext(Dispatchers.IO) { journal.complete(restored,receipt) }) {
+                    pendingRequestId=null
+                    message="انتقال قبلی با رسید همان درخواست در سرور تأیید شد."
+                } else message="رسید انتقال قبلی تأیید نشد؛ فقط همان شناسه را تکرار کنید."
+            }
+        } catch(e:CancellationException) { throw e }
+        catch(_:Exception) { message="دریافت مانده یا رسید ناموفق بود؛ درخواست قبلی محفوظ است. نشست و اتصال را بررسی کنید." }
     }
     val count = amount.toLongOrNull()
     Column(
@@ -80,22 +102,24 @@ fun CreditManagementScreen(
         Button(
             onClick = {
                 val n = count ?: return@Button
-                val requestId = pendingRequestId ?: UUID.randomUUID().toString().also { pendingRequestId = it }
                 busy = true
                 message = ""
                 scope.launch {
-                    runCatching { CreditTransferClient.request(accessToken, taxpayerId, n, requestId) }
-                        .onSuccess { response ->
-                            if (response.optString("status") in listOf("transferred", "already_applied")) {
-                                message = "انتقال تأیید شد؛ موجودی در حال به‌روزرسانی است."
-                                pendingRequestId = null
-                                reload++
-                            } else {
-                                message = "پاسخ انتقال نامشخص است؛ درخواست قبلی را دوباره بررسی کنید."
-                            }
-                        }
-                        .onFailure { message = "وضعیت انتقال نامشخص است: ${it.message.orEmpty()}. پیش از تلاش مجدد مانده را بررسی کنید." }
-                    busy = false
+                    try {
+                        AccountSession.requireOwner(accessToken,account)
+                        val claim = withContext(Dispatchers.IO) { journal.begin(n,pendingRequestId) }
+                        pendingRequestId=claim.requestId
+                        amount=claim.amount.toString()
+                        CreditTransferClient.request(accessToken,taxpayerId,claim.amount,claim.requestId)
+                        val receipt = CreditTransferClient.receipt(accessToken,taxpayerId,claim.requestId)
+                        if (withContext(Dispatchers.IO) { journal.complete(claim,receipt) }) {
+                            message="انتقال با رسید همان درخواست تأیید شد."
+                            pendingRequestId=null
+                            reload++
+                        } else message="رسید معتبر همان درخواست دریافت نشد؛ شناسهٔ قبلی محفوظ است."
+                    } catch(e:CancellationException) { throw e }
+                    catch(_:Exception) { message="نتیجه انتقال قطعی نیست؛ درخواست محفوظ را با همان شناسه پیگیری کنید." }
+                    finally { busy=false }
                 }
             },
             enabled = !busy && accessToken.isNotBlank() && count != null &&

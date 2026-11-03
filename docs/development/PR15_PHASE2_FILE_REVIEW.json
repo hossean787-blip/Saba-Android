@@ -1,0 +1,734 @@
+{
+  "reviewed_pr": 15,
+  "original_head": "59136c8",
+  "base": "61f260f",
+  "original_file_count": 74,
+  "files": [
+    {
+      "path": ".github/workflows/android-build.yml",
+      "reviewed_head_sha256": "57471eda6056aa43af4b5fa80864cc381d9f137323e7c3700b964cab2b3155ae",
+      "lines": 88,
+      "review_note": "Branch validation adds AndroidTest source compile alongside JVM/lint; invoice branch does not assemble APK.",
+      "current_sha256": "d16d3b6a6a0ec2c992d9e9bef9f76745114977d61348b7662e2b5222008237b2",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/schemas/ir.saba.invoice.data.SabaDatabase/7.json",
+      "reviewed_head_sha256": "88f557c06b0e9ab0927cc74074cefbdddd6226b94e85a9f0d6fb893f4de74623",
+      "lines": 946,
+      "review_note": "Immutable historical Room schema; exact DDL/identity fixtures used to validate upgrade to v10 and preserve invoice/customer/claim relationships.",
+      "current_sha256": "88f557c06b0e9ab0927cc74074cefbdddd6226b94e85a9f0d6fb893f4de74623",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/schemas/ir.saba.invoice.data.SabaDatabase/8.json",
+      "reviewed_head_sha256": "f4e88695405218f75535b758acedaaf1c0a663bc3ac0282bba64399da7c6cb1a",
+      "lines": 1053,
+      "review_note": "Immutable historical Room schema; exact DDL/identity fixtures used to validate upgrade to v10 and preserve invoice/customer/claim relationships.",
+      "current_sha256": "f4e88695405218f75535b758acedaaf1c0a663bc3ac0282bba64399da7c6cb1a",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/schemas/ir.saba.invoice.data.SabaDatabase/9.json",
+      "reviewed_head_sha256": "d0c9ac70520277c3058d62e5bb457b6ea761ba58b0a22e5fc87263faa893a7eb",
+      "lines": 1208,
+      "review_note": "Immutable historical Room schema; exact DDL/identity fixtures used to validate upgrade to v10 and preserve invoice/customer/claim relationships.",
+      "current_sha256": "d0c9ac70520277c3058d62e5bb457b6ea761ba58b0a22e5fc87263faa893a7eb",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/androidTest/java/ir/saba/invoice/HomeMoadianVisualInstrumentedTest.kt",
+      "reviewed_head_sha256": "7f26033f2cbd54f946ec5df6a1c4063a2196ebdb2d3ab35ed1baf70cc4ca6bc2",
+      "lines": 116,
+      "review_note": "Owner argument compatibility; AndroidTest Kotlin compilation only, device execution not performed.",
+      "current_sha256": "070ae8e8f78c77bec9d2f961ffdd17a3cc5acfbb9f6f12f8b7b9b3e31cf679d5",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/MainActivity.kt",
+      "reviewed_head_sha256": "c384adbeb41ad77719ec9d65b7313be282dcc9d52604ae2252927144b80712eb",
+      "lines": 792,
+      "review_note": "Account lifetime, account-keyed composition, scoped database and navigation arguments; session monitor and owner routing hardened.",
+      "current_sha256": "33f7a2064be54a03df6d3155a45f8df7532c743db4bcc451f52904f1b58c1d56",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/ExcelTransferService.kt",
+      "reviewed_head_sha256": "78611f0cf88f093a5a0313dfa78856bccff8ed0db8aa4e20c8967eb5a56be63f",
+      "lines": 112,
+      "review_note": "Account UUID checks on import/export; no copying foreign taxpayers; AccountExcelIsolationTest.",
+      "current_sha256": "78611f0cf88f093a5a0313dfa78856bccff8ed0db8aa4e20c8967eb5a56be63f",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/InvoiceCreationClaim.kt",
+      "reviewed_head_sha256": "394b0f222fa53b900c3ac233413c54fa79a8cef4df0b02137d9c05044ac64647",
+      "lines": 26,
+      "review_note": "Immutable request snapshot, unique active company/invoice indexes and FK restrictions; coordinator retry tests.",
+      "current_sha256": "394b0f222fa53b900c3ac233413c54fa79a8cef4df0b02137d9c05044ac64647",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/InvoiceCreationCoordinator.kt",
+      "reviewed_head_sha256": "f94eb87b7b1806ba494063d3ce63b187debc76a5e8375bd2cff0b9845aa15146",
+      "lines": 96,
+      "review_note": "Validate persisted snapshot before remote authorization; same UUID/kind after errors; local atomic completion and numeric duplicate normalization.",
+      "current_sha256": "c06f157c6bd0082d291ad961205398194f7e2802290188be737a07ce8bcb08fc",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/InvoiceRepository.kt",
+      "reviewed_head_sha256": "c40df533a19cde0f103c5f4f77d86c8a544a6e3c5ffc264a5e4a3740368c8a7e",
+      "lines": 156,
+      "review_note": "Edit/finalize do not debit again; pending number reservations cannot be taken by editing; workflow/coordinator regressions.",
+      "current_sha256": "5dc79bf89f3b609c1a0de04f7b0cc7aba4d53c2f06f188b9cb8163110ba0585a",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/LegacyAccountImporter.kt",
+      "reviewed_head_sha256": "5d859697ada6083546cbfbf312efa641becf0bf0878425bdafe50b44372efd50",
+      "lines": 66,
+      "review_note": "Exact UUID ownership, collision rollback and import receipt; preserve transfer journal; unknown owners remain quarantined.",
+      "current_sha256": "934a270294d4ace1d2661efd8359f0cce4c3b65b09ef66f3e213a061e00d163b",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/OfficialSubmission.kt",
+      "reviewed_head_sha256": "0ae471fb752dc60ad01b7ee9df08cd7b7235134a83a65ed0d7b41367a67adabd",
+      "lines": 43,
+      "review_note": "Outbox uniqueness and compare-and-set before POST; no ambiguous operation can be reset to a fresh request.",
+      "current_sha256": "0ae471fb752dc60ad01b7ee9df08cd7b7235134a83a65ed0d7b41367a67adabd",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/SabaDatabase.kt",
+      "reviewed_head_sha256": "161959aaec661cfd8fc232d3cf6ee6f7d457f5a8b7e30e283bf45dd1d0041c63",
+      "lines": 187,
+      "review_note": "Additive migrations, no destructive fallback; v10 transfer journal, synchronous FULL, migrated owner/ID triggers; exact committed schema migration fixtures.",
+      "current_sha256": "ee59eb6f5ea6ce58752e3070c1968d44b3cd307ec377504754652f8fe410ae62",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/TaxpayerIdAllocator.kt",
+      "reviewed_head_sha256": "93c178ca7413d93b01070afbdd90384fb5eb7989f9f1508cccb8b9ec3fdb22a8",
+      "lines": 40,
+      "review_note": "Safe integer UUID-derived local IDs; collisions locally detected; authoritative cross-device registry remains a release dependency.",
+      "current_sha256": "93c178ca7413d93b01070afbdd90384fb5eb7989f9f1508cccb8b9ec3fdb22a8",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/TaxpayerSerialAllocator.kt",
+      "reviewed_head_sha256": "dd0360b75e900a53a26b5afc563a0e8bc08446e632eff97a812ac2905b9bac8b",
+      "lines": 39,
+      "review_note": "Persistent reservations, canonical numeric aliases and pending reservation exclusion; no cross-device serial guarantee.",
+      "current_sha256": "bf3247a373809d225b1b5a059b95080642dfc606320af4074444f163f8d03332",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/domain/MoadianFieldValidation.kt",
+      "reviewed_head_sha256": "b2462f1f79a79d6fad8e6f08308a32944bd4da912f76f50b17e738a65d93b639",
+      "lines": 54,
+      "review_note": "ASCII normalization, fiscal/identity lengths and nonzero serial; boundary tests.",
+      "current_sha256": "471fa0e8d40afbb9245449f5ae183e9774896f16c95fa57c4a9b4f74835bf6f8",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/integration/TaxSubmissionPreflight.kt",
+      "reviewed_head_sha256": "9071ffadde90b62f58a6b1b38b8b7813c5b809d1d80e4bf521bb2a8ec4ed9bea",
+      "lines": 61,
+      "review_note": "Fiscal-memory/tax-ID/checksum binding and local readiness; not a substitute for full official validation.",
+      "current_sha256": "9071ffadde90b62f58a6b1b38b8b7813c5b809d1d80e4bf521bb2a8ec4ed9bea",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/AccountScope.kt",
+      "reviewed_head_sha256": "ca26103bdf80cc46b9db37a609af7e103d8572cac3e98d7b9aaa4089950775c2",
+      "lines": 35,
+      "review_note": "Canonical owner UUID and bounded token parsing; local routing is not JWT signature validation.",
+      "current_sha256": "7959e3e2096cb0ba5d4ce7188f2d7d14135f08129dab8c78d1af39fb0fbc23b8",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/MoadianConnectionProbe.kt",
+      "reviewed_head_sha256": "a266501fd4fa778638f7caa3e8d8b94bc28d63cd7b139c32336ac0dbf76aa3c4",
+      "lines": 50,
+      "review_note": "Scoped credentials, nonce freshness, metadata-only connection test; no submission/acceptance implied.",
+      "current_sha256": "a266501fd4fa778638f7caa3e8d8b94bc28d63cd7b139c32336ac0dbf76aa3c4",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/MoadianInvoiceMapper.kt",
+      "reviewed_head_sha256": "976397f1dfc77be133f093523b2c03a2a89819dde021c00317cf6eb7bc600838",
+      "lines": 67,
+      "review_note": "Finalized owned invoice, constrained cash original pattern, date/serial/unit and independently recomputed totals; mismatch blocks sending.",
+      "current_sha256": "976397f1dfc77be133f093523b2c03a2a89819dde021c00317cf6eb7bc600838",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/MoadianJwe.kt",
+      "reviewed_head_sha256": "5a21d56d274b2b7cd84481b02390817581996aa9df5dc22645a876ece5321476",
+      "lines": 38,
+      "review_note": "RSA-OAEP-256 with explicit MGF1 SHA-256 and A256GCM; independent decrypt round-trip test; official interoperability not live tested.",
+      "current_sha256": "5a21d56d274b2b7cd84481b02390817581996aa9df5dc22645a876ece5321476",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/MoadianSignedReceipt.kt",
+      "reviewed_head_sha256": "a0921652905ac89b05c9b90abed20e5c367749967b23336aceb0e25766e4dd2c",
+      "lines": 52,
+      "review_note": "RS256 trusted metadata keys, signed identity/reference/tax ID/time checks; forged and foreign receipt tests; real key rotation needs authorized validation.",
+      "current_sha256": "a0921652905ac89b05c9b90abed20e5c367749967b23336aceb0e25766e4dd2c",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/MoadianV2Signer.kt",
+      "reviewed_head_sha256": "fa554dfea0dd016e5a449be70a2ddadf5aff1733fe75a9c55f80a82c262a45a6",
+      "lines": 62,
+      "review_note": "Scoped key/certificate, protected JWS headers and challenge binding; synthetic key tests only.",
+      "current_sha256": "fa554dfea0dd016e5a449be70a2ddadf5aff1733fe75a9c55f80a82c262a45a6",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/OfficialMoadianTransport.kt",
+      "reviewed_head_sha256": "79c1c94b4a15a67364d2319d832ed8a2ee893638fe60eceb1f09aa66df8875ae",
+      "lines": 50,
+      "review_note": "Fixed official HTTPS v2 origin, bounded responses, timeouts, no redirects/cache and fixed-length POST; no live request made.",
+      "current_sha256": "79c1c94b4a15a67364d2319d832ed8a2ee893638fe60eceb1f09aa66df8875ae",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/OfficialSubmissionService.kt",
+      "reviewed_head_sha256": "3f3f05657a524ebb4b2ad886c06b441202d9c848095b90afd758629b3061e90c",
+      "lines": 168,
+      "review_note": "Atomic POST claim, session recheck, immutable hash, inquiry-only after ambiguity, signed SUCCESS verification and safe discard before send; fault/restart/concurrency tests.",
+      "current_sha256": "4dc43f8409b8c8e88f483a88a9a2bb1c32aa158aee35c447b1890e91fd012b46",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/TaxpayerCredentialRepository.kt",
+      "reviewed_head_sha256": "01d8e72962c32c3352422dcf7a7321fd2eab5d35da93a0b8d076efefe4ddfcde",
+      "lines": 72,
+      "review_note": "Owner/company/fiscal scope, certificate/key match and expiry; wrong tenant/memory rejected.",
+      "current_sha256": "01d8e72962c32c3352422dcf7a7321fd2eab5d35da93a0b8d076efefe4ddfcde",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/TaxpayerKeyVault.kt",
+      "reviewed_head_sha256": "6b8d8ee1a80bf34f53a92ed70f84e0d95bbe5437c98f96ed7a790f3c54d94483",
+      "lines": 64,
+      "review_note": "Account/company/fiscal identity authenticated as AAD; cross-scope decryption rejected; hardware-backed device validation pending.",
+      "current_sha256": "6b8d8ee1a80bf34f53a92ed70f84e0d95bbe5437c98f96ed7a790f3c54d94483",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/TaxpayerSigningCertificate.kt",
+      "reviewed_head_sha256": "948ac12372733de818c4d2f29c769337060e925c3662222e26cb2f6043bf3bd6",
+      "lines": 54,
+      "review_note": "Bounded certificate parsing, validity/RSA/key-match checks; synthetic certificates generated during tests, no private source keys.",
+      "current_sha256": "948ac12372733de818c4d2f29c769337060e925c3662222e26cb2f6043bf3bd6",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/CreditManagementScreen.kt",
+      "reviewed_head_sha256": "c10961d6e1eebc69277278f82eb4f33e6a4491bc471c586072f8d15706bcf467",
+      "lines": 130,
+      "review_note": "Persistent Room transfer UUID before network; exact receipt before success; immutable amount and conservative ambiguous recovery.",
+      "current_sha256": "bf69e6ce28d62eccd0c5f88389c7d3db09d5357dc09940659ec0b0562aaceb04",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/CreditPurchaseScreen.kt",
+      "reviewed_head_sha256": "db2de92c8f86f3b17d0bb032caa8caadeac0cfe8f69ed35ebfa114008a94cbcc",
+      "lines": 314,
+      "review_note": "UUID scoped state, fresh session for gift redemption, cancellation-safe failure UI; production purchase config unchanged.",
+      "current_sha256": "1b0f0552f27a1fdab3627cf1d78729dc20e550147c4de0bf0c0869c0b63d9f91",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/InvoiceCreditGateway.kt",
+      "reviewed_head_sha256": "c2664f0a6c3eec6d0cd7af21c93ca06e615c295ece00ea4ec9315a6e50e5b397",
+      "lines": 27,
+      "review_note": "Server-only paid/gift approval and strict typed reply; gateway bound to authenticated account; no local fallback.",
+      "current_sha256": "82c790f561e5a0a300fc17f16581bfdfbda337ae06241fbd977b69aa01faa642",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/InvoiceScreen.kt",
+      "reviewed_head_sha256": "f2c63ecd9a613d0418f5aaa805e8dc926cda128699d79ea528e261d95ece5eed",
+      "lines": 483,
+      "review_note": "Durable creation coordinator, account keyed edit/recovery and server gateway defaults; injected fakes used only by tests.",
+      "current_sha256": "1982d53acd738f179cbaf4306251adbf96bb06233cd2021467879ca33578bf0e",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/InvoiceTemplateScreen.kt",
+      "reviewed_head_sha256": "58f2159ab284ae854e58e6b96b7b662472bc59c7a74c4ac232f1dc27d147f654",
+      "lines": 175,
+      "review_note": "Existing PDF preflight kept; A4 row/totals/footer overlap fixed and NumberFormat made per-call; native visual check still pending.",
+      "current_sha256": "d87eafb1951ee7df95d613ea165c5850868c319ce3260a023dfbf0e7e6f1d618",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/LegacyRecoveryScreen.kt",
+      "reviewed_head_sha256": "8fed8182646804be54bd892b2395b3e41c1c2f63337bbae88aa372acd91ac516",
+      "lines": 66,
+      "review_note": "Only proven UUID-owned candidates displayed; explicit confirmation and refreshed list; unknown records never shown as claimable.",
+      "current_sha256": "8fed8182646804be54bd892b2395b3e41c1c2f63337bbae88aa372acd91ac516",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/MoadianScreen.kt",
+      "reviewed_head_sha256": "ba784caea319cabbc1509e9d1771aa636bf0b6276ff9fbb492dbf20c0d8d1e96",
+      "lines": 574,
+      "review_note": "Account/taxpayer keyed form and official/credential navigation; scoped field cleanup; minor ModifierParameter lint remains.",
+      "current_sha256": "ba784caea319cabbc1509e9d1771aa636bf0b6276ff9fbb492dbf20c0d8d1e96",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/OfficialSubmissionScreen.kt",
+      "reviewed_head_sha256": "9d0a07f6352e51efa9a6f0cddab7ed165b11bc587941bc01a45dfa064d991daa",
+      "lines": 116,
+      "review_note": "Review stored payload before confirmation, session-bound network service, corruption errors, truthful pending status; async confirmation regression.",
+      "current_sha256": "673dcca25b037688d672e3b12725f7ae5db390b6d7a99607efb397969f42e0a0",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/TaxpayerConnectionScreen.kt",
+      "reviewed_head_sha256": "b699672c21fe3adc5548e39ff389647160d4771796ef464dae98123afe28c3eb",
+      "lines": 136,
+      "review_note": "Scoped profile/credential editor and metadata probe; UI now distinguishes metadata access from final tax acceptance.",
+      "current_sha256": "2d8d079a9886e6046a988226882db869a87ad2684e803e4c137e0325e38d0669",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/moadian/InvoiceCore.kt",
+      "reviewed_head_sha256": "90277b590e53631ea574082e5dc160c03acb8f8e80e51111aa6c7830f4b3cfb2",
+      "lines": 88,
+      "review_note": "Deterministic decimal truncation, bounds and sum checks against supported V7.9 subset; prior local invoice rounding unchanged.",
+      "current_sha256": "90277b590e53631ea574082e5dc160c03acb8f8e80e51111aa6c7830f4b3cfb2",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/moadian/MoadianMeasurementUnits.kt",
+      "reviewed_head_sha256": "530e83f38078e3f4fc84eadf4bfd0c31e01ced681d7d36dcef81394711adda97",
+      "lines": 112,
+      "review_note": "Static official unit catalogue from supplied bundle, no invented runtime lookup; catalogue/contract tests.",
+      "current_sha256": "530e83f38078e3f4fc84eadf4bfd0c31e01ced681d7d36dcef81394711adda97",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/moadian/TaxIdGenerator.kt",
+      "reviewed_head_sha256": "43539b7c8b16d545a47726fba541665d324591002dea15dcc8927f21ff4c984a",
+      "lines": 49,
+      "review_note": "Official example/check digit, UTC day and serial bounds; no claim of remote uniqueness.",
+      "current_sha256": "43539b7c8b16d545a47726fba541665d324591002dea15dcc8927f21ff4c984a",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/main/java/ir/saba/moadian/TaxInvoiceContract.kt",
+      "reviewed_head_sha256": "4a8d60aebb0b98445b72d1eb0588f938941e570bb6670bd2c81fb009bc24f681",
+      "lines": 52,
+      "review_note": "Cash-subset field limits/totals/checksum/date/unit validation; economic identity restricted to 11 or 14 digits.",
+      "current_sha256": "de80cb1d5013f70672197da73241f1ee65172d15ac5f701d5bf1259a3430d325",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/InvoiceScreenTest.kt",
+      "reviewed_head_sha256": "b7da2a229d2a1b4b0ce592d9498309fa2aa99d2cfc17ed6b14827d060f0a57cc",
+      "lines": 168,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. InvoiceScreenTest.kt",
+      "current_sha256": "b7da2a229d2a1b4b0ce592d9498309fa2aa99d2cfc17ed6b14827d060f0a57cc",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/LegacyRecoveryScreenTest.kt",
+      "reviewed_head_sha256": "0bfc8ae592c0f4a56c0f8fc9463d5f37c5ad46c26b5b2c052c80c2eaa48b1cef",
+      "lines": 46,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. LegacyRecoveryScreenTest.kt",
+      "current_sha256": "0bfc8ae592c0f4a56c0f8fc9463d5f37c5ad46c26b5b2c052c80c2eaa48b1cef",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/MoadianScreenTest.kt",
+      "reviewed_head_sha256": "6317b66f99851847935b4dd00892731645d79f47bbc98492c9a48a76d5c2211c",
+      "lines": 74,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. MoadianScreenTest.kt",
+      "current_sha256": "6317b66f99851847935b4dd00892731645d79f47bbc98492c9a48a76d5c2211c",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/OfficialSubmissionScreenTest.kt",
+      "reviewed_head_sha256": "841c0c01cb12548b242135d39cd0d3d2036e90eb36a03815e0b45ceecddc3c3c",
+      "lines": 73,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. OfficialSubmissionScreenTest.kt",
+      "current_sha256": "0234a314634365d6f997c5e2814e2c40118c3d97e3d24d6e6eab790d8d36d822",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/TaxpayerConnectionScreenTest.kt",
+      "reviewed_head_sha256": "b6fcb84cb7d14ab729009e11de944ee3314babafce71776fee241975a40c0948",
+      "lines": 52,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxpayerConnectionScreenTest.kt",
+      "current_sha256": "b6fcb84cb7d14ab729009e11de944ee3314babafce71776fee241975a40c0948",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/AccountDatabaseIsolationTest.kt",
+      "reviewed_head_sha256": "d445a18a59984549b38cce566c1d79433065ffc8eeaf6f920403098939fad3dc",
+      "lines": 33,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. AccountDatabaseIsolationTest.kt",
+      "current_sha256": "db322a9211ab2cab7b311ef8cdfc8ff5aa26ce2dba1c377b3ef6d16104f4e87d",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/AccountExcelIsolationTest.kt",
+      "reviewed_head_sha256": "a1297b3168954771b8260651f8f19caee26308f04ab9f26ce8b5242d88345d79",
+      "lines": 29,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. AccountExcelIsolationTest.kt",
+      "current_sha256": "a1297b3168954771b8260651f8f19caee26308f04ab9f26ce8b5242d88345d79",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/DatabaseMigrationTest.kt",
+      "reviewed_head_sha256": "cc244063efc53f6984783bede2ae2f2a68e2e9aa0f9bb5472a36597ad9e848f6",
+      "lines": 88,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. DatabaseMigrationTest.kt",
+      "current_sha256": "fcedab3c2e2b8ac4b3eba6ef1315cc4db02cb5d7373cdb06f2ca7adfe9554c5e",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/InvoiceCreationCoordinatorTest.kt",
+      "reviewed_head_sha256": "27681dfd126d99a5923d6a253ac6748622f74a72318e6ecdc5279713e2500dc0",
+      "lines": 121,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. InvoiceCreationCoordinatorTest.kt",
+      "current_sha256": "0aa5cc9852e4b1d48f26e9cd80ed0b82da371d326a05eec91dd50e0bed990410",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/InvoiceWorkflowTest.kt",
+      "reviewed_head_sha256": "9886072a9ea78b8b33b076a84eb18da145f0cbbb91298d071ea91f6a4abcbf77",
+      "lines": 241,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. InvoiceWorkflowTest.kt",
+      "current_sha256": "9886072a9ea78b8b33b076a84eb18da145f0cbbb91298d071ea91f6a4abcbf77",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/LegacyAccountImporterTest.kt",
+      "reviewed_head_sha256": "009fb3f53779f6af9019805c8fb79e4e75dd43fa6fd4f1b75b35eddac7ccfeea",
+      "lines": 90,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. LegacyAccountImporterTest.kt",
+      "current_sha256": "0aee5ff76d18014aacddc32582785f4007ac581c33f39346826f963f353e0aa1",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/TaxpayerIdAllocatorTest.kt",
+      "reviewed_head_sha256": "95c17cc931942f5b7973f42ae849dbeb5d04bc72bc8d953b53a498032041646f",
+      "lines": 28,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxpayerIdAllocatorTest.kt",
+      "current_sha256": "95c17cc931942f5b7973f42ae849dbeb5d04bc72bc8d953b53a498032041646f",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/TaxpayerSerialAllocatorTest.kt",
+      "reviewed_head_sha256": "7616019de3a23ff72daab0f055be1a3771dbbc8124e5811dbef66ca6cb91cd99",
+      "lines": 82,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxpayerSerialAllocatorTest.kt",
+      "current_sha256": "7616019de3a23ff72daab0f055be1a3771dbbc8124e5811dbef66ca6cb91cd99",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/domain/MoadianFieldValidationTest.kt",
+      "reviewed_head_sha256": "ecc2d43fae48336bb51326d640b610b802a568016197edcb5f2df6e2da3737fd",
+      "lines": 41,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. MoadianFieldValidationTest.kt",
+      "current_sha256": "b1a680fe26a123bf3f681c88138eaa71d0b3a66a991196bbba245d8b502b9e3e",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/integration/TaxSubmissionPreflightTest.kt",
+      "reviewed_head_sha256": "7e4c27212195ced12534319f83661ade16fbffc6801064af20b7927373725ca5",
+      "lines": 35,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxSubmissionPreflightTest.kt",
+      "current_sha256": "7e4c27212195ced12534319f83661ade16fbffc6801064af20b7927373725ca5",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/AccountScopeTest.kt",
+      "reviewed_head_sha256": "d7e45b2b5e1ed3d500d4b463611ad67c32f720b83a7aef062e613db40877dc51",
+      "lines": 30,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. AccountScopeTest.kt",
+      "current_sha256": "d7e45b2b5e1ed3d500d4b463611ad67c32f720b83a7aef062e613db40877dc51",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/MoadianInvoiceMapperTest.kt",
+      "reviewed_head_sha256": "5681ddbb20e75b4b07abdb265951a46777774d2c4a1e6cda549d1b8a9eb1423f",
+      "lines": 67,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. MoadianInvoiceMapperTest.kt",
+      "current_sha256": "5681ddbb20e75b4b07abdb265951a46777774d2c4a1e6cda549d1b8a9eb1423f",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/MoadianJweTest.kt",
+      "reviewed_head_sha256": "663c7cad17dc9f8a95472e2c6f88c8e35316ee26d4c6779f37d93bba40e02675",
+      "lines": 47,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. MoadianJweTest.kt",
+      "current_sha256": "663c7cad17dc9f8a95472e2c6f88c8e35316ee26d4c6779f37d93bba40e02675",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/MoadianSignedReceiptTest.kt",
+      "reviewed_head_sha256": "971009eb56a16d1bf42c01955f04f48f0bcba45fc2b56e32c154a2784d6283af",
+      "lines": 46,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. MoadianSignedReceiptTest.kt",
+      "current_sha256": "971009eb56a16d1bf42c01955f04f48f0bcba45fc2b56e32c154a2784d6283af",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/OfficialSubmissionServiceTest.kt",
+      "reviewed_head_sha256": "41db65ec794744ed32825a46ac4a77629617c3e74b1382e4afb30fa2639d2b62",
+      "lines": 232,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. OfficialSubmissionServiceTest.kt",
+      "current_sha256": "0f20ee5c3804aaab139570568ce254e29971046846f270a4f02a561a20ae93b4",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/ScopedTaxpayerKeyVaultTest.kt",
+      "reviewed_head_sha256": "29c5830ceac175603c19843f2f205aa513b2017ff88a03955e710fe19952c684",
+      "lines": 21,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. ScopedTaxpayerKeyVaultTest.kt",
+      "current_sha256": "29c5830ceac175603c19843f2f205aa513b2017ff88a03955e710fe19952c684",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/TaxpayerCredentialRepositoryTest.kt",
+      "reviewed_head_sha256": "5ce816d115f532376796c68467794c46daba1e45ff4bbc43655f8741396999c5",
+      "lines": 134,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxpayerCredentialRepositoryTest.kt",
+      "current_sha256": "5ce816d115f532376796c68467794c46daba1e45ff4bbc43655f8741396999c5",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/TestCertificates.kt",
+      "reviewed_head_sha256": "b65b5a60127c4a3c412f0854e1bf9b6916aced1b202690630db3d926478a38bb",
+      "lines": 23,
+      "review_note": "Runtime synthetic self-signed fixture generator, no real taxpayer keys or certificates committed.",
+      "current_sha256": "b65b5a60127c4a3c412f0854e1bf9b6916aced1b202690630db3d926478a38bb",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/ui/InvoicePdfValidationTest.kt",
+      "reviewed_head_sha256": "e1d5ce08887d13a1f36a5b2d27249cb169403d51bd03ec14c61ec577d31bbce2",
+      "lines": 48,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. InvoicePdfValidationTest.kt",
+      "current_sha256": "e1d5ce08887d13a1f36a5b2d27249cb169403d51bd03ec14c61ec577d31bbce2",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/moadian/InvoiceCoreTest.kt",
+      "reviewed_head_sha256": "d607bd12ac115bc77bd6f605346573d011695c56e7cdab4f44044bea00bb5908",
+      "lines": 54,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. InvoiceCoreTest.kt",
+      "current_sha256": "d607bd12ac115bc77bd6f605346573d011695c56e7cdab4f44044bea00bb5908",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/moadian/TaxIdGeneratorTest.kt",
+      "reviewed_head_sha256": "02c39aa52e06a2f8d40c1a643e54499cfe504a63f7e5b3a7edb593ef53d21a4a",
+      "lines": 66,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxIdGeneratorTest.kt",
+      "current_sha256": "02c39aa52e06a2f8d40c1a643e54499cfe504a63f7e5b3a7edb593ef53d21a4a",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "app/src/test/java/ir/saba/moadian/TaxInvoiceContractTest.kt",
+      "reviewed_head_sha256": "794ddfe5bb2395336222863740bd33fd37b260f402b63511c57559df4f4332c0",
+      "lines": 46,
+      "review_note": "Reviewed regression inputs/assertions and isolation of test fixtures; included in JVM/Robolectric execution. TaxInvoiceContractTest.kt",
+      "current_sha256": "f30e713b5af6c8d294ba6c84e4dd8c32ab08a557d984afc5b4e81f68234a209d",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "docs/development/SURA_ANDROID_INSPECTION_2026-11-03.md",
+      "reviewed_head_sha256": "4d6b6d4084638f89ec55ec11370bd51e610d9547177521b7e249277843115c37",
+      "lines": 80,
+      "review_note": "Historical documentation/reference manifest reviewed for scope and unresolved prerequisites; historical counts are not current certification. Superseded by phase-2 report; vendor binaries/keys are not included.",
+      "current_sha256": "5280107df60bd9e291f616bee7660a7910943c403b2bff2f3a9465122ffe7385",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "docs/development/SURA_MULTI_ACCOUNT_2026-11-03_FA.md",
+      "reviewed_head_sha256": "c9f523e8b8b0104685dd21cf7eb234d07573ef2c602af58afc3ba9991537eae8",
+      "lines": 71,
+      "review_note": "Historical documentation/reference manifest reviewed for scope and unresolved prerequisites; historical counts are not current certification. Superseded by phase-2 report; vendor binaries/keys are not included.",
+      "current_sha256": "bb4499360c1161fc3d6f22cd000e1623345b0743e0a913e8d9853202a7d0735d",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "docs/development/SURA_OFFICIAL_SUBMISSION_2026-11-03_FA.md",
+      "reviewed_head_sha256": "905fea95c82b9074597efbef939d8d42f2b90e4e67068d1b220027492e176e51",
+      "lines": 79,
+      "review_note": "Historical documentation/reference manifest reviewed for scope and unresolved prerequisites; historical counts are not current certification. Superseded by phase-2 report; vendor binaries/keys are not included.",
+      "current_sha256": "a5975c33f1def01bf92f00aec2239ff78139465f527e20ff5b6de0b3454a319a",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "docs/moadian/SUPPLIED_BUNDLE_REVIEW_2026-11-03_FA.md",
+      "reviewed_head_sha256": "f2c254b503f4576dcb782bb967008adabef694d03831a1dc8175a1a5467c57b8",
+      "lines": 88,
+      "review_note": "Historical documentation/reference manifest reviewed for scope and unresolved prerequisites; historical counts are not current certification. Superseded by phase-2 report; vendor binaries/keys are not included.",
+      "current_sha256": "f2c254b503f4576dcb782bb967008adabef694d03831a1dc8175a1a5467c57b8",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "docs/moadian/supplied-bundle-manifest.json",
+      "reviewed_head_sha256": "aa47148dbd9c4ea2a2f8dd482584f5bb8b82153e814ca8234bb29c1ad9d272e8",
+      "lines": 119,
+      "review_note": "Historical documentation/reference manifest reviewed for scope and unresolved prerequisites; historical counts are not current certification. Superseded by phase-2 report; vendor binaries/keys are not included.",
+      "current_sha256": "aa47148dbd9c4ea2a2f8dd482584f5bb8b82153e814ca8234bb29c1ad9d272e8",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    },
+    {
+      "path": "docs/plans/2026-11-03-official-submission-and-legacy.md",
+      "reviewed_head_sha256": "ef11712c7b9ca5b7deb3bf41116c229e49002f2ac8100e5517eee921874925a7",
+      "lines": 10,
+      "review_note": "Historical documentation/reference manifest reviewed for scope and unresolved prerequisites; historical counts are not current certification. Superseded by phase-2 report; vendor binaries/keys are not included.",
+      "current_sha256": "ef11712c7b9ca5b7deb3bf41116c229e49002f2ac8100e5517eee921874925a7",
+      "review_type": "static source/diff and linked local tests; no production verification"
+    }
+  ],
+  "phase2_added_source_and_test_files": [
+    {
+      "path": "app/schemas/ir.saba.invoice.data.SabaDatabase/10.json",
+      "current_sha256": "524d32f8250cbfb30808537f16245642d8289a55c2ac97a757ab7658b847c60f",
+      "review_note": "Additive transfer journal and invoice composite FK index; exact historical schema migration fixtures validate Room schema."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/CreditTransferClaim.kt",
+      "current_sha256": "571777c91371c3836141e07a3b2a80d81b0f03689b27407660eb606f454d0249",
+      "review_note": "Durable request, FK restrict and unique active company slot; confirm retains row and frees slot atomically."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/security/AccountSession.kt",
+      "current_sha256": "aa5ba4cf4d8839231d2474e347f4cb63595ead2cb609434b74f5b1516c78c062",
+      "review_note": "Owner routing and strict integer expiry; no local signature/revocation claims; coroutine timer cancellation tested."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/AccountSessionState.kt",
+      "current_sha256": "613a99dd0d6250a06bc39352089f9b8d4cc6997d9101f52a7625a2f6537fcc61",
+      "review_note": "Composition lifecycle observer and expiry coroutine; account unmount on expiry/resume, device lifecycle testing still pending."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/CreditHttpTransport.kt",
+      "current_sha256": "35d03236ab99aa0ca47272104c67114168ddda7333b28fb31f60672bab91d7b3",
+      "review_note": "Fixed authenticated HTTPS origin, no redirect/cache, bounded reply and explicit POST length; FakeHttpURLConnection regression."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/CreditServerResponse.kt",
+      "current_sha256": "2101597b38daf10748e0a2dba3e3133e72d815d0296fd180d0f12c0a0b769898",
+      "review_note": "Strict integer balance/boolean proof, error rejection and exact UUID/amount receipt checks; malformed reply regressions."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/CreditTransferJournal.kt",
+      "current_sha256": "c9564a4ed4ae5be2bce6a6a9e146974307196c4ab8566be1584ef94412eea2b5",
+      "review_note": "Room reservation before HTTP, immutable amount/owner/request, retain confirmed rows; file-backed SQLite concurrency and injected rollback tests."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/InvoicePdfLayout.kt",
+      "current_sha256": "9e34f316bbabd67bd1eeccc0bc2ca3bcabbfa27d239018ff3df0f7a68bab5448",
+      "review_note": "Pure geometry matching A4 row/totals/signature/footer positions; bounded layout tests, no native raster certification."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/data/CommittedSchemaMigrationTest.kt",
+      "current_sha256": "e1ecbc7c1df54b6b872379a04f02250e0186d519c61a758f5f1b957ef1eba5e2",
+      "review_note": "Creates exact committed schema 2/7/8/9 with identity hash and relational data, upgrades to 10, verifies FK/data/trigger/finalization."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/security/AccountSessionTest.kt",
+      "current_sha256": "27a281d1dee2d56eea2850d8a5d3f367cdb6e3ce6a2a5e686b2e712a6727dc50",
+      "review_note": "Strict expiry/owner, deadline monitor, cancellation and reject financial gateway calls before HTTP for invalid token."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/ui/CreditHttpTransportTest.kt",
+      "current_sha256": "1b7eb736125174da36a67eb6ea7895e2f8e99c47d7958a61fe9e95f49ded29c4",
+      "review_note": "Fake connection validates endpoint, headers, fixed length, resource closure, non2xx and oversized/injected replies without network."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/ui/CreditServerResponseTest.kt",
+      "current_sha256": "d8b49b5ab21bbabac368b3abf994a5171025f5e4d713f722d7c4cbac6208c156",
+      "review_note": "Malformed types, flags, negative/large balances, error fields and mismatched receipt identity/amount."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/ui/CreditTransferJournalTest.kt",
+      "current_sha256": "7cbe74f2af5db0bce8f20bcfeba2174937675b33828530bc401f42ca94cec540",
+      "review_note": "Native file-backed SQLite reservation/reopen, exact receipt, stale SavedState, concurrency and failed insert/update rollback."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/ui/InvoicePdfLayoutTest.kt",
+      "current_sha256": "013dbf9d544b4b3bf0f124b9f3401c41fa3e30cb9cff836b9eef6d5af0a70364",
+      "review_note": "Every supported row count 1..14: no totals/signature/footer overlap and page bounds."
+    }
+  ],
+  "phase2_existing_files_outside_original_diff": [
+    {
+      "path": "app/src/main/java/ir/saba/invoice/data/Models.kt",
+      "current_sha256": "c25c54ff7968e726ac062409a82233098262bcd8f3fe76220aa3e0cb86f8c745",
+      "review_note": "Composite invoice (companyId,customerId) index matches v10 migration/schema and removes foreign-key index warning; no data rewrite."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/domain/InvoiceInput.kt",
+      "current_sha256": "f91fc64b52256221f9639c66d5f5a10af2dfffcb28689924613710370b5d0929",
+      "review_note": "Numeric identity helper normalizes Persian/Arabic digits and leading zeros for duplicate detection; printable invoice value remains unchanged."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/AccountScreen.kt",
+      "current_sha256": "38017a1d1485dd816c231117d8588c872bfd79c901e6e1d72cc0262316834ead",
+      "review_note": "UUID v2 profile namespace and owner-keyed composition; do not assign legacy email profile to another UUID."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/CreditTransferClient.kt",
+      "current_sha256": "c1193fb697e47a70e4fd10a21e4e932d7c9d5e69007ce366752bde4b03cadce8",
+      "review_note": "Bounded taxpayer/amount and canonical UUID; original server RPC payloads over shared hardened transport, typed consumption proof."
+    },
+    {
+      "path": "app/src/main/java/ir/saba/invoice/ui/FreeCreditClient.kt",
+      "current_sha256": "0079972788629d5d9fbdb46995fab538231360be638922d35dbbc693c58d4b1b",
+      "review_note": "Strict bounded gift balance and consume/redeem evidence, no local approval fallback, cancellation propagated; device anti-abuse contract unchanged."
+    },
+    {
+      "path": "app/src/test/java/ir/saba/invoice/AccountScreenTest.kt",
+      "current_sha256": "6dc40fd82c89ef0d5a2ea89e3b25af1a394bf9ec5c41a7471f4c767620b2bc90",
+      "review_note": "Existing action regressions updated for mandatory owner argument; same email with distinct UUID does not reveal old contact profile."
+    }
+  ],
+  "validation": {
+    "result": "BUILD SUCCESSFUL",
+    "duration": "6m 44s",
+    "tasks": [
+      ":app:testDebugUnitTest",
+      ":app:compileDebugAndroidTestKotlin",
+      ":app:lintDebug"
+    ],
+    "junit": {
+      "tests": 314,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": 64
+    },
+    "lint": {
+      "Warning": 18
+    },
+    "lint_ids": {
+      "ApplySharedPref": 1,
+      "GradleDependency": 11,
+      "ModifierParameter": 4,
+      "UnusedResources": 1,
+      "MonochromeLauncherIcon": 1
+    },
+    "apk_files": 0,
+    "device_tests_executed": false,
+    "live_financial_or_tax_requests_executed": false,
+    "base_ancestor_checked": "61f260f"
+  }
+}

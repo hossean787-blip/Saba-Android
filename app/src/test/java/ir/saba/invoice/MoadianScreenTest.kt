@@ -32,7 +32,7 @@ class MoadianScreenTest {
         val id = runBlocking { db.companyDao().insert(Company(purchaserId = "owner", name = "مودی اول", nationalId = "12345678901")) }
         val rows = runBlocking { db.companyDao().all() }
         compose.setContent { MaterialTheme {
-            MoadianScreen(db, rows, {}, {}, {}, {})
+            MoadianScreen(db, "owner", rows, {}, {}, {}, {})
         } }
         compose.onNodeWithText("مودی اول").performClick()
         compose.onNodeWithText("جدید").performClick()
@@ -42,7 +42,7 @@ class MoadianScreenTest {
     @Test fun allFourTaxpayerTypesRenderInOneVisualRow() {
         val rows = runBlocking { db.companyDao().all() }
         compose.setContent { MaterialTheme {
-            MoadianScreen(db, rows, {}, {}, {}, {})
+            MoadianScreen(db, "owner", rows, {}, {}, {}, {})
         } }
         compose.onNodeWithText("جدید").performClick()
         val kinds = listOf("شخص حقیقی", "شخص حقوقی", "مشارکت مدنی", "اتباع غیرایرانی")
@@ -59,7 +59,7 @@ class MoadianScreenTest {
         val rows = runBlocking { db.companyDao().all() }
         val changes = AtomicInteger()
         compose.setContent { MaterialTheme {
-            MoadianScreen(db, rows, { changes.incrementAndGet(); Unit }, {}, {}, {})
+            MoadianScreen(db, "owner", rows, { changes.incrementAndGet(); Unit }, {}, {}, {})
         } }
         compose.onNodeWithText("مودی اول").performClick()
         compose.onNodeWithText("حذف").performClick()

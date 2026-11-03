@@ -32,6 +32,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Dao interface LegacyQuotaExemptionDao {
     @Query("SELECT COUNT(*) FROM legacy_quota_exemptions WHERE invoiceId = :invoiceId")
     suspend fun contains(invoiceId: Long): Int
+    @Insert suspend fun insert(row: LegacyQuotaExemption)
 }
 
 @Dao interface CustomerProfileDao {
@@ -66,7 +67,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class], version = 7, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class, InvoiceCreationClaim::class, OfficialSubmission::class, LegacyImportReceipt::class, CreditTransferClaim::class], version = 10, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
         internal val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -129,15 +130,67 @@ abstract class SabaDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_profiles_companyId ON customer_profiles(companyId)")
             }
         }
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS invoice_creation_claims (requestId TEXT NOT NULL PRIMARY KEY, ownerId TEXT NOT NULL, companyId INTEGER NOT NULL, creditKind TEXT NOT NULL, payloadJson TEXT NOT NULL, invoiceId INTEGER, activeCompanyId INTEGER, FOREIGN KEY(companyId) REFERENCES companies(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_invoice_creation_claims_companyId ON invoice_creation_claims(companyId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_invoice_creation_claims_activeCompanyId ON invoice_creation_claims(activeCompanyId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_invoice_creation_claims_invoiceId ON invoice_creation_claims(invoiceId)")
+            }
+        }
+        internal val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS official_submissions (requestId TEXT NOT NULL PRIMARY KEY, ownerId TEXT NOT NULL, companyId INTEGER NOT NULL, invoiceId INTEGER NOT NULL, fiscalId TEXT NOT NULL, taxId TEXT NOT NULL, payload TEXT NOT NULL, payloadHash TEXT NOT NULL, preparedAt INTEGER NOT NULL, state TEXT NOT NULL, referenceNumber TEXT, lastError TEXT, signedReceipt TEXT, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_official_submissions_invoiceId ON official_submissions(invoiceId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_official_submissions_taxId ON official_submissions(taxId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS legacy_import_receipts (companyId INTEGER NOT NULL PRIMARY KEY, ownerId TEXT NOT NULL, importedAt INTEGER NOT NULL)")
+            }
+        }
+        internal val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS credit_transfer_claims (requestId TEXT NOT NULL PRIMARY KEY, ownerId TEXT NOT NULL, companyId INTEGER NOT NULL, amount INTEGER NOT NULL, confirmed INTEGER NOT NULL, activeCompanyId INTEGER, receiptJson TEXT, FOREIGN KEY(companyId) REFERENCES companies(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_credit_transfer_claims_companyId ON credit_transfer_claims(companyId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_credit_transfer_claims_activeCompanyId ON credit_transfer_claims(activeCompanyId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_invoices_companyId_customerId ON invoices(companyId,customerId)")
+            }
+        }
+        /** New commercial accounts never open or automatically claim the unowned legacy database. */
+        fun openAccount(context: Context, account: ir.saba.invoice.security.AccountScope): SabaDatabase =
+            Room.databaseBuilder(context.applicationContext, SabaDatabase::class.java, account.databaseName)
+                .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        // An account-local AUTOINCREMENT must never reuse an existing server taxpayer ID.
+                        db.execSQL("CREATE TRIGGER account_taxpayer_id_required BEFORE INSERT ON companies WHEN NEW.id < 1 BEGIN SELECT RAISE(ABORT, 'Explicit globally allocated taxpayer ID required'); END")
+                    }
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        // Financial request IDs must reach durable storage before external operations.
+                        // Room disables WAL here but SQLite/OEM defaults may still choose another journal.
+                        db.query("PRAGMA journal_mode=TRUNCATE").use { result ->
+                            check(result.moveToFirst() && result.getString(0).equals("truncate",ignoreCase=true))
+                        }
+                        db.execSQL("PRAGMA synchronous=FULL")
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS account_taxpayer_id_required BEFORE INSERT ON companies WHEN NEW.id < 1 BEGIN SELECT RAISE(ABORT, 'Explicit globally allocated taxpayer ID required'); END")
+                        // ownerId is a canonical UUID from AccountScope; it cannot contain SQL syntax.
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS account_owner_insert BEFORE INSERT ON companies WHEN NEW.purchaserId != '${account.ownerId}' BEGIN SELECT RAISE(ABORT, 'Taxpayer owner differs from account database'); END")
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS account_owner_update BEFORE UPDATE ON companies WHEN NEW.purchaserId != '${account.ownerId}' OR OLD.purchaserId != '${account.ownerId}' BEGIN SELECT RAISE(ABORT, 'Taxpayer owner differs from account database'); END")
+                    }
+                })
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build()
+
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { INSTANCE = it }
         }
     }
+    abstract fun creditTransferClaimDao(): CreditTransferClaimDao
+    abstract fun officialSubmissionDao(): OfficialSubmissionDao
+    abstract fun legacyImportReceiptDao(): LegacyImportReceiptDao
+    abstract fun invoiceCreationClaimDao(): InvoiceCreationClaimDao
     abstract fun legacyQuotaExemptionDao(): LegacyQuotaExemptionDao
     abstract fun moadianDetailsDao(): MoadianDetailsDao
     abstract fun companyDao(): CompanyDao

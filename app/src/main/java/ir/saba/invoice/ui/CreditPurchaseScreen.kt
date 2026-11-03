@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +30,15 @@ private val sky = Color(0xFFDAEEFF)
 private val violet = Color(0xFF8046CE)
 
 @Composable
-fun CreditPurchaseScreen(accessToken: String) {
+fun CreditPurchaseScreen(ownerId: String, accessToken: String) {
+    val states = rememberSaveableStateHolder()
+    states.SaveableStateProvider(ir.saba.invoice.security.AccountScope.of(ownerId).storageKey) {
+        key(ownerId) { CreditPurchaseContent(ownerId,accessToken) }
+    }
+}
+
+@Composable
+private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var promoCode by remember { mutableStateOf("") }
@@ -264,19 +273,20 @@ fun CreditPurchaseScreen(accessToken: String) {
                             promoBusy = true
                             promoMessage = ""
                             scope.launch {
-                                val result = FreeCreditClient.redeem(context, accessToken, promoCode)
-                                promoMessage = result.fold(
-                                    onSuccess = { promoGranted = true; "۳ اعتبار هدیه در سرور ثبت شد." },
-                                    onFailure = { it.message ?: "دریافت هدیه ناموفق بود." }
-                                )
-                                promoBusy = false
+                                try {
+                                    ir.saba.invoice.security.AccountSession.requireOwner(accessToken,ir.saba.invoice.security.AccountScope.of(ownerId))
+                                    FreeCreditClient.redeem(context,accessToken,promoCode).getOrThrow()
+                                    promoGranted=true;promoMessage="۳ اعتبار هدیه در سرور ثبت شد."
+                                } catch(e:kotlinx.coroutines.CancellationException) { throw e }
+                                catch(e:Exception) { promoMessage=e.message ?: "دریافت هدیه ناموفق بود." }
+                                finally { promoBusy=false }
                             }
                         }) { Text(if (promoBusy) "در حال بررسی…" else "فعال‌سازی هدیه") }
                     if (promoMessage.isNotBlank()) Text(promoMessage, color = deepBlue,
                         style = MaterialTheme.typography.bodySmall)
                     Text("شناسه دستگاه برای جلوگیری از دریافت تکراری بررسی می‌شود. IP به‌تنهایی معیار مسدودسازی نیست.",
                         style = MaterialTheme.typography.labelSmall, color = Color(0xFF687A89))
-                    Text("مصرف این اعتبار برای ثبت فاکتور، پس از اتصال کیف پول سرور فعال می‌شود.",
+                    Text("مصرف اعتبار برای هر فاکتور جدید نیازمند تأیید سرور است.",
                         style = MaterialTheme.typography.labelSmall, color = Color(0xFF977425))
                 }
             }

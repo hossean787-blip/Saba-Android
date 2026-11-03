@@ -10,6 +10,13 @@ object InvoiceInput {
         }
     }.joinToString("")
 
+    /** Numeric invoice numbers have one identity even with Persian digits or leading zeroes. */
+    fun number(value: String): String {
+        val normalized = digits(value).trim()
+        return if (normalized.isNotEmpty() && normalized.all { it in '0'..'9' })
+            normalized.trimStart('0').ifEmpty { "0" } else normalized
+    }
+
     fun wholeNumber(value: String, label: String): Long {
         val normalized = digits(value).trim()
         require(normalized.isNotEmpty() && normalized.all { it in '0'..'9' }) {

@@ -1,5 +1,7 @@
 package ir.saba.invoice.integration
 
+import ir.saba.moadian.TaxIdGenerator
+
 /** Pure, offline preflight. Never transmits data or loads private keys. */
 data class TaxSubmissionRequest(
     val invoiceId: Long,
@@ -19,8 +21,10 @@ object TaxSubmissionPreflight {
         val errors = mutableListOf<String>()
         if (request.invoiceId <= 0) errors += "شناسه صورتحساب نامعتبر است"
         if (request.companyId <= 0) errors += "شناسه مؤدی نامعتبر است"
-        if (request.fiscalMemoryId.isBlank()) errors += "شناسه حافظه مالیاتی الزامی است"
-        if (request.taxId.isBlank()) errors += "شماره منحصر‌به‌فرد مالیاتی الزامی است"
+        if (!request.fiscalMemoryId.matches(Regex("[A-Z0-9]{6}"))) errors += "شناسه حافظه مالیاتی معتبر نیست"
+        val parts = try { TaxIdGenerator.validate(request.taxId) } catch (_: IllegalArgumentException) { null }
+        if (parts == null) errors += "ساختار یا رقم کنترلی شماره مالیاتی معتبر نیست"
+        else if (parts.memoryId != request.fiscalMemoryId) errors += "شماره مالیاتی متعلق به حافظه مالیاتی انتخاب‌شده نیست"
         if (request.payloadJson.isBlank()) errors += "محتوای صورتحساب خالی است"
         if (request.payloadJson.isNotBlank() && !request.payloadJson.trimStart().startsWith("{")) {
             errors += "ساختار اولیه JSON صورتحساب نامعتبر است"
@@ -37,6 +41,9 @@ class PreflightOnlyTaxpayerGateway(
         if (invoiceId <= 0) return TaxpayerSubmission(TaxpayerState.REJECTED, message = "شناسه نامعتبر")
         val invoice = loadInvoice(invoiceId)
             ?: return TaxpayerSubmission(TaxpayerState.REJECTED, message = "صورتحساب یافت نشد")
+        if (invoice.invoiceId != invoiceId) return TaxpayerSubmission(
+            TaxpayerState.REJECTED, message = "شناسه صورتحساب با درخواست مطابقت ندارد"
+        )
         return when (val result = TaxSubmissionPreflight.check(invoice)) {
             is TaxPreflightResult.Invalid -> TaxpayerSubmission(TaxpayerState.REJECTED, message = result.errors.joinToString("؛ "))
             is TaxPreflightResult.Ready -> TaxpayerSubmission(

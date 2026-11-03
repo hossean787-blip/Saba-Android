@@ -1,0 +1,134 @@
+package ir.saba.invoice.security
+
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import ir.saba.invoice.data.*
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.security.KeyPairGenerator
+import java.security.Signature
+import java.time.Instant
+import java.util.Base64
+import javax.crypto.KeyGenerator
+import org.json.JSONObject
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
+class TaxpayerCredentialRepositoryTest {
+    private val account=AccountScope.of("11111111-1111-4111-8111-111111111111")
+    private val otherAccount=AccountScope.of("22222222-2222-4222-8222-222222222222")
+    private val now=Instant.parse("2026-11-03T12:00:00Z").toEpochMilli()
+    private lateinit var db:SabaDatabase
+    private lateinit var prefs:android.content.SharedPreferences
+    private lateinit var repository:TaxpayerCredentialRepository
+    private var first=0L;private var second=0L;private var foreign=0L
+    companion object {
+        private val keyA by lazy { KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair() }
+        private val keyB by lazy { KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair() }
+    }
+    @Before fun setup()=runBlocking {
+        val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+        db=Room.inMemoryDatabaseBuilder(context,SabaDatabase::class.java).build()
+        prefs=context.getSharedPreferences("credential_test",0);prefs.edit().clear().commit()
+        val wrapping=KeyGenerator.getInstance("AES").apply{init(256)}.generateKey()
+        repository=TaxpayerCredentialRepository(db,account,prefs,TaxpayerKeyVault{wrapping})
+        first=db.companyDao().insert(Company(purchaserId=account.ownerId,name="اول",nationalId="1"))
+        second=db.companyDao().insert(Company(purchaserId=account.ownerId,name="دوم",nationalId="2"))
+        foreign=db.companyDao().insert(Company(purchaserId=otherAccount.ownerId,name="بیگانه",nationalId="3"))
+        for ((id,memory) in listOf(first to "A11216",second to "ABC123",foreign to "A11216"))
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId=id,fiscalMemoryId=memory))
+    }
+    @After fun close(){db.close()}
+    private suspend fun saveA()=repository.save(first,TestCertificates.pem(keyA),TestCertificates.certificate(keyA),now)
+    private suspend fun rejected(block:suspend()->Unit){
+        try {block();fail("Expected credential rejection")}catch(_:IllegalArgumentException){}
+    }
+    @Test fun encryptsPrivateKeyAndRestoresOnlyItsScopedProfile()=runBlocking {
+        val profile=saveA()
+        assertEquals(TaxpayerIdentity(account,first,"A11216"),profile.identity)
+        val raw=prefs.getString("company_$first",null)!!
+        assertFalse(raw.contains("PRIVATE KEY"));assertFalse(raw.contains(Base64.getEncoder().encodeToString(keyA.private.encoded)))
+        assertEquals(profile.certificateSha256,repository.profile(first,now)!!.certificateSha256)
+    }
+    @Test fun foreignAccountCannotSaveOrReadCredentials()=runBlocking {
+        rejected{repository.save(foreign,TestCertificates.pem(keyA),TestCertificates.certificate(keyA),now)}
+        rejected{repository.profile(foreign,now)}
+        assertFalse(prefs.contains("company_$foreign"))
+    }
+    @Test fun mismatchedOrExpiredCertificateDoesNotOverwriteGoodProfile()=runBlocking {
+        val profile=saveA()
+        rejected{repository.save(first,TestCertificates.pem(keyA),TestCertificates.certificate(keyB),now)}
+        try {repository.save(first,TestCertificates.pem(keyA),TestCertificates.certificate(keyA,true),now);fail("Expected expiry rejection")}catch(_:java.security.cert.CertificateException){}
+        assertEquals(profile.certificateSha256,repository.profile(first,now)!!.certificateSha256)
+    }
+    @Test fun changedFiscalMemoryCannotReuseOldCredentialEnvelope()=runBlocking {
+        saveA()
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId="ZZZ999"))
+        rejected{repository.profile(first,now)}
+    }
+    @Test fun copyingCredentialRecordToAnotherTaxpayerFails()=runBlocking {
+        saveA()
+        prefs.edit().putString("company_$second",prefs.getString("company_$first",null)).commit()
+        rejected{repository.profile(second,now)}
+    }
+    @Test fun removingOneTaxpayerPreservesOthers()=runBlocking {
+        saveA();repository.save(second,TestCertificates.pem(keyB),TestCertificates.certificate(keyB),now)
+        repository.remove(first)
+        assertNull(repository.profile(first,now));assertNotNull(repository.profile(second,now))
+    }
+    @Test fun v2AuthorizationUsesSelectedTaxpayerKeyCertificateAndMemory()=runBlocking {
+        saveA();repository.save(second,TestCertificates.pem(keyB),TestCertificates.certificate(keyB),now)
+        val challenge=TaxpayerNonce(TaxpayerIdentity(account,second,"ABC123"),"synthetic-nonce",now+30000)
+        val jws=MoadianV2Signer(repository).authorization(second,challenge,now)
+        val parts=jws.split('.')
+        val decoder=Base64.getUrlDecoder()
+        val header=JSONObject(String(decoder.decode(parts[0])))
+        val payload=JSONObject(String(decoder.decode(parts[1])))
+        assertEquals("ABC123",payload.getString("clientId"));assertEquals("synthetic-nonce",payload.getString("nonce"))
+        assertEquals("RS256",header.getString("alg"));assertEquals("sigT",header.getJSONArray("crit").getString(0))
+        assertEquals("2026-11-03T12:00:00Z",header.getString("sigT"))
+        assertArrayEquals(TestCertificates.certificate(keyB),Base64.getDecoder().decode(header.getJSONArray("x5c").getString(0)))
+        val signed=(parts[0]+"."+parts[1]).toByteArray(Charsets.US_ASCII)
+        assertTrue(Signature.getInstance("SHA256withRSA").run{initVerify(keyB.public);update(signed);verify(decoder.decode(parts[2]))})
+        assertFalse(Signature.getInstance("SHA256withRSA").run{initVerify(keyA.public);update(signed);verify(decoder.decode(parts[2]))})
+    }
+    @Test fun expiredForeignAndReplayedNoncesCannotAuthorize()=runBlocking {
+        saveA();val signer=MoadianV2Signer(repository)
+        rejected{signer.authorization(first,TaxpayerNonce(TaxpayerIdentity(otherAccount,first,"A11216"),"nonce",now+30000),now)}
+        rejected{signer.authorization(first,TaxpayerNonce(TaxpayerIdentity(account,first,"A11216"),"nonce",now),now)}
+        val nonce=TaxpayerNonce(TaxpayerIdentity(account,first,"A11216"),"nonce",now+30000)
+        signer.authorization(first,nonce,now)
+        try{signer.authorization(first,nonce,now);fail("Expected replay rejection")}catch(_:IllegalStateException){}
+    }
+    @Test fun recreatedNonceObjectCannotBypassSignerReplayCheck()=runBlocking {
+        saveA();val signer=MoadianV2Signer(repository)
+        val identity=TaxpayerIdentity(account,first,"A11216")
+        signer.authorization(first,TaxpayerNonce(identity,"one-use",now+30000),now)
+        try{signer.authorization(first,TaxpayerNonce(identity,"one-use",now+30000),now);fail("Expected repeated nonce rejection")}catch(_:IllegalStateException){}
+    }
+    @Test fun connectionDiagnosticUsesOnlySelectedIdentityAndDoesNotSubmitInvoices()=runBlocking {
+        saveA();val paths=mutableListOf<String>()
+        val transport=object:MoadianPublicTransport {
+            override suspend fun nonce():String {paths+="nonce";return JSONObject().put("nonce","probe-nonce").put("expDate",Instant.ofEpochMilli(now+30000).toString()).toString()}
+            override suspend fun serverInformation(authorization:String):String {
+                paths+="server-information"
+                val payload=JSONObject(String(Base64.getUrlDecoder().decode(authorization.split('.')[1])))
+                assertEquals("A11216",payload.getString("clientId"))
+                return """{"serverTime":1,"publicKeys":[{"id":"synthetic"}]}"""
+            }
+        }
+        MoadianConnectionProbe(repository,transport){now}.check(first)
+        assertEquals(listOf("nonce","server-information"),paths)
+        assertTrue(db.invoiceDao().forCompany(first).isEmpty())
+    }
+    @Test fun inactiveTaxpayerCannotAuthorize()=runBlocking {
+        saveA();db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId="A11216",inactive=true))
+        rejected{MoadianV2Signer(repository).authorization(first,TaxpayerNonce(TaxpayerIdentity(account,first,"A11216"),"nonce",now+30000),now)}
+    }
+}

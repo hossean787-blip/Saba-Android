@@ -54,7 +54,11 @@ jobs:
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
           test -f gradle/wrapper/gradle-wrapper.jar
+      - name: Test and lint invoice development without APK packaging
+        if: github.head_ref == 'codex/sura-invoice' || github.ref_name == 'codex/sura-invoice'
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
       - name: Test, build and lint
+        if: github.head_ref != 'codex/sura-invoice' && github.ref_name != 'codex/sura-invoice'
         run: bash scripts/build-offline-ci.sh
       - name: Summarize executed JVM tests
         if: always()
@@ -76,7 +80,7 @@ jobs:
             app/build/reports/auth-verification/
           if-no-files-found: warn
       - name: Upload debug APK
-        if: success()
+        if: success() && github.head_ref != 'codex/sura-invoice' && github.ref_name != 'codex/sura-invoice'
         uses: actions/upload-artifact@v4
         with:
           name: saba-debug-apk

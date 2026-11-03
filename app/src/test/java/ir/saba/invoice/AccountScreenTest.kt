@@ -1,6 +1,9 @@
 package ir.saba.invoice
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.*
+import androidx.test.core.app.ApplicationProvider
+import ir.saba.invoice.security.AccountScope
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import ir.saba.invoice.ui.AccountScreen
@@ -21,7 +24,7 @@ class AccountScreenTest {
         var transfers = 0
         var logouts = 0
         compose.setContent { MaterialTheme {
-            AccountScreen(3, 7, false, "مالک آزمایشی", "owner@example.com",
+            AccountScreen("11111111-1111-4111-8111-111111111111",3, 7, false, "مالک آزمایشی", "owner@example.com",
                 { transfers++ }, { logouts++ })
         } }
         val personal = compose.onNodeWithTag("personalInfo").assertExists()
@@ -43,7 +46,7 @@ class AccountScreenTest {
 
     @Test fun verifiedProfileIsShownAndUnavailableBackendActionsDontPretendSuccess() {
         compose.setContent { MaterialTheme {
-            AccountScreen(3, 7, false, "مالک آزمایشی", "owner@example.com", {}, {})
+            AccountScreen("11111111-1111-4111-8111-111111111111",3, 7, false, "مالک آزمایشی", "owner@example.com", {}, {})
         } }
         compose.onNodeWithTag("personalInfo").performScrollTo().performClick()
         compose.onNodeWithText("ویرایش مشخصات مالک").assertExists()
@@ -68,4 +71,20 @@ class AccountScreenTest {
         compose.onNodeWithText("بازگشت به حساب کاربری").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, returns) }
     }
+    @Test fun reusedEmailDoesNotShareLocalContactProfileAcrossOwners() {
+        val a=AccountScope.of("11111111-1111-4111-8111-111111111111")
+        val b=AccountScope.of("22222222-2222-4222-8222-222222222222")
+        val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+        val prefs=context.getSharedPreferences("sura_owner_profile_local_v2",0)
+        prefs.edit().putString("name_${a.storageKey}","نام خصوصی حساب اول").commit()
+        var owner by mutableStateOf(a.ownerId)
+        try {
+            compose.setContent {MaterialTheme {AccountScreen(owner,0,0,false,null,"same@example.com",{},{})}}
+            compose.onNodeWithText("نام خصوصی حساب اول").assertExists()
+            compose.runOnIdle {owner=b.ownerId}
+            compose.onNodeWithText("نام خصوصی حساب اول").assertDoesNotExist()
+            compose.onNodeWithText("مالک حساب سورا").assertExists()
+        } finally {prefs.edit().clear().commit()}
+    }
+
 }

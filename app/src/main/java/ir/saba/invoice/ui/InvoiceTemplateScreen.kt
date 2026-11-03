@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
+import ir.saba.invoice.domain.InvoiceCalculator
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.NumberFormat
@@ -30,8 +31,7 @@ import java.util.Locale
 object SuraInvoicePdf {
     private const val W = 595
     private const val H = 842
-    private val formatter = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR"))
-    private fun fmt(n: Long) = formatter.format(n)
+    private fun fmt(n: Long) = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(n)
     private val navy = Color.rgb(12, 50, 78)
     private val blue = Color.rgb(218, 232, 246)
     private val ink = Color.rgb(26, 48, 66)
@@ -40,14 +40,15 @@ object SuraInvoicePdf {
     }
     /** Android StaticLayout handles Persian BiDi and glyph shaping, unlike naïve Canvas.drawText. */
     private fun text(c: Canvas, value: String, right: Float, top: Float, width: Int = 230,
-                     size: Float = 11f, bold: Boolean = false, color: Int = ink) {
+                     size: Float = 11f, bold: Boolean = false, color: Int = ink,
+                     maxLines: Int = 3, includePad: Boolean = true) {
         val p = TextPaint(3).apply { this.color = color; textSize = size
             typeface = if (bold) android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
                        else android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL) }
         val layout = StaticLayout.Builder.obtain(value, 0, value.length, p, width)
             .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
             .setTextDirection(android.text.TextDirectionHeuristics.RTL)
-            .setMaxLines(3).build()
+            .setMaxLines(maxLines).setIncludePad(includePad).build()
         c.save(); c.translate(right - width, top); layout.draw(c); c.restore()
     }
     fun generate(company: Company, customer: Customer, invoice: Invoice,
@@ -55,6 +56,13 @@ object SuraInvoicePdf {
                  stamp: Boolean, qr: Boolean): ByteArray {
         require(invoice.companyId == company.id && customer.companyId == company.id &&
                 invoice.customerId == customer.id) { "Invoice ownership mismatch" }
+        // Reject invalid documents before allocating native PDF resources.
+        require(lines.size <= 14) { "برای PDF تک‌صفحه‌ای حداکثر ۱۴ ردیف مجاز است." }
+        val totals = InvoiceCalculator.calculate(lines)
+        require(invoice.totalAmountRial == totals.totalAmountRial && invoice.taxAmountRial == totals.taxAmountRial) {
+            "جمع مبالغ صورتحساب با اقلام مطابقت ندارد؛ صورتحساب را دوباره بارگذاری کنید."
+        }
+        val geometry = InvoicePdfLayout(lines.size)
         val pdf = PdfDocument()
         try {
             val page = pdf.startPage(PdfDocument.PageInfo.Builder(W, H, 1).create())
@@ -86,26 +94,24 @@ object SuraInvoicePdf {
             rect(c, 22f, y, 574f, y + 31f, blue)
             headers.forEachIndexed { i, h -> text(c, h, right[i], y + 8, widths[i], 10f, true, navy) }
             y += 34f
-            val rowsPerPage = 14
-            require(lines.size <= rowsPerPage) { "برای PDF تک‌صفحه‌ای حداکثر ۱۴ ردیف مجاز است." }
             lines.forEachIndexed { index, line ->
-                if (index % 2 == 0) rect(c, 22f, y, 574f, y + 29f, Color.rgb(245, 250, 254))
+                if (index % 2 == 0) rect(c, 22f, y, 574f, y + geometry.rowHeight - 1, Color.rgb(245, 250, 254))
                 val sum = Math.subtractExact(Math.multiplyExact(line.quantity, line.unitPriceRial), line.discountRial)
                 listOf(line.description, fmt(line.quantity), fmt(line.unitPriceRial), fmt(sum))
-                    .forEachIndexed { i, v -> text(c, v, right[i], y + 6, widths[i], 9f) }
-                y += 30f
+                    .forEachIndexed { i, v -> text(c, v, right[i], y + 2, widths[i], 8f,maxLines=2,includePad=false) }
+                y += geometry.rowHeight
             }
-            val ty = maxOf(y + 25f, 605f)
+            val ty = geometry.totalsTop
             rect(c, 22f, ty, 574f, ty + 105f, Color.rgb(239, 247, 253))
             text(c, "جمع کل: ${fmt(Math.subtractExact(invoice.totalAmountRial, invoice.taxAmountRial))} ریال",
                 557f, ty + 13, 510, 12f, true)
             text(c, "مالیات: ${fmt(invoice.taxAmountRial)} ریال", 557f, ty + 42, 510)
             text(c, "مبلغ نهایی: ${fmt(invoice.totalAmountRial)} ریال",
                 557f, ty + 70, 510, 16f, true, navy)
-            if (stamp) text(c, "محل مهر و امضا", 550f, 750f, 200, 12f, true)
-            if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, 750f, 252, 10f)
+            if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
+            if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
             text(c, "این نسخه چاپی به‌تنهایی نشانه ارسال یا پذیرش در سامانه مؤدیان نیست.",
-                565f, 801f, 533, 9f)
+                565f, geometry.footerTop, 533, 9f)
             pdf.finishPage(page)
             return ByteArrayOutputStream().use { out -> pdf.writeTo(out); out.toByteArray() }
         } finally { pdf.close() }

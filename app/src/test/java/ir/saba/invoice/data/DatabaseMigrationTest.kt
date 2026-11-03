@@ -36,10 +36,15 @@ class DatabaseMigrationTest {
             it.execSQL("DROP TABLE moadian_details")
             it.execSQL("DROP TABLE legacy_quota_exemptions")
             it.execSQL("DROP TABLE customer_profiles")
+            it.execSQL("DROP TABLE credit_transfer_claims")
+            it.execSQL("DROP INDEX index_invoices_companyId_customerId")
+            it.execSQL("DROP TABLE official_submissions")
+            it.execSQL("DROP TABLE legacy_import_receipts")
+            it.execSQL("DROP TABLE invoice_creation_claims")
             it.version = 1
         }
         val upgraded = Room.databaseBuilder(context, SabaDatabase::class.java, name)
-            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7).build()
+            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7, SabaDatabase.MIGRATION_7_8, SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10).build()
         try {
             val details = InvoiceRepository(upgraded).detailsForCompany(company, invoice)
             assertEquals(customer, details.invoice.customerId)
@@ -60,4 +65,28 @@ class DatabaseMigrationTest {
             upgraded.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { assertFalse(it.moveToFirst()) }
         } finally { upgraded.close(); context.deleteDatabase(name) }
     }
+    @Test fun versionEightPendingCreditRequestSurvivesOutboxMigration()=runBlocking {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val name="migration-v8-${System.nanoTime()}.db"
+        var db=Room.databaseBuilder(context,SabaDatabase::class.java,name).build()
+        val owner="11111111-1111-4111-8111-111111111111"
+        val company=db.companyDao().insert(Company(purchaserId=owner,name="قدیمی",nationalId="old"))
+        val claim=InvoiceCreationClaim("22222222-2222-4222-8222-222222222222",owner,company,"PAID","immutable-payload")
+        db.invoiceCreationClaimDao().insert(claim);db.close()
+        SQLiteDatabase.openDatabase(context.getDatabasePath(name).path,null,SQLiteDatabase.OPEN_READWRITE).use {
+            it.execSQL("DROP TABLE credit_transfer_claims")
+            it.execSQL("DROP INDEX index_invoices_companyId_customerId")
+            it.execSQL("DROP TABLE official_submissions")
+            it.execSQL("DROP TABLE legacy_import_receipts")
+            it.version=8
+        }
+        db=Room.databaseBuilder(context,SabaDatabase::class.java,name).addMigrations(SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10).build()
+        try {
+            assertEquals(claim,db.invoiceCreationClaimDao().pending(company))
+            assertTrue(db.officialSubmissionDao().forCompany(company).isEmpty())
+            assertNull(db.legacyImportReceiptDao().byCompany(company))
+            db.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use{assertFalse(it.moveToFirst())}
+        }finally{db.close();context.deleteDatabase(name)}
+    }
+
 }

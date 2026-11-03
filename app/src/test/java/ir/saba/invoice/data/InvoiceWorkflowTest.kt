@@ -47,6 +47,21 @@ class InvoiceWorkflowTest {
         try { action(); fail("Expected rejection") } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun inactiveTaxpayerCannotFinalizeAndCreditIsNotConsumedAgain() = runBlocking {
+        val id = draft()
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId = company, inactive = true))
+        expectRejected { repository.finalizeDraft(company, id) }
+        assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
+        assertEquals(9L, db.quotaDao().companyQuota(company)!!.available)
+    }
+
+    @Test fun invalidPersistedDateCannotFinalize() = runBlocking {
+        val id = draft()
+        db.invoiceDao().update(db.invoiceDao().byId(id)!!.copy(issueDate = "1405/07/31"))
+        expectRejected { repository.finalizeDraft(company, id) }
+        assertEquals("DRAFT", db.invoiceDao().byId(id)!!.status)
+    }
+
     @Test fun savesAndReloadsMultipleLinesAndDiscounts() = runBlocking {
         val id = draft()
         val details = repository.detailsForCompany(company, id)
