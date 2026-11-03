@@ -37,16 +37,17 @@ fun CreditManagementScreen(
                     taxpayerBalance = it.getLong("taxpayerBalance").takeIf { n -> n >= 0 }
                     val pending = pendingRequestId
                     if (pending != null) {
-                        val history = it.optJSONArray("history")
-                        val exists = (0 until (history?.length() ?: 0)).any { idx ->
-                            history?.optJSONObject(idx)?.optString("id") == pending
-                        }
-                        if (exists) {
-                            pendingRequestId = null
-                            message = "انتقال قبلی در سرور ثبت شده است؛ دوباره برداشت نمی‌شود."
-                        } else {
-                            message = "نتیجه انتقال قبلی نامشخص است؛ فقط همان درخواست را تکرار کنید."
-                        }
+                        runCatching { CreditTransferClient.receipt(accessToken, taxpayerId, pending) }
+                            .onSuccess { receipt ->
+                                if (receipt.optString("status") == "transferred" &&
+                                    receipt.optJSONObject("receipt")?.optLong("credits") == amount.toLongOrNull()) {
+                                    pendingRequestId = null
+                                    message = "انتقال قبلی با رسید معتبر در سرور تأیید شد."
+                                } else {
+                                    message = "رسید انتقال قبلی تأیید نشد؛ فقط همان شناسه را تکرار کنید."
+                                }
+                            }
+                            .onFailure { message = "استعلام رسید ناموفق بود؛ درخواست قبلی را با همان شناسه تکرار کنید." }
                     }
                 } else message = "مانده معتبر از سرور دریافت نشد."
             }
