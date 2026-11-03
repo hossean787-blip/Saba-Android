@@ -107,7 +107,7 @@ fun CreditManagementScreen(
         if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall)
         HorizontalDivider()
         OutlinedButton(onClick = onPurchase, modifier = Modifier.fillMaxWidth()) { Text("رفتن به خرید اعتبار") }
-        Text("قیمت هر اعتبار: ۱۰۰٬۰۰۰ ریال؛ مبلغ پرداخت قطعی از سرور دریافت می‌شود.")
+        Text("قیمت پایه هر اعتبار: ۱۰۰٬۰۰۰ ریال + ۱۰٪ ارزش افزوده؛ مبلغ نهایی از سرور استعلام می‌شود.")
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("بازگشت") }
     }
 }
