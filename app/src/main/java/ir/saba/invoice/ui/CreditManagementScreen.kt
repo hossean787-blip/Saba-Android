@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -21,8 +22,8 @@ fun CreditManagementScreen(
     val scope = rememberCoroutineScope()
     var ownerBalance by remember(taxpayerId) { mutableStateOf<Long?>(null) }
     var taxpayerBalance by remember(taxpayerId) { mutableStateOf<Long?>(null) }
-    var amount by remember(taxpayerId) { mutableStateOf("1") }
-    var pendingRequestId by remember(taxpayerId) { mutableStateOf<String?>(null) }
+    var amount by rememberSaveable(taxpayerId) { mutableStateOf("1") }
+    var pendingRequestId by rememberSaveable(taxpayerId) { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var reload by remember { mutableIntStateOf(0) }
@@ -34,6 +35,19 @@ fun CreditManagementScreen(
                 if (it.has("ownerBalance") && it.has("taxpayerBalance")) {
                     ownerBalance = it.getLong("ownerBalance").takeIf { n -> n >= 0 }
                     taxpayerBalance = it.getLong("taxpayerBalance").takeIf { n -> n >= 0 }
+                    val pending = pendingRequestId
+                    if (pending != null) {
+                        val history = it.optJSONArray("history")
+                        val exists = (0 until (history?.length() ?: 0)).any { idx ->
+                            history?.optJSONObject(idx)?.optString("id") == pending
+                        }
+                        if (exists) {
+                            pendingRequestId = null
+                            message = "انتقال قبلی در سرور ثبت شده است؛ دوباره برداشت نمی‌شود."
+                        } else {
+                            message = "نتیجه انتقال قبلی نامشخص است؛ فقط همان درخواست را تکرار کنید."
+                        }
+                    }
                 } else message = "مانده معتبر از سرور دریافت نشد."
             }
             .onFailure { message = "دریافت موجودی ناموفق بود: ${it.message.orEmpty()}" }
@@ -54,12 +68,14 @@ fun CreditManagementScreen(
         }
         OutlinedTextField(
             value = amount,
-            onValueChange = { if (it.length <= 9 && it.all(Char::isDigit)) { amount = it; pendingRequestId = null } },
+            onValueChange = { if (pendingRequestId == null && it.length <= 9 && it.all(Char::isDigit)) amount = it },
+            enabled = !busy && pendingRequestId == null,
             label = { Text("تعداد اعتبار برای انتقال") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
         Text("انتقال از کیف پول مالک به مودی انتخاب‌شده انجام می‌شود.")
+        if (pendingRequestId != null) Text("یک درخواست انتقال در انتظار تعیین نتیجه است. برای جلوگیری از برداشت تکراری، مقدار آن قفل شده است.", color = MaterialTheme.colorScheme.error)
         Button(
             onClick = {
                 val n = count ?: return@Button
@@ -68,8 +84,9 @@ fun CreditManagementScreen(
                 message = ""
                 scope.launch {
                     runCatching { CreditTransferClient.request(accessToken, taxpayerId, n, requestId) }
-                        .onSuccess {
-                            message = "انتقال ثبت شد؛ موجودی در حال به‌روزرسانی است."
+                        .onSuccess { response ->
+                            check(response.optString("status") in listOf("transferred", "already_applied")) { "پاسخ انتقال معتبر نیست." }
+                            message = "انتقال تأیید شد؛ موجودی در حال به‌روزرسانی است."
                             pendingRequestId = null
                             reload++
                         }
@@ -78,7 +95,8 @@ fun CreditManagementScreen(
                 }
             },
             enabled = !busy && accessToken.isNotBlank() && count != null &&
-                count in 1L..100000000L && ownerBalance != null && count <= (ownerBalance ?: 0L),
+                count in 1L..100000000L && ownerBalance != null &&
+                (pendingRequestId != null || count <= (ownerBalance ?: 0L)),
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (busy) "در حال انتقال…" else "تأیید انتقال اعتبار") }
         OutlinedButton(onClick = { reload++ }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("به‌روزرسانی موجودی") }
