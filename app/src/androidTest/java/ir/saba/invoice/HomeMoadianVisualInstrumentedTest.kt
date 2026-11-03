@@ -103,7 +103,7 @@ class HomeMoadianVisualInstrumentedTest {
             onSurface = Color(0xFF172C3D)
         )) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    MoadianScreen(db, rows, {}, {}, {}, {})
+                    MoadianScreen(db, "test", rows, {}, {}, {}, {})
                 }
             } }
             compose.onNodeWithText("مودی آزمایشی").assertExists()

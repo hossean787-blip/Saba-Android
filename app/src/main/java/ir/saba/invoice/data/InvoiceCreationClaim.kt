@@ -18,6 +18,7 @@ data class InvoiceCreationClaim(
     init { require((invoiceId==null)==(activeCompanyId!=null) && (activeCompanyId==null || activeCompanyId==companyId)) }
 }
 @Dao interface InvoiceCreationClaimDao {
+    @Query("SELECT * FROM invoice_creation_claims WHERE companyId=:id") suspend fun forCompany(id:Long):List<InvoiceCreationClaim>
     @Insert suspend fun insert(claim:InvoiceCreationClaim)
     @Query("SELECT * FROM invoice_creation_claims WHERE requestId=:key LIMIT 1") suspend fun byKey(key:String):InvoiceCreationClaim?
     @Query("SELECT * FROM invoice_creation_claims WHERE activeCompanyId=:companyId LIMIT 1") suspend fun pending(companyId:Long):InvoiceCreationClaim?

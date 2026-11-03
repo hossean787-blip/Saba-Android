@@ -54,7 +54,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, OFFICIAL_SUBMISSION, LEGACY_RECOVERY, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -390,7 +390,7 @@ class MainActivity : ComponentActivity() {
         val scope = rememberCoroutineScope()
         fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
         LaunchedEffect(account) {
-            if (getDatabasePath("saba_local.db").exists()) notify("سوابق نسخهٔ قبلی محفوظ‌اند؛ انتقال آن‌ها پس از تعیین مالک انجام می‌شود.")
+            if (getDatabasePath("saba_local.db").exists()) notify("سوابق نسخهٔ قبلی محفوظ‌اند؛ از تنظیمات، بازیابی سوابق همین حساب را بررسی کنید.")
         }
 
         suspend fun refreshCompany(id: Long) {
@@ -571,6 +571,8 @@ class MainActivity : ComponentActivity() {
                                             Page.EVENTS -> "فاکتورها"
                                             Page.COMPANIES -> "مدیریت مودیان مالیاتی"
                                             Page.INVOICES -> "صدور و مدیریت صورتحساب"
+                                            Page.OFFICIAL_SUBMISSION -> "ارسال و پیگیری مالیاتی"
+                                            Page.LEGACY_RECOVERY -> "بازیابی سوابق قدیمی"
                                             Page.CUSTOMERS -> "مدیریت مشتریان"
                                             Page.CREDIT_PURCHASE -> "خرید اعتبار"
                                             Page.SETTINGS -> "حساب کاربری"
@@ -667,9 +669,14 @@ class MainActivity : ComponentActivity() {
                                 TaxpayerKeysScreen(onNotice = ::notify)
                             }
                             Page.TAX_CONNECTION -> if (current != null) key(current.companyId) {
-                                TaxpayerConnectionScreen(db,account,current.companyId,
-                                    onCreateKeys = { page = Page.TAX_KEYS },onEditTaxpayer = { page = Page.COMPANIES },onNotice = ::notify)
+                                Column(Modifier.fillMaxSize()) {
+                                    TextButton(onClick = { page = Page.OFFICIAL_SUBMISSION }) { Text("ارسال و پیگیری صورتحساب رسمی") }
+                                    TaxpayerConnectionScreen(db,account,current.companyId,
+                                        onCreateKeys = { page = Page.TAX_KEYS },onEditTaxpayer = { page = Page.COMPANIES },onNotice = ::notify)
+                                }
                             } else CompanyPlaceholder(loading)
+                            Page.OFFICIAL_SUBMISSION -> if (current != null) OfficialSubmissionScreen(db,account,current.companyId,::notify,onChanged={refresh()}) else CompanyPlaceholder(loading)
+                            Page.LEGACY_RECOVERY -> LegacyRecoveryScreen(db,account,onChanged={refresh()})
                             Page.CUSTOMERS -> if (current != null) key(current.companyId) {
                                 CustomerManagementScreen(db, current.companyId, current.customers, onChanged = { refresh() }, onNotice = ::notify, onEditing = { editing = it })
                             } else Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -714,7 +721,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             } else CompanyPlaceholder(loading)
-                            Page.SETTINGS -> AccountScreen(
+                            Page.SETTINGS -> Column(Modifier.fillMaxSize()) {
+                                TextButton(onClick={page=Page.LEGACY_RECOVERY}) { Text("بازیابی سوابق قدیمی این حساب") }
+                                AccountScreen(
                                 taxpayerCharge = 0,
                                 ownerCharge = 0,
                                 busy = busy,
@@ -729,6 +738,7 @@ class MainActivity : ComponentActivity() {
                                 onLogout = { confirmLogout = true },
                                 onExcelAction = { action, target -> handleExcelAction(action, target) }
                             )
+                            }
                             Page.APP_SETTINGS -> AppSettingsScreen(
                                 fontScale = fontScale,
                                 busy = busy,
