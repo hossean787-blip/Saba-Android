@@ -1,0 +1,119 @@
+{
+  "source": "User-supplied Google Drive bundle; authenticity and current server compatibility not independently certified",
+  "drive_file_id": "1M4ZQEX1KDj20g9s1mUo2jkEM_3pQyLj9",
+  "bundle_sha256": "b0a01e7fe7a22ad0247de2e8452d0fbb997001ada50988961ce916d714b8526a",
+  "files": [
+    {
+      "id": 1,
+      "name": "RC_UMGS_ST_V1_18.pdf",
+      "bytes": 360475,
+      "sha256": "f02700c754cc9a315ad5254645dd19a9eacd81b01345db6d61723e89f23b8665",
+      "pdf_pages": 4
+    },
+    {
+      "id": 2,
+      "name": "راهنمای کاربری SDK اتصال به زیرسامانه_ی جمع_آوری .NET_8.pdf",
+      "bytes": 848174,
+      "sha256": "5c4145ae701832ea5017ff68cc1a8a9ef0cffe2761a3b5ca94ceceef1823accf",
+      "pdf_pages": 30
+    },
+    {
+      "id": 3,
+      "name": "tax-collect-data-sdk-dotnet-tax-collect-data-sdk-2.0.32_1.zip",
+      "bytes": 704608,
+      "sha256": "66f2936c67c61e1c9c40660e7f9e0bd7666576b8b741fc2d5232a7a1f0d4d2f0",
+      "archive_entry_count": 199
+    },
+    {
+      "id": 4,
+      "name": "TaxCollectData.Library.2.0.32.zip",
+      "bytes": 65930,
+      "sha256": "abc9a5ea63b7d0ac7d4fe4548d3d92f981f8ab586b28fe1f4ba500bfc8d1997d",
+      "archive_entry_count": 1
+    },
+    {
+      "id": 5,
+      "name": "راهنمای اتصال به زیرسامانه جمع آوری SDK بدون گواهی-دات نت_8-۱.pdf",
+      "bytes": 741870,
+      "sha256": "ef3439dcb1a8aa7b5dc1ca46dadf8ee333da01a38fe7910d483342135f1c134a",
+      "pdf_pages": 22
+    },
+    {
+      "id": 6,
+      "name": "tax-collect-data-sdk-dotnet-tax-collect-data-sdk-0.0.30_1-۱.zip",
+      "bytes": 647832,
+      "sha256": "91f7b10914778b0ce13406bf09adce037c669ffd954b6db243b3f0f08528387a",
+      "archive_entry_count": 123
+    },
+    {
+      "id": 7,
+      "name": "TaxCollectData.Library.0.0.34-۱.zip",
+      "bytes": 58567,
+      "sha256": "8c08bc486ac7081cc1063058860c2accb3cf96ad7a50252ca1e72e230b868690",
+      "archive_entry_count": 1
+    },
+    {
+      "id": 8,
+      "name": "راهنمای اتصال به زیرسامانه جمع آوری SDK بدون گواهی-جاوا_9-۱.pdf",
+      "bytes": 789036,
+      "sha256": "648d10e7beb7494af01d361b84b11545f7166e23749f8a41014306e756bc1692",
+      "pdf_pages": 21
+    },
+    {
+      "id": 9,
+      "name": "tax-collect-data-sdk-0.0.58-jar-۱.zip",
+      "bytes": 11441512,
+      "sha256": "200253ff5ae998c06459f436f698e46a15bbf2f69e75b5b9fec0f47612291f4e",
+      "archive_entry_count": 12
+    },
+    {
+      "id": 10,
+      "name": "javaWithcer.zip",
+      "bytes": 14419040,
+      "sha256": "93923e7a4490bff7a6d3bcd481f42cdef38fe8714fc962f90969fcd713e44722",
+      "archive_entry_count": 2
+    },
+    {
+      "id": 11,
+      "name": "راهنمای کاربری SDK اتصال به زیرسامانه_ی جمع_آوری java_7-۱.pdf",
+      "bytes": 781218,
+      "sha256": "d83622ecd1e5f7bf4322e3106fe389e8ef76699090f8a3959e3c6a36de25f10b",
+      "pdf_pages": 28
+    },
+    {
+      "id": 12,
+      "name": "tax-collect-data-sdk-java-tax-collect-data-sdk-2.0.33.zip",
+      "bytes": 619830,
+      "sha256": "533483dd85db86007f318d75d667c2a107e258f5c130fab4b8cf90d6d6c3cb3b",
+      "archive_entry_count": 99
+    },
+    {
+      "id": 13,
+      "name": "شهریور ماه-۱.pdf",
+      "bytes": 1130024,
+      "sha256": "a506795ec9efa575f7a19bae4e8e8b995f7edf1dd1b04f6b09b8cb43d1b5ec61",
+      "pdf_pages": 49
+    },
+    {
+      "id": 14,
+      "name": "مهر 1401-۱.pdf",
+      "bytes": 2190516,
+      "sha256": "412432e8a1c1bd4a28238fb73d646d77a11bed34ca8ec38c16f93fe61ba0644e",
+      "pdf_pages": 70
+    },
+    {
+      "id": 15,
+      "name": "فرودین 1404-۱.pdf",
+      "bytes": 1178626,
+      "sha256": "baef1d316107c1a178c1f27e3c40167501d6aa48c7309377340523802a5f7de0",
+      "pdf_pages": 49
+    },
+    {
+      "id": 16,
+      "name": "RC_IITP_IS_V7_9_2-۱.pdf",
+      "bytes": 5132853,
+      "sha256": "fb333770cddafd92d4ed3a5db0a21c1b0c47305431598f297f70fe5dd4c416be",
+      "pdf_pages": 116
+    }
+  ]
+}
