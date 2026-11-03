@@ -28,6 +28,14 @@ Deno.serve(async(req)=>{
    const history=await rest("sura_credit_transfers?select=id,credits,created_at&owner_id=eq."+encodeURIComponent(user.id)+"&local_taxpayer_id=eq."+taxpayer+"&order=created_at.desc&limit=10");
    return reply({ownerBalance:owner[0]?.credits??0,taxpayerBalance:target[0]?.credits??0,history});
   }
+  if(operation==="receipt"){
+    const requestId=String(body?.requestId??"");
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))
+      return reply({error:"invalid_receipt"},400);
+    const rows=await rest("sura_credit_transfers?select=id,credits,owner_after,taxpayer_after,created_at&owner_id=eq."+
+      encodeURIComponent(user.id)+"&local_taxpayer_id=eq."+taxpayer+"&id=eq."+encodeURIComponent(requestId)+"&limit=1");
+    return reply(rows[0] ? {status:"transferred",receipt:rows[0]} : {status:"not_found"});
+  }
   if(operation==="consume"){
     const invoiceKey=String(body?.invoiceKey??"");
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceKey))
