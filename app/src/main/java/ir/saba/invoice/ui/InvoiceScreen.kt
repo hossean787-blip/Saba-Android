@@ -284,7 +284,7 @@ fun InvoiceScreen(
                                 number = invoice.invoiceNumber; date = invoice.issueDate; customerId = invoice.customerId
                                 lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }; error = ""; mode = "edit"
                             }) { Text("ویرایش پیش‌نویس") }
-                            Button(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "finalize" }) { Text("نهایی‌سازی و مصرف یک سهمیه") }
+                            Button(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "finalize" }) { Text("نهایی‌سازی صورتحساب") }
                             TextButton(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "delete" }) { Text("حذف پیش‌نویس", color = MaterialTheme.colorScheme.error) }
                         } else Text("سند نهایی‌شده قابل ویرایش یا حذف نیست.")
                     } else if (!busy) OutlinedButton(onClick = { mode = "list" }) { Text("بازگشت و تلاش مجدد") }
