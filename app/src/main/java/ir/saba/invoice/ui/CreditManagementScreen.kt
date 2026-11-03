@@ -85,10 +85,13 @@ fun CreditManagementScreen(
                 scope.launch {
                     runCatching { CreditTransferClient.request(accessToken, taxpayerId, n, requestId) }
                         .onSuccess { response ->
-                            check(response.optString("status") in listOf("transferred", "already_applied")) { "پاسخ انتقال معتبر نیست." }
-                            message = "انتقال تأیید شد؛ موجودی در حال به‌روزرسانی است."
-                            pendingRequestId = null
-                            reload++
+                            if (response.optString("status") in listOf("transferred", "already_applied")) {
+                                message = "انتقال تأیید شد؛ موجودی در حال به‌روزرسانی است."
+                                pendingRequestId = null
+                                reload++
+                            } else {
+                                message = "پاسخ انتقال نامشخص است؛ درخواست قبلی را دوباره بررسی کنید."
+                            }
                         }
                         .onFailure { message = "وضعیت انتقال نامشخص است: ${it.message.orEmpty()}. پیش از تلاش مجدد مانده را بررسی کنید." }
                     busy = false
