@@ -9,6 +9,9 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
         val details = db.moadianDetailsDao().byCompany(companyId)
             ?: throw IllegalArgumentException("شماره فاکتور الزامی است.")
         require(!details.inactive) { "مودی غیرفعال است." }
+        require(MoadianFieldValidation.serialPair(details.invoiceSerialStart, details.referenceSerialStart) == null) {
+            "سریال اصلی و ارجاعی باید متفاوت باشند."
+        }
         val configured = if (reference) details.referenceSerialStart else details.invoiceSerialStart
         val defaultStart = if (reference) 2000000001L else 1000000001L
         val start = if (configured.isBlank()) defaultStart else {
@@ -26,7 +29,7 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
         require(next <= 9999999999L) { "ظرفیت سریال ۱۰ رقمی تمام شده است." }
         // Do not allow the primary sequence to enter the reference reservation range.
         val otherStartText = if (reference) details.invoiceSerialStart else details.referenceSerialStart
-        val otherStart = otherStartText.toLongOrNull() ?: if (reference) 1000000001L else 2000000001L
+        val otherStart = MoadianFieldValidation.digits(otherStartText).toLongOrNull() ?: if (reference) 1000000001L else 2000000001L
         val otherNext = (if (reference) details.nextInvoiceSerial else details.nextReferenceSerial) ?: otherStart
         require(next !in otherStart until otherNext) { "سریال با شماره‌گذاری ارجاعی یا اصلی تداخل دارد." }
         db.moadianDetailsDao().upsert(if (reference) details.copy(nextReferenceSerial = next + 1)

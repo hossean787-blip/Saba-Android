@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
+import ir.saba.invoice.domain.InvoiceCalculator
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.NumberFormat
@@ -55,6 +56,12 @@ object SuraInvoicePdf {
                  stamp: Boolean, qr: Boolean): ByteArray {
         require(invoice.companyId == company.id && customer.companyId == company.id &&
                 invoice.customerId == customer.id) { "Invoice ownership mismatch" }
+        // Reject invalid documents before allocating native PDF resources.
+        require(lines.size <= 14) { "برای PDF تک‌صفحه‌ای حداکثر ۱۴ ردیف مجاز است." }
+        val totals = InvoiceCalculator.calculate(lines)
+        require(invoice.totalAmountRial == totals.totalAmountRial && invoice.taxAmountRial == totals.taxAmountRial) {
+            "جمع مبالغ صورتحساب با اقلام مطابقت ندارد؛ صورتحساب را دوباره بارگذاری کنید."
+        }
         val pdf = PdfDocument()
         try {
             val page = pdf.startPage(PdfDocument.PageInfo.Builder(W, H, 1).create())
@@ -86,8 +93,6 @@ object SuraInvoicePdf {
             rect(c, 22f, y, 574f, y + 31f, blue)
             headers.forEachIndexed { i, h -> text(c, h, right[i], y + 8, widths[i], 10f, true, navy) }
             y += 34f
-            val rowsPerPage = 14
-            require(lines.size <= rowsPerPage) { "برای PDF تک‌صفحه‌ای حداکثر ۱۴ ردیف مجاز است." }
             lines.forEachIndexed { index, line ->
                 if (index % 2 == 0) rect(c, 22f, y, 574f, y + 29f, Color.rgb(245, 250, 254))
                 val sum = Math.subtractExact(Math.multiplyExact(line.quantity, line.unitPriceRial), line.discountRial)

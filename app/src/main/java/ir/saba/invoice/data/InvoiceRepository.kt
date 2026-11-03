@@ -111,6 +111,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
             require(invoice.companyId == companyId) { "فاکتور متعلق به شرکت انتخاب‌شده نیست." }
             if (invoice.status == "FINALIZED") return@withTransaction
             require(invoice.status == "DRAFT") { "وضعیت فاکتور اجازه نهایی‌سازی نمی‌دهد." }
+            require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
+            val normalizedDate = InvoiceInput.date(invoice.issueDate)
             val lines = db.invoiceLineDao().forInvoice(invoiceId)
             val totals = InvoiceCalculator.calculate(lines)
             val company = db.companyDao().byId(invoice.companyId) ?: throw IllegalArgumentException("شرکت پیدا نشد.")
@@ -121,6 +123,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 "این پیش‌نویس سابقه مصرف شارژ ندارد؛ برای بررسی به پشتیبانی مراجعه کنید."
             }
             db.invoiceDao().update(invoice.copy(
+                issueDate = normalizedDate,
                 totalAmountRial = totals.totalAmountRial,
                 taxAmountRial = totals.taxAmountRial,
                 status = "FINALIZED"

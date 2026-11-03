@@ -37,6 +37,9 @@ class PreflightOnlyTaxpayerGateway(
         if (invoiceId <= 0) return TaxpayerSubmission(TaxpayerState.REJECTED, message = "شناسه نامعتبر")
         val invoice = loadInvoice(invoiceId)
             ?: return TaxpayerSubmission(TaxpayerState.REJECTED, message = "صورتحساب یافت نشد")
+        if (invoice.invoiceId != invoiceId) return TaxpayerSubmission(
+            TaxpayerState.REJECTED, message = "شناسه صورتحساب با درخواست مطابقت ندارد"
+        )
         return when (val result = TaxSubmissionPreflight.check(invoice)) {
             is TaxPreflightResult.Invalid -> TaxpayerSubmission(TaxpayerState.REJECTED, message = result.errors.joinToString("؛ "))
             is TaxPreflightResult.Ready -> TaxpayerSubmission(

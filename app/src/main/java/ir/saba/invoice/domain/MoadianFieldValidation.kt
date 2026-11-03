@@ -40,7 +40,7 @@ object MoadianFieldValidation {
         else "$label باید دقیقاً ۱۰ رقم باشد."
 
     fun serialPair(primary: String, reference: String): String? =
-        if (primary.isNotEmpty() && reference.isNotEmpty() && digits(primary) == digits(reference))
+        if (digits(primary).ifBlank { "1000000001" } == digits(reference).ifBlank { "2000000001" })
             "سریال اصلی و ارجاعی باید متفاوت باشند."
         else null
 

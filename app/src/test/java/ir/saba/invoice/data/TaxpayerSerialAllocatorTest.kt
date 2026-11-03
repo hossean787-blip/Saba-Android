@@ -36,6 +36,36 @@ class TaxpayerSerialAllocatorTest {
             assertEquals(1000000008L, db.moadianDetailsDao().byCompany(first)!!.nextInvoiceSerial)
         } finally { db.close() }
     }
+    @Test fun persianReferenceRangeCannotBeReservedByPrimarySequence() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
+        try {
+            val id = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId = id,
+                invoiceSerialStart = "1000000001", referenceSerialStart = "۱۰۰۰۰۰۰۰۰۰",
+                nextReferenceSerial = 1000000003L))
+            try {
+                TaxpayerSerialAllocator(db).reserve(id)
+                fail("Expected reserved reference range rejection")
+            } catch (_: IllegalArgumentException) { }
+            assertNull(db.moadianDetailsDao().byCompany(id)!!.nextInvoiceSerial)
+        } finally { db.close() }
+    }
+
+    @Test fun implicitPrimaryStartCannotEqualConfiguredReferenceStart() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
+        try {
+            val id = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId = id, referenceSerialStart = "1000000001"))
+            try {
+                TaxpayerSerialAllocator(db).reserve(id)
+                fail("Expected default start collision rejection")
+            } catch (_: IllegalArgumentException) { }
+            val details = db.moadianDetailsDao().byCompany(id)!!
+            assertNull(details.nextInvoiceSerial)
+            assertNull(details.nextReferenceSerial)
+        } finally { db.close() }
+    }
+
     @Test fun invalidCustomerRollsBackAutomaticReservation() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {

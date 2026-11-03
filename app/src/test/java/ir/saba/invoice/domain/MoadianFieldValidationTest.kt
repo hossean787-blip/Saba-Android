@@ -17,6 +17,11 @@ class MoadianFieldValidationTest {
         assertNotNull(MoadianFieldValidation.serialPair("۱۰۰۰۰۰۰۰۰۱", "1000000001"))
         assertNull(MoadianFieldValidation.serialPair("1000000001", "2000000001"))
     }
+    @Test fun rejectsCollisionWithImplicitDefaultSeries() {
+        assertNotNull(MoadianFieldValidation.serialPair("", "۱۰۰۰۰۰۰۰۰۱"))
+        assertNotNull(MoadianFieldValidation.serialPair("۲۰۰۰۰۰۰۰۰۱", ""))
+        assertNull(MoadianFieldValidation.serialPair("", ""))
+    }
     @Test fun doesNotRequirePrefixAOrClaimVerification() {
         assertNull(MoadianFieldValidation.fiscalMemoryId("B12345"))
         assertNotNull(MoadianFieldValidation.fiscalMemoryId("A1234"))
