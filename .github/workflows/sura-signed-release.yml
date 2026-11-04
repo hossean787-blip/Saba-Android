@@ -1,0 +1,85 @@
+name: SURA Signed Release APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sura-signed-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sura-signed-release
+  cancel-in-progress: false
+jobs:
+  signed-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SURA_RELEASE_KEYSTORE_BASE64: ${{ secrets.SURA_RELEASE_KEYSTORE_BASE64 }}
+      SURA_RELEASE_STORE_PASSWORD: ${{ secrets.SURA_RELEASE_STORE_PASSWORD }}
+      SURA_RELEASE_KEY_ALIAS: ${{ secrets.SURA_RELEASE_KEY_ALIAS }}
+      SURA_RELEASE_KEY_PASSWORD: ${{ secrets.SURA_RELEASE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signing prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          for var in SURA_RELEASE_KEYSTORE_BASE64 SURA_RELEASE_STORE_PASSWORD SURA_RELEASE_KEY_ALIAS SURA_RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!var}" ]]; then
+              echo "::error::Missing signing prerequisite: $var. No APK will be published."
+              exit 2
+            fi
+          done
+          test -f app/build.gradle.kts
+          test -f gradle/wrapper/gradle-wrapper.jar
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+      - name: Decode release signing key securely
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          keystore="$RUNNER_TEMP/sura-release.jks"
+          printf '%s' "$SURA_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          echo "SURA_RELEASE_STORE_FILE=$keystore" >> "$GITHUB_ENV"
+      - name: Test and build signed Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+      - name: Verify release signature and package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -n "$apksigner"
+          "$apksigner" verify --verbose --print-certs "$apk"
+          unzip -t "$apk" >/dev/null
+          sha256sum "$apk" | tee "$RUNNER_TEMP/sura-release-sha256.txt"
+      - name: Upload verified signed Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sura-signed-release-apk
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/sura-release.jks"
