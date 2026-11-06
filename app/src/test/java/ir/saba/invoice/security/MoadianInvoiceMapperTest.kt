@@ -81,8 +81,8 @@ class MoadianInvoiceMapperTest {
         assertEquals(2, body.length())
         assertEquals("164", body.getJSONObject(0).getString("mu"))
         assertEquals("1627", body.getJSONObject(1).getString("mu"))
-        assertEquals(0, body.getJSONObject(0).getBigDecimal("am").compareTo(java.math.BigDecimal("0.5")))
-        assertEquals(0, body.getJSONObject(0).getBigDecimal("vra").compareTo(java.math.BigDecimal("9.5")))
+        assertEquals(0, java.math.BigDecimal(body.getJSONObject(0).get("am").toString()).compareTo(java.math.BigDecimal("0.5")))
+        assertEquals(0, java.math.BigDecimal(body.getJSONObject(0).get("vra").toString()).compareTo(java.math.BigDecimal("9.5")))
         assertEquals(47L, body.getJSONObject(0).getLong("vam"))
         assertEquals(47L, payload.getJSONObject("header").getLong("tvam"))
     }
