@@ -131,4 +131,36 @@ class TaxpayerCredentialRepositoryTest {
         saveA();db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId="A11216",inactive=true))
         rejected{MoadianV2Signer(repository).authorization(first,TaxpayerNonce(TaxpayerIdentity(account,first,"A11216"),"nonce",now+30000),now)}
     }
+    @Test fun privateKeyCanBeStagedBeforeFiscalMemoryAndCannotSendUntilCertificate() = runBlocking {
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId=""))
+        val pem=TestCertificates.pem(keyA)
+        repository.stagePrivateKey(first,pem)
+        assertTrue(repository.hasPendingPrivateKey(first))
+        val envelope=prefs.getString("pending_company_$first",null)!!
+        assertFalse(envelope.contains("PRIVATE KEY"))
+        assertFalse(envelope.contains(Base64.getEncoder().encodeToString(keyA.private.encoded)))
+        try {repository.profile(first,now);fail("Missing memory ID must block official material")}
+        catch(_:IllegalArgumentException){}
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId="A11216"))
+        assertNull(repository.profile(first,now))
+        val profile=repository.saveWithPendingPrivateKey(first,TestCertificates.certificate(keyA),now)
+        assertEquals("A11216",profile.identity.fiscalMemoryId)
+        assertFalse(repository.hasPendingPrivateKey(first))
+        assertNotNull(repository.profile(first,now))
+    }
+
+    @Test fun pendingKeyCannotBeMovedBetweenTaxpayersOrAccounts() = runBlocking {
+        repository.stagePrivateKey(first,TestCertificates.pem(keyA))
+        val stolen=prefs.getString("pending_company_$first",null)!!
+        prefs.edit().putString("pending_company_$second",stolen).commit()
+        try {
+            repository.saveWithPendingPrivateKey(second,TestCertificates.certificate(keyA),now)
+            fail("AEAD must bind pending key to the original taxpayer")
+        } catch(_:Exception) {}
+        assertNull(repository.profile(second,now))
+        try {repository.stagePrivateKey(foreign,TestCertificates.pem(keyA));fail("Cross-account staging must fail")}
+        catch(_:IllegalArgumentException){}
+        repository.remove(first)
+        assertFalse(repository.hasPendingPrivateKey(first))
+    }
 }
