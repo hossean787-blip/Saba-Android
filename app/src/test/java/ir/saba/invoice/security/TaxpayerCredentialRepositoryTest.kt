@@ -3,6 +3,7 @@ package ir.saba.invoice.security
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.data.*
+import ir.saba.invoice.ui.MoadianAutoConnection
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -251,5 +252,39 @@ class TaxpayerCredentialRepositoryTest {
             fail("Empty fiscal information must not count as a verified connection")
         }catch(_:IllegalArgumentException){}
         assertEquals(2,count)
+    }
+
+    @Test fun autoConnectionStagesKeyAndChecksAfterMemoryIsRegistered() = runBlocking {
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId=""))
+        val calls=mutableListOf<String>()
+        val workflow=MoadianAutoConnection(db,repository) { id, memory ->
+            calls += "$id:$memory"
+        }
+        val before=workflow.complete(first,"",TestCertificates.pem(keyA))
+        assertEquals("KEY_STORED",before.status)
+        assertTrue(repository.hasPendingPrivateKey(first))
+        assertTrue(calls.isEmpty())
+        db.moadianDetailsDao().upsert(MoadianDetails(companyId=first,fiscalMemoryId="A11216"))
+        val after=workflow.complete(first,"A11216","")
+        assertEquals("LEGACY_OK",after.status)
+        assertEquals(listOf("$first:A11216"),calls)
+        assertEquals("LEGACY_OK",db.moadianDetailsDao().byCompany(first)!!.keyCheckStatus)
+        assertTrue(repository.hasPendingPrivateKey(first))
+    }
+
+    @Test fun autoConnectionFailureKeepsKeyAndTaxpayerAndRejectsForeignAccount() = runBlocking {
+        val failing=MoadianAutoConnection(db,repository) { _, _ ->
+            throw java.io.IOException("Simulated offline backend")
+        }
+        val result=failing.complete(second,"ABC123",TestCertificates.pem(keyB))
+        assertEquals("LEGACY_FAILED",result.status)
+        assertTrue(repository.hasPendingPrivateKey(second))
+        assertNotNull(db.companyDao().byId(second))
+        assertEquals("LEGACY_FAILED",db.moadianDetailsDao().byCompany(second)!!.keyCheckStatus)
+        try {
+            failing.complete(foreign,"A11216",TestCertificates.pem(keyA))
+            fail("A foreign account must not be modified")
+        } catch (_: IllegalArgumentException) {}
+        assertFalse(prefs.contains("pending_company_$foreign"))
     }
 }
