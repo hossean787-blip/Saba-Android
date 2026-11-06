@@ -123,7 +123,7 @@ fun HomeDashboard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                 QuickAction("ثبت فاکتور جدید", Icons.Default.Add, Color(0xFF0B607A),
                     Color.White, gold, Modifier.weight(1f), onNewInvoice)
-                QuickAction("کلیدهای مالیاتی", Icons.Default.Person, Color(0xFFE9E9FA),
+                QuickAction("ساخت کلید مالیاتی", Icons.Default.Person, Color(0xFFE9E9FA),
                     textNavy, Color(0xFF595DAD), Modifier.weight(1f), onTaxKeys)
             }
         }
