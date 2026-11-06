@@ -33,13 +33,15 @@ import java.text.NumberFormat
 import java.util.Locale
 
 private val LinesSaver = listSaver<List<InvoiceLine>, String>(
-    save = { rows -> rows.flatMap {
+    save = { rows -> listOf("__SURA_INVOICE_LINES_V2__") + rows.flatMap {
         listOf(it.itemCode, it.description, it.quantity.toString(), it.unitPriceRial.toString(),
             it.discountRial.toString(), it.taxRatePercent.toString(), it.unitCode, it.quantityExact, it.vatRateExact)
     } },
     restore = { values ->
-        val width = if (values.size % 9 == 0) 9 else 6
-        values.chunked(width).map { item ->
+        val versioned = values.firstOrNull() == "__SURA_INVOICE_LINES_V2__"
+        val data = if (versioned) values.drop(1) else values
+        val width = if (versioned) 9 else 6
+        data.chunked(width).map { item ->
             InvoiceLine(invoiceId = 0, itemCode = item[0], description = item[1],
                 quantity = item[2].toLong(), unitPriceRial = item[3].toLong(),
                 discountRial = item[4].toLong(), taxRatePercent = item[5].toInt(),
