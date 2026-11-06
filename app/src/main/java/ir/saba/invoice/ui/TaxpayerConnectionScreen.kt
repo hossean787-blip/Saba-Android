@@ -41,6 +41,7 @@ private fun TaxpayerConnectionContent(
     var certificate by remember { mutableStateOf<ByteArray?>(null) }
     var profile by remember { mutableStateOf<TaxpayerCredentialProfile?>(null) }
     var pendingStored by remember { mutableStateOf(false) }
+    var legacyCheckSucceeded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
@@ -87,7 +88,11 @@ private fun TaxpayerConnectionContent(
         Text("مودی: $name")
         Text("شناسه حافظه: ${memoryId.ifBlank { "ثبت نشده" }}")
         Text("کلید و گواهی فقط برای همین مؤدی در حساب فعلی ذخیره می‌شوند.")
-        if (pendingStored) Text("کلید خصوصی این مؤدی به‌صورت رمزگذاری‌شده ذخیره شده است؛ برای فعال‌سازی ارسال، شناسه یکتا و گواهی معتبر لازم است.", style=MaterialTheme.typography.bodySmall)
+        if (pendingStored) Text("کلید خصوصی این مؤدی به‌صورت رمزگذاری‌شده ذخیره شده است.", style=MaterialTheme.typography.bodySmall)
+        if (legacyCheckSucceeded) Text(
+            "احراز هویت و استعلام حافظه از مسیر بدون گواهی موفق بود. این نتیجه تأیید ارسال صورتحساب در API نسخه ۲ نیست.",
+            color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.bodySmall
+        )
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (profile != null) {
             Text("تطبیق محلی کلید و گواهی انجام شده است.")
@@ -107,7 +112,12 @@ private fun TaxpayerConnectionContent(
         Button(enabled=!busy && privatePem.isNotBlank(),onClick={confirmation="pending"},modifier=Modifier.fillMaxWidth()) {
             Text("ذخیره امن کلید خصوصی برای این مؤدی")
         }
-        if (!memoryReady) Text("بدون شناسه یکتای حافظه مالیاتی می‌توانید کلید را امن نگه دارید، اما اتصال و ارسال رسمی فعال نمی‌شود.",style=MaterialTheme.typography.bodySmall)
+        if (!memoryReady) Text("بدون شناسه یکتا، ذخیره کلید خصوصی مجاز است اما بررسی اتصال انجام نمی‌شود.",style=MaterialTheme.typography.bodySmall)
+        OutlinedButton(
+            enabled=!busy && memoryReady && pendingStored,
+            onClick={confirmation="legacy"},
+            modifier=Modifier.fillMaxWidth()
+        ) { Text("بررسی اتصال با کلید خصوصی و شناسه یکتا") }
         Button(enabled=!busy && memoryReady && (privatePem.isNotBlank() || pendingStored) && certificate != null,onClick={confirmation="save"},modifier=Modifier.fillMaxWidth()) {
             Text("ثبت امن کلید و گواهی برای این مؤدی")
         }
@@ -117,8 +127,9 @@ private fun TaxpayerConnectionContent(
     }
     if (confirmation.isNotBlank()) AlertDialog(
         onDismissRequest={if(!busy)confirmation=""},
-        title={Text(when(confirmation){"save"->"ثبت اطلاعات اتصال";"pending"->"ذخیره رمزگذاری‌شده کلید خصوصی";"probe"->"بررسی اتصال رسمی";else->"حذف اطلاعات اتصال"})},
+        title={Text(when(confirmation){"save"->"ثبت اطلاعات اتصال";"pending"->"ذخیره رمزگذاری‌شده کلید خصوصی";"probe"->"بررسی اتصال رسمی";"legacy"->"بررسی اتصال بدون گواهی";else->"حذف اطلاعات اتصال"})},
         text={Text(if(confirmation=="probe") "شناسه حافظه و گواهی عمومی همین مؤدی برای احراز هویت به سرور رسمی ارسال می‌شود. هیچ صورتحساب یا درخواست مصرف اعتبار ارسال نمی‌شود."
+            else if(confirmation=="legacy") "سورا با کلید خصوصی ذخیره‌شده و شناسه یکتای همین مؤدی فقط درخواست احراز هویت و استعلام اطلاعات حافظه به مسیر قدیمی بدون گواهی می‌فرستد. هیچ صورتحسابی ارسال نمی‌شود و موفقیت آن تضمین سازگاری با نسخه ۲ نیست."
             else if(confirmation=="pending") "کلید خصوصی فقط برای همین مؤدی در این دستگاه رمزگذاری می‌شود. تا ثبت شناسه و گواهی معتبر، اتصال مالیاتی فعال نخواهد شد."
             else "مودی: $name\nحافظه: $memoryId\nفقط اطلاعات اتصال همین مؤدی در حساب فعلی تغییر می‌کند؛ سوابق فاکتورها باقی می‌مانند.")},
         confirmButton={TextButton(enabled=!busy,onClick={
@@ -128,11 +139,17 @@ private fun TaxpayerConnectionContent(
                     if(action=="probe") {
                         MoadianConnectionProbe(repository,OfficialMoadianPublicTransport()).check(companyId)
                         onNotice("اطلاعات سرور رسمی دریافت شد؛ این نتیجه به معنی ارسال یا پذیرش صورتحساب نیست.")
+                    } else if(action=="legacy") {
+                        legacyCheckSucceeded=false
+                        MoadianLegacyConnectionProbe(repository).check(companyId,memoryId)
+                        legacyCheckSucceeded=true
+                        onNotice("احراز هویت و استعلام حافظه از مسیر بدون گواهی موفق شد؛ ارسال صورتحساب بررسی نشده است.")
                     } else {
                         when(action) {
                             "pending" -> {
                                 repository.stagePrivateKey(companyId,privatePem)
                                 pendingStored=true
+                                legacyCheckSucceeded=false
                                 privatePem=""
                                 onNotice("کلید خصوصی این مؤدی به‌صورت امن ذخیره شد؛ هنوز اتصال رسمی فعال نیست.")
                             }
@@ -145,14 +162,18 @@ private fun TaxpayerConnectionContent(
                             }
                             else -> {
                                 repository.remove(companyId)
-                                privatePem="";certificate=null;profile=null;pendingStored=false
+                                privatePem="";certificate=null;profile=null;pendingStored=false;legacyCheckSucceeded=false
                                 onNotice("اطلاعات اتصال این مؤدی حذف شد.")
                             }
                         }
                     }
                     confirmation=""
                 } catch(e:CancellationException){throw e}
-                catch(e:Exception){error=if(action=="probe") "بررسی اتصال ناموفق بود؛ گواهی، شناسه حافظه و اتصال اینترنت را بررسی کنید." else e.message?:"تغییر اطلاعات اتصال انجام نشد.";confirmation=""}
+                catch(e:Exception){error=when(action){
+                    "probe" -> "بررسی مسیر نسخه ۲ ناموفق بود؛ گواهی و اتصال اینترنت را بررسی کنید."
+                    "legacy" -> "بررسی اتصال بدون گواهی ناموفق بود؛ کلید خصوصی، شناسه یکتا، ثبت کلید عمومی در کارپوشه و دسترسی این API را بررسی کنید."
+                    else -> e.message?:"تغییر اطلاعات اتصال انجام نشد."
+                };confirmation=""}
                 finally{busy=false}
             }
         }){Text("تأیید")}},
