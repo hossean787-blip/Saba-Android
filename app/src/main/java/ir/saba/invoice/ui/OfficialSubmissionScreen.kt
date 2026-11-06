@@ -64,7 +64,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         item {
             Text("ارسال رسمی صورتحساب",style=MaterialTheme.typography.titleLarge)
             Text(name)
-            Text("پشتیبانی فعلی: صورتحساب اصلی نوع ۱، الگوی فروش ۱، ریالی و نقدی. زمان صدور و واحد کالا را پیش از آماده‌سازی بررسی کنید. ارسال مالیاتی اعتبار جدید مصرف نمی‌کند.")
+            Text("پشتیبانی ارسال فعلی: اصلی نوع ۱، الگوی فروش ۱، ریالی و نقدی. واحد سنجش هر ردیف در فرم فاکتور ذخیره می‌شود؛ برای ردیف‌های قدیمی می‌توانید کد واحد مشترک وارد کنید. ارسال مالیاتی اعتبار جدید مصرف نمی‌کند.")
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             TextButton(enabled=!busy,onClick={act { }}) { Text("بازخوانی وضعیت محلی") }
