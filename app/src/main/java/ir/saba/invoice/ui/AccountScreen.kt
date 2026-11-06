@@ -153,6 +153,18 @@ private fun AccountContent(
                     Color(0xFFFFF4E1), Color(0xFFAA7827),
                     !busy, "excelTemplate", onTaxpayers = { onExcelAction("template", "taxpayers") },
                     onCustomers = { onExcelAction("template", "customers") })
+                OutlinedButton(
+                    onClick = { onExcelAction("template", "identifiers") },
+                    enabled = !busy,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("identifierExcelTemplate"),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = accountTeal)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("دریافت الگوی اکسل شناسه کالا و خدمات (۱۰ ردیف)",
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
             }
         }
         OutlinedButton(onClick = onLogout, enabled = !busy,
