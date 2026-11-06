@@ -71,7 +71,7 @@ class MoadianScreenTest {
             assertTrue(db.moadianDetailsDao().byCompany(id)!!.inactive)
         }
     }
-    @Test fun selectedTaxpayerOpensItsOwnKeyManagement() {
+    @Test fun keyManagementIsRemovedFromListButAdvancedSettingsRemainAccessibleInEdit() {
         val id = runBlocking {
             db.companyDao().insert(Company(purchaserId = "owner", name = "مودی کلید", nationalId = "11223344556"))
         }
@@ -80,9 +80,11 @@ class MoadianScreenTest {
         compose.setContent { MaterialTheme {
             MoadianScreen(db, "owner", rows, {}, {}, {}, {}, onOpenConnection = { opened.set(it.toInt()) })
         } }
-        compose.onNodeWithText("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده").assertIsNotEnabled()
+        compose.onNodeWithText("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده").assertDoesNotExist()
         compose.onNodeWithText("مودی کلید").performClick()
-        compose.onNodeWithText("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده").assertIsEnabled().performClick()
+        compose.onNodeWithText("ویرایش").performClick()
+        compose.onNodeWithText("کلید خصوصی مؤدی").assertExists()
+        compose.onNodeWithText("تنظیمات پیشرفته گواهی و اتصال نسخه ۲").performScrollTo().performClick()
         assertEquals(id.toInt(), opened.get())
     }
 
