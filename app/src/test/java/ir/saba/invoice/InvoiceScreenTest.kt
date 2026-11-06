@@ -265,4 +265,25 @@ class InvoiceScreenTest {
         compose.runOnIdle { assertEquals(1, navigations) }
     }
 
+
+    @Test fun invoiceEditorSavesMixedCashShareAndShowsItOnDetails() {
+        compose.setContent { Screen() }
+        openNew()
+        addLine()
+        compose.onNodeWithText("ترکیبی").performScrollTo().performClick()
+        compose.onNodeWithText("سهم نقدی از مبلغ کل (ریال)")
+            .performScrollTo().performTextInput("۴۰۰")
+        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.waitUntil(15000) { invoices.size == 1 }
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("تسویه: نقدی و نسیه").fetchSemanticsNodes().isNotEmpty()
+        }
+        runBlocking {
+            val stored = db.invoiceDao().byId(invoices.single().id)!!
+            assertEquals("MIXED", stored.settlementMode)
+            assertEquals(400L, stored.cashPaidRial)
+            assertEquals(1100L, stored.totalAmountRial)
+        }
+    }
+
 }
