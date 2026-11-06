@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ir.saba.invoice.data.identifiers.SuraBundledCatalogInstaller
 import ir.saba.invoice.data.identifiers.SuraIdentifier
 import ir.saba.invoice.data.identifiers.SuraIdentifierStore
 import ir.saba.invoice.data.identifiers.SuraSavedIdentifierStore
@@ -73,9 +74,29 @@ fun SuraIdentifierScreen(
     var catalogCount by remember { mutableStateOf<Long?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
+    val hasBundledFullCatalog = remember(context) {
+        runCatching { context.assets.list("catalog")?.contains("manifest.json") == true }.getOrDefault(false)
+    }
 
+    // When the complete catalog is packaged into the signed APK, unpack it offline
+    // on the first visit. No manual ZIP selection or network connection is required.
     LaunchedEffect(catalog) {
-        catalogCount = runCatching { catalog.count() }.getOrDefault(0L)
+        busy = hasBundledFullCatalog
+        try {
+            if (hasBundledFullCatalog) {
+                message = "در حال آماده‌سازی بانک کامل همراه برنامه..."
+                SuraBundledCatalogInstaller(context.applicationContext).installIfNeeded { progress ->
+                    message = "استخراج و بررسی بانک کامل: $progress٪"
+                }
+                message = "بانک کامل داخل برنامه فعال است."
+            }
+            catalogCount = catalog.count()
+        } catch (e: Exception) {
+            catalogCount = runCatching { catalog.count() }.getOrDefault(0L)
+            message = e.message ?: "راه‌اندازی بانک داخلی ناموفق بود؛ بانک قبلی حفظ شد."
+        } finally {
+            busy = false
+        }
     }
     LaunchedEffect(bookmarks, taxpayerId) {
         saved = if (taxpayerId != null && taxpayerId > 0L)
@@ -172,12 +193,15 @@ fun SuraIdentifierScreen(
                     enabled = !busy && catalogCount != null && catalogCount!! > 0 && query.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = catalogTeal)
                 ) { Text("جستجو") }
-                OutlinedButton(enabled = !busy, onClick = { picker.launch(arrayOf("*/*")) }) {
-                    Text("ورود / به‌روزرسانی بانک")
+                if (!hasBundledFullCatalog || catalogCount != SuraBundledCatalogInstaller.FULL_RECORD_COUNT) {
+                    OutlinedButton(enabled = !busy, onClick = { picker.launch(arrayOf("*/*")) }) {
+                        Text("ورود / به‌روزرسانی بانک")
+                    }
                 }
             }
             if (catalogCount == 0L) Text(
-                "برای فعال‌شدن جستجوی کامل، فایل ZIP بانک سورا (نسخه سبک یا کامل) را انتخاب کنید. " +
+                if (hasBundledFullCatalog) "بانک کامل همراه برنامه است؛ راه‌اندازی آن به فضای ذخیره‌سازی داخلی کافی نیاز دارد."
+                else "برای فعال‌شدن جستجوی کامل، فایل ZIP بانک سورا (نسخه سبک یا کامل) را انتخاب کنید. " +
                     "برای نسخه کامل به فضای ذخیره‌سازی کافی نیاز دارید.",
                 style = MaterialTheme.typography.bodySmall, color = catalogNavy
             )
