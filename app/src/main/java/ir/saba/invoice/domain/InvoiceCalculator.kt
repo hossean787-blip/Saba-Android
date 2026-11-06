@@ -1,6 +1,8 @@
 package ir.saba.invoice.domain
 
 import ir.saba.invoice.data.InvoiceLine
+import ir.saba.moadian.MoadianCalculator
+import ir.saba.moadian.MoadianLine
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -9,6 +11,26 @@ data class InvoiceTotals(val netAmountRial: Long, val taxAmountRial: Long, val t
 object InvoiceCalculator {
     fun calculate(lines: List<InvoiceLine>): InvoiceTotals {
         require(lines.isNotEmpty()) { "فاکتور باید حداقل یک ردیف داشته باشد." }
+        // New precise lines follow the official per-item truncated-rial math.
+        // Previously saved whole-number lines alone retain their original local rounding
+        // so existing PDFs, totals and financial records cannot be silently rewritten.
+        if (lines.any(InvoiceLineAmounts::isPrecise)) {
+            val taxLines = lines.map { line ->
+                MoadianLine(
+                    productId = line.itemCode.ifBlank { "LOCAL_ONLY" },
+                    description = line.description,
+                    quantity = InvoiceLineAmounts.effectiveQuantity(line),
+                    unitPriceRial = BigDecimal.valueOf(line.unitPriceRial),
+                    discountRial = BigDecimal.valueOf(line.discountRial),
+                    vatPercent = InvoiceLineAmounts.effectiveTaxPercent(line)
+                )
+            }
+            val totals = MoadianCalculator.total(taxLines)
+            return InvoiceTotals(
+                totals.netRial.longValueExact(), totals.vatRial.longValueExact(),
+                totals.payableRial.longValueExact()
+            )
+        }
         var net = BigDecimal.ZERO
         var tax = BigDecimal.ZERO
         lines.forEach { line ->
