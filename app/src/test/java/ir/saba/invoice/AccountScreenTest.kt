@@ -87,4 +87,24 @@ class AccountScreenTest {
         } finally {prefs.edit().clear().commit()}
     }
 
+    @Test fun accountIdentifierTemplateDownloadsThroughExcelActions() {
+        var selectedAction = ""
+        var selectedTarget = ""
+        compose.setContent { MaterialTheme {
+            AccountScreen(
+                "11111111-1111-4111-8111-111111111111", 0, 0, false,
+                "مالک آزمایشی", "owner@example.com", {}, {},
+                onExcelAction = { action, target ->
+                    selectedAction = action
+                    selectedTarget = target
+                }
+            )
+        } }
+        compose.onNodeWithTag("identifierExcelTemplate").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals("template", selectedAction)
+            assertEquals("identifiers", selectedTarget)
+        }
+    }
+
 }
