@@ -180,4 +180,42 @@ class InvoiceCreationCoordinatorTest {
             db.close()
         }
     }
+
+    @Test fun mixedSettlementSurvivesLostDebitResponseWithOriginalRequestKey() = runBlocking {
+        val db = database()
+        try {
+            val (company, customer) = seed(db)
+            val backend = Backend()
+            backend.loseResponse = true
+            val coordinator = InvoiceCreationCoordinator(db, account, backend::authorize)
+            val original = input(customer, "88").copy(
+                settlementMode = "MIXED", cashPaidRial = 40L
+            )
+            val claim = coordinator.prepare(
+                company, original, UUID.randomUUID().toString(), InvoiceCreditKind.PAID
+            )
+            try {
+                coordinator.finish(claim.requestId)
+                fail("Expected lost acknowledgement")
+            } catch (_: java.io.IOException) { }
+            val pending = coordinator.pending(company)!!
+            val recovered = coordinator.snapshot(pending)
+            assertEquals("MIXED", recovered.settlementMode)
+            assertEquals(40L, recovered.cashPaidRial)
+            expectRejected {
+                coordinator.prepare(
+                    company, recovered.copy(cashPaidRial = 60L),
+                    UUID.randomUUID().toString(), InvoiceCreditKind.PAID
+                )
+            }
+            val done = coordinator.finish(pending.requestId)
+            val stored = db.invoiceDao().byId(done)!!
+            assertEquals("MIXED", stored.settlementMode)
+            assertEquals(40L, stored.cashPaidRial)
+            assertEquals(110L, stored.totalAmountRial)
+            assertEquals(1, backend.consumed.size)
+            assertEquals(2, backend.calls.size)
+        } finally { db.close() }
+    }
+
 }
