@@ -36,7 +36,7 @@ class TaxpayerConnectionScreenTest {
         compose.setContent {MaterialTheme{TaxpayerConnectionScreen(db,account,first,{},{},{})}}
         compose.waitUntil(15000){compose.onAllNodesWithText("مودی: مودی حساب اول").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("بررسی اتصال مؤدی (بدون گواهی)").assertIsNotEnabled()
-        compose.onNodeWithText("تنظیمات پیشرفته اتصال با گواهی").performClick()
+        compose.onNodeWithText("تنظیمات پیشرفته اتصال با گواهی").performScrollTo().performClick()
         compose.onNodeWithText("بستن تنظیمات گواهی نسخه ۲").assertExists()
         compose.onNodeWithText("بستن تنظیمات گواهی نسخه ۲").performScrollTo()
         compose.onNodeWithText("انتخاب گواهی CER / CRT / PEM").performScrollTo()
