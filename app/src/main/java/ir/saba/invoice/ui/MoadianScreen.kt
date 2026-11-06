@@ -454,9 +454,15 @@ fun MoadianScreen(
                                     error = "این شناسه ملی قبلاً ثبت شده است."
                                     pending = false
                                 } else if (mode == "new") {
+                                    // The allocator bootstraps by scanning account databases. Doing that
+                                    // inside a TRUNCATE/EXCLUSIVE Room transaction can lock this account DB.
+                                    // Reserve globally before taking the account's write transaction.
+                                    val allocatedId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        ir.saba.invoice.data.TaxpayerIdAllocator(context).use { it.reserve() }
+                                    }
                                     val savedId = db.withTransaction {
                                         ensureUniqueTaxpayer(db, null, nationalId, economicId, fiscalMemoryId)
-                                        val id = db.companyDao().insert(Company(id = ir.saba.invoice.data.TaxpayerIdAllocator(context).use { it.reserve() }, purchaserId = purchaserId, name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
+                                        val id = db.companyDao().insert(Company(id = allocatedId, purchaserId = purchaserId, name = name.trim(), nationalId = MoadianFieldValidation.digits(nationalId), economicId = MoadianFieldValidation.digits(economicId), address = address.trim(), phone = phone.trim()))
                                         db.moadianDetailsDao().upsert(details(id).copy(encryptedPrivateKey = null, keyCheckStatus = "UNCHECKED"))
                                         id
                                     }
