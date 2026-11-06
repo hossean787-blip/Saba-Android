@@ -125,7 +125,11 @@ private fun InvoiceScreenContent(
     val repository: InvoiceDraftGateway = remember(db) { RoomInvoiceDraftGateway(InvoiceRepository(db)) }
     val scope = rememberCoroutineScope()
     var automaticNumber by remember { mutableStateOf(false) }
-    LaunchedEffect(companyId) { automaticNumber = db.moadianDetailsDao().byCompany(companyId) != null }
+    var sellerName by remember(companyId) { mutableStateOf("") }
+    LaunchedEffect(companyId) {
+        automaticNumber = db.moadianDetailsDao().byCompany(companyId) != null
+        sellerName = db.companyDao().byId(companyId)?.name.orEmpty()
+    }
     var mode by rememberSaveable { mutableStateOf("list") }
     var invoiceId by rememberSaveable { mutableStateOf<Long?>(null) }
     var number by rememberSaveable { mutableStateOf("") }
@@ -160,14 +164,8 @@ private fun InvoiceScreenContent(
         val recovery=creation.pending(companyId)
         pendingCreation=recovery
         if(recovery!=null){restoreClaim(recovery);return}
-        val paidResult=runCatching{refreshPaidBalance()}
-        val giftResult=runCatching{activeGateway.giftBalance(accessToken)}
-        promoRemaining=giftResult.getOrDefault(0)
-        if(paidResult.getOrDefault(0L)+promoRemaining<=0) {
-            if(paidResult.isFailure || giftResult.isFailure) onNotice("اتصال به سرور برقرار نشد؛ موجودی اعتبار نامشخص است.")
-            else onNeedCharge()
-            return
-        }
+        // Constructing an unsaved invoice must never require credit or perform a debit.
+        // Credit is verified when the user explicitly saves a new invoice.
         operationKey=java.util.UUID.randomUUID().toString()
         invoiceId=null;number="";date="";customerId=customers.firstOrNull()?.id
         lines=emptyList();error="";mode="edit"
@@ -244,9 +242,9 @@ private fun InvoiceScreenContent(
                 Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining", style = MaterialTheme.typography.bodySmall)
                 TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
                 if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.")
-                Button(enabled = !busy && customers.isNotEmpty(), onClick = { perform { beginInvoice() } }) { Text("صدور فاکتور جدید") }
-                if (customers.isEmpty()) Text("برای صدور فاکتور ابتدا مشتری این شرکت را ثبت کنید.")
-                if (usableCharge <= 0 && !promoLoading && !paidLoading) Text("اعتبار معتبر برای صدور فاکتور موجود نیست.")
+                Button(enabled = !busy, onClick = { perform { beginInvoice() } }) { Text("صدور فاکتور جدید") }
+                if (customers.isEmpty()) Text("فعلاً مشتری ثبت نشده است؛ می‌توانید اسکلت فاکتور را آماده کنید، اما برای ذخیره باید مشتری داشته باشید.")
+                if (usableCharge <= 0 && !promoLoading && !paidLoading) Text("برای ذخیره فاکتور جدید به اعتبار تأییدشده نیاز است؛ تکمیل فرم بدون مصرف اعتبار ممکن است.")
                 OutlinedTextField(search, { search = it }, label = { Text("جستجوی شماره فاکتور یا مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("ALL" to "همه", "DRAFT" to "پیش‌نویس", "FINALIZED" to "نهایی").forEach { (value, title) ->
@@ -308,11 +306,17 @@ private fun InvoiceScreenContent(
             }
             "edit" -> {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (invoiceId == null) "صدور فاکتور جدید" else "ویرایش پیش‌نویس", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("مبالغ به ریال؛ تعداد در این نسخه فقط عدد صحیح است.", style = MaterialTheme.typography.bodySmall)
+                    InvoiceEditorHeading(seller = sellerName, editingDraft = invoiceId != null, lineCount = lines.size)
+                    Text("اسکلت فاکتور • فروش کالا و خدمات • مبالغ ریال • تعداد صحیح", style = MaterialTheme.typography.bodySmall)
+                    if (invoiceId == null && !paidLoading && !promoLoading && usableCharge == 0L) {
+                        Text("فرم بدون اعتبار قابل تکمیل است؛ هنگام ذخیره، اعتبار سرور بررسی می‌شود.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    InvoiceEditorSection("۱", "مشخصات صورتحساب", "شماره و تاریخ صدور")
                     if(editorLocked) Text("این درخواست محفوظ است؛ برای جلوگیری از مصرف تکراری اعتبار، اطلاعات آن تا تعیین نتیجه ثابت می‌ماند.")
                     OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked, label = { Text("شماره فاکتور") }, supportingText = { if (automaticNumber) Text("برای تخصیص خودکار سریال مودی، این کادر را خالی بگذارید.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked, label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+                    InvoiceEditorSection("۲", "طرف حساب", "مؤدی فروشنده و مشتری خریدار")
+                    Text("فروشنده: ${sellerName.ifBlank { "مؤدی انتخاب‌شده" }}", style = MaterialTheme.typography.bodyMedium)
                     var expanded by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(enabled = !busy && !editorLocked, onClick = { expanded = true }) { Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید")) }
@@ -320,6 +324,7 @@ private fun InvoiceScreenContent(
                             customers.forEach { customer -> DropdownMenuItem(text = { Text(customer.name) }, onClick = { customerId = customer.id; expanded = false }) }
                         }
                     }
+                    InvoiceEditorSection("۳", "اقلام کالا و خدمات", "شناسه کالا، شرح، تعداد، قیمت، تخفیف و مالیات")
                     Text("اقلام فاکتور (${lines.size})", style = MaterialTheme.typography.titleMedium)
                     lines.forEachIndexed { index, row ->
                         LineCard(index, row) {
@@ -328,14 +333,25 @@ private fun InvoiceScreenContent(
                         }
                     }
                     OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = -1; lineDialog = true }) { Text("افزودن کالا یا خدمت") }
-                    TotalsCard(lines)
+                    InvoiceLiveOutline(
+                        seller = sellerName,
+                        buyer = customers.firstOrNull { it.id == customerId }?.name,
+                        invoiceNumber = number,
+                        issueDate = date,
+                        lines = lines
+                    )
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
                             val savedId = if(invoiceId==null) {
-                                val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)}
-                                    ?: if(paidRemaining>0) InvoiceCreditKind.PAID else if(promoRemaining>0) InvoiceCreditKind.GIFT
-                                    else throw IllegalStateException("اعتبار از سرور تأیید نشده است؛ اتصال یا موجودی را بررسی کنید.")
+                                val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)} ?: run {
+                                    val verifiedPaid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
+                                    val verifiedGift = runCatching { activeGateway.giftBalance(accessToken) }.getOrDefault(0)
+                                    promoRemaining = verifiedGift
+                                    if (verifiedPaid > 0) InvoiceCreditKind.PAID
+                                    else if (verifiedGift > 0) InvoiceCreditKind.GIFT
+                                    else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
+                                }
                                 val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines),operationKey,kind)
                                 restoreClaim(claim)
                                 creation.finish(claim.requestId).also{pendingCreation=null}
