@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
+import ir.saba.invoice.domain.InvoiceLineAmounts
+import ir.saba.moadian.MoadianMeasurementUnits
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.NumberFormat
@@ -98,8 +100,11 @@ object SuraInvoicePdf {
             y += 34f
             pageLines.forEachIndexed { index, line ->
                 if (index % 2 == 0) rect(c, 22f, y, 574f, y + geometry.rowHeight - 1, Color.rgb(245, 250, 254))
-                val sum = Math.subtractExact(Math.multiplyExact(line.quantity, line.unitPriceRial), line.discountRial)
-                listOf(line.description, fmt(line.quantity), fmt(line.unitPriceRial), fmt(sum))
+                val sum = Math.subtractExact(InvoiceLineAmounts.grossRial(line), line.discountRial)
+                val quantityLabel = InvoiceLineAmounts.quantityText(line) +
+                    (if (line.unitCode.isNotBlank()) " " +
+                        (MoadianMeasurementUnits.nameOf(line.unitCode) ?: line.unitCode) else "")
+                listOf(line.description, quantityLabel, fmt(line.unitPriceRial), fmt(sum))
                     .forEachIndexed { i, v -> text(c, v, right[i], y + 2, widths[i], 8f,maxLines=2,includePad=false) }
                 y += geometry.rowHeight
             }
