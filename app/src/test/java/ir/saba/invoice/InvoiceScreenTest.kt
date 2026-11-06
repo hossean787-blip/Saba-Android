@@ -233,4 +233,36 @@ class InvoiceScreenTest {
         }
     }
 
+
+    @Test fun finalizedInvoiceCanNavigateToOfficialSubmissionOnlyAfterLocalFinalization() {
+        runBlocking {
+            val id = InvoiceRepository(db).saveDraft(
+                company, customer, "15", "1405/07/02",
+                listOf(InvoiceLine(
+                    invoiceId = 0, itemCode = "1234567890123",
+                    description = "کالا", quantity = 1,
+                    unitPriceRial = 1000, taxRatePercent = 10
+                ))
+            )
+            InvoiceRepository(db).finalizeDraft(company, id)
+            invoices = db.invoiceDao().forCompany(company)
+        }
+        var navigations = 0
+        compose.setContent { MaterialTheme {
+            InvoiceScreen(db, ownerId, company,
+                listOf(Customer(id = customer, companyId = company, name = "خریدار")),
+                invoices, onChanged = {}, onNotice = {}, onEditorActive = {},
+                creditGateway = creditGateway,
+                onOpenOfficialSubmission = { navigations++ })
+        } }
+        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("آماده‌سازی و ارسال رسمی به سامانه مؤدیان")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("آماده‌سازی و ارسال رسمی به سامانه مؤدیان")
+            .performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, navigations) }
+    }
+
 }
