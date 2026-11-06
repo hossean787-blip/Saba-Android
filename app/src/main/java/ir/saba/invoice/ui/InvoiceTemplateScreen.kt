@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceLineAmounts
+import ir.saba.invoice.domain.InvoiceSettlement
 import ir.saba.moadian.MoadianMeasurementUnits
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -116,6 +117,12 @@ object SuraInvoicePdf {
             text(c, "مالیات: ${fmt(invoice.taxAmountRial)} ریال", 557f, ty + 42, 510)
             text(c, "مبلغ نهایی: ${fmt(invoice.totalAmountRial)} ریال",
                 557f, ty + 70, 510, 16f, true, navy)
+            if (invoice.settlementMode != InvoiceSettlement.CASH) {
+                val shares = InvoiceSettlement.amounts(invoice)
+                text(c, "تسویه: " + InvoiceSettlement.label(invoice.settlementMode) +
+                    " | نقدی: " + fmt(shares.cashRial) + " | نسیه: " + fmt(shares.creditRial) + " ریال",
+                    557f, ty + 93, 510, 8f, false, navy, maxLines=1, includePad=false)
+            }
             if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
             if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
             }
