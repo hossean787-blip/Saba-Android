@@ -3,6 +3,7 @@ package ir.saba.invoice.data
 import androidx.room.withTransaction
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceInput
+import ir.saba.invoice.domain.InvoiceSettlement
 
 data class InvoiceDetails(val invoice: Invoice, val lines: List<InvoiceLine>)
 
@@ -16,7 +17,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
         issueDate: String,
         lines: List<InvoiceLine>,
         existingInvoiceId: Long? = null,
-        serverPromoConfirmed: Boolean = false
+        serverPromoConfirmed: Boolean = false,
+        settlementMode: String = InvoiceSettlement.CASH,
+        cashPaidRial: Long? = null
     ): Long {
         require(companyId > 0) { "شرکت را انتخاب کنید." }
         require(customerId > 0) { "مشتری را انتخاب کنید." }
@@ -25,6 +28,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
         val normalizedDate = InvoiceInput.date(issueDate)
         val requestedNumber = InvoiceInput.digits(invoiceNumber).trim()
         val totals = InvoiceCalculator.calculate(lines)
+        InvoiceSettlement.amounts(settlementMode, cashPaidRial, totals.totalAmountRial)
 
         return db.withTransaction {
             require(db.companyDao().byId(companyId) != null) { "شرکت پیدا نشد." }
@@ -66,7 +70,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
                         issueDate = normalizedDate,
                         totalAmountRial = totals.totalAmountRial,
                         taxAmountRial = totals.taxAmountRial,
-                        status = "DRAFT"
+                        status = "DRAFT",
+                        settlementMode = settlementMode,
+                        cashPaidRial = cashPaidRial
                     )
                 )
             } else {
@@ -79,7 +85,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
                         invoiceNumber = normalizedNumber,
                         issueDate = normalizedDate,
                         totalAmountRial = totals.totalAmountRial,
-                        taxAmountRial = totals.taxAmountRial
+                        taxAmountRial = totals.taxAmountRial,
+                        settlementMode = settlementMode,
+                        cashPaidRial = cashPaidRial
                     )
                 )
                 db.invoiceLineDao().deleteForInvoice(existingInvoiceId)
@@ -121,6 +129,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
             val normalizedDate = InvoiceInput.date(invoice.issueDate)
             val lines = db.invoiceLineDao().forInvoice(invoiceId)
             val totals = InvoiceCalculator.calculate(lines)
+            InvoiceSettlement.amounts(invoice.settlementMode, invoice.cashPaidRial, totals.totalAmountRial)
             val company = db.companyDao().byId(invoice.companyId) ?: throw IllegalArgumentException("شرکت پیدا نشد.")
             require(db.customerDao().byId(invoice.customerId)?.companyId == company.id) {
                 "مشتری به شرکت این فاکتور تعلق ندارد."
