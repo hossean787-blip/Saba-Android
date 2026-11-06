@@ -15,8 +15,8 @@ android {
         applicationId = "ir.saba.invoice"
         minSdk = 23
         targetSdk = 35
-        versionCode = if (suraEmbeddedFull) 23 else 22
-        versionName = if (suraEmbeddedFull) "0.23.0" else "0.22.0"
+        versionCode = if (suraEmbeddedFull) 24 else 23
+        versionName = if (suraEmbeddedFull) "0.24.0" else "0.23.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing is opt-in and never uses the ephemeral Android debug key.
