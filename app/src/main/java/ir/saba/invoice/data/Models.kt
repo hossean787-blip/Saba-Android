@@ -1,5 +1,6 @@
 package ir.saba.invoice.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -65,7 +66,13 @@ data class InvoiceLine(
     val quantity: Long,
     val unitPriceRial: Long,
     val discountRial: Long = 0,
-    val taxRatePercent: Int
+    val taxRatePercent: Int,
+    /** Empty on legacy rows; each newly issued line may have its own official unit code. */
+    @ColumnInfo(defaultValue = "''") val unitCode: String = "",
+    /** Empty on old rows: exact decimal quantity, not a floating point number. */
+    @ColumnInfo(defaultValue = "''") val quantityExact: String = "",
+    /** Empty on old rows: exact VAT percent, preserving fractional rates. */
+    @ColumnInfo(defaultValue = "''") val vatRateExact: String = ""
 )
 
 /** Master purchaser's remaining invoice quota. One row per purchaser account. */
