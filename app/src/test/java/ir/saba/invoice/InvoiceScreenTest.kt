@@ -12,7 +12,6 @@ import ir.saba.invoice.ui.InvoiceScreen
 import ir.saba.invoice.ui.InvoiceCreditGateway
 import org.junit.Assert.assertEquals
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -55,7 +54,9 @@ class InvoiceScreenTest {
         QuotaRepository(db).initializeWallet(ownerId, 10)
         QuotaRepository(db).transferFromMaster(ownerId, company, 10, "seed")
     }
-    @After fun close() { db.close() }
+    // The Compose test rule disposes its composition after @After hooks.
+    // Closing this in-memory DB in @After races with still-running LaunchedEffects.
+    // Its lifetime is limited to this fixture; no persistent file is created.
     @Composable private fun Screen() {
         MaterialTheme {
             InvoiceScreen(db, ownerId, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
