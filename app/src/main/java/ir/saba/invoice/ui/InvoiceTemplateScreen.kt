@@ -57,15 +57,17 @@ object SuraInvoicePdf {
         require(invoice.companyId == company.id && customer.companyId == company.id &&
                 invoice.customerId == customer.id) { "Invoice ownership mismatch" }
         // Reject invalid documents before allocating native PDF resources.
-        require(lines.size <= 14) { "برای PDF تک‌صفحه‌ای حداکثر ۱۴ ردیف مجاز است." }
+        require(lines.isNotEmpty() && lines.size <= 500) { "برای PDF حداکثر ۵۰۰ ردیف مجاز است." }
         val totals = InvoiceCalculator.calculate(lines)
         require(invoice.totalAmountRial == totals.totalAmountRial && invoice.taxAmountRial == totals.taxAmountRial) {
             "جمع مبالغ صورتحساب با اقلام مطابقت ندارد؛ صورتحساب را دوباره بارگذاری کنید."
         }
-        val geometry = InvoicePdfLayout(lines.size)
+        val pages = lines.chunked(14)
         val pdf = PdfDocument()
         try {
-            val page = pdf.startPage(PdfDocument.PageInfo.Builder(W, H, 1).create())
+            pages.forEachIndexed { pageIndex, pageLines ->
+                val geometry = InvoicePdfLayout(pageLines.size)
+                val page = pdf.startPage(PdfDocument.PageInfo.Builder(W, H, pageIndex + 1).create())
             val c = page.canvas
             c.drawColor(Color.WHITE)
             rect(c, 21f, 20f, 574f, 84f, navy)
@@ -94,13 +96,14 @@ object SuraInvoicePdf {
             rect(c, 22f, y, 574f, y + 31f, blue)
             headers.forEachIndexed { i, h -> text(c, h, right[i], y + 8, widths[i], 10f, true, navy) }
             y += 34f
-            lines.forEachIndexed { index, line ->
+            pageLines.forEachIndexed { index, line ->
                 if (index % 2 == 0) rect(c, 22f, y, 574f, y + geometry.rowHeight - 1, Color.rgb(245, 250, 254))
                 val sum = Math.subtractExact(Math.multiplyExact(line.quantity, line.unitPriceRial), line.discountRial)
                 listOf(line.description, fmt(line.quantity), fmt(line.unitPriceRial), fmt(sum))
                     .forEachIndexed { i, v -> text(c, v, right[i], y + 2, widths[i], 8f,maxLines=2,includePad=false) }
                 y += geometry.rowHeight
             }
+            if (pageIndex == pages.lastIndex) {
             val ty = geometry.totalsTop
             rect(c, 22f, ty, 574f, ty + 105f, Color.rgb(239, 247, 253))
             text(c, "جمع کل: ${fmt(Math.subtractExact(invoice.totalAmountRial, invoice.taxAmountRial))} ریال",
@@ -110,9 +113,12 @@ object SuraInvoicePdf {
                 557f, ty + 70, 510, 16f, true, navy)
             if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
             if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
+            }
+            text(c, "صفحه " + (pageIndex + 1) + " از " + pages.size, 150f, 781f, 125, 9f)
             text(c, "این نسخه چاپی به‌تنهایی نشانه ارسال یا پذیرش در سامانه مؤدیان نیست.",
                 565f, geometry.footerTop, 533, 9f)
             pdf.finishPage(page)
+            }
             return ByteArrayOutputStream().use { out -> pdf.writeTo(out); out.toByteArray() }
         } finally { pdf.close() }
     }
