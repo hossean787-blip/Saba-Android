@@ -17,6 +17,8 @@ internal class MoadianAutoConnection(
     data class Result(val status: String, val message: String)
 
     suspend fun complete(companyId: Long, memoryId: String, importedPrivateKey: String): Result {
+        // Verify account ownership before any write, even if a supplied key is invalid.
+        val previouslyStored = credentials.hasPendingPrivateKey(companyId)
         if (importedPrivateKey.isNotBlank()) {
             try {
                 credentials.stagePrivateKey(companyId, importedPrivateKey)
@@ -26,9 +28,7 @@ internal class MoadianAutoConnection(
                     "مشخصات مؤدی ذخیره شد اما کلید خصوصی ذخیره نشد؛ از مدیریت کلید دوباره امتحان کنید.")
             }
         }
-        val hasKey = try { credentials.hasPendingPrivateKey(companyId) }
-        catch (e: CancellationException) { throw e }
-        catch (_: Exception) { false }
+        val hasKey = previouslyStored || importedPrivateKey.isNotBlank()
         if (!hasKey) return Result("UNCHECKED",
             "مشخصات مؤدی ذخیره شد؛ برای بررسی اتصال، کلید خصوصی و شناسه یکتا لازم است.")
         if (memoryId.isBlank()) return update(companyId, "KEY_STORED",
