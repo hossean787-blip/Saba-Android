@@ -174,7 +174,7 @@ abstract class SabaDatabase : RoomDatabase() {
                     db.execSQL("ALTER TABLE invoices ADD COLUMN settlementMode TEXT NOT NULL DEFAULT 'CASH'")
                 }
                 if ("cashPaidRial" !in existing) {
-                    db.execSQL("ALTER TABLE invoices ADD COLUMN cashPaidRial INTEGER DEFAULT NULL")
+                    db.execSQL("ALTER TABLE invoices ADD COLUMN cashPaidRial INTEGER")
                 }
             }
         }
