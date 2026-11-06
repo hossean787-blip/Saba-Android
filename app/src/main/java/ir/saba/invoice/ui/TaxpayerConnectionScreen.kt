@@ -40,6 +40,7 @@ private fun TaxpayerConnectionContent(
     var privatePem by remember { mutableStateOf("") }
     var certificate by remember { mutableStateOf<ByteArray?>(null) }
     var profile by remember { mutableStateOf<TaxpayerCredentialProfile?>(null) }
+    var pendingStored by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
@@ -50,6 +51,7 @@ private fun TaxpayerConnectionContent(
             require(company.purchaserId == account.ownerId) { "مودی متعلق به این حساب نیست." }
             name = company.name
             memoryId = db.moadianDetailsDao().byCompany(companyId)?.fiscalMemoryId.orEmpty()
+            pendingStored = repository.hasPendingPrivateKey(companyId)
             if (memoryId.matches(Regex("[A-Z0-9]{6}"))) profile = repository.profile(companyId,System.currentTimeMillis())
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = e.message ?: "اطلاعات اتصال قابل بارگذاری نیست." }
@@ -85,6 +87,7 @@ private fun TaxpayerConnectionContent(
         Text("مودی: $name")
         Text("شناسه حافظه: ${memoryId.ifBlank { "ثبت نشده" }}")
         Text("کلید و گواهی فقط برای همین مؤدی در حساب فعلی ذخیره می‌شوند.")
+        if (pendingStored) Text("کلید خصوصی این مؤدی به‌صورت رمزگذاری‌شده ذخیره شده است؛ برای فعال‌سازی ارسال، شناسه یکتا و گواهی معتبر لازم است.", style=MaterialTheme.typography.bodySmall)
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (profile != null) {
             Text("تطبیق محلی کلید و گواهی انجام شده است.")
@@ -95,13 +98,17 @@ private fun TaxpayerConnectionContent(
         val memoryReady = memoryId.matches(Regex("[A-Z0-9]{6}"))
         OutlinedButton(enabled=!busy,onClick=onEditTaxpayer,modifier=Modifier.fillMaxWidth()) { Text("ویرایش مشخصات و شناسه حافظه") }
         OutlinedButton(enabled=!busy && privatePem.isBlank() && certificate == null,onClick=onCreateKeys,modifier=Modifier.fillMaxWidth()) { Text("ساخت کلید و درخواست گواهی CSR") }
-        OutlinedButton(enabled=!busy && memoryReady,onClick={importKey.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
+        OutlinedButton(enabled=!busy,onClick={importKey.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
             Text(if(privatePem.isBlank()) "انتخاب کلید خصوصی همین مؤدی" else "کلید خصوصی انتخاب شد؛ تغییر فایل")
         }
-        OutlinedButton(enabled=!busy && memoryReady,onClick={importCertificate.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
+        OutlinedButton(enabled=!busy,onClick={importCertificate.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
             Text(if(certificate == null) "انتخاب گواهی CER / CRT / PEM" else "گواهی انتخاب شد؛ تغییر فایل")
         }
-        Button(enabled=!busy && memoryReady && privatePem.isNotBlank() && certificate != null,onClick={confirmation="save"},modifier=Modifier.fillMaxWidth()) {
+        Button(enabled=!busy && privatePem.isNotBlank(),onClick={confirmation="pending"},modifier=Modifier.fillMaxWidth()) {
+            Text("ذخیره امن کلید خصوصی برای این مؤدی")
+        }
+        if (!memoryReady) Text("بدون شناسه یکتای حافظه مالیاتی می‌توانید کلید را امن نگه دارید، اما اتصال و ارسال رسمی فعال نمی‌شود.",style=MaterialTheme.typography.bodySmall)
+        Button(enabled=!busy && memoryReady && (privatePem.isNotBlank() || pendingStored) && certificate != null,onClick={confirmation="save"},modifier=Modifier.fillMaxWidth()) {
             Text("ثبت امن کلید و گواهی برای این مؤدی")
         }
         OutlinedButton(enabled=!busy && profile != null && privatePem.isBlank() && certificate == null,
@@ -110,8 +117,9 @@ private fun TaxpayerConnectionContent(
     }
     if (confirmation.isNotBlank()) AlertDialog(
         onDismissRequest={if(!busy)confirmation=""},
-        title={Text(when(confirmation){"save"->"ثبت اطلاعات اتصال";"probe"->"بررسی اتصال رسمی";else->"حذف اطلاعات اتصال"})},
+        title={Text(when(confirmation){"save"->"ثبت اطلاعات اتصال";"pending"->"ذخیره رمزگذاری‌شده کلید خصوصی";"probe"->"بررسی اتصال رسمی";else->"حذف اطلاعات اتصال"})},
         text={Text(if(confirmation=="probe") "شناسه حافظه و گواهی عمومی همین مؤدی برای احراز هویت به سرور رسمی ارسال می‌شود. هیچ صورتحساب یا درخواست مصرف اعتبار ارسال نمی‌شود."
+            else if(confirmation=="pending") "کلید خصوصی فقط برای همین مؤدی در این دستگاه رمزگذاری می‌شود. تا ثبت شناسه و گواهی معتبر، اتصال مالیاتی فعال نخواهد شد."
             else "مودی: $name\nحافظه: $memoryId\nفقط اطلاعات اتصال همین مؤدی در حساب فعلی تغییر می‌کند؛ سوابق فاکتورها باقی می‌مانند.")},
         confirmButton={TextButton(enabled=!busy,onClick={
             val action=confirmation; busy=true; error=""
@@ -121,9 +129,26 @@ private fun TaxpayerConnectionContent(
                         MoadianConnectionProbe(repository,OfficialMoadianPublicTransport()).check(companyId)
                         onNotice("اطلاعات سرور رسمی دریافت شد؛ این نتیجه به معنی ارسال یا پذیرش صورتحساب نیست.")
                     } else {
-                        if(action=="save") profile=repository.save(companyId,privatePem,requireNotNull(certificate),System.currentTimeMillis())
-                        else { repository.remove(companyId);profile=null }
-                        privatePem="";certificate=null;onNotice("اطلاعات اتصال همین مؤدی به‌روزرسانی شد.")
+                        when(action) {
+                            "pending" -> {
+                                repository.stagePrivateKey(companyId,privatePem)
+                                pendingStored=true
+                                privatePem=""
+                                onNotice("کلید خصوصی این مؤدی به‌صورت امن ذخیره شد؛ هنوز اتصال رسمی فعال نیست.")
+                            }
+                            "save" -> {
+                                profile = if(privatePem.isNotBlank())
+                                    repository.save(companyId,privatePem,requireNotNull(certificate),System.currentTimeMillis())
+                                else repository.saveWithPendingPrivateKey(companyId,requireNotNull(certificate),System.currentTimeMillis())
+                                privatePem="";certificate=null;pendingStored=false
+                                onNotice("کلید و گواهی همین مؤدی تطبیق و به‌صورت امن ثبت شد.")
+                            }
+                            else -> {
+                                repository.remove(companyId)
+                                privatePem="";certificate=null;profile=null;pendingStored=false
+                                onNotice("اطلاعات اتصال این مؤدی حذف شد.")
+                            }
+                        }
                     }
                     confirmation=""
                 } catch(e:CancellationException){throw e}
