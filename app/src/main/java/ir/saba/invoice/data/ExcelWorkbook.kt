@@ -77,17 +77,18 @@ object ExcelWorkbook {
             }
         }
         fun parse(input: ByteArray) = DocumentBuilderFactory.newInstance().apply {
+            isNamespaceAware = true
             setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
             setFeature("http://xml.org/sax/features/external-general-entities", false)
             setFeature("http://xml.org/sax/features/external-parameter-entities", false)
             isExpandEntityReferences = false
         }.newDocumentBuilder().parse(ByteArrayInputStream(input))
         val shared = strings?.let { part ->
-            val nodes = parse(part).getElementsByTagName("si")
+            val nodes = parse(part).getElementsByTagNameNS("*", "si")
             (0 until nodes.length).map { i -> nodes.item(i).textContent.orEmpty() }
         }.orEmpty()
         val doc = parse(sheet ?: error("کاربرگ اکسل پیدا نشد."))
-        val nodes = doc.getElementsByTagName("row")
+        val nodes = doc.getElementsByTagNameNS("*", "row")
         require(nodes.length <= maxRows + 1) { "حداکثر تعداد سطر مجاز $maxRows است." }
         val rows = mutableListOf<List<String>>()
         for (i in 0 until nodes.length) {
@@ -96,7 +97,7 @@ object ExcelWorkbook {
             val values = mutableListOf<String>()
             for (j in 0 until cells.length) {
                 val cell = cells.item(j) as? Element ?: continue
-                if (cell.tagName != "c") continue
+                if (cell.localName != "c") continue
                 val ref = cell.getAttribute("r")
                 val letters = ref.takeWhile(Char::isLetter)
                 val index = if (letters.isEmpty()) values.size else
@@ -104,8 +105,8 @@ object ExcelWorkbook {
                 require(index in 0..39) { "تعداد ستون‌ها بیش از حد مجاز است." }
                 while (values.size <= index) values.add("")
                 val type = cell.getAttribute("t")
-                val raw = if (type == "inlineStr") cell.getElementsByTagName("is").item(0)?.textContent.orEmpty()
-                    else cell.getElementsByTagName("v").item(0)?.textContent.orEmpty()
+                val raw = if (type == "inlineStr") cell.getElementsByTagNameNS("*", "is").item(0)?.textContent.orEmpty()
+                    else cell.getElementsByTagNameNS("*", "v").item(0)?.textContent.orEmpty()
                 values[index] = if (type == "s") shared.getOrNull(raw.toIntOrNull() ?: -1).orEmpty() else raw
             }
             rows.add(values)
