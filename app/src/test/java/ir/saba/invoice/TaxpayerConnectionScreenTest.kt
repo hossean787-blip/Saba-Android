@@ -37,8 +37,10 @@ class TaxpayerConnectionScreenTest {
         compose.waitUntil(15000){compose.onAllNodesWithText("مودی: مودی حساب اول").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("بررسی اتصال مؤدی (بدون گواهی)").assertIsNotEnabled()
         compose.onNodeWithText("تنظیمات پیشرفته اتصال با گواهی").performClick()
+        compose.onNodeWithText("بستن تنظیمات گواهی نسخه ۲").assertExists()
+        compose.onNodeWithText("بستن تنظیمات گواهی نسخه ۲").performScrollTo()
+        compose.onNodeWithText("انتخاب گواهی CER / CRT / PEM").performScrollTo()
         compose.onNodeWithText("ثبت امن کلید و گواهی برای این مؤدی").assertIsNotEnabled()
-        compose.onNodeWithText("انتخاب گواهی CER / CRT / PEM").assertExists()
     }
     @Test fun changingToForeignTaxpayerClearsOldProfileAndRejectsAccess() {
         var selected by mutableLongStateOf(first)
