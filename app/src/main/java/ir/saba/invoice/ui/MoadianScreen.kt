@@ -53,7 +53,8 @@ fun MoadianScreen(
     onChanged: suspend () -> Unit,
     onSelect: (Long) -> Unit,
     onNotice: (String) -> Unit,
-    onEditing: (Boolean) -> Unit
+    onEditing: (Boolean) -> Unit,
+    onOpenConnection: (Long) -> Unit = {}
 ) {
     require(ownerId.isNotBlank())
     val ownedCompanies = companies.filter { it.purchaserId == ownerId }
@@ -249,6 +250,17 @@ fun MoadianScreen(
                 OutlinedButton(onClick = { open("delete") }, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Delete, null, Modifier.size(17.dp)); Text("حذف")
                 }
+            }
+            val activeSelected = selectedId?.takeIf { id ->
+                ownedCompanies.any { it.id == id } &&
+                    detailRows.firstOrNull { it.companyId == id }?.inactive != true
+            }
+            OutlinedButton(
+                enabled = !busy && activeSelected != null,
+                onClick = { activeSelected?.let(onOpenConnection) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده")
             }
             OutlinedTextField(enabled = !busy && !pending, value = query,
                 onValueChange = { query = it }, label = { Text("جستجوی مودیان") },
