@@ -3,6 +3,7 @@ package ir.saba.invoice.data
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.security.AccountScope
+import ir.saba.invoice.domain.InvoiceLineAmounts
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -150,4 +151,33 @@ class InvoiceCreationCoordinatorTest {
         }finally{db.close()}
     }
 
+
+    @Test fun exactDecimalInvoicePendingClaimAndSavedRowsSurviveLocalCommit() = runBlocking {
+        val db = database()
+        try {
+            val (company, customer) = seed(db)
+            val backend = Backend()
+            val coordinator = InvoiceCreationCoordinator(db, account, backend::authorize)
+            val item = InvoiceLineAmounts.fromUserInput(
+                "2710000138624", "فروش نیم کیلو",
+                "۰٫۵", 1000, 0, "۹٫۵", "164"
+            )
+            val original = InvoiceCreationSnapshot(customer, "101", "1405/08/12", listOf(item))
+            val claim = coordinator.prepare(
+                company, original, UUID.randomUUID().toString(), InvoiceCreditKind.PAID
+            )
+            assertEquals(original, coordinator.snapshot(claim))
+            val invoiceId = coordinator.finish(claim.requestId)
+            assertEquals(1, backend.consumed.size)
+            val actual = db.invoiceLineDao().forInvoice(invoiceId).single()
+            assertEquals("164", actual.unitCode)
+            assertEquals("0.5", actual.quantityExact)
+            assertEquals("9.5", actual.vatRateExact)
+            assertEquals(547L, db.invoiceDao().byId(invoiceId)!!.totalAmountRial)
+            InvoiceRepository(db).finalizeDraft(company, invoiceId)
+            assertEquals("FINALIZED", db.invoiceDao().byId(invoiceId)!!.status)
+        } finally {
+            db.close()
+        }
+    }
 }
