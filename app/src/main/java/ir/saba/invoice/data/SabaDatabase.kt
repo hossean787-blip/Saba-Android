@@ -67,7 +67,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class, InvoiceCreationClaim::class, OfficialSubmission::class, LegacyImportReceipt::class, CreditTransferClaim::class], version = 10, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class, InvoiceCreationClaim::class, OfficialSubmission::class, LegacyImportReceipt::class, CreditTransferClaim::class], version = 11, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
         internal val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -154,6 +154,14 @@ abstract class SabaDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_invoices_companyId_customerId ON invoices(companyId,customerId)")
             }
         }
+        internal val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Defaults preserve the monetary identity of existing invoice lines.
+                db.execSQL("ALTER TABLE invoice_lines ADD COLUMN unitCode TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE invoice_lines ADD COLUMN quantityExact TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE invoice_lines ADD COLUMN vatRateExact TEXT NOT NULL DEFAULT ''")
+            }
+        }
         /** New commercial accounts never open or automatically claim the unowned legacy database. */
         fun openAccount(context: Context, account: ir.saba.invoice.security.AccountScope): SabaDatabase =
             Room.databaseBuilder(context.applicationContext, SabaDatabase::class.java, account.databaseName)
@@ -176,7 +184,7 @@ abstract class SabaDatabase : RoomDatabase() {
                         db.execSQL("CREATE TRIGGER IF NOT EXISTS account_owner_update BEFORE UPDATE ON companies WHEN NEW.purchaserId != '${account.ownerId}' OR OLD.purchaserId != '${account.ownerId}' BEGIN SELECT RAISE(ABORT, 'Taxpayer owner differs from account database'); END")
                     }
                 })
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build()
 
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
@@ -184,7 +192,7 @@ abstract class SabaDatabase : RoomDatabase() {
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build().also { INSTANCE = it }
         }
     }
     abstract fun creditTransferClaimDao(): CreditTransferClaimDao
