@@ -107,9 +107,15 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         }
     }
     confirmation?.let { row ->
-        val header = org.json.JSONObject(row.payload).getJSONObject("header")
+        val content = org.json.JSONObject(row.payload)
+        val header = content.getJSONObject("header")
+        val body = content.getJSONArray("body")
+        val units = (0 until body.length()).joinToString("، ") { index ->
+            val code = body.getJSONObject(index).getString("mu")
+            "${index + 1}: " + (ir.saba.moadian.MoadianMeasurementUnits.nameOf(code) ?: code)
+        }
         AlertDialog(onDismissRequest={confirmation=null},title={Text("تأیید ارسال واقعی به سامانه مؤدیان")},
-            text={Text("مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nخریدار: ${header.getString("bid")}\nواحد همه ردیف‌ها: ${ir.saba.moadian.MoadianMeasurementUnits.nameOf(org.json.JSONObject(row.payload).getJSONArray("body").getJSONObject(0).getString("mu"))}\nفروش نقدی و واحد تمام ردیف‌ها را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
+            text={Text("مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nخریدار: ${header.getString("bid")}\nواحدهای هر ردیف: $units\nفروش نقدی و واحد تمام ردیف‌ها را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
             confirmButton={TextButton(onClick={confirmation=null;act { service.submit(row.requestId) }}) { Text("تأیید و ارسال واقعی") }},
             dismissButton={TextButton(onClick={confirmation=null}) { Text("انصراف") }})
     }
