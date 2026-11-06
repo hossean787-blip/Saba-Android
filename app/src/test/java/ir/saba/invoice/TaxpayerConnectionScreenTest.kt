@@ -35,7 +35,8 @@ class TaxpayerConnectionScreenTest {
     @Test fun unconfiguredProfileCannotProbeOrSaveCredentials() {
         compose.setContent {MaterialTheme{TaxpayerConnectionScreen(db,account,first,{},{},{})}}
         compose.waitUntil(15000){compose.onAllNodesWithText("مودی: مودی حساب اول").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("بررسی اتصال رسمی بدون ارسال صورتحساب").assertIsNotEnabled()
+        compose.onNodeWithText("بررسی اتصال مؤدی (بدون گواهی)").assertIsNotEnabled()
+        compose.onNodeWithText("تنظیمات پیشرفته اتصال با گواهی").performClick()
         compose.onNodeWithText("ثبت امن کلید و گواهی برای این مؤدی").assertIsNotEnabled()
         compose.onNodeWithText("انتخاب گواهی CER / CRT / PEM").assertExists()
     }
@@ -47,6 +48,6 @@ class TaxpayerConnectionScreenTest {
         compose.waitUntil(15000){compose.onAllNodesWithText("مودی متعلق به این حساب نیست.").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("شناسه حافظه: A11216").assertDoesNotExist()
         compose.onNodeWithText("مودی: مودی حساب دیگر").assertDoesNotExist()
-        compose.onNodeWithText("بررسی اتصال رسمی بدون ارسال صورتحساب").assertIsNotEnabled()
+        compose.onNodeWithText("بررسی اتصال مؤدی (بدون گواهی)").assertIsNotEnabled()
     }
 }
