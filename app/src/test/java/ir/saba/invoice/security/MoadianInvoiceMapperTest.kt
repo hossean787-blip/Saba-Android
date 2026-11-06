@@ -64,4 +64,27 @@ class MoadianInvoiceMapperTest {
         assertEquals(175L,header.getLong("tvop"))
     }
 
+    @Test fun preciseQuantityVatAndDifferentItemUnitsMapToOfficialPayload() {
+        val first = lines.single().copy(
+            quantity = 1, unitPriceRial = 1000, taxRatePercent = 9,
+            quantityExact = "0.5", vatRateExact = "9.5", unitCode = "164"
+        )
+        val second = lines.single().copy(
+            quantity = 1, unitPriceRial = 1000, taxRatePercent = 0,
+            quantityExact = "1", vatRateExact = "0", unitCode = "1627"
+        )
+        val payload = JSONObject(map(
+            invoice.copy(totalAmountRial = 1547, taxAmountRial = 47),
+            listOf(first, second), unit = ""
+        ))
+        val body = payload.getJSONArray("body")
+        assertEquals(2, body.length())
+        assertEquals("164", body.getJSONObject(0).getString("mu"))
+        assertEquals("1627", body.getJSONObject(1).getString("mu"))
+        assertEquals(0, body.getJSONObject(0).getBigDecimal("am").compareTo(java.math.BigDecimal("0.5")))
+        assertEquals(0, body.getJSONObject(0).getBigDecimal("vra").compareTo(java.math.BigDecimal("9.5")))
+        assertEquals(47L, body.getJSONObject(0).getLong("vam"))
+        assertEquals(47L, payload.getJSONObject("header").getLong("tvam"))
+    }
+
 }
