@@ -2,6 +2,7 @@ package ir.saba.invoice.security
 
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceInput
+import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.moadian.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,7 +27,9 @@ object MoadianInvoiceMapper {
         require(invoice.status == "FINALIZED" && invoice.companyId == company.id && customer.id == invoice.customerId && customer.companyId == company.id)
         require(!details.inactive && details.companyId == company.id)
         require(buyerProfile == null || (buyerProfile.customerId == customer.id && buyerProfile.companyId == company.id && buyerProfile.active && buyerProfile.isCustomer && buyerProfile.nationality == "IR"))
-        require(MoadianMeasurementUnits.nameOf(unit) != null) { "واحد اندازه‌گیری معتبر برای همه ردیف‌ها لازم است." }
+        require(lines.all { MoadianMeasurementUnits.nameOf(it.unitCode.ifBlank { unit }) != null }) {
+            "برای هر ردیف واحد سنجش معتبر انتخاب کنید؛ برای فاکتورهای قدیمی می‌توان واحد مشترک وارد کرد."
+        }
         require(lines.all { it.invoiceId == invoice.id })
         val issued = OffsetDateTime.parse(issueTime).toInstant().toEpochMilli()
         val expectedDay = OffsetDateTime.parse(defaultIssueTime(invoice.issueDate)).atZoneSameInstant(ZoneId.of("Asia/Tehran")).toLocalDate()
@@ -35,7 +38,10 @@ object MoadianInvoiceMapper {
         val serial = InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
         val taxId = TaxIdGenerator.generate(details.fiscalMemoryId,serial,issued)
         val contract = TaxInvoiceContract(TaxInvoiceHeader(taxId,details.fiscalMemoryId,company.economicId,customer.economicId,issued),
-            lines.map { TaxInvoiceItem(it.itemCode,it.description,BigDecimal.valueOf(it.quantity),BigDecimal.valueOf(it.unitPriceRial),BigDecimal.valueOf(it.discountRial),BigDecimal.valueOf(it.taxRatePercent.toLong()),unit) })
+            lines.map { TaxInvoiceItem(it.itemCode,it.description,
+                InvoiceLineAmounts.effectiveQuantity(it),BigDecimal.valueOf(it.unitPriceRial),
+                BigDecimal.valueOf(it.discountRial),InvoiceLineAmounts.effectiveTaxPercent(it),
+                it.unitCode.ifBlank { unit }) })
         TaxInvoiceValidation.validate(contract)
         val legal = when (buyerProfile?.accountType ?: if (customer.nationalId.length == 11) "LEGAL" else "NATURAL") {
             "LEGAL" -> true
@@ -51,9 +57,10 @@ object MoadianInvoiceMapper {
         require(total.payableRial.longValueExact() == invoice.totalAmountRial && total.vatRial.longValueExact() == invoice.taxAmountRial) { "جمع فاکتور با قواعد مالیاتی تطابق ندارد؛ ارسال متوقف شد." }
         require(total.netRial > BigDecimal.ZERO) { "در مسیر فروش نقدی، مبلغ پس از تخفیف باید مثبت باشد." }
         val body = JSONArray()
-        calculated.forEach { line ->
+        calculated.forEachIndexed { index, line ->
             val t = MoadianCalculator.calculate(line)
-            body.put(JSONObject().put("sstid",line.productId).put("sstt",line.description).put("mu",unit)
+            body.put(JSONObject().put("sstid",line.productId).put("sstt",line.description)
+                .put("mu",lines[index].unitCode.ifBlank { unit })
                 .put("am",line.quantity).put("fee",line.unitPriceRial).put("prdis",t.grossRial).put("dis",t.discountRial)
                 .put("adis",t.netRial).put("vra",line.vatPercent).put("vam",t.vatRial).put("cop",t.payableRial).put("vop",t.vatRial).put("tsstam",t.payableRial))
         }
