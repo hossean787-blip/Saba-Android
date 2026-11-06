@@ -25,14 +25,28 @@ import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceIdentifierPrefill
+import ir.saba.invoice.domain.InvoiceLineAmounts
+import ir.saba.moadian.MoadianMeasurementUnits
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
 private val LinesSaver = listSaver<List<InvoiceLine>, String>(
-    save = { rows -> rows.flatMap { listOf(it.itemCode, it.description, it.quantity.toString(), it.unitPriceRial.toString(), it.discountRial.toString(), it.taxRatePercent.toString()) } },
-    restore = { values -> values.chunked(6).map { InvoiceLine(invoiceId = 0, itemCode = it[0], description = it[1], quantity = it[2].toLong(), unitPriceRial = it[3].toLong(), discountRial = it[4].toLong(), taxRatePercent = it[5].toInt()) } }
+    save = { rows -> rows.flatMap {
+        listOf(it.itemCode, it.description, it.quantity.toString(), it.unitPriceRial.toString(),
+            it.discountRial.toString(), it.taxRatePercent.toString(), it.unitCode, it.quantityExact, it.vatRateExact)
+    } },
+    restore = { values ->
+        val width = if (values.size % 9 == 0) 9 else 6
+        values.chunked(width).map { item ->
+            InvoiceLine(invoiceId = 0, itemCode = item[0], description = item[1],
+                quantity = item[2].toLong(), unitPriceRial = item[3].toLong(),
+                discountRial = item[4].toLong(), taxRatePercent = item[5].toInt(),
+                unitCode = item.getOrElse(6) { "" }, quantityExact = item.getOrElse(7) { "" },
+                vatRateExact = item.getOrElse(8) { "" })
+        }
+    }
 )
 
 internal fun rial(amount: Long): String = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(amount) + " ریال"
@@ -317,7 +331,7 @@ private fun InvoiceScreenContent(
             "edit" -> {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     InvoiceEditorHeading(seller = sellerName, editingDraft = invoiceId != null, lineCount = lines.size)
-                    Text("صورتحساب فروش کالا و خدمات • مبالغ ریال • تعداد صحیح", style = MaterialTheme.typography.bodySmall)
+                    Text("صورتحساب فروش کالا و خدمات • مبالغ ریال • مقدار و نرخ اعشاری", style = MaterialTheme.typography.bodySmall)
                     if (invoiceId == null && !paidLoading && !promoLoading && usableCharge == 0L) {
                         Text("فرم بدون اعتبار قابل تکمیل است؛ هنگام ذخیره، اعتبار سرور بررسی می‌شود.", style = MaterialTheme.typography.bodySmall)
                     }
@@ -428,9 +442,11 @@ private fun LineCard(index: Int, row: InvoiceLine, actions: (@Composable ColumnS
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("${index + 1}. ${row.description}", fontWeight = FontWeight.SemiBold)
             if (row.itemCode.isNotBlank()) Text("شناسه کالا/خدمت: ${row.itemCode}")
-            Text("تعداد: ${row.quantity} • قیمت واحد: ${rial(row.unitPriceRial)}")
-            Text("تخفیف: ${rial(row.discountRial)} • مالیات: ${row.taxRatePercent}٪")
-            Text("خالص ردیف: ${rial(Math.subtractExact(Math.multiplyExact(row.quantity, row.unitPriceRial), row.discountRial))}")
+            Text("مقدار: ${InvoiceLineAmounts.quantityText(row)}" +
+                (if (row.unitCode.isNotBlank()) " ${MoadianMeasurementUnits.nameOf(row.unitCode) ?: row.unitCode}" else "") +
+                " • قیمت واحد: ${rial(row.unitPriceRial)}")
+            Text("تخفیف: ${rial(row.discountRial)} • مالیات: ${InvoiceLineAmounts.vatText(row)}٪")
+            Text("خالص ردیف: ${rial(Math.subtractExact(InvoiceLineAmounts.grossRial(row), row.discountRial))}")
             actions?.invoke(this)
         }
     }
@@ -451,7 +467,10 @@ private fun TotalsCard(lines: List<InvoiceLine>, stored: Invoice? = null) {
                 Text("مالیات: ${rial(result.taxAmountRial)}")
                 Text("قابل پرداخت: ${rial(result.totalAmountRial)}", fontWeight = FontWeight.Bold)
             } else Text(if (lines.isEmpty()) "برای مشاهده جمع، یک ردیف اضافه کنید." else "مبالغ فاکتور معتبر نیستند.")
-            Text("مالیات پس از جمع ردیف‌ها به ریال گرد می‌شود.", style = MaterialTheme.typography.bodySmall)
+            Text(if (lines.any(InvoiceLineAmounts::isPrecise))
+                    "مبالغ ردیف‌های جدید طبق قاعده دقیق ریالی محاسبه می‌شوند."
+                else "صورتحساب‌های قدیمی با روش محاسبات زمان ثبت حفظ شده‌اند.",
+                style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -460,10 +479,11 @@ private fun TotalsCard(lines: List<InvoiceLine>, stored: Invoice? = null) {
 private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, onDismiss: () -> Unit, onSave: (InvoiceLine) -> Unit) {
     var code by rememberSaveable { mutableStateOf(initial?.itemCode.orEmpty()) }
     var description by rememberSaveable { mutableStateOf(initial?.description.orEmpty()) }
-    var quantity by rememberSaveable { mutableStateOf(initial?.quantity?.toString() ?: "1") }
+    var quantity by rememberSaveable { mutableStateOf(initial?.let(InvoiceLineAmounts::quantityText) ?: "1") }
+    var unit by rememberSaveable { mutableStateOf(initial?.unitCode.orEmpty()) }
     var price by rememberSaveable { mutableStateOf(initial?.unitPriceRial?.toString().orEmpty()) }
     var discount by rememberSaveable { mutableStateOf(initial?.discountRial?.toString() ?: "0") }
-    var tax by rememberSaveable { mutableStateOf(initial?.taxRatePercent?.toString().orEmpty()) }
+    var tax by rememberSaveable { mutableStateOf(initial?.let(InvoiceLineAmounts::vatText).orEmpty()) }
     var vatHint by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
     val scroll = rememberScrollState()
@@ -492,20 +512,37 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
                 }
                 OutlinedTextField(description, { description = it }, label = { Text("شرح کالا یا خدمت") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(code, { code = it }, label = { Text("شناسه کالا/خدمت (اختیاری برای ثبت محلی)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                NumberField(quantity, { quantity = it }, "تعداد صحیح")
+                NumberField(quantity, { quantity = it }, "تعداد / مقدار (تا ۸ رقم اعشار)")
+                OutlinedTextField(
+                    unit, { unit = InvoiceInput.digits(it).trim() },
+                    label = { Text("کد واحد سنجش هر ردیف") }, singleLine = true,
+                    supportingText = { Text("برای ارسال رسمی، هر کالا واحد معتبر خودش را نیاز دارد.") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("1627" to "عدد", "164" to "کیلوگرم", "165" to "متر").forEach { (key, title) ->
+                        FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("1637" to "لیتر", "16103" to "ساعت", "1653" to "واحد").forEach { (key, title) ->
+                        FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
+                    }
+                }
                 NumberField(price, { price = it }, "قیمت واحد به ریال")
                 NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
-                NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات، صفر تا صد")
+                NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
                 if (vatHint.isNotEmpty()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = { TextButton(onClick = {
             try {
-                val rate = InvoiceInput.wholeNumber(tax, "نرخ مالیات")
-                require(rate in 0..100) { "نرخ مالیات باید بین صفر و صد باشد." }
-                val row = InvoiceLine(invoiceId = 0, itemCode = InvoiceInput.digits(code.trim()), description = description.trim(),
-                    quantity = InvoiceInput.wholeNumber(quantity, "تعداد"), unitPriceRial = InvoiceInput.wholeNumber(price, "قیمت"),
-                    discountRial = InvoiceInput.wholeNumber(discount, "تخفیف"), taxRatePercent = rate.toInt())
+                val row = InvoiceLineAmounts.fromUserInput(
+                    code = code, description = description,
+                    rawQuantity = quantity, price = InvoiceInput.wholeNumber(price, "قیمت"),
+                    discount = InvoiceInput.wholeNumber(discount, "تخفیف"),
+                    rawRate = tax, unit = unit
+                )
                 InvoiceCalculator.calculate(listOf(row))
                 onSave(row)
             } catch (e: ArithmeticException) {
