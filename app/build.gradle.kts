@@ -43,6 +43,8 @@ android {
         }
     }
     buildFeatures { compose = true }
+    // Install-time catalog chunks are gzip already; do not compress them again in APK.
+    androidResources { noCompress.add("gz") }
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
