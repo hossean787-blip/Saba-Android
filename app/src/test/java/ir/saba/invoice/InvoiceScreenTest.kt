@@ -10,6 +10,9 @@ import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.data.*
 import ir.saba.invoice.ui.InvoiceScreen
 import ir.saba.invoice.ui.InvoiceCreditGateway
+import ir.saba.invoice.data.identifiers.SuraIdentifier
+import ir.saba.invoice.data.identifiers.SuraSavedIdentifierStore
+import ir.saba.invoice.security.AccountScope
 import org.junit.Assert.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -76,6 +79,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("افزودن کالا یا خدمت").performScrollTo().performClick()
         compose.onNodeWithText("شرح کالا یا خدمت").performTextInput("خدمت آزمایشی")
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("۱۰۰۰")
+        compose.onNodeWithText("درصد مالیات، صفر تا صد").performScrollTo().performTextInput("۱۰")
         compose.onNodeWithText("ثبت ردیف").performClick()
     }
 
@@ -186,6 +190,47 @@ class InvoiceScreenTest {
         compose.onNodeWithText("مشتری: انتخاب کنید").assertExists()
         compose.onNodeWithText("افزودن کالا یا خدمت").assertExists()
         assertEquals(10L,creditGateway.remaining)
+    }
+
+
+    @Test fun invoiceItemSelectionUsesOnlyCurrentTaxpayersSavedIdentifier() {
+        val code = "1234567890123"
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val saved = SuraSavedIdentifierStore(context, AccountScope.of(ownerId))
+        try {
+            runBlocking {
+                saved.save(company, SuraIdentifier(
+                    id = code,
+                    description = "کالای انتخاب‌شده مؤدی",
+                    vat = "9",
+                    taxable = "",
+                    kind = "کالا",
+                    expirationDate = "",
+                    source = "ورود از اکسل"
+                ))
+            }
+        } finally {
+            saved.close()
+        }
+
+        compose.setContent { Screen() }
+        openNew()
+        compose.onNodeWithText("افزودن کالا یا خدمت").performScrollTo().performClick()
+        compose.onNodeWithTag("invoiceSavedIdentifierButton").performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithTag("invoiceSelectIdentifier_" + code).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performClick()
+        compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("1000")
+        compose.onNodeWithText("ثبت ردیف").performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.waitUntil(15000) { invoices.size == 1 }
+        runBlocking {
+            val row = db.invoiceLineDao().forInvoice(invoices.single().id).single()
+            assertEquals(code, row.itemCode)
+            assertEquals("کالای انتخاب‌شده مؤدی", row.description)
+            assertEquals(9, row.taxRatePercent)
+        }
     }
 
 }
