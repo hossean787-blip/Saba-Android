@@ -33,23 +33,29 @@ class SuraIdentifierStoreTest {
         val sample = SuraIdentifier("1234567890123", "خدمت آزمایشی", "10", "مشمول",
             "شناسه اختصاصی خدمت", "", "test")
         try {
-            SuraSavedIdentifierStore(context, accountA).use { a ->
-                SuraSavedIdentifierStore(context, accountB).use { b ->
-                    a.save(101, sample)
-                    a.save(102, sample.copy(description = "شرح مؤدی دوم"))
-                    b.save(101, sample.copy(description = "شرح حساب دوم"))
-                    assertEquals("خدمت آزمایشی", a.forTaxpayer(101).single().description)
-                    assertEquals("شرح مؤدی دوم", a.forTaxpayer(102).single().description)
-                    assertEquals("شرح حساب دوم", b.forTaxpayer(101).single().description)
-                    a.remove(101, sample.id)
-                    assertTrue(a.forTaxpayer(101).isEmpty())
-                    assertEquals(1, a.forTaxpayer(102).size)
-                    assertEquals(1, b.forTaxpayer(101).size)
-                }
-            }
-            SuraSavedIdentifierStore(context, accountA).use { a ->
-                assertEquals(1, a.forTaxpayer(102).size)
+            val a = SuraSavedIdentifierStore(context, accountA)
+            val b = SuraSavedIdentifierStore(context, accountB)
+            try {
+                a.save(101, sample)
+                a.save(102, sample.copy(description = "شرح مؤدی دوم"))
+                b.save(101, sample.copy(description = "شرح حساب دوم"))
+                assertEquals("خدمت آزمایشی", a.forTaxpayer(101).single().description)
+                assertEquals("شرح مؤدی دوم", a.forTaxpayer(102).single().description)
+                assertEquals("شرح حساب دوم", b.forTaxpayer(101).single().description)
+                a.remove(101, sample.id)
                 assertTrue(a.forTaxpayer(101).isEmpty())
+                assertEquals(1, a.forTaxpayer(102).size)
+                assertEquals(1, b.forTaxpayer(101).size)
+            } finally {
+                a.close()
+                b.close()
+            }
+            val reopened = SuraSavedIdentifierStore(context, accountA)
+            try {
+                assertEquals(1, reopened.forTaxpayer(102).size)
+                assertTrue(reopened.forTaxpayer(101).isEmpty())
+            } finally {
+                reopened.close()
             }
         } finally {
             context.deleteDatabase(fileA)
