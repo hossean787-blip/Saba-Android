@@ -58,11 +58,12 @@ fun InvoiceScreen(
     onNeedCharge: () -> Unit = {},
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {},
+    onOpenOfficialSubmission: () -> Unit = {},
     creditGateway: InvoiceCreditGateway? = null
 ) {
     val states = rememberSaveableStateHolder()
     states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
-        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, creditGateway) }
+        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway) }
     }
 }
 
@@ -81,6 +82,7 @@ private fun InvoiceScreenContent(
     onNeedCharge: () -> Unit = {},
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {},
+    onOpenOfficialSubmission: () -> Unit = {},
     creditGateway: InvoiceCreditGateway? = null
 ) {
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
@@ -235,7 +237,10 @@ private fun InvoiceScreenContent(
                             pdfExport.launch("SURA-${loaded.invoice.invoiceNumber}.pdf")
                         },
                         onBack = { mode = "details" },
-                        onSend = { onNotice("ارسال واقعی به سامانه مؤدیان هنوز متصل و تأیید نشده است.") })
+                        onSend = {
+                            if (loaded.invoice.status == "FINALIZED") onOpenOfficialSubmission()
+                            else onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
+                        })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -293,6 +298,10 @@ private fun InvoiceScreenContent(
                             }
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
+                        if (invoice.status == "FINALIZED") {
+                            OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                                onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
+                        }
                         if (invoice.status == "DRAFT") {
                             Button(enabled = !busy, onClick = {
                                 number = invoice.invoiceNumber; date = invoice.issueDate; customerId = invoice.customerId
