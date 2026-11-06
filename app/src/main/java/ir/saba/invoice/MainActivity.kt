@@ -663,7 +663,7 @@ class MainActivity : ComponentActivity() {
                                 onCharge = { page = Page.QUOTA }
                             )
                             Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES })
-                            Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it })
+                            Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it }, onOpenConnection = { selectTaxpayer(it); page = Page.TAX_CONNECTION })
                             Page.TAX_KEYS -> Column(Modifier.fillMaxSize()) {
                                 if (company != null) TextButton(onClick = { page = Page.TAX_CONNECTION }) { Text("اتصال مالیاتی مؤدی انتخاب‌شده") }
                                 TaxpayerKeysScreen(onNotice = ::notify)
