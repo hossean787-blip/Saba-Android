@@ -14,6 +14,24 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class DatabaseMigrationTest {
+    /** Downgraded test fixtures must match the real pre-v11 invoice_lines layout. */
+    private fun restoreLegacyInvoiceLineLayout(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE invoice_lines_legacy (
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            invoiceId INTEGER NOT NULL, itemCode TEXT NOT NULL,
+            description TEXT NOT NULL, quantity INTEGER NOT NULL,
+            unitPriceRial INTEGER NOT NULL, discountRial INTEGER NOT NULL,
+            taxRatePercent INTEGER NOT NULL,
+            FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE CASCADE
+        )""".trimIndent())
+        db.execSQL("""INSERT INTO invoice_lines_legacy
+            (id,invoiceId,itemCode,description,quantity,unitPriceRial,discountRial,taxRatePercent)
+            SELECT id,invoiceId,itemCode,description,quantity,unitPriceRial,discountRial,taxRatePercent
+            FROM invoice_lines""".trimIndent())
+        db.execSQL("DROP TABLE invoice_lines")
+        db.execSQL("ALTER TABLE invoice_lines_legacy RENAME TO invoice_lines")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_invoice_lines_invoiceId ON invoice_lines(invoiceId)")
+    }
     @Test fun roomOpensVersionOneSchemaAndPreservesActualInvoiceRelations() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "migration-${System.nanoTime()}.db"
@@ -41,10 +59,11 @@ class DatabaseMigrationTest {
             it.execSQL("DROP TABLE official_submissions")
             it.execSQL("DROP TABLE legacy_import_receipts")
             it.execSQL("DROP TABLE invoice_creation_claims")
+            restoreLegacyInvoiceLineLayout(it)
             it.version = 1
         }
         val upgraded = Room.databaseBuilder(context, SabaDatabase::class.java, name)
-            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7, SabaDatabase.MIGRATION_7_8, SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10).build()
+            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7, SabaDatabase.MIGRATION_7_8, SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10, SabaDatabase.MIGRATION_10_11).build()
         try {
             val details = InvoiceRepository(upgraded).detailsForCompany(company, invoice)
             assertEquals(customer, details.invoice.customerId)
@@ -78,9 +97,10 @@ class DatabaseMigrationTest {
             it.execSQL("DROP INDEX index_invoices_companyId_customerId")
             it.execSQL("DROP TABLE official_submissions")
             it.execSQL("DROP TABLE legacy_import_receipts")
+            restoreLegacyInvoiceLineLayout(it)
             it.version=8
         }
-        db=Room.databaseBuilder(context,SabaDatabase::class.java,name).addMigrations(SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10).build()
+        db=Room.databaseBuilder(context,SabaDatabase::class.java,name).addMigrations(SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10, SabaDatabase.MIGRATION_10_11).build()
         try {
             assertEquals(claim,db.invoiceCreationClaimDao().pending(company))
             assertTrue(db.officialSubmissionDao().forCompany(company).isEmpty())
