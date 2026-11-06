@@ -4,7 +4,7 @@ import ir.saba.invoice.data.identifiers.SuraIdentifier
 import ir.saba.invoice.data.identifiers.SuraIdentifierStore
 
 /** Values entered into the invoice editor from the selected taxpayer's saved identifiers.
- * A missing or fractional source VAT is NEVER silently replaced by a general VAT rate.
+ * A missing or invalid source VAT is NEVER silently replaced by a general VAT rate.
  * Selection does not certify that a source tax code or tax rate is currently valid.
  */
 data class InvoiceIdentifierPrefill(
@@ -23,8 +23,11 @@ data class InvoiceIdentifierPrefill(
             require(description.isNotEmpty()) { "شرح شناسه انتخاب‌شده خالی است." }
             val rate = SuraIdentifierStore.normalize(identifier.vat)
                 .replace("٪", "").replace("%", "").trim()
-            val integerRate = rate.toIntOrNull()?.takeIf { it in 0..100 }?.toString().orEmpty()
-            return InvoiceIdentifierPrefill(code, description, integerRate, integerRate.isEmpty())
+            val validatedRate = runCatching {
+                InvoiceLineAmounts.taxPercent(rate.replace('٫', '.'))
+                    .stripTrailingZeros().toPlainString()
+            }.getOrDefault("")
+            return InvoiceIdentifierPrefill(code, description, validatedRate, validatedRate.isEmpty())
         }
     }
 }
