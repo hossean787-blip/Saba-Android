@@ -1,0 +1,112 @@
+name: SURA FULL embedded identifiers — signed update
+
+on:
+  workflow_dispatch:
+    inputs:
+      catalog_run_id:
+        description: "Successful GitHub Actions run containing the private sura-full-catalog-assets artifact"
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  full-bank-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get verified asset pack from authorized prior workflow run
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.catalog_run_id }}
+          repository: ${{ github.repository }}
+          name: sura-full-catalog-assets
+          path: .
+      - name: Unpack and verify all 4,227,218 identifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f SURA_Full_Catalog_Bundled_Assets_v1.zip ]]; then
+            unzip -n -q SURA_Full_Catalog_Bundled_Assets_v1.zip -d .
+          fi
+          test -s app/src/main/assets/catalog/manifest.json
+          python3 scripts/verify-sura-bundled-catalog.py app/src/main/assets/catalog --required
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+          cache-disabled: true
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          if [[ ! -f "$SDK/platforms/android-35/android.jar" || ! -f "$SDK/build-tools/34.0.0/apksigner" ]]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;34.0.0"
+          fi
+      - name: Test and build FULL embedded signed Release
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.SURA_RELEASE_KEYSTORE_BASE64 }}
+          SURA_RELEASE_STORE_PASSWORD: ${{ secrets.SURA_RELEASE_STORE_PASSWORD }}
+          SURA_RELEASE_KEY_ALIAS: ${{ secrets.SURA_RELEASE_KEY_ALIAS }}
+          SURA_RELEASE_KEY_PASSWORD: ${{ secrets.SURA_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" && test -n "$SURA_RELEASE_STORE_PASSWORD"
+          test -n "$SURA_RELEASE_KEY_ALIAS" && test -n "$SURA_RELEASE_KEY_PASSWORD"
+          umask 077
+          SURA_RELEASE_STORE_FILE="$(mktemp "$RUNNER_TEMP/sura-full-release-XXXX.jks")"
+          export SURA_RELEASE_STORE_FILE
+          trap 'rm -f "$SURA_RELEASE_STORE_FILE"' EXIT
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$SURA_RELEASE_STORE_FILE"
+          keytool -list -keystore "$SURA_RELEASE_STORE_FILE" -storepass "$SURA_RELEASE_STORE_PASSWORD" -alias "$SURA_RELEASE_KEY_ALIAS" >/dev/null
+          export GRADLE_USER_HOME="$RUNNER_TEMP/sura-full-gradle-home"
+          bash ./gradlew --no-daemon --no-build-cache clean :app:testDebugUnitTest -PsuraEmbeddedFull=true
+          find app/schemas -type f -name '*.json' -size 0 -print -delete
+          bash ./gradlew --no-daemon --no-build-cache :app:assembleRelease -PsuraEmbeddedFull=true
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -n 1)"
+          echo "$BADGING"
+          [[ "$BADGING" == *"name='ir.saba.invoice'"* ]]
+          [[ "$BADGING" == *"versionCode='18'"* ]]
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          CERT="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK" | grep -m1 'Signer #1 certificate SHA-256 digest' | awk '{print $NF}' | tr 'A-F' 'a-f')"
+          [[ "$CERT" == "55a5c9f677f899630bc792330606161560a8dea94b7fe0eabe11d47a013d7b0b" ]] || {
+            echo "::error::Signer is not compatible with the existing SURA installation"
+            exit 1
+          }
+          python3 - "$APK" <<'PY'
+          import json,zipfile,sys,hashlib
+          z=zipfile.ZipFile(sys.argv[1])
+          m=json.loads(z.read("assets/catalog/manifest.json"))
+          assert m["record_count"]==4227218
+          for part in m["parts"]:
+              path="assets/catalog/"+part["file"]
+              info=z.getinfo(path)
+              assert info.file_size==part["compressed_bytes"]
+              assert hashlib.sha256(z.read(path)).hexdigest()==part["compressed_sha256"]
+          print("Full bank is actually INSIDE the signed APK; validated",len(m["parts"]),"assets.")
+          PY
+          sha256sum "$APK" > "app/build/outputs/apk/release/app-release.apk.sha256"
+      - name: Upload verified installable FULL release
+        uses: actions/upload-artifact@v4
+        with:
+          name: SURA-0.18.0-FULL-CATALOG-signed-release
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
