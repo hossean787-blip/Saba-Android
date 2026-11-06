@@ -42,7 +42,21 @@ class InvoicePdfValidationTest {
         rejection("تعداد", lines = listOf(line.copy(quantity = 0)))
     }
 
-    @Test fun excessiveRowsAreRejectedBeforeOpeningPdfPage() {
-        rejection("۱۴", invoice.copy(totalAmountRial = 1650, taxAmountRial = 150), List(15) { line })
+    @Test fun fifteenAndTwentyNineRowsGenerateMultiPagePdfWithoutChangingTotals() {
+        for (count in listOf(15, 29)) {
+            val valid = invoice.copy(
+                totalAmountRial = count * 110L, taxAmountRial = count * 10L
+            )
+            val pdf = SuraInvoicePdf.generate(
+                company, customer, valid, List(count) { line },
+                "ساده", false, false, false
+            )
+            assertTrue(pdf.size > 500)
+            assertTrue(pdf.copyOfRange(0, 5).toString(Charsets.ISO_8859_1).startsWith("%PDF-"))
+        }
+    }
+
+    @Test fun moreThanFiveHundredRowsIsBoundedBeforeAllocatingPdf() {
+        rejection("۵۰۰", invoice.copy(totalAmountRial = 501 * 110, taxAmountRial = 501 * 10), List(501) { line })
     }
 }
