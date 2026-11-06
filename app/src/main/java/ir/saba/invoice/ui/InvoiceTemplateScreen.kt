@@ -127,13 +127,14 @@ object SuraInvoicePdf {
             return ByteArrayOutputStream().use { out -> pdf.writeTo(out); out.toByteArray() }
         } finally { pdf.close() }
     }
-    fun preview(context: Context, bytes: ByteArray): Bitmap {
+    fun preview(context: Context, bytes: ByteArray, pageIndex: Int = 0): Bitmap {
         val temp = File.createTempFile("sura-invoice-", ".pdf", context.cacheDir)
         try {
             temp.writeBytes(bytes)
             ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
                 PdfRenderer(fd).use { renderer ->
-                    renderer.openPage(0).use { page ->
+                    require(pageIndex in 0 until renderer.pageCount) { "صفحه انتخاب‌شده موجود نیست." }
+                    renderer.openPage(pageIndex).use { page ->
                         val bmp = Bitmap.createBitmap(W * 2, H * 2, Bitmap.Config.ARGB_8888)
                         bmp.eraseColor(Color.WHITE)
                         page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
@@ -159,13 +160,24 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, qr) }
             .onFailure { error = it.message }.getOrNull()
     }
-    val preview = remember(bytes) { bytes?.let { runCatching { SuraInvoicePdf.preview(context, it) }.getOrNull() } }
+    var previewPage by remember(invoice.id) { mutableIntStateOf(0) }
+    val pageCount = (lines.size + 13).div(14).coerceAtLeast(1)
+    val preview = remember(bytes, previewPage) {
+        bytes?.let { runCatching { SuraInvoicePdf.preview(context, it, previewPage) }.getOrNull() }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("الگوی فاکتور", style = MaterialTheme.typography.headlineSmall)
         if (preview != null) Image(preview.asImageBitmap(), "پیش‌نمایش واقعی PDF",
             modifier = Modifier.fillMaxWidth().heightIn(max = 570.dp))
         else Text(error ?: "پیش‌نمایش در دسترس نیست", color = MaterialTheme.colorScheme.error)
+        if (preview != null && pageCount > 1) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(enabled = previewPage > 0, onClick = { previewPage-- }) { Text("صفحه قبل") }
+                Text("صفحه ${previewPage + 1} از ${pageCount}", style = MaterialTheme.typography.bodyMedium)
+                TextButton(enabled = previewPage < pageCount - 1, onClick = { previewPage++ }) { Text("صفحه بعد") }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf("پیش‌فرض", "ساده", "شرکتی").forEach { option ->
                 FilterChip(selected = template == option, onClick = { template = option },
