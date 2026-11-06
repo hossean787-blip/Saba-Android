@@ -50,7 +50,11 @@ data class Invoice(
     val totalAmountRial: Long,
     val taxAmountRial: Long,
     val status: String = "DRAFT",
-    val trackingCode: String? = null
+    val trackingCode: String? = null,
+    /** Declared settlement at creation; does not represent verified bank transfer. */
+    @ColumnInfo(defaultValue = "'CASH'") val settlementMode: String = "CASH",
+    /** Null means legacy or current all-cash; explicit 0 is used for credit sales. */
+    val cashPaidRial: Long? = null
 )
 
 @Entity(
