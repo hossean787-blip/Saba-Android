@@ -12,3 +12,14 @@ internal data class InvoicePdfLayout(val rows: Int) {
     val footerTop = 801f
     val pageHeight = 842f
 }
+
+/** Deterministic pagination, isolated from android.graphics.pdf for JVM testing. */
+internal object InvoicePdfPagination {
+    const val ROWS_PER_PAGE = 14
+    const val MAX_ROWS = 500
+
+    fun <T> paginate(items: List<T>): List<List<T>> {
+        require(items.size in 1..MAX_ROWS) { "تعداد اقلام PDF باید بین ۱ تا ۵۰۰ باشد." }
+        return items.chunked(ROWS_PER_PAGE)
+    }
+}
