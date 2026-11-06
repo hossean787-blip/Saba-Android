@@ -260,8 +260,11 @@ private fun InvoiceScreenContent(
                         },
                         onBack = { mode = "details" },
                         onSend = {
-                            if (loaded.invoice.status == "FINALIZED") onOpenOfficialSubmission()
-                            else onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
+                            if (loaded.invoice.status != "FINALIZED") {
+                                onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
+                            } else if (loaded.invoice.settlementMode != InvoiceSettlement.CASH) {
+                                onNotice("ارسال رسمی نسیه و ترکیبی هنوز فعال نیست؛ فقط خروجی محلی مجاز است.")
+                            } else onOpenOfficialSubmission()
                         })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
@@ -325,8 +328,15 @@ private fun InvoiceScreenContent(
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
                         if (invoice.status == "FINALIZED") {
-                            OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
-                                onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
+                            if (invoice.settlementMode == InvoiceSettlement.CASH) {
+                                OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                                    onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
+                            } else {
+                                Text("ارسال رسمی روش " + InvoiceSettlement.label(invoice.settlementMode) +
+                                    " هنوز فعال نیست؛ فاکتور و مبالغ آن در دستگاه محفوظ هستند.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error)
+                            }
                         }
                         if (invoice.status == "DRAFT") {
                             Button(enabled = !busy, onClick = {
