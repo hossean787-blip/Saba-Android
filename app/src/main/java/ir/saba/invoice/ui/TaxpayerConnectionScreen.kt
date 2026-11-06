@@ -42,6 +42,7 @@ private fun TaxpayerConnectionContent(
     var profile by remember { mutableStateOf<TaxpayerCredentialProfile?>(null) }
     var pendingStored by remember { mutableStateOf(false) }
     var legacyCheckSucceeded by remember { mutableStateOf(false) }
+    var showCertificateOptions by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
@@ -87,7 +88,8 @@ private fun TaxpayerConnectionContent(
         Text("اتصال مالیاتی مؤدی",style=MaterialTheme.typography.headlineSmall)
         Text("مودی: $name")
         Text("شناسه حافظه: ${memoryId.ifBlank { "ثبت نشده" }}")
-        Text("کلید و گواهی فقط برای همین مؤدی در حساب فعلی ذخیره می‌شوند.")
+        Text("کلید خصوصی فقط برای همین مؤدی و به‌صورت رمزگذاری‌شده روی دستگاه نگهداری می‌شود.")
+        Text("کلید عمومی باید در کارپوشه ثبت شده باشد. سپس با کلید خصوصی و شناسه یکتا، اتصال را بررسی کنید.",style=MaterialTheme.typography.bodySmall)
         if (pendingStored) Text("کلید خصوصی این مؤدی به‌صورت رمزگذاری‌شده ذخیره شده است.", style=MaterialTheme.typography.bodySmall)
         if (legacyCheckSucceeded) Text(
             "احراز هویت و استعلام حافظه از مسیر بدون گواهی موفق بود. این نتیجه تأیید ارسال صورتحساب در API نسخه ۲ نیست.",
@@ -106,31 +108,38 @@ private fun TaxpayerConnectionContent(
         OutlinedButton(enabled=!busy,onClick={importKey.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
             Text(if(privatePem.isBlank()) "انتخاب کلید خصوصی همین مؤدی" else "کلید خصوصی انتخاب شد؛ تغییر فایل")
         }
-        OutlinedButton(enabled=!busy,onClick={importCertificate.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
-            Text(if(certificate == null) "انتخاب گواهی CER / CRT / PEM" else "گواهی انتخاب شد؛ تغییر فایل")
-        }
         Button(enabled=!busy && privatePem.isNotBlank(),onClick={confirmation="pending"},modifier=Modifier.fillMaxWidth()) {
             Text("ذخیره امن کلید خصوصی برای این مؤدی")
         }
-        if (!memoryReady) Text("بدون شناسه یکتا، ذخیره کلید خصوصی مجاز است اما بررسی اتصال انجام نمی‌شود.",style=MaterialTheme.typography.bodySmall)
-        OutlinedButton(
+        if (!memoryReady) Text("ابتدا شناسه یکتا را در مشخصات مؤدی ثبت کنید.",style=MaterialTheme.typography.bodySmall)
+        Button(
             enabled=!busy && memoryReady && pendingStored,
             onClick={confirmation="legacy"},
             modifier=Modifier.fillMaxWidth()
-        ) { Text("بررسی اتصال با کلید خصوصی و شناسه یکتا") }
-        Button(enabled=!busy && memoryReady && (privatePem.isNotBlank() || pendingStored) && certificate != null,onClick={confirmation="save"},modifier=Modifier.fillMaxWidth()) {
-            Text("ثبت امن کلید و گواهی برای این مؤدی")
+        ) { Text("بررسی اتصال مؤدی (بدون گواهی)") }
+        TextButton(enabled=!busy,onClick={showCertificateOptions=!showCertificateOptions},modifier=Modifier.fillMaxWidth()) {
+            Text(if(showCertificateOptions) "بستن تنظیمات گواهی نسخه ۲" else "تنظیمات پیشرفته اتصال با گواهی")
         }
-        OutlinedButton(enabled=!busy && profile != null && privatePem.isBlank() && certificate == null,
-            onClick={confirmation="probe"},modifier=Modifier.fillMaxWidth()) { Text("بررسی اتصال رسمی بدون ارسال صورتحساب") }
-        OutlinedButton(enabled=!busy,onClick={confirmation="remove"},modifier=Modifier.fillMaxWidth()) { Text("حذف اطلاعات اتصال این مؤدی") }
+        if(showCertificateOptions) {
+            OutlinedButton(enabled=!busy,onClick={importCertificate.launch(arrayOf("*/*"))},modifier=Modifier.fillMaxWidth()) {
+                Text(if(certificate == null) "انتخاب گواهی CER / CRT / PEM" else "گواهی انتخاب شد؛ تغییر فایل")
+            }
+            Button(enabled=!busy && memoryReady && (privatePem.isNotBlank() || pendingStored) && certificate != null,onClick={confirmation="save"},modifier=Modifier.fillMaxWidth()) {
+                Text("ثبت امن کلید و گواهی برای این مؤدی")
+            }
+            OutlinedButton(enabled=!busy && profile != null && privatePem.isBlank() && certificate == null,
+                onClick={confirmation="probe"},modifier=Modifier.fillMaxWidth()) { Text("بررسی اتصال با گواهی نسخه ۲") }
+            OutlinedButton(enabled=!busy,onClick={confirmation="remove"},modifier=Modifier.fillMaxWidth()) {
+                Text("حذف اطلاعات اتصال این مؤدی")
+            }
+        }
     }
     if (confirmation.isNotBlank()) AlertDialog(
         onDismissRequest={if(!busy)confirmation=""},
         title={Text(when(confirmation){"save"->"ثبت اطلاعات اتصال";"pending"->"ذخیره رمزگذاری‌شده کلید خصوصی";"probe"->"بررسی اتصال رسمی";"legacy"->"بررسی اتصال بدون گواهی";else->"حذف اطلاعات اتصال"})},
         text={Text(if(confirmation=="probe") "شناسه حافظه و گواهی عمومی همین مؤدی برای احراز هویت به سرور رسمی ارسال می‌شود. هیچ صورتحساب یا درخواست مصرف اعتبار ارسال نمی‌شود."
             else if(confirmation=="legacy") "سورا با کلید خصوصی ذخیره‌شده و شناسه یکتای همین مؤدی فقط درخواست احراز هویت و استعلام اطلاعات حافظه به مسیر قدیمی بدون گواهی می‌فرستد. هیچ صورتحسابی ارسال نمی‌شود و موفقیت آن تضمین سازگاری با نسخه ۲ نیست."
-            else if(confirmation=="pending") "کلید خصوصی فقط برای همین مؤدی در این دستگاه رمزگذاری می‌شود. تا ثبت شناسه و گواهی معتبر، اتصال مالیاتی فعال نخواهد شد."
+            else if(confirmation=="pending") "کلید خصوصی برای همین مؤدی روی دستگاه رمزگذاری می‌شود. بررسی اتصال بدون گواهی به شناسه یکتای معتبر نیاز دارد؛ ارسال نسخه ۲ نیز نیازمند مدارک مربوط به آن است."
             else "مودی: $name\nحافظه: $memoryId\nفقط اطلاعات اتصال همین مؤدی در حساب فعلی تغییر می‌کند؛ سوابق فاکتورها باقی می‌مانند.")},
         confirmButton={TextButton(enabled=!busy,onClick={
             val action=confirmation; busy=true; error=""
