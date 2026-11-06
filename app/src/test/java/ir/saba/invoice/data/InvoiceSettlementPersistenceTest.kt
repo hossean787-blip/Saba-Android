@@ -34,7 +34,7 @@ class InvoiceSettlementPersistenceTest {
             assertEquals("MIXED", invoice.settlementMode)
             assertEquals(400L, invoice.cashPaidRial)
             assertEquals(700L, InvoiceSettlement.amounts(invoice).creditRial)
-            assertEquals(1, db.quotaDao().useForInvoice(id)?.invoiceId)
+            assertEquals(id, db.quotaDao().useForInvoice(id)?.invoiceId)
 
             repository.saveDraft(company, buyer, "31", "1405/08/16", items(), id,
                 settlementMode = "CREDIT", cashPaidRial = 0)
@@ -45,7 +45,7 @@ class InvoiceSettlementPersistenceTest {
             assertEquals("FINALIZED", db.invoiceDao().byId(id)!!.status)
             assertEquals("CREDIT", db.invoiceDao().byId(id)!!.settlementMode)
             assertEquals(0L, db.invoiceDao().byId(id)!!.cashPaidRial)
-            assertEquals(1, db.quotaDao().useForInvoice(id)?.invoiceId)
+            assertEquals(id, db.quotaDao().useForInvoice(id)?.invoiceId)
         } finally { db.close() }
     }
 
