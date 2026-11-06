@@ -22,7 +22,8 @@ object InvoiceSettlement {
     }
 
     fun cashFromUserInput(mode: String, totalRial: Long, text: String): Long? {
-        require(totalRial > 0) { "مبلغ فاکتور باید مثبت باشد." }
+        require(totalRial >= 0) { "مبلغ فاکتور نمی‌تواند منفی باشد." }
+        if (mode != CASH) require(totalRial > 0) { "برای ثبت نسیه یا ترکیبی، جمع فاکتور باید مثبت باشد." }
         return when (mode) {
             CASH -> null // Legacy and new cash invoices both mean the entire amount is due in cash.
             CREDIT -> 0L
@@ -36,7 +37,8 @@ object InvoiceSettlement {
     }
 
     fun amounts(mode: String, paidCashRial: Long?, totalRial: Long): InvoiceSettlementAmounts {
-        require(totalRial > 0) { "جمع فاکتور باید مثبت باشد." }
+        require(totalRial >= 0) { "جمع فاکتور نمی‌تواند منفی باشد." }
+        if (mode != CASH) require(totalRial > 0) { "ثبت نسیه یا ترکیبی برای مبلغ صفر مجاز نیست." }
         val cash = when (mode) {
             CASH -> {
                 require(paidCashRial == null || paidCashRial == totalRial) {
