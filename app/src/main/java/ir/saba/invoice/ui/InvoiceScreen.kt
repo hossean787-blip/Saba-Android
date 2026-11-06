@@ -26,6 +26,7 @@ import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceIdentifierPrefill
 import ir.saba.invoice.domain.InvoiceLineAmounts
+import ir.saba.invoice.domain.InvoiceSettlement
 import ir.saba.moadian.MoadianMeasurementUnits
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -153,6 +154,8 @@ private fun InvoiceScreenContent(
     var invoiceId by rememberSaveable { mutableStateOf<Long?>(null) }
     var number by rememberSaveable { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf("") }
+    var settlementMode by rememberSaveable(companyId) { mutableStateOf(InvoiceSettlement.CASH) }
+    var cashPortionInput by rememberSaveable(companyId) { mutableStateOf("") }
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var lines by rememberSaveable(stateSaver = LinesSaver) { mutableStateOf(emptyList<InvoiceLine>()) }
     var search by rememberSaveable { mutableStateOf("") }
@@ -177,6 +180,8 @@ private fun InvoiceScreenContent(
         val saved=creation.snapshot(claim)
         pendingCreation=claim;operationKey=claim.requestId;invoiceId=null
         customerId=saved.customerId;number=saved.number;date=saved.date;lines=saved.lines
+        settlementMode=saved.settlementMode
+        cashPortionInput=saved.cashPaidRial?.toString().orEmpty()
         error="";mode="edit"
     }
     suspend fun beginInvoice() {
@@ -187,6 +192,7 @@ private fun InvoiceScreenContent(
         // Credit is verified when the user explicitly saves a new invoice.
         operationKey=java.util.UUID.randomUUID().toString()
         invoiceId=null;number="";date="";customerId=customers.firstOrNull()?.id
+        settlementMode=InvoiceSettlement.CASH;cashPortionInput=""
         lines=emptyList();error="";mode="edit"
     }
     LaunchedEffect(companyId,account) {
@@ -304,6 +310,10 @@ private fun InvoiceScreenContent(
                         Text("مشتری: ${customers.firstOrNull { it.id == invoice.customerId }?.name ?: invoice.customerId}")
                         Text("تاریخ: ${invoice.issueDate}")
                         Text("وضعیت: ${invoiceStatus(invoice.status)}")
+                        Text("تسویه: " + InvoiceSettlement.label(invoice.settlementMode))
+                        InvoiceSettlement.amounts(invoice).also { amounts ->
+                            Text("نقد: ${rial(amounts.cashRial)} • نسیه: ${rial(amounts.creditRial)}")
+                        }
                         loaded.lines.forEachIndexed { index, row -> LineCard(index, row) }
                         TotalsCard(loaded.lines, invoice)
                         OutlinedButton(onClick = {
@@ -321,6 +331,8 @@ private fun InvoiceScreenContent(
                         if (invoice.status == "DRAFT") {
                             Button(enabled = !busy, onClick = {
                                 number = invoice.invoiceNumber; date = invoice.issueDate; customerId = invoice.customerId
+                                settlementMode = invoice.settlementMode
+                                cashPortionInput = invoice.cashPaidRial?.toString().orEmpty()
                                 lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }; error = ""; mode = "edit"
                             }) { Text("ویرایش پیش‌نویس") }
                             Button(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "finalize" }) { Text("نهایی‌سازی صورتحساب") }
@@ -359,6 +371,38 @@ private fun InvoiceScreenContent(
                         }
                     }
                     OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = -1; lineDialog = true }) { Text("افزودن کالا یا خدمت") }
+                    InvoiceEditorSection("۴", "روش تسویه", "نقدی، نسیه یا ترکیبی؛ مبالغ به ریال")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(
+                            InvoiceSettlement.CASH to "نقدی",
+                            InvoiceSettlement.CREDIT to "نسیه",
+                            InvoiceSettlement.MIXED to "ترکیبی"
+                        ).forEach { (method, label) ->
+                            FilterChip(
+                                selected = settlementMode == method,
+                                enabled = !busy && !editorLocked,
+                                onClick = { settlementMode = method; cashPortionInput = "" },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+                    if (settlementMode == InvoiceSettlement.MIXED) {
+                        NumberField(cashPortionInput, { cashPortionInput = it }, "سهم نقدی از مبلغ کل (ریال)")
+                    }
+                    val draftTotal = runCatching { InvoiceCalculator.calculate(lines).totalAmountRial }.getOrNull()
+                    if (draftTotal != null) {
+                        Text("جمع قابل تسویه: ${rial(draftTotal)}", style = MaterialTheme.typography.bodySmall)
+                        if (settlementMode == InvoiceSettlement.MIXED) {
+                            val portion = runCatching { InvoiceInput.wholeNumber(cashPortionInput, "سهم نقدی") }.getOrNull()
+                            if (portion != null && portion in 1 until draftTotal) {
+                                Text("نقد: ${rial(portion)} | نسیه: ${rial(draftTotal - portion)}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                    if (settlementMode != InvoiceSettlement.CASH) Text(
+                        "در این نسخه، فاکتور نسیه و ترکیبی به‌صورت محلی ذخیره می‌شود؛ ارسال رسمی آن هنوز فعال نیست.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error
+                    )
                     InvoiceLiveOutline(
                         seller = sellerName,
                         buyer = customers.firstOrNull { it.id == customerId }?.name,
@@ -369,6 +413,9 @@ private fun InvoiceScreenContent(
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
+                            val settlementCash = InvoiceSettlement.cashFromUserInput(
+                                settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
+                            )
                             val savedId = if(invoiceId==null) {
                                 val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)} ?: run {
                                     val verifiedPaid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
@@ -378,10 +425,11 @@ private fun InvoiceScreenContent(
                                     else if (verifiedGift > 0) InvoiceCreditKind.GIFT
                                     else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
                                 }
-                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines),operationKey,kind)
+                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash),operationKey,kind)
                                 restoreClaim(claim)
                                 creation.finish(claim.requestId).also{pendingCreation=null}
-                            } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId)
+                            } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
+                                settlementMode=settlementMode,cashPaidRial=settlementCash)
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             operationKey = java.util.UUID.randomUUID().toString()
