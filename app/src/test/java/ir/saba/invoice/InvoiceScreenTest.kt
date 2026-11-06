@@ -106,16 +106,26 @@ class InvoiceScreenTest {
         compose.onNodeWithText("صدور فاکتور جدید").assertExists()
     }
 
-    @Test fun localQuotaCannotBypassZeroServerBalance() {
+    @Test fun zeroCreditAllowsInvoiceScaffoldButCannotCreateOrConsume() {
         creditGateway.remaining = 0
         compose.setContent { Screen() }
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("اعتبار مودی: 0 | اعتبار هدیه: 0").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("صدور فاکتور جدید").performClick()
-        compose.onNodeWithText("شماره فاکتور").assertDoesNotExist()
+        compose.onNodeWithText("شماره فاکتور").assertExists()
+        compose.onNodeWithText("خلاصه زنده صورتحساب").assertExists()
+        compose.onNodeWithText("شماره فاکتور").performTextInput("۱۲")
+        compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextInput("۱۴۰۵/۰۷/۰۲")
+        addLine()
+        compose.onNodeWithText("مبلغ قابل پرداخت").assertExists()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.").fetchSemanticsNodes().isNotEmpty()
+        }
         assertEquals(0, creditGateway.requestedKeys.size)
         runBlocking { check(db.invoiceDao().forCompany(company).isEmpty()) }
+        compose.onNodeWithText("خلاصه زنده صورتحساب").assertExists()
     }
 
     @Test fun retryAfterAmbiguousDebitPreservesCreditKey() {
@@ -165,4 +175,16 @@ class InvoiceScreenTest {
         compose.onNodeWithText("ویرایش پیش‌نویس").assertDoesNotExist()
         compose.onNodeWithText("حذف پیش‌نویس").assertDoesNotExist()
     }
+    @Test fun invoiceFormOpensWithoutRegisteredCustomerToAllowScaffolding() {
+        compose.setContent { MaterialTheme {
+            InvoiceScreen(db,ownerId,company,emptyList(),invoices,
+                onChanged={},onNotice={},onEditorActive={},creditGateway=creditGateway)
+        } }
+        compose.onNodeWithText("صدور فاکتور جدید").performClick()
+        compose.onNodeWithText("تنظیم صورتحساب جدید").assertExists()
+        compose.onNodeWithText("مشتری: انتخاب کنید").assertExists()
+        compose.onNodeWithText("افزودن کالا یا خدمت").assertExists()
+        assertEquals(10L,creditGateway.remaining)
+    }
+
 }
