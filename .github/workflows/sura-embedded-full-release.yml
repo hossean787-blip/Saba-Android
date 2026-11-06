@@ -104,7 +104,7 @@ jobs:
       - name: Upload verified installable FULL release
         uses: actions/upload-artifact@v4
         with:
-          name: SURA-0.22.0-FULL-CATALOG-signed-release
+          name: SURA-0.23.0-FULL-CATALOG-signed-release
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/release/app-release.apk.sha256
