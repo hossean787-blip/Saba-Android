@@ -658,16 +658,13 @@ class MainActivity : ComponentActivity() {
                                 taxpayerOptions = companies.filter { it.id !in inactiveCompanyIds }.map { it.id to it.name },
                                 onTaxpayerSelected = { selectTaxpayer(it) },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; newInvoiceRequest++ } } },
-                                onTaxKeys = { page = if (company != null) Page.TAX_CONNECTION else Page.TAX_KEYS },
+                                onTaxKeys = { page = Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
                                 onCharge = { page = Page.QUOTA }
                             )
                             Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES })
                             Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it }, onOpenConnection = { selectTaxpayer(it); page = Page.TAX_CONNECTION }, account = account)
-                            Page.TAX_KEYS -> Column(Modifier.fillMaxSize()) {
-                                if (company != null) TextButton(onClick = { page = Page.TAX_CONNECTION }) { Text("اتصال مالیاتی مؤدی انتخاب‌شده") }
-                                TaxpayerKeysScreen(onNotice = ::notify)
-                            }
+                            Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.TAX_CONNECTION -> if (current != null) key(current.companyId) {
                                 Column(Modifier.fillMaxSize()) {
                                     TextButton(onClick = { page = Page.OFFICIAL_SUBMISSION }) { Text("ارسال و پیگیری صورتحساب رسمی") }
