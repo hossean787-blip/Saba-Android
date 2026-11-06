@@ -24,6 +24,7 @@ import androidx.compose.ui.window.DialogProperties
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceInput
+import ir.saba.invoice.domain.InvoiceIdentifierPrefill
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -307,7 +308,7 @@ private fun InvoiceScreenContent(
             "edit" -> {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     InvoiceEditorHeading(seller = sellerName, editingDraft = invoiceId != null, lineCount = lines.size)
-                    Text("اسکلت فاکتور • فروش کالا و خدمات • مبالغ ریال • تعداد صحیح", style = MaterialTheme.typography.bodySmall)
+                    Text("صورتحساب فروش کالا و خدمات • مبالغ ریال • تعداد صحیح", style = MaterialTheme.typography.bodySmall)
                     if (invoiceId == null && !paidLoading && !promoLoading && usableCharge == 0L) {
                         Text("فرم بدون اعتبار قابل تکمیل است؛ هنگام ذخیره، اعتبار سرور بررسی می‌شود.", style = MaterialTheme.typography.bodySmall)
                     }
@@ -324,7 +325,7 @@ private fun InvoiceScreenContent(
                             customers.forEach { customer -> DropdownMenuItem(text = { Text(customer.name) }, onClick = { customerId = customer.id; expanded = false }) }
                         }
                     }
-                    InvoiceEditorSection("۳", "اقلام کالا و خدمات", "شناسه کالا، شرح، تعداد، قیمت، تخفیف و مالیات")
+                    InvoiceEditorSection("۳", "اقلام کالا و خدمات", "انتخاب شناسه‌های مؤدی، شرح، تعداد، قیمت، تخفیف و مالیات")
                     Text("اقلام فاکتور (${lines.size})", style = MaterialTheme.typography.titleMedium)
                     lines.forEachIndexed { index, row ->
                         LineCard(index, row) {
@@ -373,6 +374,8 @@ private fun InvoiceScreenContent(
     }
 
     if (lineDialog) LineEditor(
+        ownerId = ownerId,
+        companyId = companyId,
         initial = lines.getOrNull(lineIndex),
         onDismiss = { lineDialog = false },
         onSave = { row ->
@@ -445,13 +448,14 @@ private fun TotalsCard(lines: List<InvoiceLine>, stored: Invoice? = null) {
 }
 
 @Composable
-private fun LineEditor(initial: InvoiceLine?, onDismiss: () -> Unit, onSave: (InvoiceLine) -> Unit) {
+private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, onDismiss: () -> Unit, onSave: (InvoiceLine) -> Unit) {
     var code by rememberSaveable { mutableStateOf(initial?.itemCode.orEmpty()) }
     var description by rememberSaveable { mutableStateOf(initial?.description.orEmpty()) }
     var quantity by rememberSaveable { mutableStateOf(initial?.quantity?.toString() ?: "1") }
     var price by rememberSaveable { mutableStateOf(initial?.unitPriceRial?.toString().orEmpty()) }
     var discount by rememberSaveable { mutableStateOf(initial?.discountRial?.toString() ?: "0") }
-    var tax by rememberSaveable { mutableStateOf(initial?.taxRatePercent?.toString() ?: "10") }
+    var tax by rememberSaveable { mutableStateOf(initial?.taxRatePercent?.toString().orEmpty()) }
+    var vatHint by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -463,12 +467,27 @@ private fun LineEditor(initial: InvoiceLine?, onDismiss: () -> Unit, onSave: (In
         text = {
             Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+                InvoiceIdentifierPicker(ownerId = ownerId, companyId = companyId, enabled = true) { identifier ->
+                    try {
+                        val selected = InvoiceIdentifierPrefill.from(identifier)
+                        code = selected.code
+                        description = selected.description
+                        tax = selected.vatRatePercent
+                        vatHint = if (selected.requiresVatReview) {
+                            "نرخ مالیات این شناسه مشخص یا قابل ثبت به‌صورت عدد صحیح نیست؛ نرخ معتبر را دستی وارد کنید."
+                        } else "نرخ واردشده از بانک نیازمند بررسی اعتبار روز است."
+                        error = ""
+                    } catch (e: IllegalArgumentException) {
+                        error = e.message ?: "شناسه قابل انتخاب نیست."
+                    }
+                }
                 OutlinedTextField(description, { description = it }, label = { Text("شرح کالا یا خدمت") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(code, { code = it }, label = { Text("شناسه کالا/خدمت (اختیاری برای ثبت محلی)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 NumberField(quantity, { quantity = it }, "تعداد صحیح")
                 NumberField(price, { price = it }, "قیمت واحد به ریال")
                 NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
-                NumberField(tax, { tax = it }, "درصد مالیات، صفر تا صد")
+                NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات، صفر تا صد")
+                if (vatHint.isNotEmpty()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = { TextButton(onClick = {
