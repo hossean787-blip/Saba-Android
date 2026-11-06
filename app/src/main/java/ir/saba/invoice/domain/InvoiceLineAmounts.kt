@@ -73,8 +73,6 @@ object InvoiceLineAmounts {
         require(unit.isBlank() || MoadianMeasurementUnits.nameOf(unit) != null) {
             "کد واحد سنجش معتبر نیست."
         }
-        val qIsFractional = q.stripTrailingZeros().scale() > 0
-        val rateIsFractional = rate.stripTrailingZeros().scale() > 0
         val legacyQuantity = q.setScale(0, RoundingMode.CEILING).longValueExact()
         val legacyRate = rate.setScale(0, RoundingMode.DOWN).intValueExact()
         return InvoiceLine(
@@ -82,8 +80,8 @@ object InvoiceLineAmounts {
             description = description.trim(), quantity = legacyQuantity,
             unitPriceRial = price, discountRial = discount, taxRatePercent = legacyRate,
             unitCode = unit,
-            quantityExact = if (qIsFractional) q.stripTrailingZeros().toPlainString() else "",
-            vatRateExact = if (rateIsFractional) rate.stripTrailingZeros().toPlainString() else ""
+            quantityExact = q.stripTrailingZeros().toPlainString(),
+            vatRateExact = rate.stripTrailingZeros().toPlainString()
         )
     }
 }
