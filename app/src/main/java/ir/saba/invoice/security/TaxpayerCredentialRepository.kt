@@ -65,11 +65,7 @@ class TaxpayerCredentialRepository internal constructor(
                 Base64.getEncoder().encodeToString(bytes) +
                 "\n-----END PRIVATE KEY-----"
         } finally { bytes.fill(0) }
-        val saved = save(companyId, pem, certificateBytes, nowEpochMillis)
-        require(preferences.edit().remove("pending_company_$companyId").commit()) {
-            "کلید و گواهی ثبت شد، اما پاک‌سازی نسخه موقت انجام نشد."
-        }
-        return saved
+        return save(companyId, pem, certificateBytes, nowEpochMillis)
     }
 
     private suspend fun requireOwnedActiveCompany(companyId: Long) {
@@ -86,7 +82,8 @@ class TaxpayerCredentialRepository internal constructor(
         TaxpayerSigningCertificate.requireMatch(cert,key,nowEpochMillis)
         val record = JSONObject().put("version",2).put("fiscalMemoryId",scoped.fiscalMemoryId)
             .put("key",vault.encrypt(scoped,privatePem)).put("certificate",Base64.getEncoder().encodeToString(cert.encoded))
-        require(preferences.edit().putString("company_$companyId",record.toString()).commit()) { "ذخیره امن اطلاعات انجام نشد." }
+        require(preferences.edit().putString("company_$companyId",record.toString())
+            .remove("pending_company_$companyId").commit()) { "ذخیره امن اطلاعات انجام نشد." }
         profile(scoped,cert)
     }
     suspend fun profile(companyId: Long, nowEpochMillis: Long): TaxpayerCredentialProfile? =
