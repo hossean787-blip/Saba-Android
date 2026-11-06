@@ -260,17 +260,6 @@ fun MoadianScreen(
                     Icon(Icons.Default.Delete, null, Modifier.size(17.dp)); Text("حذف")
                 }
             }
-            val activeSelected = selectedId?.takeIf { id ->
-                ownedCompanies.any { it.id == id } &&
-                    detailRows.firstOrNull { it.companyId == id }?.inactive != true
-            }
-            OutlinedButton(
-                enabled = !busy && activeSelected != null,
-                onClick = { activeSelected?.let(onOpenConnection) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده")
-            }
             OutlinedTextField(enabled = !busy && !pending, value = query,
                 onValueChange = { query = it }, label = { Text("جستجوی مودیان") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "جستجو") },
@@ -466,6 +455,19 @@ fun MoadianScreen(
                     fieldErrors["privateKey"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Text("کلید خصوصی فقط روی گوشی رمزگذاری می‌شود. اگر شناسه یکتا و کلید موجود باشند، بعد از ثبت مؤدی اتصال خودکار بررسی می‌شود؛ هیچ صورتحسابی ارسال نمی‌شود.",
                         style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (mode == "edit" && selectedId != null) {
+                TextButton(
+                    enabled = !busy && !pending && !loadFailed,
+                    onClick = {
+                        val taxpayerId = selectedId ?: return@TextButton
+                        close()
+                        onOpenConnection(taxpayerId)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("تنظیمات پیشرفته گواهی و اتصال نسخه ۲")
                 }
             }
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
