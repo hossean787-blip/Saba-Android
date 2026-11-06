@@ -71,4 +71,18 @@ class MoadianScreenTest {
             assertTrue(db.moadianDetailsDao().byCompany(id)!!.inactive)
         }
     }
+    @Test fun selectedTaxpayerOpensItsOwnKeyManagement() {
+        val id = runBlocking {
+            db.companyDao().insert(Company(purchaserId = "owner", name = "مودی کلید", nationalId = "11223344556"))
+        }
+        val rows = runBlocking { db.companyDao().all() }
+        val opened = AtomicInteger(-1)
+        compose.setContent { MaterialTheme {
+            MoadianScreen(db, "owner", rows, {}, {}, {}, {}, onOpenConnection = { opened.set(it.toInt()) })
+        } }
+        compose.onNodeWithText("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده").assertIsNotEnabled()
+        compose.onNodeWithText("مودی کلید").performClick()
+        compose.onNodeWithText("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده").assertIsEnabled().performClick()
+        assertEquals(id.toInt(), opened.get())
+    }
 }
