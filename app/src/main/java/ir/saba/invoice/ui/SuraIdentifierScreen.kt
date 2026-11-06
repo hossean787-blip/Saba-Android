@@ -164,10 +164,27 @@ fun SuraIdentifierScreen(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = tab == "search", onClick = { tab = "search" },
-                label = { Text("جستجوی شناسه") })
-            FilterChip(selected = tab == "saved", onClick = { tab = "saved" },
-                label = { Text("ذخیره‌شده‌ها (" + saved.size + ")") })
+                label = { Text("بارگذاری بانک و جستجو") })
+            FilterChip(selected = tab == "entry", onClick = { tab = "entry" },
+                label = { Text("ثبت دستی / اکسل") })
         }
+        Row(Modifier.fillMaxWidth()) {
+            FilterChip(selected = tab == "saved", onClick = { tab = "saved" },
+                label = { Text("شناسه‌های مؤدی (" + saved.size + ")") })
+        }
+        if (tab == "entry") {
+            SuraIdentifierEntryPanel(
+                bookmarks = bookmarks,
+                taxpayerId = taxpayerId,
+                onSelectTaxpayer = onSelectTaxpayer,
+                onSaved = {
+                    scope.launch {
+                        saved = taxpayerId?.let { bookmarks.forTaxpayer(it) }.orEmpty()
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+        } else {
         if (tab == "search") {
             OutlinedTextField(
                 value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
@@ -237,7 +254,8 @@ fun SuraIdentifierScreen(
                         Text(entry.id, color = catalogTeal, fontWeight = FontWeight.Bold)
                         Text(entry.description, color = catalogNavy,
                             maxLines = 3, overflow = TextOverflow.Ellipsis)
-                        Text(entry.kind + "  •  نرخ ثبت‌شده: " + entry.vat + "٪",
+                        Text(entry.kind + "  •  نرخ ثبت‌شده: " +
+                                if (entry.vat.isBlank()) "نامشخص" else entry.vat + "٪",
                             color = Color(0xFF617B8A), style = MaterialTheme.typography.bodySmall)
                         if (entry.expirationDate.isNotBlank()) Text(
                             "تاریخ انقضای درج‌شده: " + entry.expirationDate,
@@ -280,8 +298,9 @@ fun SuraIdentifierScreen(
             }
         }
         Text(
-            "این بانک آفلاین است؛ پیش از ارسال صورتحساب، اعتبار شناسه و نرخ مالیات را با مرجع رسمی کنترل کنید.",
+            "بانک آفلاین و داده‌های دستی باید پیش از ارسال صورتحساب با مرجع رسمی تطبیق داده شوند.",
             color = Color(0xFF657D89), style = MaterialTheme.typography.labelSmall
         )
+        }
     }
 }
