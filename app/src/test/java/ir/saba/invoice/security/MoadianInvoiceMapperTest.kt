@@ -87,4 +87,14 @@ class MoadianInvoiceMapperTest {
         assertEquals(47L, payload.getJSONObject("header").getLong("tvam"))
     }
 
+
+    @Test fun nonCashSettlementMustNeverBeUploadedAsCashPatternOne() {
+        rejected {
+            map(invoice.copy(settlementMode = "CREDIT", cashPaidRial = 0L))
+        }
+        rejected {
+            map(invoice.copy(settlementMode = "MIXED", cashPaidRial = 1100L))
+        }
+    }
+
 }
