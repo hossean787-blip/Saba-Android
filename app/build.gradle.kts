@@ -5,7 +5,7 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// The full-bank release is a separate signed build and never reuses versionCode 17.
+// Standard release stays lightweight; the optional full-bank variant has a higher update code.
 val suraEmbeddedFull = providers.gradleProperty("suraEmbeddedFull").orNull == "true"
 
 android {
@@ -15,8 +15,8 @@ android {
         applicationId = "ir.saba.invoice"
         minSdk = 23
         targetSdk = 35
-        versionCode = if (suraEmbeddedFull) 18 else 17
-        versionName = if (suraEmbeddedFull) "0.18.0" else "0.17.0"
+        versionCode = if (suraEmbeddedFull) 20 else 19
+        versionName = if (suraEmbeddedFull) "0.20.0" else "0.19.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing is opt-in and never uses the ephemeral Android debug key.
