@@ -49,6 +49,7 @@ fun HomeDashboard(
     onTaxKeys: () -> Unit,
     onInvoices: () -> Unit,
     onCharge: () -> Unit,
+    onIdentifiers: () -> Unit = {},
     taxpayerOptions: List<Pair<Long, String>> = emptyList(),
     onTaxpayerSelected: (Long) -> Unit = {}
 ) {
@@ -126,6 +127,10 @@ fun HomeDashboard(
                 QuickAction("ساخت کلید مالیاتی", Icons.Default.Person, Color(0xFFE9E9FA),
                     textNavy, Color(0xFF595DAD), Modifier.weight(1f), onTaxKeys)
             }
+        }
+        item {
+            QuickAction("شناسه کالا و خدمات", Icons.AutoMirrored.Filled.List,
+                Color(0xFFE1F5F3), textNavy, teal, Modifier.fillMaxWidth(), onIdentifiers)
         }
 
     }
