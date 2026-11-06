@@ -36,6 +36,49 @@ class TaxpayerCredentialRepository internal constructor(
         require(!details.inactive) { "مودی غیرفعال است." }
         return TaxpayerIdentity(account,companyId,details.fiscalMemoryId)
     }
+    /** Keep a valid private key encrypted until the taxpayer has an official memory ID
+     *  and a matching signing certificate. A pending key can never authorize submission. */
+    suspend fun stagePrivateKey(companyId: Long, privatePem: String) = db.withTransaction {
+        requireOwnedActiveCompany(companyId)
+        val encrypted = vault.encryptPending(account, companyId, privatePem)
+        require(preferences.edit().putString("pending_company_$companyId", encrypted).commit()) {
+            "ذخیره امن کلید خصوصی انجام نشد."
+        }
+    }
+
+    suspend fun hasPendingPrivateKey(companyId: Long): Boolean = db.withTransaction {
+        requireOwnedActiveCompany(companyId)
+        preferences.contains("pending_company_$companyId")
+    }
+
+    suspend fun saveWithPendingPrivateKey(
+        companyId: Long, certificateBytes: ByteArray, nowEpochMillis: Long
+    ): TaxpayerCredentialProfile {
+        val bytes = db.withTransaction {
+            requireOwnedActiveCompany(companyId)
+            val encrypted = preferences.getString("pending_company_$companyId", null)
+                ?: error("کلید خصوصی ذخیره‌شده برای این مؤدی پیدا نشد.")
+            vault.decryptPending(account, companyId, encrypted)
+        }
+        val pem = try {
+            "-----BEGIN PRIVATE KEY-----\n" +
+                Base64.getEncoder().encodeToString(bytes) +
+                "\n-----END PRIVATE KEY-----"
+        } finally { bytes.fill(0) }
+        val saved = save(companyId, pem, certificateBytes, nowEpochMillis)
+        require(preferences.edit().remove("pending_company_$companyId").commit()) {
+            "کلید و گواهی ثبت شد، اما پاک‌سازی نسخه موقت انجام نشد."
+        }
+        return saved
+    }
+
+    private suspend fun requireOwnedActiveCompany(companyId: Long) {
+        require(companyId > 0)
+        val company = db.companyDao().byId(companyId) ?: error("مؤدی پیدا نشد.")
+        require(company.purchaserId == account.ownerId) { "مؤدی متعلق به حساب واردشده نیست." }
+        require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مؤدی غیرفعال است." }
+    }
+
     suspend fun save(companyId: Long, privatePem: String, certificateBytes: ByteArray, nowEpochMillis: Long): TaxpayerCredentialProfile = db.withTransaction {
         val scoped = identity(companyId)
         val cert = TaxpayerSigningCertificate.parse(certificateBytes)
@@ -65,7 +108,7 @@ class TaxpayerCredentialRepository internal constructor(
     }
     suspend fun remove(companyId: Long) = db.withTransaction {
         require(db.companyDao().byId(companyId)?.purchaserId == account.ownerId) { "مودی متعلق به این حساب نیست." }
-        require(preferences.edit().remove("company_$companyId").commit()) { "حذف اطلاعات اتصال انجام نشد." }
+        require(preferences.edit().remove("company_$companyId").remove("pending_company_$companyId").commit()) { "حذف اطلاعات اتصال انجام نشد." }
     }
     private fun profile(identity: TaxpayerIdentity, cert: X509Certificate) = TaxpayerCredentialProfile(identity,
         MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(java.util.Locale.ROOT,it.toInt() and 255) },cert.notAfter.time)
