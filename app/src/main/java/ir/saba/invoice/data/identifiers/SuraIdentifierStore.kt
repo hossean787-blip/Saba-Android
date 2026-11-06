@@ -227,6 +227,42 @@ class SuraSavedIdentifierStore(context: Context, account: AccountScope) :
         ) != -1L)
     }
 
+    /** Import validated Excel rows atomically; existing taxpayer entries are never overwritten. */
+    suspend fun importBatch(companyId: Long, identifiers: List<SuraIdentifier>): Int =
+        withContext(Dispatchers.IO) {
+            require(companyId > 0 && identifiers.isNotEmpty() && identifiers.size <= 1000)
+            require(identifiers.all { it.id.matches(Regex("[0-9]{13,14}")) })
+            require(identifiers.map { it.id }.distinct().size == identifiers.size) {
+                "شناسه تکراری داخل فایل اکسل وجود دارد."
+            }
+            val db = writableDatabase
+            var inserted = 0
+            db.beginTransaction()
+            try {
+                identifiers.forEach { identifier ->
+                    val values = ContentValues().apply {
+                        put("company_id", companyId)
+                        put("id", identifier.id)
+                        put("description", identifier.description)
+                        put("vat", identifier.vat)
+                        put("taxable", identifier.taxable)
+                        put("kind", identifier.kind)
+                        put("expiration_date", identifier.expirationDate)
+                        put("source", identifier.source)
+                        put("saved_at", System.currentTimeMillis())
+                    }
+                    val row = db.insertWithOnConflict(
+                        "saved_identifiers", null, values, SQLiteDatabase.CONFLICT_IGNORE
+                    )
+                    if (row != -1L) inserted++
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+            inserted
+        }
+
     suspend fun remove(companyId: Long, identifierId: String) = withContext(Dispatchers.IO) {
         require(companyId > 0)
         writableDatabase.delete("saved_identifiers", "company_id=? AND id=?",
