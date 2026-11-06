@@ -18,8 +18,14 @@ class InvoiceIdentifierPrefillTest {
         assertFalse(selected.requiresVatReview)
     }
 
-    @Test fun missingOrFractionalTaxRateNeverDefaultsToTenPercent() {
-        listOf("", "۹٫۵", "نامشخص", "110").forEach { source ->
+    @Test fun validFractionalTaxRateIsPreservedWithoutGuessingTenPercent() {
+        val result = InvoiceIdentifierPrefill.from(identifier("1234567890123", "۹٫۵"))
+        assertEquals("9.5", result.vatRatePercent)
+        assertFalse(result.requiresVatReview)
+    }
+
+    @Test fun missingOrInvalidVatNeverDefaultsToTenPercent() {
+        listOf("", "نامشخص", "110", "9.123").forEach { source ->
             val result = InvoiceIdentifierPrefill.from(identifier("1234567890123", source))
             assertEquals("", result.vatRatePercent)
             assertTrue(result.requiresVatReview)
