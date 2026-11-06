@@ -163,4 +163,93 @@ class TaxpayerCredentialRepositoryTest {
         repository.remove(first)
         assertFalse(repository.hasPendingPrivateKey(first))
     }
+    @Test fun certificateFreeProbeAuthenticatesAndReadsOnlyScopedMemory() = runBlocking {
+        repository.stagePrivateKey(first,TestCertificates.pem(keyA))
+        val expectedId="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        val issuedToken="synthetic-token-for-tests-only"
+        val called=mutableListOf<String>()
+        val transport=object:LegacyMoadianTransport {
+            override suspend fun post(operation:String,envelope:JSONObject,headers:Map<String,String>):JSONObject {
+                called+=operation
+                assertTrue(operation in setOf("GET_TOKEN","GET_FISCAL_INFORMATION"))
+                val packet=envelope.getJSONObject("packet")
+                assertEquals(operation,packet.getString("packetType"))
+                assertEquals(expectedId,headers.getValue("requestTraceId"))
+                assertEquals(now.toString(),headers.getValue("timestamp"))
+                assertEquals(1,envelope.getInt("time"))
+                assertFalse(envelope.toString().contains("PRIVATE KEY"))
+                val fields=sortedMapOf<String,String>()
+                if(operation=="GET_TOKEN") {
+                    assertFalse(headers.containsKey("Authorization"))
+                    assertEquals("A11216",packet.getJSONObject("data").getString("username"))
+                    fields["data.username"]="A11216"
+                    fields["fiscalId"]="#"
+                } else {
+                    assertEquals("Bearer $issuedToken",headers.getValue("Authorization"))
+                    assertEquals("A11216",packet.getString("fiscalId"))
+                    fields["Authorization"]=issuedToken
+                    fields["data"]="#"
+                    fields["fiscalId"]="A11216"
+                }
+                fields["dataSignature"]="#"
+                fields["encryptionKeyId"]="#"
+                fields["iv"]="#"
+                fields["packetType"]=operation
+                fields["requestTraceId"]=expectedId
+                fields["retry"]="false"
+                fields["symmetricKey"]="#"
+                fields["timestamp"]=now.toString()
+                fields["uid"]="#"
+                val canonical=fields.values.joinToString("#")
+                val signature=Signature.getInstance("SHA256withRSA").apply {
+                    initVerify(keyA.public);update(canonical.toByteArray(Charsets.UTF_8))
+                }
+                assertTrue("Legacy request signature must match canonical contract",
+                    signature.verify(Base64.getDecoder().decode(envelope.getString("signature"))))
+                return if(operation=="GET_TOKEN")
+                    JSONObject().put("result",JSONObject().put("data",JSONObject().put("token",issuedToken)))
+                else
+                    JSONObject().put("result",JSONObject().put("data",
+                        JSONObject().put("fiscalStatus","ACTIVE").put("economicCode","12345678901234")))
+            }
+        }
+        MoadianLegacyConnectionProbe(repository,transport,{now},{expectedId}).check(first,"A11216")
+        assertEquals(listOf("GET_TOKEN","GET_FISCAL_INFORMATION"),called)
+        assertFalse(prefs.getString("pending_company_$first","")!!.contains(issuedToken))
+    }
+
+    @Test fun certificateFreeProbeRejectsWrongTaxpayerAndMissingKeyBeforeNetwork() = runBlocking {
+        repository.stagePrivateKey(first,TestCertificates.pem(keyA))
+        var requests=0
+        val transport=object:LegacyMoadianTransport {
+            override suspend fun post(operation:String,envelope:JSONObject,headers:Map<String,String>):JSONObject {
+                requests++
+                return JSONObject()
+            }
+        }
+        val probe=MoadianLegacyConnectionProbe(repository,transport,{now})
+        try {probe.check(second,"ABC123");fail("Missing staged key must be rejected")}
+        catch(_:IllegalStateException) {}
+        try {probe.check(first,"ABC123");fail("Mismatched fiscal ID must be rejected")}
+        catch(_:IllegalArgumentException) {}
+        assertEquals(0,requests)
+    }
+
+    @Test fun certificateFreeProbeDoesNotTreatTokenOrEmptyMemoryResponseAsSuccess() = runBlocking {
+        repository.stagePrivateKey(first,TestCertificates.pem(keyA))
+        var count=0
+        val transport=object:LegacyMoadianTransport {
+            override suspend fun post(operation:String,envelope:JSONObject,headers:Map<String,String>):JSONObject {
+                count++
+                return if(operation=="GET_TOKEN")
+                    JSONObject().put("result",JSONObject().put("data",JSONObject().put("token","mock-token")))
+                else JSONObject().put("result",JSONObject().put("data",JSONObject()))
+            }
+        }
+        try {
+            MoadianLegacyConnectionProbe(repository,transport,{now}).check(first,"A11216")
+            fail("Empty fiscal information must not count as a verified connection")
+        }catch(_:IllegalArgumentException){}
+        assertEquals(2,count)
+    }
 }
