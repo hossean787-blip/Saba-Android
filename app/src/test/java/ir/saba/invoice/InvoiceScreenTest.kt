@@ -79,7 +79,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("افزودن کالا یا خدمت").performScrollTo().performClick()
         compose.onNodeWithText("شرح کالا یا خدمت").performTextInput("خدمت آزمایشی")
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("۱۰۰۰")
-        compose.onNodeWithText("درصد مالیات، صفر تا صد").performScrollTo().performTextInput("۱۰")
+        compose.onNodeWithText("درصد مالیات (تا ۲ رقم اعشار)").performScrollTo().performTextInput("۱۰")
         compose.onNodeWithText("ثبت ردیف").performClick()
     }
 
