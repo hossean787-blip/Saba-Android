@@ -164,10 +164,18 @@ abstract class SabaDatabase : RoomDatabase() {
         }
         internal val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Existing invoices remain cash, with null representing full cash paid;
-                // no historical quota use, customer relationship or totals are modified.
-                db.execSQL("ALTER TABLE invoices ADD COLUMN settlementMode TEXT NOT NULL DEFAULT 'CASH'")
-                db.execSQL("ALTER TABLE invoices ADD COLUMN cashPaidRial INTEGER DEFAULT NULL")
+                // Safe for an interrupted prior migration or older upgrade fixtures.
+                // Any mismatched existing column is still rejected by Room's schema verifier.
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(invoices)").use { columns ->
+                    while (columns.moveToNext()) existing += columns.getString(1)
+                }
+                if ("settlementMode" !in existing) {
+                    db.execSQL("ALTER TABLE invoices ADD COLUMN settlementMode TEXT NOT NULL DEFAULT 'CASH'")
+                }
+                if ("cashPaidRial" !in existing) {
+                    db.execSQL("ALTER TABLE invoices ADD COLUMN cashPaidRial INTEGER DEFAULT NULL")
+                }
             }
         }
         /** New commercial accounts never open or automatically claim the unowned legacy database. */
