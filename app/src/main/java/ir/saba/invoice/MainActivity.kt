@@ -54,7 +54,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, OFFICIAL_SUBMISSION, LEGACY_RECOVERY, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, IDENTIFIERS, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, OFFICIAL_SUBMISSION, LEGACY_RECOVERY, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -356,6 +356,7 @@ class MainActivity : ComponentActivity() {
         )
         val preferences = remember { getSharedPreferences("display", MODE_PRIVATE) }
         var page by rememberSaveable { mutableStateOf(Page.DASHBOARD) }
+        BackHandler(enabled = page == Page.IDENTIFIERS) { page = Page.DASHBOARD }
         var fontScale by rememberSaveable {
             val legacy = preferences.getFloat("font_scale", 1f)
             mutableFloatStateOf(if (legacy.isFinite()) legacy.coerceIn(0.85f, 1.35f) else 1f)
@@ -568,6 +569,7 @@ class MainActivity : ComponentActivity() {
                                     SuraBrandBanner(
                                         subtitle = when (page) {
                                             Page.DASHBOARD -> "داشبورد صورتحساب‌های الکترونیکی"
+                                            Page.IDENTIFIERS -> "شناسه کالا و خدمات مؤدیان"
                                             Page.EVENTS -> "فاکتورها"
                                             Page.COMPANIES -> "مدیریت مودیان مالیاتی"
                                             Page.INVOICES -> "صدور و مدیریت صورتحساب"
@@ -660,8 +662,18 @@ class MainActivity : ComponentActivity() {
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; newInvoiceRequest++ } } },
                                 onTaxKeys = { page = Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
-                                onCharge = { page = Page.QUOTA }
+                                onCharge = { page = Page.QUOTA },
+                                onIdentifiers = { page = Page.IDENTIFIERS }
                             )
+                            Page.IDENTIFIERS -> key(account.storageKey, selectedCompanyId) {
+                                SuraIdentifierScreen(
+                                    account = account,
+                                    taxpayerId = company?.id,
+                                    taxpayerName = company?.name,
+                                    onBack = { page = Page.DASHBOARD },
+                                    onSelectTaxpayer = { page = Page.COMPANIES }
+                                )
+                            }
                             Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES })
                             Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it }, onOpenConnection = { selectTaxpayer(it); page = Page.TAX_CONNECTION }, account = account)
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
