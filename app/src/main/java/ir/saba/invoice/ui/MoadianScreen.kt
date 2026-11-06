@@ -9,6 +9,8 @@ import android.content.Intent
 import android.net.Uri
 import ir.saba.invoice.security.TaxpayerKeyVault
 import ir.saba.invoice.security.TaxpayerPrivateKey
+import ir.saba.invoice.security.AccountScope
+import ir.saba.invoice.security.TaxpayerCredentialRepository
 import ir.saba.invoice.security.TaxpayerKeyGenerator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -54,13 +56,17 @@ fun MoadianScreen(
     onSelect: (Long) -> Unit,
     onNotice: (String) -> Unit,
     onEditing: (Boolean) -> Unit,
-    onOpenConnection: (Long) -> Unit = {}
+    onOpenConnection: (Long) -> Unit = {},
+    account: AccountScope? = null
 ) {
     require(ownerId.isNotBlank())
     val ownedCompanies = companies.filter { it.purchaserId == ownerId }
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val credentialRepository = remember(db, account) {
+        account?.let { TaxpayerCredentialRepository(context, db, it) }
+    }
     val vault = remember { TaxpayerKeyVault() }
     var privateKey by remember { mutableStateOf("") }
     var generatedPublicKey by remember { mutableStateOf("") }
@@ -81,6 +87,8 @@ fun MoadianScreen(
     var storedKey by remember { mutableStateOf<String?>(null) }
     var keyMode by remember { mutableStateOf("manual") }
     var keyError by remember { mutableStateOf<String?>(null) }
+    var pastePrivateKey by remember { mutableStateOf(false) }
+    var hasStoredPrivateKey by remember { mutableStateOf(false) }
     val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             busy = true
@@ -175,14 +183,14 @@ fun MoadianScreen(
     )
     var error by remember { mutableStateOf<String?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
-    fun close() { privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedKeyConfirmed = false; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
+    fun close() { privateKey = ""; pastePrivateKey = false; hasStoredPrivateKey = false; generatedPublicKey = ""; publicKeyExported = false; generatedKeyConfirmed = false; generatedNotice = null; storedKey = null; keyError = null; mode = null; pending = false; error = null; onEditing(false) }
     fun open(which: String) {
         val current = if (which == "new") null else ownedCompanies.firstOrNull { it.id == selectedId }
         if (which != "new" && current == null) {
             onNotice("ابتدا یک مودی از جدول انتخاب کنید.")
             return
         }
-        privateKey = ""; generatedPublicKey = ""; publicKeyExported = false; generatedNotice = null; storedKey = null; keyError = null; keyMode = "manual"; logoPath = ""; logoError = null; fieldErrors = emptyMap()
+        privateKey = ""; pastePrivateKey = false; hasStoredPrivateKey = false; generatedPublicKey = ""; publicKeyExported = false; generatedNotice = null; storedKey = null; keyError = null; keyMode = "manual"; logoPath = ""; logoError = null; fieldErrors = emptyMap()
         loadFailed = false
         name = current?.name.orEmpty()
         nationalId = current?.nationalId.orEmpty()
@@ -229,6 +237,7 @@ fun MoadianScreen(
                     storedKey = d.encryptedPrivateKey
                     logoPath = d.logoUri
                 }
+                hasStoredPrivateKey = credentialRepository?.hasPendingPrivateKey(current.id) == true
                 } catch (_: Exception) { loadFailed = true; error = "بازیابی اطلاعات انجام نشد؛ فرم را ببندید و دوباره تلاش کنید." }
                 finally { busy = false }
             }
@@ -300,6 +309,10 @@ fun MoadianScreen(
                         val check = when (d?.keyCheckStatus) {
                             "NEEDS_MATCH" -> "نیازمند بررسی تطابق"
                             "INVALID" -> "نامعتبر"
+                            "LEGACY_OK" -> "آخرین استعلام بدون گواهی: موفق"
+                            "LEGACY_FAILED" -> "آخرین استعلام بدون گواهی: ناموفق"
+                            "KEY_STORED" -> "کلید خصوصی ذخیره شده"
+                            "KEY_STORE_FAILED" -> "ذخیره کلید ناموفق"
                             else -> "بررسی‌نشده"
                         }
                         Row(Modifier.fillMaxWidth().padding(14.dp),
@@ -425,8 +438,37 @@ fun MoadianScreen(
                 }
             }
             MoadianInput("شناسه یکتا (اختیاری)", fiscalMemoryId, { fiscalMemoryId = it }, !busy && !pending, fieldErrors["fiscalMemoryId"], "پس از دریافت از کارپوشه مالیاتی می‌توانید وارد کنید.", Modifier.fillMaxWidth())
+            ElevatedCard(modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE7F5FA))) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("کلید خصوصی مؤدی", fontWeight = FontWeight.Bold, color = Color(0xFF16384E))
+                    if (hasStoredPrivateKey) Text("کلید خصوصی قبلاً برای این مؤدی به‌صورت امن ذخیره شده است.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) },
+                        enabled = !busy && !pending && credentialRepository != null,
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text(if (privateKey.isBlank()) "انتخاب فایل کلید خصوصی (.pem / .key / .txt)"
+                            else "کلید خصوصی انتخاب شد؛ تغییر فایل")
+                    }
+                    TextButton(onClick = { pastePrivateKey = !pastePrivateKey },
+                        enabled = !busy && !pending && credentialRepository != null) {
+                        Text(if (pastePrivateKey) "بستن ورود متنی کلید" else "جایگذاری متن کلید خصوصی")
+                    }
+                    if (pastePrivateKey) OutlinedTextField(
+                        value = privateKey,
+                        onValueChange = { if (it.length <= TaxpayerPrivateKey.MAX_BYTES) { privateKey = it; keyError = null } },
+                        enabled = !busy && !pending,
+                        label = { Text("کلید خصوصی (محرمانه)") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    keyError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    fieldErrors["privateKey"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    Text("کلید خصوصی فقط روی گوشی رمزگذاری می‌شود. اگر شناسه یکتا و کلید موجود باشند، بعد از ثبت مؤدی اتصال خودکار بررسی می‌شود؛ هیچ صورتحسابی ارسال نمی‌شود.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)
-            Text("مدیریت کلید عمومی و خصوصی از کارت «کلیدهای مالیاتی» در صفحه خانه انجام می‌شود.", style = MaterialTheme.typography.bodySmall)
             }
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (!pending) {
@@ -447,6 +489,12 @@ fun MoadianScreen(
                         check("referenceSerialStart", MoadianFieldValidation.serial(referenceSerialStart, "سریال ارجاعی")
                             ?: MoadianFieldValidation.serialPair(invoiceSerialStart, referenceSerialStart))
                         if (fiscalMemoryId.isNotBlank()) check("fiscalMemoryId", MoadianFieldValidation.fiscalMemoryId(fiscalMemoryId))
+                        if (privateKey.isNotBlank()) {
+                            check("privateKey", try {
+                                TaxpayerPrivateKey.parse(privateKey)
+                                null
+                            } catch (_: Exception) { "ساختار کلید خصوصی RSA معتبر نیست." })
+                        }
                     }
                     error = if (fieldErrors.isEmpty()) null else "موارد مشخص‌شده در فرم را اصلاح کنید."
                     if (error == null) pending = true
@@ -480,10 +528,13 @@ fun MoadianScreen(
                                     }
                                     selectedId = savedId
                                     mode = "edit"
+                                    val connection = credentialRepository?.let {
+                                        MoadianAutoConnection(db, it).complete(savedId, details(savedId).fiscalMemoryId, privateKey)
+                                    }
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()
                                     close()
-                                    onNotice("مودی ثبت شد.")
+                                    onNotice(connection?.message ?: "مودی ثبت شد.")
                                 } else {
                                     val old = db.companyDao().byId(selectedId ?: -1) ?: throw IllegalStateException("مودی یافت نشد.")
                                     db.withTransaction {
@@ -493,10 +544,13 @@ fun MoadianScreen(
                                         val encrypted = prior?.encryptedPrivateKey
                                         db.moadianDetailsDao().upsert(details(old.id).copy(encryptedPrivateKey = encrypted, keyCheckStatus = if (encrypted != null) "NEEDS_MATCH" else "UNCHECKED", inactive = false, nextInvoiceSerial = prior?.nextInvoiceSerial, nextReferenceSerial = prior?.nextReferenceSerial))
                                     }
+                                    val connection = credentialRepository?.let {
+                                        MoadianAutoConnection(db, it).complete(old.id, details(old.id).fiscalMemoryId, privateKey)
+                                    }
                                     onChanged()
                                     detailRows = db.moadianDetailsDao().all()
                                     close()
-                                    onNotice("تغییرات ذخیره شد.")
+                                    onNotice(connection?.message ?: "تغییرات ذخیره شد.")
                                 }
                             } catch (e: CancellationException) { throw e }
                             catch (e: DuplicateTaxpayer) { fieldErrors = mapOf(e.field to "این مقدار برای مودی دیگری ثبت شده است."); error = "مودی تکراری قابل ثبت نیست."; pending = false }
