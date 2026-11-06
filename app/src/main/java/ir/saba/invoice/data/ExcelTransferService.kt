@@ -38,8 +38,12 @@ class ExcelTransferService(private val db: SabaDatabase, private val ownerId: St
         }
     }
 
-    fun template(scope: String): ByteArray =
-        ExcelWorkbook.write(if (scope == "taxpayers") taxpayerHeaders else customerHeaders, emptyList())
+    fun template(scope: String): ByteArray = when (scope) {
+        "taxpayers" -> ExcelWorkbook.write(taxpayerHeaders, emptyList())
+        "customers" -> ExcelWorkbook.write(customerHeaders, emptyList())
+        "identifiers" -> ir.saba.invoice.data.identifiers.SuraIdentifierInputService.template()
+        else -> throw IllegalArgumentException("نوع الگوی اکسل معتبر نیست.")
+    }
 
     suspend fun import(scope: String, currentCompanyId: Long?, bytes: ByteArray): Int {
         val rows = ExcelWorkbook.read(bytes)
