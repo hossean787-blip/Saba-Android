@@ -42,17 +42,13 @@ class InvoicePdfValidationTest {
         rejection("تعداد", lines = listOf(line.copy(quantity = 0)))
     }
 
-    @Test fun fifteenAndTwentyNineRowsGenerateMultiPagePdfWithoutChangingTotals() {
-        for (count in listOf(15, 29)) {
-            val valid = invoice.copy(
-                totalAmountRial = count * 110L, taxAmountRial = count * 10L
-            )
-            val pdf = SuraInvoicePdf.generate(
-                company, customer, valid, List(count) { line },
-                "ساده", false, false, false
-            )
-            assertTrue(pdf.size > 500)
-            assertTrue(pdf.copyOfRange(0, 5).toString(Charsets.ISO_8859_1).startsWith("%PDF-"))
+    @Test fun paginationPreservesAllLineIndicesAcrossPageBoundaries() {
+        for (count in listOf(1, 14, 15, 28, 29, 500)) {
+            val records = (0 until count).toList()
+            val pages = InvoicePdfPagination.paginate(records)
+            assertTrue(pages.all { it.isNotEmpty() && it.size <= 14 })
+            assertTrue(pages.flatten() == records)
+            assertTrue(pages.size == (count + 13) / 14)
         }
     }
 
