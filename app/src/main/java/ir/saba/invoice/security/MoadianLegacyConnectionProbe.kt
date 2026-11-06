@@ -71,6 +71,7 @@ internal class MoadianLegacyConnectionProbe(
             JSONObject().put("username", fiscalId), null)
         val tokenData = successfulData(tokenResult) as? JSONObject
             ?: error("سامانه توکن قابل‌استفاده صادر نکرد.")
+        require(!tokenData.isNull("token")) { "توکن معتبر از سامانه دریافت نشد." }
         val token = tokenData.optString("token")
         require(token.isNotBlank() && token.length <= 16000 &&
             token.none { it == '\n' || it == '\r' }) {
@@ -123,8 +124,11 @@ internal class MoadianLegacyConnectionProbe(
     private fun successfulData(response: JSONObject): Any {
         val result = response.optJSONObject("result")
             ?: error("پاسخ معتبر از سامانه دریافت نشد.")
-        require(result.optString("errorCode").isBlank() &&
-            result.optString("errorDetail").isBlank()) { "سامانه درخواست را رد کرد." }
+        require((result.isNull("errorCode") || result.optString("errorCode").isBlank()) &&
+            (result.isNull("errorDetail") || result.optString("errorDetail").isBlank()) &&
+            (response.isNull("errorCode") || response.optString("errorCode").isBlank())) {
+            "سامانه درخواست را رد کرد."
+        }
         val data = result.opt("data")
         require(data != null && data != JSONObject.NULL) { "اطلاعات مورد انتظار از سامانه دریافت نشد." }
         return data
