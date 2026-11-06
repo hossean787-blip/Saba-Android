@@ -36,7 +36,9 @@ class InvoiceCreationCoordinator(
             val item=rows.getJSONObject(index)
             InvoiceLine(invoiceId=0,itemCode=item.getString("code"),description=item.getString("description"),
                 quantity=item.getString("quantity").toLong(),unitPriceRial=item.getString("price").toLong(),
-                discountRial=item.getString("discount").toLong(),taxRatePercent=item.getString("tax").toInt())
+                discountRial=item.getString("discount").toLong(),taxRatePercent=item.getString("tax").toInt(),
+                unitCode=item.optString("unitCode"), quantityExact=item.optString("quantityExact"),
+                vatRateExact=item.optString("vatRateExact"))
         }
         return InvoiceCreationSnapshot(root.getString("customer").toLong(),root.getString("number"),root.getString("date"),lines)
     }
@@ -44,7 +46,9 @@ class InvoiceCreationCoordinator(
         val rows=JSONArray()
         snapshot.lines.forEach { rows.put(JSONObject().put("code",it.itemCode).put("description",it.description)
             .put("quantity",it.quantity.toString()).put("price",it.unitPriceRial.toString())
-            .put("discount",it.discountRial.toString()).put("tax",it.taxRatePercent.toString())) }
+            .put("discount",it.discountRial.toString()).put("tax",it.taxRatePercent.toString())
+            .put("unitCode",it.unitCode).put("quantityExact",it.quantityExact)
+            .put("vatRateExact",it.vatRateExact)) }
         return JSONObject().put("customer",snapshot.customerId.toString()).put("number",snapshot.number)
             .put("date",snapshot.date).put("lines",rows).toString().also { require(it.length<=2_000_000) }
     }
