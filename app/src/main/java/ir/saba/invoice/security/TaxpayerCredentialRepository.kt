@@ -51,6 +51,26 @@ class TaxpayerCredentialRepository internal constructor(
         preferences.contains("pending_company_$companyId")
     }
 
+    /** Signs a non-financial connection diagnostic using a taxpayer-scoped staged key.
+     * The key itself never leaves device storage or this function. */
+    internal suspend fun signPendingConnectionChallenge(
+        companyId: Long, fiscalId: String, challenge: ByteArray
+    ): String = db.withTransaction {
+        require(challenge.isNotEmpty() && challenge.size <= 32768)
+        val scope = identity(companyId)
+        require(scope.fiscalMemoryId == fiscalId)
+        val encrypted = preferences.getString("pending_company_$companyId", null)
+            ?: error("کلید خصوصی این مؤدی ذخیره نشده است.")
+        val bytes = vault.decryptPending(account, companyId, encrypted)
+        val key = try {
+            KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(bytes))
+        } finally { bytes.fill(0) }
+        val signature = java.security.Signature.getInstance("SHA256withRSA")
+        signature.initSign(key)
+        signature.update(challenge)
+        Base64.getEncoder().encodeToString(signature.sign())
+    }
+
     suspend fun saveWithPendingPrivateKey(
         companyId: Long, certificateBytes: ByteArray, nowEpochMillis: Long
     ): TaxpayerCredentialProfile {
