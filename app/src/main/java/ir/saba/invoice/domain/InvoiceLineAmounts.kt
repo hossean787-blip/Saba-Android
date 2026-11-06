@@ -11,8 +11,8 @@ import java.math.RoundingMode
  */
 object InvoiceLineAmounts {
     private fun normalize(raw: String): String = InvoiceInput.digits(raw)
-        .replace('٫', '.').replace('٬', ',').trim()
-        .replace(",", "").replace(" ", "")
+        .replace('٫', '.').trim().replace(" ", "")
+    // A comma must not be removed: "1,5" is ambiguous and would silently become 15.
 
     fun quantity(value: String): BigDecimal {
         val input = normalize(value)
