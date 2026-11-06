@@ -22,3 +22,7 @@ local.properties
 # sensitive backups
 *credentials*
 *private_key*
+
+# Full identifier bank is large; assemble it only inside the authorized signed build.
+app/src/main/assets/catalog/*.gz
+app/src/main/assets/catalog/manifest.json
