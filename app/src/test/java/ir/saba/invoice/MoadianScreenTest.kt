@@ -85,4 +85,15 @@ class MoadianScreenTest {
         compose.onNodeWithText("مدیریت و بارگذاری کلید خصوصی مؤدی انتخاب‌شده").assertIsEnabled().performClick()
         assertEquals(id.toInt(), opened.get())
     }
+
+    @Test fun memoryIdAndPrivateKeyShareOneTaxpayerRegistrationForm() {
+        compose.setContent { MaterialTheme {
+            MoadianScreen(db,"owner",emptyList(),{},{},{},{})
+        } }
+        compose.onNodeWithText("جدید").performClick()
+        compose.onNodeWithText("شناسه یکتا (اختیاری)").assertExists()
+        compose.onNodeWithText("کلید خصوصی مؤدی").assertExists()
+        compose.onNodeWithText("انتخاب فایل کلید خصوصی (.pem / .key / .txt)").assertExists()
+        compose.onNodeWithText("جایگذاری متن کلید خصوصی").assertExists()
+    }
 }
