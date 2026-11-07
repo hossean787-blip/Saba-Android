@@ -67,6 +67,14 @@ jobs:
           echo "Release certificate continuity verified."
           sha256sum "$PREVIOUS" "$CURRENT" > app/build/upgrade/apk-sha256.txt
 
+      - name: Enable KVM hardware acceleration where available
+        shell: bash
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+          else
+            echo "KVM not available; software emulation fallback."
+          fi
       - name: Boot emulator and verify in-place signed upgrade (API 29)
         uses: reactivecircus/android-emulator-runner@v2
         with:
