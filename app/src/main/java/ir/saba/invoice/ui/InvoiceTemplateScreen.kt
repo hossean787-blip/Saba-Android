@@ -130,10 +130,13 @@ object SuraInvoicePdf {
             if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
             if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
             }
-            text(c, "صفحه " + (pageIndex + 1) + " از " + pages.size, 150f, 781f, 125, 9f)
-            if (invoice.subject == InvoiceSubject.CORRECTION && pageIndex == 0) {
-                text(c, "مرجع اصلاحیه: " + invoice.referenceTaxId.orEmpty(),
-                    558f, 763f, 522, 9f, true, navy, maxLines=1)
+            if (invoice.subject == InvoiceSubject.CORRECTION) {
+                text(c, "مرجع اصلاحیه: " + invoice.referenceTaxId.orEmpty() +
+                    " • صفحه " + (pageIndex + 1) + " از " + pages.size,
+                    558f, 781f, 522, 9f, true, navy, maxLines=1, includePad=false)
+            } else {
+                // Approved print layout for original invoices stays exactly unchanged.
+                text(c, "صفحه " + (pageIndex + 1) + " از " + pages.size, 150f, 781f, 125, 9f)
             }
             text(c, "این نسخه چاپی به‌تنهایی نشانه ارسال یا پذیرش در سامانه مؤدیان نیست.",
                 565f, geometry.footerTop, 533, 9f)
