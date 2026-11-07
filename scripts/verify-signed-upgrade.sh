@@ -10,8 +10,33 @@ package="ir.saba.invoice"
 component="$package/.MainActivity"
 test -s "$previous" && test -s "$current"
 adb wait-for-device
-adb shell getprop sys.boot_completed | grep -q 1
-adb install -r "$previous"
+# A freshly booted emulator can report boot_completed before PackageManager
+# finishes starting. Wait for BOTH Android boot and the package service.
+ready=0
+for attempt in $(seq 1 50); do
+  boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  if [[ "$boot" == "1" ]] && adb shell cmd package list packages >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 3
+done
+[[ "$ready" == "1" ]] || { echo "Emulator package service not ready." >&2; exit 1; }
+
+install_safely() {
+  local apk="$1"
+  local attempt=1
+  while (( attempt <= 8 )); do
+    if adb install --no-streaming -r "$apk"; then return 0; fi
+    echo "Android package service unavailable; retry $attempt/8." >&2
+    adb wait-for-device || true
+    sleep 8
+    attempt=$((attempt + 1))
+  done
+  echo "Signed APK could not be installed after package-service retries." >&2
+  return 1
+}
+install_safely "$previous"
 before="$(adb shell pm list packages -U "$package" | tr -d '\r')"
 [[ "$before" =~ ^package:ir\.saba\.invoice[[:space:]]uid:[0-9]+$ ]] || {
   echo "Failed to record installed package UID: $before" >&2
@@ -20,7 +45,7 @@ before="$(adb shell pm list packages -U "$package" | tr -d '\r')"
 echo "Before update: $before"
 adb shell am start -W -n "$component" | tee app/build/upgrade/start-before.txt
 # Reinstall without clearing app data or removing the old package.
-adb install -r "$current"
+install_safely "$current"
 after="$(adb shell pm list packages -U "$package" | tr -d '\r')"
 [[ "$before" == "$after" ]] || {
   echo "Package UID changed during in-place upgrade (data safety not verified)." >&2
