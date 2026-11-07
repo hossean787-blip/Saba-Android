@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceSettlement
+import ir.saba.invoice.domain.InvoiceSubject
 
 data class InvoiceDetails(val invoice: Invoice, val lines: List<InvoiceLine>)
 
@@ -19,7 +20,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
         existingInvoiceId: Long? = null,
         serverPromoConfirmed: Boolean = false,
         settlementMode: String = InvoiceSettlement.CASH,
-        cashPaidRial: Long? = null
+        cashPaidRial: Long? = null,
+        subject: String = InvoiceSubject.ORIGINAL,
+        referenceTaxId: String? = null
     ): Long {
         require(companyId > 0) { "شرکت را انتخاب کنید." }
         require(customerId > 0) { "مشتری را انتخاب کنید." }
@@ -29,9 +32,14 @@ class InvoiceRepository(private val db: SabaDatabase) {
         val requestedNumber = InvoiceInput.digits(invoiceNumber).trim()
         val totals = InvoiceCalculator.calculate(lines)
         InvoiceSettlement.amounts(settlementMode, cashPaidRial, totals.totalAmountRial)
+        InvoiceSubject.validate(subject, referenceTaxId)
 
         return db.withTransaction {
-            require(db.companyDao().byId(companyId) != null) { "شرکت پیدا نشد." }
+            val issuer = db.companyDao().byId(companyId)
+                ?: throw IllegalArgumentException("شرکت پیدا نشد.")
+            InvoiceSubject.requireLocalAcceptedReference(
+                db, issuer.purchaserId, companyId, customerId, subject, referenceTaxId
+            )
             require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
             val normalizedNumber = if (requestedNumber.isNotEmpty()) requestedNumber
                 else if (existingInvoiceId != null) db.invoiceDao().byId(existingInvoiceId)?.invoiceNumber.orEmpty()
@@ -72,7 +80,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
                         taxAmountRial = totals.taxAmountRial,
                         status = "DRAFT",
                         settlementMode = settlementMode,
-                        cashPaidRial = cashPaidRial
+                        cashPaidRial = cashPaidRial,
+                        subject = subject,
+                        referenceTaxId = referenceTaxId
                     )
                 )
             } else {
@@ -87,7 +97,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
                         totalAmountRial = totals.totalAmountRial,
                         taxAmountRial = totals.taxAmountRial,
                         settlementMode = settlementMode,
-                        cashPaidRial = cashPaidRial
+                        cashPaidRial = cashPaidRial,
+                        subject = subject,
+                        referenceTaxId = referenceTaxId
                     )
                 )
                 db.invoiceLineDao().deleteForInvoice(existingInvoiceId)
@@ -130,6 +142,11 @@ class InvoiceRepository(private val db: SabaDatabase) {
             val lines = db.invoiceLineDao().forInvoice(invoiceId)
             val totals = InvoiceCalculator.calculate(lines)
             InvoiceSettlement.amounts(invoice.settlementMode, invoice.cashPaidRial, totals.totalAmountRial)
+            InvoiceSubject.requireLocalAcceptedReference(
+                db, db.companyDao().byId(companyId)?.purchaserId
+                    ?: throw IllegalArgumentException("مودی پیدا نشد."),
+                companyId, invoice.customerId, invoice.subject, invoice.referenceTaxId
+            )
             val company = db.companyDao().byId(invoice.companyId) ?: throw IllegalArgumentException("شرکت پیدا نشد.")
             require(db.customerDao().byId(invoice.customerId)?.companyId == company.id) {
                 "مشتری به شرکت این فاکتور تعلق ندارد."
