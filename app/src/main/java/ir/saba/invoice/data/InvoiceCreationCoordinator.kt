@@ -75,7 +75,7 @@ class InvoiceCreationCoordinator(
         val totals = InvoiceCalculator.calculate(lines)
         InvoiceSettlement.amounts(input.settlementMode,input.cashPaidRial,totals.totalAmountRial)
         InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, companyId,
-            input.customerId, input.subject, input.referenceTaxId)
+            input.customerId, input.subject, input.referenceTaxId, lines)
         val existing=db.invoiceCreationClaimDao().byKey(key) ?: db.invoiceCreationClaimDao().pending(companyId)
         if(existing!=null) {
             require(existing.ownerId==account.ownerId && existing.companyId==companyId){"درخواست متعلق به حساب یا مؤدی دیگری است."}
@@ -96,7 +96,7 @@ class InvoiceCreationCoordinator(
         val totals=InvoiceCalculator.calculate(content.lines)
         InvoiceSettlement.amounts(content.settlementMode,content.cashPaidRial,totals.totalAmountRial)
         InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, claim.companyId,
-            content.customerId, content.subject, content.referenceTaxId)
+            content.customerId, content.subject, content.referenceTaxId, content.lines)
         require(InvoiceInput.number(content.number).isNotEmpty()) { "شماره صورتحساب محفوظ معتبر نیست." }
         require(db.customerDao().byId(content.customerId)?.companyId == claim.companyId) { "مشتری درخواست محفوظ متعلق به این مؤدی نیست." }
         require(db.invoiceDao().forCompany(claim.companyId).none {
