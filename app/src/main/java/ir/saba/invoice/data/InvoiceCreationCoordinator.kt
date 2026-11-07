@@ -50,7 +50,7 @@ class InvoiceCreationCoordinator(
         val cash = if (root.has("cashPaidRial") && !root.isNull("cashPaidRial"))
             root.getLong("cashPaidRial") else null
         return InvoiceCreationSnapshot(root.getString("customer").toLong(),root.getString("number"),root.getString("date"),lines,mode,cash,
-            root.optString("subject", InvoiceSubject.ORIGINAL), root.optString("referenceTaxId").ifBlank { null })
+            root.optString("subject", InvoiceSubject.ORIGINAL), root.optString("referenceTaxId").takeIf { it.isNotBlank() })
     }
     private fun encode(snapshot:InvoiceCreationSnapshot):String {
         val rows=JSONArray()
