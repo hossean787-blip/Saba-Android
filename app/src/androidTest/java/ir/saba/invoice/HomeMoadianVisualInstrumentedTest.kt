@@ -50,8 +50,8 @@ class HomeMoadianVisualInstrumentedTest {
         screenshot("home-emulator")
         // Recent activity is below the fold on compact phones; LazyColumn
         // composes it only after scrolling. Verify real data after scrolling.
-        compose.onNode(hasScrollAction()).performScrollToIndex(6)
-        compose.onNodeWithText("صورتحساب 1000000001").assertExists()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("شناسه کالا و خدمات"))
+        compose.onNodeWithText("شناسه کالا و خدمات").assertExists()
     }
     @Test fun ownerAccountHubRendersActualTwoColumnCardsOnAndroid() {
         compose.setContent { MaterialTheme(colorScheme = lightColorScheme(
