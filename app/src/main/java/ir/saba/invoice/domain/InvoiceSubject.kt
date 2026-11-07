@@ -1,6 +1,7 @@
 package ir.saba.invoice.domain
 
 import ir.saba.invoice.data.Invoice
+import ir.saba.invoice.data.InvoiceLine
 import ir.saba.invoice.data.OfficialSubmission
 import ir.saba.invoice.data.SabaDatabase
 
@@ -43,7 +44,8 @@ object InvoiceSubject {
     /** Recheck source inside the same Room transaction that creates or edits a draft. */
     suspend fun requireLocalAcceptedReference(
         db: SabaDatabase, ownerId: String, companyId: Long, customerId: Long,
-        subject: String, referenceTaxId: String?
+        subject: String, referenceTaxId: String?, lines: List<InvoiceLine>,
+        currentInvoiceId: Long? = null
     ) {
         validate(subject, referenceTaxId)
         if (subject == ORIGINAL) return
@@ -61,6 +63,19 @@ object InvoiceSubject {
             original.customerId == customerId && original.subject == ORIGINAL) {
             "موضوع، مشتری یا مؤدی صورتحساب مرجع معتبر نیست."
         }
+        // A corrective invoice may adjust prices and quantities, but cannot silently
+        // replace the original goods/services with different identifiers. Changes to
+        // the item identity require a separate sale or another legally supported subject.
+        val sourceCodes = db.invoiceLineDao().forInvoice(original.id).map { it.itemCode }.sorted()
+        val correctionCodes = lines.map { it.itemCode }.sorted()
+        require(sourceCodes.isNotEmpty() && correctionCodes == sourceCodes) {
+            "شناسه و تعداد اقلام کالا/خدمت در اصلاحیه باید با صورتحساب مرجع یکسان باشد؛ تغییر کالا یا خدمت با اصلاحیه مجاز نیست."
+        }
+        // Avoid conflicting pending/local corrections against one accepted reference.
+        require(db.invoiceDao().forCompany(companyId).none {
+            it.id != currentInvoiceId && it.subject == CORRECTION &&
+                it.referenceTaxId == referenceTaxId && it.status != "CANCELLED"
+        }) { "برای این صورتحساب مرجع قبلاً اصلاحیه فعال ثبت شده است؛ همان پیش‌نویس را ویرایش کنید." }
     }
 
     fun requireSupportedForOfficialSubmission(invoice: Invoice) {
