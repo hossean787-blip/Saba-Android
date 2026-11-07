@@ -14,7 +14,7 @@ adb wait-for-device
 # finishes starting. Wait for BOTH Android boot and the package service.
 ready=0
 for attempt in $(seq 1 50); do
-  boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
   if [[ "$boot" == "1" ]] && adb shell cmd package list packages >/dev/null 2>&1; then
     ready=1
     break
