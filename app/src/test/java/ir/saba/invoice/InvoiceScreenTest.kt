@@ -286,4 +286,12 @@ class InvoiceScreenTest {
         }
     }
 
+    @Test fun correctiveInvoiceIsDisabledWithoutAnAcceptedOriginalReference() {
+        compose.setContent { Screen() }
+        openNew()
+        compose.onNodeWithText("اصلاحی (ثبت محلی)").performScrollTo()
+            .assertExists().assertIsNotEnabled()
+        compose.onNodeWithText("اصلی").assertExists()
+    }
+
 }
