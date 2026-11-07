@@ -3,6 +3,7 @@ package ir.saba.invoice.security
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceSettlement
+import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.moadian.*
 import org.json.JSONArray
@@ -28,6 +29,7 @@ object MoadianInvoiceMapper {
         require(invoice.status == "FINALIZED" && invoice.companyId == company.id && customer.id == invoice.customerId && customer.companyId == company.id)
         // The current official mapper encodes setm=1. Never send a noncash invoice as cash.
         InvoiceSettlement.requireSupportedForOfficialCash(invoice)
+        InvoiceSubject.requireSupportedForOfficialSubmission(invoice)
         require(!details.inactive && details.companyId == company.id)
         require(buyerProfile == null || (buyerProfile.customerId == customer.id && buyerProfile.companyId == company.id && buyerProfile.active && buyerProfile.isCustomer && buyerProfile.nationality == "IR"))
         require(lines.all { MoadianMeasurementUnits.nameOf(it.unitCode.ifBlank { unit }) != null }) {
