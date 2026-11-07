@@ -24,6 +24,7 @@ import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.invoice.domain.InvoiceSettlement
+import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.moadian.MoadianMeasurementUnits
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -75,7 +76,10 @@ object SuraInvoicePdf {
             c.drawColor(Color.WHITE)
             rect(c, 21f, 20f, 574f, 84f, navy)
             text(c, if (logo) "SURA | سورا" else "صورتحساب", 557f, 32f, 250, 22f, true, Color.WHITE)
-            text(c, "صورتحساب فروش کالا و خدمات", 555f, 60f, 400, 12f, false, Color.WHITE)
+            text(c, if (invoice.subject == InvoiceSubject.CORRECTION)
+                "صورتحساب اصلاحی — ثبت محلی، فاقد ارسال رسمی"
+                else "صورتحساب فروش کالا و خدمات",
+                555f, 60f, 400, 12f, false, Color.WHITE)
             rect(c, 22f, 95f, 574f, 128f, blue)
             text(c, "شماره صورتحساب: ${invoice.invoiceNumber}", 559f, 103f, 235, 11f, true)
             text(c, "تاریخ: ${invoice.issueDate}", 305f, 103f, 200)
@@ -127,6 +131,10 @@ object SuraInvoicePdf {
             if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
             }
             text(c, "صفحه " + (pageIndex + 1) + " از " + pages.size, 150f, 781f, 125, 9f)
+            if (invoice.subject == InvoiceSubject.CORRECTION && pageIndex == 0) {
+                text(c, "مرجع اصلاحیه: " + invoice.referenceTaxId.orEmpty(),
+                    558f, 763f, 522, 9f, true, navy, maxLines=1)
+            }
             text(c, "این نسخه چاپی به‌تنهایی نشانه ارسال یا پذیرش در سامانه مؤدیان نیست.",
                 565f, geometry.footerTop, 533, 9f)
             pdf.finishPage(page)
