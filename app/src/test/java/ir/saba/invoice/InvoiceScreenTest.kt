@@ -294,4 +294,26 @@ class InvoiceScreenTest {
         compose.onNodeWithText("اصلی").assertExists()
     }
 
+
+    @Test fun copyLineOpensEditableDuplicateAndPersistsTwoRowsWithOneCreditDebit() {
+        compose.setContent { Screen() }
+        openNew()
+        addLine()
+        compose.onNodeWithText("کپی ردیف").performScrollTo().performClick()
+        compose.onNodeWithText("شرح کالا یا خدمت")
+            .assertTextContains("خدمت آزمایشی")
+        compose.onNodeWithText("ثبت ردیف").performClick()
+        compose.onNodeWithText("2. خدمت آزمایشی").assertExists()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.waitUntil(15000) { invoices.size == 1 }
+        runBlocking {
+            val rows = db.invoiceLineDao().forInvoice(invoices.single().id)
+            assertEquals(2, rows.size)
+            assertEquals(rows[0].itemCode, rows[1].itemCode)
+            assertEquals(rows[0].description, rows[1].description)
+            assertEquals(2200L, invoices.single().totalAmountRial)
+        }
+        assertEquals(1, creditGateway.consumedKeys.size)
+    }
+
 }
