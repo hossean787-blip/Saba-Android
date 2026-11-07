@@ -38,7 +38,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
             val issuer = db.companyDao().byId(companyId)
                 ?: throw IllegalArgumentException("شرکت پیدا نشد.")
             InvoiceSubject.requireLocalAcceptedReference(
-                db, issuer.purchaserId, companyId, customerId, subject, referenceTaxId
+                db, issuer.purchaserId, companyId, customerId, subject, referenceTaxId,
+                lines, existingInvoiceId
             )
             require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
             val normalizedNumber = if (requestedNumber.isNotEmpty()) requestedNumber
@@ -145,7 +146,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
             InvoiceSubject.requireLocalAcceptedReference(
                 db, db.companyDao().byId(companyId)?.purchaserId
                     ?: throw IllegalArgumentException("مودی پیدا نشد."),
-                companyId, invoice.customerId, invoice.subject, invoice.referenceTaxId
+                companyId, invoice.customerId, invoice.subject, invoice.referenceTaxId,
+                lines, invoiceId
             )
             val company = db.companyDao().byId(invoice.companyId) ?: throw IllegalArgumentException("شرکت پیدا نشد.")
             require(db.customerDao().byId(invoice.customerId)?.companyId == company.id) {
