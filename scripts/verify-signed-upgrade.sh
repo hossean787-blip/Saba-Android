@@ -10,6 +10,8 @@ package="ir.saba.invoice"
 component="$package/.MainActivity"
 test -s "$previous" && test -s "$current"
 adb wait-for-device
+sdk_api="$(adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')"
+[[ "$sdk_api" == "29" || "$sdk_api" == "36" ]] || { echo "Unexpected test API: $sdk_api" >&2; exit 1; }
 # A freshly booted emulator can report boot_completed before PackageManager
 # finishes starting. Wait for BOTH Android boot and the package service.
 ready=0
@@ -76,7 +78,7 @@ if grep -E 'FATAL EXCEPTION|Process: ir\.saba\.invoice' app/build/upgrade/crash-
   exit 1
 fi
 {
-  echo "SURA APK signed upgrade verified in Android emulator, API 29"
+  echo "SURA APK signed upgrade verified in Android emulator, API $sdk_api"
   echo "before_uid=$before"
   echo "after_uid=$after"
   echo "previous_versionCode=21"
