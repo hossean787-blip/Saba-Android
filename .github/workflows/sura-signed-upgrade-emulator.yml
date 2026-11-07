@@ -16,6 +16,10 @@ jobs:
   signed-upgrade:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [29, 36]
     steps:
       - uses: actions/checkout@v4
       - name: Download previously verified signed builds
@@ -66,7 +70,7 @@ jobs:
       - name: Boot emulator and verify in-place signed upgrade (API 29)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: ${{ matrix.api-level }}
           target: google_apis
           arch: x86_64
           profile: pixel_2
@@ -78,7 +82,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sura-signed-upgrade-device-proof
+          name: sura-signed-upgrade-device-proof-api${{ matrix.api-level }}
           if-no-files-found: warn
           path: |
             app/build/upgrade/*.txt
