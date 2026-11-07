@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sura-signed-upgrade-emulator.yml'
+      - 'scripts/verify-signed-upgrade.sh'
   workflow_dispatch:
 
 permissions:
