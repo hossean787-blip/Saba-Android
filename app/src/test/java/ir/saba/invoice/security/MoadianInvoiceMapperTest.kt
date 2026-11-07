@@ -88,6 +88,17 @@ class MoadianInvoiceMapperTest {
     }
 
 
+    @Test fun localCorrectionMustNeverBeMisrepresentedAsOfficialOriginalInvoice() {
+        rejected {
+            map(invoice.copy(subject = "CORRECTION",
+                referenceTaxId = "A1121600000000000000"))
+        }
+        rejected {
+            map(invoice.copy(subject = "ORIGINAL",
+                referenceTaxId = "A1121600000000000000"))
+        }
+    }
+
     @Test fun nonCashSettlementMustNeverBeUploadedAsCashPatternOne() {
         rejected {
             map(invoice.copy(settlementMode = "CREDIT", cashPaidRial = 0L))
