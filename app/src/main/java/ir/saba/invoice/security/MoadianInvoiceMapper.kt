@@ -5,6 +5,7 @@ import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceSettlement
 import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.invoice.domain.InvoiceLineAmounts
+import ir.saba.invoice.domain.JalaliCalendar
 import ir.saba.moadian.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -13,16 +14,9 @@ import java.time.*
 
 /** Explicitly supported: original type-one, pattern-one, domestic rial cash sale only. */
 object MoadianInvoiceMapper {
-    fun defaultIssueTime(jalali: String): String {
-        val parts = InvoiceInput.date(jalali).split('/').map(String::toInt)
-        fun leap(y: Int) = (((y - 1210 + 1) % 33) - 1) % 4 == 0
-        var days = 0L
-        if (parts[0] >= 1404) for (y in 1404 until parts[0]) days += if (leap(y)) 366 else 365
-        else for (y in parts[0] until 1404) days -= if (leap(y)) 366 else 365
-        for (m in 1 until parts[1]) days += if (m <= 6) 31 else 30
-        return LocalDate.of(2025,3,21).plusDays(days + parts[2] - 1)
-            .atTime(12,0).atZone(ZoneId.of("Asia/Tehran")).toOffsetDateTime().toString()
-    }
+    fun defaultIssueTime(jalali: String): String =
+        JalaliCalendar.toGregorian(jalali).atTime(12, 0)
+            .atZone(ZoneId.of("Asia/Tehran")).toOffsetDateTime().toString()
 
     fun map(company: Company, customer: Customer, buyerProfile: CustomerProfile?, details: MoadianDetails,
             invoice: Invoice, lines: List<InvoiceLine>, issueTime: String, unit: String, now: Long): String {
