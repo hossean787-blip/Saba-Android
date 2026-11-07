@@ -316,4 +316,44 @@ class InvoiceScreenTest {
         assertEquals(1, creditGateway.consumedKeys.size)
     }
 
+    @Test fun copyAcceptedReferenceItemsIntoCorrectionDoesNotCreateInvoiceOrDebitCredit() {
+        val referenceTaxId = "A11216" + "0".repeat(16)
+        runBlocking {
+            val id = InvoiceRepository(db).saveDraft(
+                company, customer, "11", "1405/07/02",
+                listOf(InvoiceLine(
+                    invoiceId = 0, itemCode = "1234567890123",
+                    description = "کالای مرجع", quantity = 2,
+                    unitPriceRial = 1000, taxRatePercent = 10, unitCode = "1627"
+                ))
+            )
+            InvoiceRepository(db).finalizeDraft(company, id)
+            db.officialSubmissionDao().insert(OfficialSubmission(
+                requestId = java.util.UUID.randomUUID().toString(),
+                ownerId = ownerId, companyId = company, invoiceId = id,
+                fiscalId = "A11216", taxId = referenceTaxId,
+                payload = "{}", payloadHash = "fixture", preparedAt = 100,
+                state = "ACCEPTED", referenceNumber = "accepted",
+                signedReceipt = "verified-receipt-fixture"
+            ))
+        }
+        compose.setContent { Screen() }
+        openNew()
+        compose.onNodeWithText("اصلاحی (ثبت محلی)").performScrollTo()
+            .assertIsEnabled().performClick()
+        compose.onNodeWithText("شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده")
+            .performScrollTo().performClick()
+        compose.onNodeWithText(referenceTaxId).performClick()
+        compose.onNodeWithText("کپی اقلام صورتحساب مرجع برای اصلاح")
+            .performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("1. کالای مرجع").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(0, creditGateway.consumedKeys.size)
+        runBlocking {
+            assertEquals(1, db.invoiceDao().forCompany(company).size)
+        }
+    }
+
+
 }
