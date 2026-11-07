@@ -29,4 +29,12 @@ class InvoiceInputTest {
     fun rejectsNonLeapEsfand() { InvoiceInput.date("1400/12/30") }
 
     @Test fun acceptsLeapEsfand() { assertEquals("1399/12/30", InvoiceInput.date("۱۳۹۹/۱۲/۳۰")) }
+    @Test fun validatesLeapBoundaryInRecentInvoiceYears() {
+        assertEquals("1403/12/30", InvoiceInput.date("۱۴۰۳/۱۲/۳۰"))
+        assertEquals("1404/12/29", InvoiceInput.date("۱۴۰۴/۱۲/۲۹"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsEsfand30In1404() { InvoiceInput.date("1404/12/30") }
+
 }
