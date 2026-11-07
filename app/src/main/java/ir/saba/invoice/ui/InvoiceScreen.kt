@@ -284,6 +284,8 @@ private fun InvoiceScreenContent(
                         onSend = {
                             if (loaded.invoice.status != "FINALIZED") {
                                 onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
+                            } else if (loaded.invoice.subject != InvoiceSubject.ORIGINAL) {
+                                onNotice("این صورتحساب اصلاحی فقط در دستگاه ثبت شده؛ ارسال رسمی اصلاحیه هنوز فعال نیست.")
                             } else if (loaded.invoice.settlementMode != InvoiceSettlement.CASH) {
                                 onNotice("ارسال رسمی نسیه و ترکیبی هنوز فعال نیست؛ فقط خروجی محلی مجاز است.")
                             } else onOpenOfficialSubmission()
@@ -356,8 +358,10 @@ private fun InvoiceScreenContent(
                                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
                                     onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
                             } else {
-                                Text("ارسال رسمی روش " + InvoiceSettlement.label(invoice.settlementMode) +
-                                    " هنوز فعال نیست؛ فاکتور و مبالغ آن در دستگاه محفوظ هستند.",
+                                Text(if (invoice.subject != InvoiceSubject.ORIGINAL)
+                                    "صورتحساب اصلاحی فقط محلی است؛ ارسال رسمی اصلاحیه در این نسخه فعال نیست."
+                                    else "ارسال رسمی روش " + InvoiceSettlement.label(invoice.settlementMode) +
+                                        " هنوز فعال نیست؛ فاکتور و مبالغ آن در دستگاه محفوظ هستند.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.error)
                             }
