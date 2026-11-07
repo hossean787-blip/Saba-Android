@@ -1,0 +1,84 @@
+name: SURA signed release upgrade on Android emulator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sura-signed-upgrade-emulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-upgrade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download previously verified signed builds
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p app/build/upgrade/previous app/build/upgrade/current
+          # Historical artifacts were produced from the SAME package and release signer.
+          # The previous APK is 0.21.0; the target APK is 0.25.0.
+          gh run download 42287778105 -n sura-signed-release-apk \
+            -D app/build/upgrade/previous --repo ${{ github.repository }}
+          gh run download 42383825186 -n sura-signed-release-apk \
+            -D app/build/upgrade/current --repo ${{ github.repository }}
+          test -s app/build/upgrade/previous/app-release.apk
+          test -s app/build/upgrade/current/app-release.apk
+          echo "Both signed release archives were retrieved."
+
+      - name: Validate matching package identity, release signatures and upgrade order
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          if [[ ! -x "$SDK/build-tools/34.0.0/apksigner" ]]; then
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;34.0.0"
+          fi
+          export AAPT="$SDK/build-tools/34.0.0/aapt"
+          export SIGNER="$SDK/build-tools/34.0.0/apksigner"
+          PREVIOUS="app/build/upgrade/previous/app-release.apk"
+          CURRENT="app/build/upgrade/current/app-release.apk"
+          "$SIGNER" verify --verbose "$PREVIOUS"
+          "$SIGNER" verify --verbose "$CURRENT"
+          OLD_BADGING="$("$AAPT" dump badging "$PREVIOUS" | head -n 1)"
+          NEW_BADGING="$("$AAPT" dump badging "$CURRENT" | head -n 1)"
+          echo "$OLD_BADGING"
+          echo "$NEW_BADGING"
+          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$OLD_BADGING" == *"versionCode='21'"* ]]
+          [[ "$NEW_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"versionCode='25'"* ]]
+          old_cert="$("$SIGNER" verify --print-certs "$PREVIOUS" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          new_cert="$("$SIGNER" verify --print-certs "$CURRENT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          [[ -n "$old_cert" && "$old_cert" == "$new_cert" ]]
+          echo "Release certificate continuity verified."
+          sha256sum "$PREVIOUS" "$CURRENT" > app/build/upgrade/apk-sha256.txt
+
+      - name: Boot emulator and verify in-place signed upgrade (API 29)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: bash scripts/verify-signed-upgrade.sh
+
+      - name: Upload proof of upgrade and launch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sura-signed-upgrade-device-proof
+          if-no-files-found: warn
+          path: |
+            app/build/upgrade/*.txt
+            app/build/upgrade/*.png
