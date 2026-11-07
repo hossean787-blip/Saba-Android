@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
 import ir.saba.invoice.security.*
 import ir.saba.invoice.domain.InvoiceSettlement
+import ir.saba.invoice.domain.InvoiceSubject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -71,12 +72,15 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             TextButton(enabled=!busy,onClick={act { }}) { Text("بازخوانی وضعیت محلی") }
         }
         items(availableInvoices,key={"invoice_${it.id}"}) { invoice ->
-            if (invoice.settlementMode == InvoiceSettlement.CASH) {
+            if (invoice.settlementMode == InvoiceSettlement.CASH && invoice.subject == InvoiceSubject.ORIGINAL) {
                 OutlinedButton(enabled=!busy,onClick={selected=invoice;issueTime=MoadianInvoiceMapper.defaultIssueTime(invoice.issueDate);unit=""}) {
                     Text("آماده‌سازی فاکتور ${invoice.invoiceNumber}")
                 }
             } else {
-                Text("فاکتور ${invoice.invoiceNumber}: تسویه " +
+                Text(if (invoice.subject != InvoiceSubject.ORIGINAL)
+                    "فاکتور " + invoice.invoiceNumber +
+                        ": موضوع اصلاحی/ارجاعی؛ ارسال رسمی آن در این نسخه فعال نیست."
+                else "فاکتور " + invoice.invoiceNumber + ": تسویه " +
                     InvoiceSettlement.label(invoice.settlementMode) +
                     "؛ ارسال رسمی این روش در نسخه فعلی هنوز فعال نیست.",
                     style=MaterialTheme.typography.bodySmall)
