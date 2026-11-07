@@ -27,6 +27,7 @@ import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceIdentifierPrefill
 import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.invoice.domain.InvoiceSettlement
+import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.moadian.MoadianMeasurementUnits
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -156,6 +157,9 @@ private fun InvoiceScreenContent(
     var date by rememberSaveable { mutableStateOf("") }
     var settlementMode by rememberSaveable(companyId) { mutableStateOf(InvoiceSettlement.CASH) }
     var cashPortionInput by rememberSaveable(companyId) { mutableStateOf("") }
+    var subject by rememberSaveable(companyId) { mutableStateOf(InvoiceSubject.ORIGINAL) }
+    var referenceTaxId by rememberSaveable(companyId) { mutableStateOf("") }
+    var acceptedOriginals by remember(companyId) { mutableStateOf(emptyList<Pair<String, Long>>()) }
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var lines by rememberSaveable(stateSaver = LinesSaver) { mutableStateOf(emptyList<InvoiceLine>()) }
     var search by rememberSaveable { mutableStateOf("") }
@@ -181,6 +185,7 @@ private fun InvoiceScreenContent(
         pendingCreation=claim;operationKey=claim.requestId;invoiceId=null
         customerId=saved.customerId;number=saved.number;date=saved.date;lines=saved.lines
         settlementMode=saved.settlementMode
+        subject=saved.subject;referenceTaxId=saved.referenceTaxId.orEmpty()
         cashPortionInput=saved.cashPaidRial?.toString().orEmpty()
         error="";mode="edit"
     }
@@ -193,10 +198,27 @@ private fun InvoiceScreenContent(
         operationKey=java.util.UUID.randomUUID().toString()
         invoiceId=null;number="";date="";customerId=customers.firstOrNull()?.id
         settlementMode=InvoiceSettlement.CASH;cashPortionInput=""
+        subject=InvoiceSubject.ORIGINAL;referenceTaxId=""
         lines=emptyList();error="";mode="edit"
     }
     LaunchedEffect(companyId,account) {
         runCatching{creation.pending(companyId)}.onSuccess{pendingCreation=it}
+    }
+    LaunchedEffect(companyId, mode) {
+        if (mode == "edit") {
+            acceptedOriginals = runCatching {
+                db.officialSubmissionDao().forCompany(companyId)
+                    .filter { it.ownerId == ownerId && it.state == "ACCEPTED" &&
+                        !it.signedReceipt.isNullOrBlank() && !it.referenceNumber.isNullOrBlank() }
+                    .mapNotNull { row ->
+                        val original = db.invoiceDao().byId(row.invoiceId)
+                        if (original?.companyId == companyId &&
+                            original.subject == InvoiceSubject.ORIGINAL &&
+                            original.status == "FINALIZED") row.taxId to original.customerId
+                        else null
+                    }
+            }.getOrDefault(emptyList())
+        }
     }
     var lastHandledNewInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(newInvoiceRequest) {
@@ -313,6 +335,8 @@ private fun InvoiceScreenContent(
                         Text("مشتری: ${customers.firstOrNull { it.id == invoice.customerId }?.name ?: invoice.customerId}")
                         Text("تاریخ: ${invoice.issueDate}")
                         Text("وضعیت: ${invoiceStatus(invoice.status)}")
+                        Text("موضوع: " + InvoiceSubject.label(invoice.subject))
+                        invoice.referenceTaxId?.let { Text("شماره مالیاتی مرجع: " + it) }
                         Text("تسویه: " + InvoiceSettlement.label(invoice.settlementMode))
                         InvoiceSettlement.amounts(invoice).also { amounts ->
                             Text("نقد: ${rial(amounts.cashRial)} • نسیه: ${rial(amounts.creditRial)}")
@@ -328,7 +352,7 @@ private fun InvoiceScreenContent(
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
                         if (invoice.status == "FINALIZED") {
-                            if (invoice.settlementMode == InvoiceSettlement.CASH) {
+                            if (invoice.settlementMode == InvoiceSettlement.CASH && invoice.subject == InvoiceSubject.ORIGINAL) {
                                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
                                     onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
                             } else {
@@ -343,6 +367,7 @@ private fun InvoiceScreenContent(
                                 number = invoice.invoiceNumber; date = invoice.issueDate; customerId = invoice.customerId
                                 settlementMode = invoice.settlementMode
                                 cashPortionInput = invoice.cashPaidRial?.toString().orEmpty()
+                                subject = invoice.subject;referenceTaxId = invoice.referenceTaxId.orEmpty()
                                 lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }; error = ""; mode = "edit"
                             }) { Text("ویرایش پیش‌نویس") }
                             Button(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "finalize" }) { Text("نهایی‌سازی صورتحساب") }
@@ -363,13 +388,50 @@ private fun InvoiceScreenContent(
                     if(editorLocked) Text("این درخواست محفوظ است؛ برای جلوگیری از مصرف تکراری اعتبار، اطلاعات آن تا تعیین نتیجه ثابت می‌ماند.")
                     OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked, label = { Text("شماره فاکتور") }, supportingText = { if (automaticNumber) Text("برای تخصیص خودکار سریال مودی، این کادر را خالی بگذارید.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked, label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+                    Text("موضوع صورتحساب", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = subject == InvoiceSubject.ORIGINAL,
+                            enabled = !busy && !editorLocked,
+                            onClick = { subject = InvoiceSubject.ORIGINAL;referenceTaxId = "" },
+                            label = { Text("اصلی") })
+                        FilterChip(selected = subject == InvoiceSubject.CORRECTION,
+                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
+                            onClick = { subject = InvoiceSubject.CORRECTION;referenceTaxId = "" },
+                            label = { Text("اصلاحی (ثبت محلی)") })
+                    }
+                    if (subject == InvoiceSubject.CORRECTION) {
+                        Text("برای اصلاحی، تنها صورتحساب اصلی تأییدشده همان مؤدی و خریدار قابل ارجاع است. ارسال رسمی اصلاحیه هنوز پشتیبانی نمی‌شود.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
+                        var expandedReference by remember { mutableStateOf(false) }
+                        val matches = acceptedOriginals.filter { it.second == customerId }
+                        Box {
+                            OutlinedButton(enabled = !busy && !editorLocked && matches.isNotEmpty(),
+                                modifier = Modifier.fillMaxWidth(), onClick = { expandedReference = true }) {
+                                Text("شناسه مالیاتی مرجع: " +
+                                    referenceTaxId.ifBlank { "انتخاب از صورتحساب‌های پذیرفته‌شده" })
+                            }
+                            DropdownMenu(expandedReference, { expandedReference = false }) {
+                                matches.forEach { (taxId, _) ->
+                                    DropdownMenuItem(text = { Text(taxId) }, onClick = {
+                                        referenceTaxId = taxId;expandedReference = false
+                                    })
+                                }
+                            }
+                        }
+                        if (matches.isEmpty()) Text("برای این مشتری صورتحساب اصلی پذیرفته‌شده‌ای وجود ندارد.",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else if (acceptedOriginals.isEmpty()) {
+                        Text("صورتحساب اصلاحی پس از پذیرش صورتحساب اصلی و ثبت رسید معتبر در دسترس می‌شود.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     InvoiceEditorSection("۲", "طرف حساب", "مؤدی فروشنده و مشتری خریدار")
                     Text("فروشنده: ${sellerName.ifBlank { "مؤدی انتخاب‌شده" }}", style = MaterialTheme.typography.bodyMedium)
                     var expanded by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(enabled = !busy && !editorLocked, onClick = { expanded = true }) { Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید")) }
                         DropdownMenu(expanded, { expanded = false }) {
-                            customers.forEach { customer -> DropdownMenuItem(text = { Text(customer.name) }, onClick = { customerId = customer.id; expanded = false }) }
+                            customers.forEach { customer -> DropdownMenuItem(text = { Text(customer.name) }, onClick = { customerId = customer.id; referenceTaxId = ""; expanded = false }) }
                         }
                     }
                     InvoiceEditorSection("۳", "اقلام کالا و خدمات", "انتخاب شناسه‌های مؤدی، شرح، تعداد، قیمت، تخفیف و مالیات")
@@ -423,6 +485,7 @@ private fun InvoiceScreenContent(
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
+                            InvoiceSubject.validate(subject, referenceTaxId.ifBlank { null })
                             val settlementCash = InvoiceSettlement.cashFromUserInput(
                                 settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
                             )
@@ -435,11 +498,13 @@ private fun InvoiceScreenContent(
                                     else if (verifiedGift > 0) InvoiceCreditKind.GIFT
                                     else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
                                 }
-                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash),operationKey,kind)
+                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash,
+                                    subject,referenceTaxId.ifBlank { null }),operationKey,kind)
                                 restoreClaim(claim)
                                 creation.finish(claim.requestId).also{pendingCreation=null}
                             } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
-                                settlementMode=settlementMode,cashPaidRial=settlementCash)
+                                settlementMode=settlementMode,cashPaidRial=settlementCash,
+                                subject=subject,referenceTaxId=referenceTaxId.ifBlank { null })
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             operationKey = java.util.UUID.randomUUID().toString()
