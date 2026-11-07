@@ -426,6 +426,31 @@ private fun InvoiceScreenContent(
                         }
                         if (matches.isEmpty()) Text("برای این مشتری صورتحساب اصلی پذیرفته‌شده‌ای وجود ندارد.",
                             style = MaterialTheme.typography.bodySmall)
+                        if (referenceTaxId.isNotBlank() && lines.isEmpty()) {
+                            OutlinedButton(enabled = !busy && !editorLocked,
+                                modifier = Modifier.fillMaxWidth(), onClick = {
+                                    perform {
+                                        val reference = db.officialSubmissionDao().forCompany(companyId)
+                                            .firstOrNull {
+                                                it.taxId == referenceTaxId && it.state == "ACCEPTED" &&
+                                                    !it.signedReceipt.isNullOrBlank() && !it.referenceNumber.isNullOrBlank()
+                                            } ?: throw IllegalArgumentException("صورتحساب مرجع پذیرفته‌شده پیدا نشد.")
+                                        require(reference.ownerId == account.ownerId) {
+                                            "مرجع متعلق به حساب فعلی نیست."
+                                        }
+                                        val original = repository.detailsForCompany(companyId, reference.invoiceId)
+                                        require(original.invoice.customerId == customerId &&
+                                            original.invoice.subject == InvoiceSubject.ORIGINAL &&
+                                            original.invoice.status == "FINALIZED") {
+                                            "مشتری یا وضعیت صورتحساب مرجع معتبر نیست."
+                                        }
+                                        val copied = original.lines.map { it.copy(id = 0, invoiceId = 0) }
+                                        InvoiceCalculator.calculate(copied)
+                                        lines = copied
+                                        onNotice("اقلام مرجع بارگذاری شد؛ اکنون مبلغ و مقدار را اصلاح کنید. هنوز فاکتوری ثبت نشده است.")
+                                    }
+                                }) { Text("کپی اقلام صورتحساب مرجع برای اصلاح") }
+                        }
                     } else if (acceptedOriginals.isEmpty()) {
                         Text("صورتحساب اصلاحی پس از پذیرش صورتحساب اصلی و ثبت رسید معتبر در دسترس می‌شود.",
                             style = MaterialTheme.typography.bodySmall)
