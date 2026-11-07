@@ -64,6 +64,12 @@ class InvoiceSubjectWorkflowTest {
             assertEquals(originalId, db.officialSubmissionDao().forCompany(company).single().invoiceId)
             repository.finalizeDraft(company, id)
             assertEquals("FINALIZED", db.invoiceDao().byId(id)?.status)
+            expectInvalid {
+                // The same accepted reference must not have two simultaneously active corrections.
+                repository.saveDraft(company, buyer, "17", "1405/08/14", lines(),
+                    serverPromoConfirmed = true, subject = InvoiceSubject.CORRECTION,
+                    referenceTaxId = taxId)
+            }
             try {
                 InvoiceSubject.requireSupportedForOfficialSubmission(db.invoiceDao().byId(id)!!)
                 fail("Corrective payload must not be submitted as an original tax invoice")
@@ -85,6 +91,13 @@ class InvoiceSubjectWorkflowTest {
         }
         expectInvalid {
             repository.saveDraft(company, otherBuyer, "14", "1405/08/13", lines(),
+                serverPromoConfirmed = true, subject = InvoiceSubject.CORRECTION,
+                referenceTaxId = taxId)
+        }
+        expectInvalid {
+            // A correction cannot replace the original product or service identifier.
+            repository.saveDraft(company, buyer, "18", "1405/08/13",
+                lines().map { it.copy(itemCode = "9999999999999") },
                 serverPromoConfirmed = true, subject = InvoiceSubject.CORRECTION,
                 referenceTaxId = taxId)
         }
