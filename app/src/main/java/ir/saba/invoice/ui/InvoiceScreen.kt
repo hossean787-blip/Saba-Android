@@ -489,7 +489,7 @@ private fun InvoiceScreenContent(
                     Button(enabled = !busy && lines.isNotEmpty(), onClick = {
                         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
-                            InvoiceSubject.validate(subject, referenceTaxId.ifBlank { null })
+                            InvoiceSubject.validate(subject, referenceTaxId.takeIf { it.isNotBlank() })
                             val settlementCash = InvoiceSettlement.cashFromUserInput(
                                 settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
                             )
@@ -503,12 +503,12 @@ private fun InvoiceScreenContent(
                                     else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
                                 }
                                 val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash,
-                                    subject,referenceTaxId.ifBlank { null }),operationKey,kind)
+                                    subject,referenceTaxId.takeIf { it.isNotBlank() }),operationKey,kind)
                                 restoreClaim(claim)
                                 creation.finish(claim.requestId).also{pendingCreation=null}
                             } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
                                 settlementMode=settlementMode,cashPaidRial=settlementCash,
-                                subject=subject,referenceTaxId=referenceTaxId.ifBlank { null })
+                                subject=subject,referenceTaxId=referenceTaxId.takeIf { it.isNotBlank() })
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             operationKey = java.util.UUID.randomUUID().toString()
