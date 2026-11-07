@@ -110,7 +110,7 @@ class HomeMoadianVisualInstrumentedTest {
             compose.onNodeWithText("مودی آزمایشی").assertExists()
             screenshot("moadian-table-emulator")
             compose.onNodeWithText("جدید").performClick()
-            compose.onNodeWithText("نام *").assertExists()
+            compose.onNodeWithText("نام مؤدی *").assertExists()
             screenshot("moadian-form-emulator")
         } finally { compose.waitForIdle(); db.close() }
     }
