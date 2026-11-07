@@ -54,7 +54,10 @@ data class Invoice(
     /** Declared settlement at creation; does not represent verified bank transfer. */
     @ColumnInfo(defaultValue = "'CASH'") val settlementMode: String = "CASH",
     /** Null means legacy or current all-cash; explicit 0 is used for credit sales. */
-    val cashPaidRial: Long? = null
+    val cashPaidRial: Long? = null,
+    /** A local correction must reference an accepted original invoice from this taxpayer. */
+    @ColumnInfo(defaultValue = "'ORIGINAL'") val subject: String = "ORIGINAL",
+    val referenceTaxId: String? = null
 )
 
 @Entity(
