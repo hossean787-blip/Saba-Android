@@ -34,8 +34,11 @@ object InvoiceInput {
         val month = parts[1].toIntOrNull() ?: 0
         val day = parts[2].toIntOrNull() ?: 0
         require(year in 1300..1499 && month in 1..12) { "سال باید بین ۱۳۰۰ و ۱۴۹۹ و ماه بین ۱ و ۱۲ باشد." }
-        // Jalali break interval 1210..1634; the accepted year range stays inside it.
-        val leap = (((year - 1210 + 1) % 33) - 1) % 4 == 0
+        // Exact Jalali leap calculation using the established 2820-year arithmetic cycle.
+        // The old modulo-33 shortcut rejected/accepted some Esfand 30 dates incorrectly.
+        val epBase = year - if (year >= 0) 474 else 473
+        val epYear = 474 + Math.floorMod(epBase, 2820)
+        val leap = Math.floorMod(epYear * 682 - 110, 2816) < 682
         val maxDay = when { month <= 6 -> 31; month <= 11 -> 30; leap -> 30; else -> 29 }
         require(day in 1..maxDay) { "روز واردشده برای این ماه معتبر نیست." }
         return "%04d/%02d/%02d".format(java.util.Locale.ROOT, year, month, day)
