@@ -169,6 +169,7 @@ private fun InvoiceScreenContent(
     var details by remember { mutableStateOf<InvoiceDetails?>(null) }
     var lineDialog by rememberSaveable { mutableStateOf(false) }
     var lineIndex by rememberSaveable { mutableIntStateOf(-1) }
+    var duplicateLineIndex by rememberSaveable { mutableIntStateOf(-1) }
     var confirmation by rememberSaveable { mutableStateOf("") }
     var actionId by rememberSaveable { mutableStateOf<Long?>(null) }
 
@@ -442,11 +443,14 @@ private fun InvoiceScreenContent(
                     Text("اقلام فاکتور (${lines.size})", style = MaterialTheme.typography.titleMedium)
                     lines.forEachIndexed { index, row ->
                         LineCard(index, row) {
-                            OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = index; lineDialog = true }) { Text("ویرایش ردیف") }
+                            OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = index; duplicateLineIndex = -1; lineDialog = true }) { Text("ویرایش ردیف") }
+                            OutlinedButton(enabled = !busy && !editorLocked && lines.size < 500,
+                                onClick = { lineIndex = -1; duplicateLineIndex = index; lineDialog = true }) { Text("کپی ردیف") }
                             TextButton(enabled = !busy && !editorLocked, onClick = { lines = lines.filterIndexed { i, _ -> i != index } }) { Text("حذف ردیف") }
                         }
                     }
-                    OutlinedButton(enabled = !busy && !editorLocked, onClick = { lineIndex = -1; lineDialog = true }) { Text("افزودن کالا یا خدمت") }
+                    OutlinedButton(enabled = !busy && !editorLocked && lines.size < 500,
+                        onClick = { lineIndex = -1; duplicateLineIndex = -1; lineDialog = true }) { Text("افزودن کالا یا خدمت") }
                     InvoiceEditorSection("۴", "روش تسویه", "نقدی، نسیه یا ترکیبی؛ مبالغ به ریال")
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(
@@ -528,14 +532,14 @@ private fun InvoiceScreenContent(
     if (lineDialog) LineEditor(
         ownerId = ownerId,
         companyId = companyId,
-        initial = lines.getOrNull(lineIndex),
-        onDismiss = { lineDialog = false },
+        initial = lines.getOrNull(if (lineIndex >= 0) lineIndex else duplicateLineIndex),
+        onDismiss = { lineDialog = false; duplicateLineIndex = -1 },
         onSave = { row ->
             val next = lines.toMutableList()
             if (lineIndex < 0) next.add(row) else next[lineIndex] = row
             // Validate the whole invoice as well as the line, including total overflow.
             InvoiceCalculator.calculate(next)
-            lines = next.toList(); lineDialog = false
+            lines = next.toList(); lineDialog = false; duplicateLineIndex = -1
         }
     )
 
