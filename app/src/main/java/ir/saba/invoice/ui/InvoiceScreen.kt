@@ -462,6 +462,7 @@ private fun InvoiceScreenContent(
                                         modifier = Modifier.weight(1f))
                                 }
                             } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked,
                                     label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
@@ -470,6 +471,7 @@ private fun InvoiceScreenContent(
                                     label = { Text("شماره فاکتور") },
                                     supportingText = { if (automaticNumber) Text("سریال صورتحساب؛ برای شماره خودکار خالی بگذارید") },
                                     singleLine = true, modifier = Modifier.fillMaxWidth())
+                                }
                             }
                         }
                         Surface(Modifier.fillMaxWidth(), color = androidx.compose.ui.graphics.Color(0xFFF1F7FA),
@@ -651,12 +653,14 @@ private fun InvoiceScreenContent(
                                         label = { Text("شماره پیگیری") }, singleLine = true, modifier = Modifier.weight(1f))
                                 }
                             } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(local.paymentDate, { localDetailsJson =
                                     local.copy(paymentDate = it.take(120)).toJson() }, enabled = fieldsEnabled,
                                     label = { Text("تاریخ پرداخت") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(local.paymentTrackingNumber, { localDetailsJson =
                                     local.copy(paymentTrackingNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
                                     label = { Text("شماره پیگیری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                }
                             }
                         }
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -670,12 +674,14 @@ private fun InvoiceScreenContent(
                                         label = { Text("کد شعبه خریدار") }, singleLine = true, modifier = Modifier.weight(1f))
                                 }
                             } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(local.sellerBranchCode, { localDetailsJson =
                                     local.copy(sellerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
                                     label = { Text("کد شعبه فروشنده") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(local.buyerBranchCode, { localDetailsJson =
                                     local.copy(buyerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
                                     label = { Text("کد شعبه خریدار") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                }
                             }
                         }
                         OutlinedTextField(local.notes, { localDetailsJson = local.copy(notes = it.take(2000)).toJson() },
@@ -855,10 +861,6 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
             OutlinedTextField(code, { code = InvoiceInput.digits(it).trim() },
                 label = { Text("شناسه کالا و خدمت") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(tax, { tax = it; vatHint = "" },
-                label = { Text("نرخ مالیات (درصد)") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
             OutlinedTextField(itemTitle, { itemTitle = it },
                 label = { Text("عنوان کالا/خدمت") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
