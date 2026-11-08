@@ -291,3 +291,53 @@ internal fun InvoiceLiveOutline(
         }
     }
 }
+
+
+/** Persistent actions keep Save reachable while editing large invoices on a phone. */
+@Composable
+internal fun InvoiceEditorDock(
+    total: Long?,
+    saving: Boolean,
+    canSave: Boolean,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("invoiceStickyActionDock"),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        color = Color.White,
+        shadowElevation = 9.dp,
+        border = BorderStroke(1.dp, edge)
+    ) {
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("جمع فاکتور (ریال)", color = muted,
+                    style = MaterialTheme.typography.bodySmall)
+                Text(total?.let(::rial) ?: "—", color = sea,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                OutlinedButton(
+                    onClick = onCancel, enabled = !saving,
+                    modifier = Modifier.weight(0.42f),
+                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("انصراف از ویرایش", style = MaterialTheme.typography.labelSmall) }
+                Button(
+                    onClick = onSave, enabled = !saving && canSave,
+                    modifier = Modifier.weight(0.58f),
+                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = sea)
+                ) {
+                    Text(if (saving) "در حال ذخیره…" else "ذخیره پیش‌نویس",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
