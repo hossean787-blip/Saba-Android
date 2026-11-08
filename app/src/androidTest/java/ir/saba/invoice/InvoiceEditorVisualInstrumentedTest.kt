@@ -44,7 +44,7 @@ class InvoiceEditorVisualInstrumentedTest {
         assertTrue(directory.mkdirs() || directory.isDirectory)
         val file = File(directory, "$name.png")
         file.outputStream().use { stream ->
-            assertTrue(compose.onRoot().captureToImage().asAndroidBitmap()
+            assertTrue(compose.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap()
                 .compress(Bitmap.CompressFormat.PNG, 100, stream))
         }
         assertTrue("Screenshot is not empty", file.length() > 2000L)
