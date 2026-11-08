@@ -16,7 +16,8 @@ interface InvoiceDraftGateway {
         settlementMode: String = "CASH",
         cashPaidRial: Long? = null,
         subject: String = "ORIGINAL",
-        referenceTaxId: String? = null
+        referenceTaxId: String? = null,
+        localDetailsJson: String = ""
     ): Long
     suspend fun invoicesForCompany(companyId: Long): List<Invoice>
     suspend fun detailsForCompany(companyId: Long, invoiceId: Long): InvoiceDetails
@@ -28,10 +29,11 @@ interface InvoiceDraftGateway {
 class RoomInvoiceDraftGateway(private val repository: InvoiceRepository) : InvoiceDraftGateway {
     override suspend fun saveDraft(companyId: Long, customerId: Long, invoiceNumber: String,
         issueDate: String, lines: List<InvoiceLine>, existingInvoiceId: Long?,
-        settlementMode: String, cashPaidRial: Long?, subject: String, referenceTaxId: String?): Long =
+        settlementMode: String, cashPaidRial: Long?, subject: String, referenceTaxId: String?, localDetailsJson: String): Long =
         repository.saveDraft(companyId, customerId, invoiceNumber, issueDate, lines, existingInvoiceId,
             settlementMode = settlementMode, cashPaidRial = cashPaidRial,
-            subject = subject, referenceTaxId = referenceTaxId)
+            subject = subject, referenceTaxId = referenceTaxId,
+            localDetailsJson = localDetailsJson)
 
     override suspend fun invoicesForCompany(companyId: Long): List<Invoice> =
         repository.invoicesForCompany(companyId)
