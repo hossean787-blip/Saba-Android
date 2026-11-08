@@ -22,7 +22,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
         settlementMode: String = InvoiceSettlement.CASH,
         cashPaidRial: Long? = null,
         subject: String = InvoiceSubject.ORIGINAL,
-        referenceTaxId: String? = null
+        referenceTaxId: String? = null,
+        localDetailsJson: String = ""
     ): Long {
         require(companyId > 0) { "شرکت را انتخاب کنید." }
         require(customerId > 0) { "مشتری را انتخاب کنید." }
@@ -33,6 +34,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
         val totals = InvoiceCalculator.calculate(lines)
         InvoiceSettlement.amounts(settlementMode, cashPaidRial, totals.totalAmountRial)
         InvoiceSubject.validate(subject, referenceTaxId)
+        val businessDetails = if (localDetailsJson.isBlank()) "" else InvoiceLocalDetails.fromJson(localDetailsJson).toJson()
 
         return db.withTransaction {
             val issuer = db.companyDao().byId(companyId)
@@ -83,7 +85,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
                         settlementMode = settlementMode,
                         cashPaidRial = cashPaidRial,
                         subject = subject,
-                        referenceTaxId = referenceTaxId
+                        referenceTaxId = referenceTaxId,
+                        localDetailsJson = businessDetails
                     )
                 )
             } else {
@@ -100,7 +103,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
                         settlementMode = settlementMode,
                         cashPaidRial = cashPaidRial,
                         subject = subject,
-                        referenceTaxId = referenceTaxId
+                        referenceTaxId = referenceTaxId,
+                        localDetailsJson = businessDetails
                     )
                 )
                 db.invoiceLineDao().deleteForInvoice(existingInvoiceId)
