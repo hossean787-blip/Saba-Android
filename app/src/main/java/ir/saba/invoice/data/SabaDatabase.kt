@@ -194,9 +194,21 @@ abstract class SabaDatabase : RoomDatabase() {
         }
         internal val MIGRATION_13_14 = object : Migration(13, 14) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Additive migration: never touch historical financial values or signatures.
-                db.execSQL("ALTER TABLE invoices ADD COLUMN localDetailsJson TEXT NOT NULL DEFAULT ''")
-                db.execSQL("ALTER TABLE invoice_lines ADD COLUMN itemTitle TEXT NOT NULL DEFAULT ''")
+                // Additive and idempotent: do not rewrite historical financial records.
+                fun hasColumn(table: String, column: String): Boolean {
+                    db.query("PRAGMA table_info($table)").use { cursor ->
+                        while (cursor.moveToNext()) {
+                            if (cursor.getString(1) == column) return true
+                        }
+                    }
+                    return false
+                }
+                if (!hasColumn("invoices", "localDetailsJson")) {
+                    db.execSQL("ALTER TABLE invoices ADD COLUMN localDetailsJson TEXT NOT NULL DEFAULT ''")
+                }
+                if (!hasColumn("invoice_lines", "itemTitle")) {
+                    db.execSQL("ALTER TABLE invoice_lines ADD COLUMN itemTitle TEXT NOT NULL DEFAULT ''")
+                }
             }
         }
         /** New commercial accounts never open or automatically claim the unowned legacy database. */
