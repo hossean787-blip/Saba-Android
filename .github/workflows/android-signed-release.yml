@@ -88,7 +88,7 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -n 1)"
           printf '%s\n' "$BADGING"
           [[ "$BADGING" == *"name='ir.saba.invoice'"* ]]
-          [[ "$BADGING" == *"versionCode='25'"* ]]
+          [[ "$BADGING" == *"versionCode='27'"* ]]
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
           # Public SHA-256 fingerprint of the long-standing SURA release certificate.
           # Enforce it even if optional external settings are absent: wrong keys would
