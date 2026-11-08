@@ -57,7 +57,9 @@ data class Invoice(
     val cashPaidRial: Long? = null,
     /** A local correction must reference an accepted original invoice from this taxpayer. */
     @ColumnInfo(defaultValue = "'ORIGINAL'") val subject: String = "ORIGINAL",
-    val referenceTaxId: String? = null
+    val referenceTaxId: String? = null,
+    /** Extra local invoice/payment fields; not automatically included in tax payloads. */
+    @ColumnInfo(defaultValue = "''") val localDetailsJson: String = ""
 )
 
 @Entity(
@@ -79,7 +81,9 @@ data class InvoiceLine(
     /** Empty on old rows: exact decimal quantity, not a floating point number. */
     @ColumnInfo(defaultValue = "''") val quantityExact: String = "",
     /** Empty on old rows: exact VAT percent, preserving fractional rates. */
-    @ColumnInfo(defaultValue = "''") val vatRateExact: String = ""
+    @ColumnInfo(defaultValue = "''") val vatRateExact: String = "",
+    /** Optional item title, kept separately from the official line description. */
+    @ColumnInfo(defaultValue = "''") val itemTitle: String = ""
 )
 
 /** Master purchaser's remaining invoice quota. One row per purchaser account. */
