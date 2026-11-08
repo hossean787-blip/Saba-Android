@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -733,7 +734,9 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
         },
         text = {
             Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+                if (error.isNotBlank()) Text(error,
+                    modifier = Modifier.testTag("invoiceLineError"),
+                    color = MaterialTheme.colorScheme.error)
                 Text("۱. انتخاب کالا و خدمت", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 InvoiceIdentifierPicker(ownerId = ownerId, companyId = companyId, enabled = true) { identifier ->
                     try {
