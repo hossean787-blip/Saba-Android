@@ -612,7 +612,7 @@ private fun InvoiceScreenContent(
                             onClick = { lineIndex = -1; duplicateLineIndex = -1; lineEditorZone = "pick"; lineDialog = true }) {
                             Text("افزودن کالا یا خدمت")
                         }
-                        if (lineDialog && lineEditorZone == "pick") {
+                        if (lineDialog) {
                             LineEditor(ownerId = ownerId, companyId = companyId,
                                 initial = lines.getOrNull(if (lineIndex >= 0) lineIndex else duplicateLineIndex),
                                 onDismiss = { lineDialog = false; duplicateLineIndex = -1 },
@@ -629,25 +629,14 @@ private fun InvoiceScreenContent(
                             lines = lines, enabled = !busy && !editorLocked,
                             onEdit = { index ->
                                 lineIndex = index; duplicateLineIndex = -1
-                                lineEditorZone = "table"; lineDialog = true
+                                lineEditorZone = "pick"; lineDialog = true
                             },
                             onCopy = { index ->
                                 lineIndex = -1; duplicateLineIndex = index
-                                lineEditorZone = "table"; lineDialog = true
+                                lineEditorZone = "pick"; lineDialog = true
                             },
                             onDelete = { index -> lines = lines.filterIndexed { i, _ -> i != index } }
                         )
-                        if (lineDialog && lineEditorZone == "table") {
-                            LineEditor(ownerId = ownerId, companyId = companyId,
-                                initial = lines.getOrNull(if (lineIndex >= 0) lineIndex else duplicateLineIndex),
-                                onDismiss = { lineDialog = false; duplicateLineIndex = -1 },
-                                onSave = { row ->
-                                    val next = lines.toMutableList()
-                                    if (lineIndex < 0) next.add(row) else next[lineIndex] = row
-                                    InvoiceCalculator.calculate(next)
-                                    lines = next.toList(); lineDialog = false; duplicateLineIndex = -1
-                                })
-                        }
                     }
                     InvoiceEditorPanel("۴", "اطلاعات تسویه و پرداخت", "روش تسویه، جزئیات پرداخت و توضیحات صورتحساب") {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
