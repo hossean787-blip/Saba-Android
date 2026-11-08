@@ -7,8 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -280,6 +279,7 @@ internal fun InvoiceEditorItemsTable(
     val headers = listOf("ردیف", "عنوان کالا/خدمت", "شرح کالا/خدمت", "مقدار/تعداد",
         "مبلغ فی", "مبلغ تخفیف", "بعد از تخفیف", "مبلغ مالیات",
         "مبلغ کل کالا/خدمت", "عملیات")
+    var selectedActionRow by remember { mutableIntStateOf(0) }
     val summary = remember(lines) { if (lines.isEmpty()) null else runCatching { InvoiceCalculator.calculate(lines) }.getOrNull() }
     val discountSum = remember(lines) { runCatching {
         lines.fold(0L) { sum, line -> Math.addExact(sum, line.discountRial) }
@@ -312,6 +312,55 @@ internal fun InvoiceEditorItemsTable(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("مبلغ قابل پرداخت", color = ink, fontWeight = FontWeight.Bold)
                         Text(rial(summary.totalAmountRial), color = sea, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        if (enabled && lines.isNotEmpty()) {
+            // Operations stay accessible on small phones without horizontally
+            // swiping through the full ten-column accounting table.
+            val index = selectedActionRow.coerceIn(0, lines.lastIndex)
+            Surface(Modifier.fillMaxWidth().testTag("invoiceQuickRowActions"),
+                color = ivory, shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, edge)) {
+                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("عملیات ردیف ${index + 1} از ${lines.size}", color = ink,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f))
+                        TextButton(onClick = { selectedActionRow = (index - 1).coerceAtLeast(0) },
+                            enabled = index > 0,
+                            contentPadding = PaddingValues(horizontal = 3.dp)) {
+                            Text("قبلی", style = MaterialTheme.typography.labelSmall)
+                        }
+                        TextButton(onClick = { selectedActionRow = (index + 1).coerceAtMost(lines.lastIndex) },
+                            enabled = index < lines.lastIndex,
+                            contentPadding = PaddingValues(horizontal = 3.dp)) {
+                            Text("بعدی", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    Text(lines[index].itemTitle.ifBlank { lines[index].description },
+                        color = muted, style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedButton(onClick = { onEdit(index) }, modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)) {
+                            Text("ویرایش ردیف", style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(onClick = { onCopy(index) }, enabled = lines.size < 500,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)) {
+                            Text("کپی ردیف", style = MaterialTheme.typography.labelSmall)
+                        }
+                        TextButton(onClick = {
+                            onDelete(index)
+                            selectedActionRow = (index - 1).coerceAtLeast(0)
+                        }, modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)) {
+                            Text("حذف ردیف", color = Color(0xFFA34D4D),
+                                style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }
@@ -355,15 +404,15 @@ internal fun InvoiceEditorItemsTable(
                         Row(Modifier.width(widths[9]), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                             TextButton(onClick = { onEdit(i) }, enabled = enabled,
                                 contentPadding = PaddingValues(1.dp)) {
-                                Text("ویرایش ردیف", style = MaterialTheme.typography.labelSmall)
+                                Text("ویرایش", style = MaterialTheme.typography.labelSmall)
                             }
                             TextButton(onClick = { onCopy(i) }, enabled = enabled && lines.size < 500,
                                 contentPadding = PaddingValues(1.dp)) {
-                                Text("کپی ردیف", style = MaterialTheme.typography.labelSmall)
+                                Text("کپی", style = MaterialTheme.typography.labelSmall)
                             }
                             TextButton(onClick = { onDelete(i) }, enabled = enabled,
                                 contentPadding = PaddingValues(1.dp)) {
-                                Text("حذف ردیف", color = Color(0xFFA34D4D),
+                                Text("حذف", color = Color(0xFFA34D4D),
                                     style = MaterialTheme.typography.labelSmall)
                             }
                         }
