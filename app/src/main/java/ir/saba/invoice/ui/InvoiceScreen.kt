@@ -642,7 +642,7 @@ private fun InvoiceScreenContent(
                             }
                         }
                         if (settlementMode == InvoiceSettlement.MIXED)
-                            NumberField(cashPortionInput, { cashPortionInput = it }, "سهم نقدی (ریال)")
+                            NumberField(cashPortionInput, { cashPortionInput = it }, "سهم نقدی از مبلغ کل (ریال)")
                         if (settlementMode != InvoiceSettlement.CASH)
                             Text("تسویه نسیه و ترکیبی فعلاً فقط محلی ذخیره می‌شود؛ ارسال رسمی آن فعال نیست.",
                                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -906,7 +906,7 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
                 if (maxWidth >= 380.dp) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         NumberField(quantity, { quantity = it }, "مقدار/تعداد", modifier = Modifier.weight(1f))
-                        NumberField(price, { price = it }, "فی (ریال)", modifier = Modifier.weight(1f))
+                        NumberField(price, { price = it }, "قیمت واحد به ریال", modifier = Modifier.weight(1f))
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
