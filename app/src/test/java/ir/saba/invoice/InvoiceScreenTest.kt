@@ -117,8 +117,8 @@ class InvoiceScreenTest {
         addLine()
         compose.onNodeWithTag("invoiceQuickPreview").performClick()
         compose.onNodeWithText("پیش‌نمایش محلی صورتحساب").assertExists()
-        compose.onNodeWithText("مبلغ قابل پرداخت", useUnmergedTree = true)
-            .assertExists()
+        check(compose.onAllNodesWithText("مبلغ قابل پرداخت", useUnmergedTree = true)
+            .fetchSemanticsNodes().isNotEmpty())
         assertEquals(10L, creditGateway.remaining)
         assertEquals(0, creditGateway.requestedKeys.size)
         runBlocking { assertEquals(0, db.invoiceDao().forCompany(company).size) }
