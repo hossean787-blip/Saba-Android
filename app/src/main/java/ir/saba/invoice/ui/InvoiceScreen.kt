@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -716,45 +715,24 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
     var error by rememberSaveable { mutableStateOf("") }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
-    androidx.compose.ui.window.Dialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.94f).imePadding()
-                .padding(horizontal = 9.dp, vertical = 7.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
-            color = androidx.compose.ui.graphics.Color.White,
-            shadowElevation = 12.dp
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().background(
-                        androidx.compose.ui.graphics.Brush.linearGradient(
-                            listOf(androidx.compose.ui.graphics.Color(0xFF132D43),
-                                androidx.compose.ui.graphics.Color(0xFF086C7D))
-                        )
-                    ).padding(15.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(if (initial == null) "افزودن ردیف" else "ویرایش ردیف",
-                            color = androidx.compose.ui.graphics.Color.White,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium)
-                        Text("کالا / خدمت • مقدار • قیمت • مالیات",
-                            color = androidx.compose.ui.graphics.Color(0xFFD9EDF0),
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                    TextButton(onClick = onDismiss) {
-                        Text("بستن", color = androidx.compose.ui.graphics.Color.White)
-                    }
-                }
-                Column(
-                    Modifier.weight(1f).verticalScroll(scroll).padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(11.dp)
-                ) {
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxWidth().padding(12.dp).imePadding(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+        containerColor = androidx.compose.ui.graphics.Color.White,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(if (initial == null) "افزودن ردیف" else "ویرایش ردیف",
+                    fontWeight = FontWeight.Bold,
+                    color = androidx.compose.ui.graphics.Color(0xFF132D43))
+                Text("کالا / خدمت • مقدار • قیمت • مالیات",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.ui.graphics.Color(0xFF667D8B))
+            }
+        },
+        text = {
+            Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                 Text("۱. انتخاب کالا و خدمت", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 InvoiceIdentifierPicker(ownerId = ownerId, companyId = companyId, enabled = true) { identifier ->
@@ -796,19 +774,9 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
                 NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
                 NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
                 if (vatHint.isNotEmpty()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
-                }
-                HorizontalDivider(color = androidx.compose.ui.graphics.Color(0xFFDCE8EF))
-                Row(
-                    Modifier.fillMaxWidth().padding(11.dp),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(0.4f),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                    ) { Text("انصراف") }
-                    Button(
-                        onClick = {
+            }
+        },
+        confirmButton = { TextButton(onClick = {
             try {
                 val row = InvoiceLineAmounts.fromUserInput(
                     code = code, description = description,
@@ -825,17 +793,9 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
                 error = e.message ?: "اطلاعات ردیف معتبر نیست."
                 scope.launch { scroll.animateScrollTo(0) }
             }
-                        },
-                        modifier = Modifier.weight(0.6f),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = androidx.compose.ui.graphics.Color(0xFF086C7D)
-                        )
-                    ) { Text("ثبت ردیف", fontWeight = FontWeight.Bold) }
-                }
-            }
-        }
-    }
+        }) { Text("ثبت ردیف") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
+    )
 }
 
 @Composable
