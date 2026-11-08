@@ -390,7 +390,28 @@ private fun InvoiceScreenContent(
                         InvoiceSettlement.amounts(invoice).also { amounts ->
                             Text("نقد: ${rial(amounts.cashRial)} • نسیه: ${rial(amounts.creditRial)}")
                         }
-                        loaded.lines.forEachIndexed { index, row -> LineCard(index, row) }
+                        val local = runCatching { InvoiceLocalDetails.fromJson(invoice.localDetailsJson) }
+                            .getOrDefault(InvoiceLocalDetails())
+                        val extra = listOf(
+                            "موضوع مالیات بند ۱۷" to local.article17Subject,
+                            "شماره سوئیچ پرداخت" to local.paymentSwitchNumber,
+                            "روش پرداخت" to local.paymentMethod,
+                            "تاریخ پرداخت" to local.paymentDate,
+                            "شماره پیگیری" to local.paymentTrackingNumber,
+                            "کد شعبه فروشنده" to local.sellerBranchCode,
+                            "کد شعبه خریدار" to local.buyerBranchCode,
+                            "توضیحات صورتحساب" to local.notes
+                        ).filter { it.second.isNotBlank() }
+                        if (extra.isNotEmpty()) {
+                            ElevatedCard(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("جزئیات پرداخت و توضیحات", fontWeight = FontWeight.Bold)
+                                    extra.forEach { (title, value) -> Text("${title}: ${value}") }
+                                }
+                            }
+                        }
+                        InvoiceEditorItemsTable(loaded.lines, enabled = false,
+                            onEdit = {}, onCopy = {}, onDelete = {})
                         TotalsCard(loaded.lines, invoice)
                         OutlinedButton(onClick = {
                             perform {
