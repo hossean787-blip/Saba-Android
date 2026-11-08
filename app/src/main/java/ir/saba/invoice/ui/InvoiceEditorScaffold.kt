@@ -14,6 +14,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.Alignment
+import java.math.BigDecimal
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.InvoiceLine
 import ir.saba.invoice.domain.InvoiceCalculator
@@ -82,10 +85,11 @@ internal fun InvoiceEditorProgress(
     headerReady: Boolean, buyerReady: Boolean, hasItems: Boolean, settlementReady: Boolean
 ) {
     val states = listOf(
-        "۱  مشخصات" to headerReady,
-        "۲  خریدار" to buyerReady,
-        "۳  اقلام" to hasItems,
-        "۴  تسویه" to settlementReady
+        "۱  مشخصات" to (headerReady && buyerReady),
+        "۲  انتخاب کالا" to hasItems,
+        "۳  جدول فاکتور" to hasItems,
+        "۴  تسویه" to settlementReady,
+        "۵  پیش‌نمایش" to hasItems
     )
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("invoiceWorkflowProgress"),
@@ -219,6 +223,105 @@ internal fun InvoiceEditorLineRow(
                 }
             }
         }
+    }
+}
+
+
+/**
+ * Accounting-style, horizontally scrollable invoice grid. Keep fiscal totals
+ * sourced from InvoiceCalculator rather than duplicating VAT arithmetic.
+ * An aggregate of unit prices is deliberately omitted (different products/units).
+ */
+@Composable
+internal fun InvoiceEditorItemsTable(
+    lines: List<InvoiceLine>,
+    enabled: Boolean,
+    onEdit: (Int) -> Unit,
+    onCopy: (Int) -> Unit,
+    onDelete: (Int) -> Unit
+) {
+    val widths = listOf(54.dp, 166.dp, 208.dp, 114.dp, 130.dp, 130.dp, 140.dp, 132.dp, 160.dp, 188.dp)
+    val headers = listOf("ردیف", "عنوان کالا/خدمت", "شرح کالا/خدمت", "مقدار/تعداد",
+        "مبلغ فی", "مبلغ تخفیف", "بعد از تخفیف", "مبلغ مالیات",
+        "مبلغ کل کالا/خدمت", "عملیات")
+    val summary = remember(lines) { if (lines.isEmpty()) null else runCatching { InvoiceCalculator.calculate(lines) }.getOrNull() }
+    val discountSum = remember(lines) { runCatching {
+        lines.fold(0L) { sum, line -> Math.addExact(sum, line.discountRial) }
+    }.getOrNull() }
+    val totalQuantity = remember(lines) { if (lines.isEmpty() || lines.map { it.unitCode }.distinct().size != 1) null
+        else runCatching { lines.fold(BigDecimal.ZERO) { sum, line ->
+            sum.add(InvoiceLineAmounts.effectiveQuantity(line))
+        }.stripTrailingZeros().toPlainString() }.getOrNull() }
+    Column(Modifier.fillMaxWidth().testTag("invoiceItemsTable"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("برای مشاهده همه ستون‌ها، جدول را به چپ یا راست بکشید.",
+            style = MaterialTheme.typography.labelSmall, color = muted)
+        Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            @Composable fun cell(value: String, index: Int, strong: Boolean = false, header: Boolean = false) {
+                Box(Modifier.width(widths[index]).heightIn(min = 51.dp)
+                    .padding(horizontal = 6.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                    Text(value,
+                        color = if (header) Color.White else if (strong) sea else ink,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (strong || header) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        maxLines = if (index in 1..2) 3 else 2,
+                        overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Surface(color = ink, shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    headers.forEachIndexed { idx, label -> cell(label, idx, header = true) }
+                }
+            }
+            lines.forEachIndexed { i, row ->
+                val amounts = remember(row) { runCatching { InvoiceCalculator.calculate(listOf(row)) }.getOrNull() }
+                Surface(color = if (i % 2 == 0) ivory else Color.White,
+                    border = BorderStroke(0.5.dp, edge),
+                    modifier = Modifier.testTag("invoiceItemRow$i")) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        cell("${i + 1}", 0)
+                        cell("${i + 1}. ${row.itemTitle.ifBlank { row.description }}", 1)
+                        cell(row.description, 2)
+                        cell(InvoiceLineAmounts.quantityText(row), 3)
+                        cell(rial(row.unitPriceRial), 4)
+                        cell(rial(row.discountRial), 5)
+                        cell(amounts?.netAmountRial?.let(::rial) ?: "—", 6)
+                        cell(amounts?.taxAmountRial?.let(::rial) ?: "—", 7)
+                        cell(amounts?.totalAmountRial?.let(::rial) ?: "—", 8, strong = true)
+                        Row(Modifier.width(widths[9]), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                            TextButton(onClick = { onEdit(i) }, enabled = enabled,
+                                contentPadding = PaddingValues(1.dp)) {
+                                Text("ویرایش ردیف", style = MaterialTheme.typography.labelSmall)
+                            }
+                            TextButton(onClick = { onDelete(i) }, enabled = enabled,
+                                contentPadding = PaddingValues(1.dp)) {
+                                Text("حذف ردیف", color = Color(0xFFA34D4D),
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+            Surface(color = Color(0xFFDAF2EE), border = BorderStroke(1.dp, Color(0xFFB9DDCF)),
+                modifier = Modifier.testTag("invoiceItemTotals")) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    cell("جمع", 0, strong = true)
+                    cell("${lines.size} قلم", 1, strong = true)
+                    cell("—", 2)
+                    cell(totalQuantity ?: "—", 3, strong = true)
+                    cell("—", 4)
+                    cell(discountSum?.let(::rial) ?: "—", 5, strong = true)
+                    cell(summary?.netAmountRial?.let(::rial) ?: "—", 6, strong = true)
+                    cell(summary?.taxAmountRial?.let(::rial) ?: "—", 7, strong = true)
+                    cell(summary?.totalAmountRial?.let(::rial) ?: "—", 8, strong = true)
+                    cell("—", 9)
+                }
+            }
+        }
+        if (lines.isEmpty()) InvoiceEditorEmptyItems()
+        if (lines.isNotEmpty() && discountSum == null) Text("جمع تخفیف خارج از محدوده مجاز است.",
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
 }
 
