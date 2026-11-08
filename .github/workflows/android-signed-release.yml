@@ -90,8 +90,18 @@ jobs:
           [[ "$BADGING" == *"name='ir.saba.invoice'"* ]]
           [[ "$BADGING" == *"versionCode='25'"* ]]
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK" |
-            grep -E 'Signer #1 certificate SHA-256 digest:' |
+          # Public SHA-256 fingerprint of the long-standing SURA release certificate.
+          # Enforce it even if optional external settings are absent: wrong keys would
+          # force an uninstall and lose customer data.
+          cert_info="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK")"
+          actual_cert="$(printf '%s\n' "$cert_info" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr 'A-F' 'a-f')"
+          expected_cert="55a5c9f677f899630bc792330606161560a8dea94b7fe0eabe11d47a013d7b0b"
+          [[ "$actual_cert" == "$expected_cert" ]] || {
+            echo "::error::Release signer differs from the established SURA signing certificate; refusing an incompatible update."
+            exit 1
+          }
+          printf 'Signer #1 certificate SHA-256 digest: %s\n' "$actual_cert" |
             tee app/build/outputs/apk/release/signing-certificate-sha256.txt
       - name: Upload verified release APK
         uses: actions/upload-artifact@v4
