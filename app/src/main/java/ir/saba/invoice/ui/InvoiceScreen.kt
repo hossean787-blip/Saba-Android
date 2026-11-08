@@ -427,10 +427,12 @@ private fun InvoiceScreenContent(
                 }
             }
             "edit" -> {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val local = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson) }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     InvoiceEditorHeading(seller = sellerName, editingDraft = invoiceId != null, lineCount = lines.size)
                     InvoiceEditorProgress(
-                        headerReady = number.isNotBlank() && date.isNotBlank(),
+                        headerReady = date.isNotBlank() && (automaticNumber || number.isNotBlank()),
                         buyerReady = customerId != null,
                         hasItems = lines.isNotEmpty(),
                         settlementReady = settlementMode != InvoiceSettlement.MIXED || cashPortionInput.isNotBlank()
@@ -444,34 +446,57 @@ private fun InvoiceScreenContent(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    InvoiceEditorPanel("۱", "مشخصات صورتحساب", "شماره و تاریخ صدور") {
-                    if(editorLocked) Text("این درخواست محفوظ است؛ برای جلوگیری از مصرف تکراری اعتبار، اطلاعات آن تا تعیین نتیجه ثابت می‌ماند.")
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        val wide = maxWidth >= 460.dp
-                        if (wide) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
-                                    label = { Text("شماره فاکتور") },
-                                    supportingText = { if (automaticNumber) Text("برای سریال خودکار خالی بگذارید.") },
-                                    singleLine = true, modifier = Modifier.weight(1f))
-                                OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked,
-                                    label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true,
-                                    modifier = Modifier.weight(1f),
-                                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
-                            }
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
-                                    label = { Text("شماره فاکتور") },
-                                    supportingText = { if (automaticNumber) Text("برای تخصیص خودکار سریال مودی، این کادر را خالی بگذارید.") },
-                                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                    InvoiceEditorPanel("۱", "مشخصات صورتحساب", "تاریخ، موضوع، سریال، الگو، مشتری و نوع") {
+                        if (editorLocked) Text("درخواست صدور ناتمام محفوظ است و برای جلوگیری از مصرف مجدد اعتبار، قابل تغییر نیست.")
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            if (maxWidth >= 440.dp) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked,
+                                        label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") },
+                                        singleLine = true, modifier = Modifier.weight(1f),
+                                        textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+                                    OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
+                                        label = { Text("شماره فاکتور") }, singleLine = true,
+                                        supportingText = { if (automaticNumber) Text("سریال صورتحساب؛ خالی = خودکار") },
+                                        modifier = Modifier.weight(1f))
+                                }
+                            } else {
                                 OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked,
                                     label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+                                OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
+                                    label = { Text("شماره فاکتور") },
+                                    supportingText = { if (automaticNumber) Text("سریال صورتحساب؛ برای شماره خودکار خالی بگذارید") },
+                                    singleLine = true, modifier = Modifier.fillMaxWidth())
                             }
                         }
-                    }
+                        Surface(Modifier.fillMaxWidth(), color = androidx.compose.ui.graphics.Color(0xFFF1F7FA),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+                            Text("فروشنده / مؤدی: ${sellerName.ifBlank { "مؤدی انتخاب‌شده" }}",
+                                modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Text("نوع صورتحساب: نوع اول  |  الگوی صورتحساب: الگوی ۱ (فروش)",
+                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text("ارسال رسمی در نسخه فعلی فقط برای نوع اول، الگوی فروش، موضوع اصلی و تسویه نقدی فعال است.",
+                            color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                        var expandedBuyer by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton(enabled = !busy && !editorLocked,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { expandedBuyer = true }) {
+                                Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید"))
+                            }
+                            DropdownMenu(expandedBuyer, onDismissRequest = { expandedBuyer = false }) {
+                                customers.forEach { customer ->
+                                    DropdownMenuItem(text = { Text(customer.name) }, onClick = {
+                                        customerId = customer.id
+                                        referenceTaxId = ""
+                                        expandedBuyer = false
+                                    })
+                                }
+                            }
+                        }
                     Text("موضوع صورتحساب", style = MaterialTheme.typography.titleSmall)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = subject == InvoiceSubject.ORIGINAL,
@@ -535,87 +560,142 @@ private fun InvoiceScreenContent(
                             style = MaterialTheme.typography.bodySmall)
                     }
                     }
-                    InvoiceEditorPanel("۲", "طرف حساب", "مؤدی فروشنده و مشتری خریدار") {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = androidx.compose.ui.graphics.Color(0xFFF1F7FA),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                    ) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("فروشنده / مؤدی صادرکننده", style = MaterialTheme.typography.labelSmall,
-                                color = androidx.compose.ui.graphics.Color(0xFF557587))
-                            Text(sellerName.ifBlank { "مؤدی انتخاب‌شده" },
-                                fontWeight = FontWeight.SemiBold,
-                                color = androidx.compose.ui.graphics.Color(0xFF14394C))
+                    InvoiceEditorPanel("۲", "انتخاب کالا/خدمت", "شناسه را انتخاب کرده و مشخصات قلم را وارد کنید") {
+                        Button(enabled = !busy && !editorLocked && lines.size < 500,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { lineIndex = -1; duplicateLineIndex = -1; lineEditorZone = "pick"; lineDialog = true }) {
+                            Text("افزودن کالا یا خدمت")
+                        }
+                        if (lineDialog && lineEditorZone == "pick") {
+                            LineEditor(ownerId = ownerId, companyId = companyId,
+                                initial = lines.getOrNull(if (lineIndex >= 0) lineIndex else duplicateLineIndex),
+                                onDismiss = { lineDialog = false; duplicateLineIndex = -1 },
+                                onSave = { row ->
+                                    val next = lines.toMutableList()
+                                    if (lineIndex < 0) next.add(row) else next[lineIndex] = row
+                                    InvoiceCalculator.calculate(next)
+                                    lines = next.toList(); lineDialog = false; duplicateLineIndex = -1
+                                })
                         }
                     }
-                    var expanded by remember { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(enabled = !busy && !editorLocked, onClick = { expanded = true }) { Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید")) }
-                        DropdownMenu(expanded, { expanded = false }) {
-                            customers.forEach { customer -> DropdownMenuItem(text = { Text(customer.name) }, onClick = { customerId = customer.id; referenceTaxId = ""; expanded = false }) }
-                        }
-                    }
-                    }
-                    InvoiceEditorPanel("۳", "اقلام کالا و خدمات", "شناسه، مقدار، نرخ، تخفیف و مالیات هر ردیف") {
-                    Text("اقلام فاکتور (${lines.size})", style = MaterialTheme.typography.titleMedium)
-                    if (lines.isEmpty()) InvoiceEditorEmptyItems()
-                    lines.forEachIndexed { index, row ->
-                        InvoiceEditorLineRow(
-                            index = index, row = row,
-                            enabled = !busy && !editorLocked,
-                            canCopy = lines.size < 500,
-                            onEdit = { lineIndex = index; duplicateLineIndex = -1; lineDialog = true },
-                            onCopy = { lineIndex = -1; duplicateLineIndex = index; lineDialog = true },
-                            onDelete = { lines = lines.filterIndexed { i, _ -> i != index } }
+                    InvoiceEditorPanel("۳", "جدول فاکتور", "ثبت ردیف‌ها، اصلاح، حذف و جمع ستون‌ها") {
+                        InvoiceEditorItemsTable(
+                            lines = lines, enabled = !busy && !editorLocked,
+                            onEdit = { index ->
+                                lineIndex = index; duplicateLineIndex = -1
+                                lineEditorZone = "table"; lineDialog = true
+                            },
+                            onCopy = { index ->
+                                lineIndex = -1; duplicateLineIndex = index
+                                lineEditorZone = "table"; lineDialog = true
+                            },
+                            onDelete = { index -> lines = lines.filterIndexed { i, _ -> i != index } }
                         )
-                    }
-                    Button(enabled = !busy && !editorLocked && lines.size < 500,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { lineIndex = -1; duplicateLineIndex = -1; lineDialog = true }) {
-                        Text("افزودن کالا یا خدمت")
-                    }
-                    }
-                    InvoiceEditorPanel("۴", "روش تسویه", "نقدی، نسیه یا ترکیبی؛ مبالغ به ریال") {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(
-                            InvoiceSettlement.CASH to "نقدی",
-                            InvoiceSettlement.CREDIT to "نسیه",
-                            InvoiceSettlement.MIXED to "ترکیبی"
-                        ).forEach { (method, label) ->
-                            FilterChip(
-                                selected = settlementMode == method,
-                                enabled = !busy && !editorLocked,
-                                onClick = { settlementMode = method; cashPortionInput = "" },
-                                label = { Text(label) }
-                            )
+                        if (lineDialog && lineEditorZone == "table") {
+                            LineEditor(ownerId = ownerId, companyId = companyId,
+                                initial = lines.getOrNull(if (lineIndex >= 0) lineIndex else duplicateLineIndex),
+                                onDismiss = { lineDialog = false; duplicateLineIndex = -1 },
+                                onSave = { row ->
+                                    val next = lines.toMutableList()
+                                    if (lineIndex < 0) next.add(row) else next[lineIndex] = row
+                                    InvoiceCalculator.calculate(next)
+                                    lines = next.toList(); lineDialog = false; duplicateLineIndex = -1
+                                })
                         }
                     }
-                    if (settlementMode == InvoiceSettlement.MIXED) {
-                        NumberField(cashPortionInput, { cashPortionInput = it }, "سهم نقدی از مبلغ کل (ریال)")
-                    }
-                    val draftTotal = runCatching { InvoiceCalculator.calculate(lines).totalAmountRial }.getOrNull()
-                    if (draftTotal != null) {
-                        Text("جمع قابل تسویه: ${rial(draftTotal)}", style = MaterialTheme.typography.bodySmall)
-                        if (settlementMode == InvoiceSettlement.MIXED) {
-                            val portion = runCatching { InvoiceInput.wholeNumber(cashPortionInput, "سهم نقدی") }.getOrNull()
-                            if (portion != null && portion in 1 until draftTotal) {
-                                Text("نقد: ${rial(portion)} | نسیه: ${rial(draftTotal - portion)}", style = MaterialTheme.typography.bodySmall)
+                    InvoiceEditorPanel("۴", "اطلاعات تسویه و پرداخت", "روش تسویه، جزئیات پرداخت و توضیحات صورتحساب") {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                InvoiceSettlement.CASH to "نقدی",
+                                InvoiceSettlement.CREDIT to "نسیه",
+                                InvoiceSettlement.MIXED to "ترکیبی"
+                            ).forEach { (method, label) ->
+                                FilterChip(selected = settlementMode == method,
+                                    enabled = !busy && !editorLocked,
+                                    onClick = { settlementMode = method; cashPortionInput = "" },
+                                    label = { Text(label) })
                             }
                         }
+                        if (settlementMode == InvoiceSettlement.MIXED)
+                            NumberField(cashPortionInput, { cashPortionInput = it }, "سهم نقدی (ریال)")
+                        if (settlementMode != InvoiceSettlement.CASH)
+                            Text("تسویه نسیه و ترکیبی فعلاً فقط محلی ذخیره می‌شود؛ ارسال رسمی آن فعال نیست.",
+                                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        val fieldsEnabled = !busy && !editorLocked
+                        OutlinedTextField(local.article17Subject, { localDetailsJson =
+                            local.copy(article17Subject = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                            label = { Text("موضوع مالیات بند ۱۷") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(local.paymentSwitchNumber, { localDetailsJson =
+                            local.copy(paymentSwitchNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                            label = { Text("شماره سوئیچ پرداخت") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Text("روش پرداخت", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("نقدی", "کارت به کارت", "کارتخوان", "واریز بانکی", "سایر").forEach { method ->
+                                FilterChip(selected = local.paymentMethod == method, enabled = fieldsEnabled,
+                                    onClick = { localDetailsJson = local.copy(paymentMethod = method).toJson() },
+                                    label = { Text(method) })
+                            }
+                        }
+                        OutlinedTextField(local.paymentMethod, { localDetailsJson =
+                            local.copy(paymentMethod = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                            label = { Text("روش پرداخت (قابل ویرایش)") }, modifier = Modifier.fillMaxWidth())
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            if (maxWidth >= 440.dp) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(local.paymentDate, { localDetailsJson =
+                                        local.copy(paymentDate = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        label = { Text("تاریخ پرداخت") }, singleLine = true, modifier = Modifier.weight(1f))
+                                    OutlinedTextField(local.paymentTrackingNumber, { localDetailsJson =
+                                        local.copy(paymentTrackingNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        label = { Text("شماره پیگیری") }, singleLine = true, modifier = Modifier.weight(1f))
+                                }
+                            } else {
+                                OutlinedTextField(local.paymentDate, { localDetailsJson =
+                                    local.copy(paymentDate = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    label = { Text("تاریخ پرداخت") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(local.paymentTrackingNumber, { localDetailsJson =
+                                    local.copy(paymentTrackingNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    label = { Text("شماره پیگیری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            }
+                        }
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            if (maxWidth >= 440.dp) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(local.sellerBranchCode, { localDetailsJson =
+                                        local.copy(sellerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        label = { Text("کد شعبه فروشنده") }, singleLine = true, modifier = Modifier.weight(1f))
+                                    OutlinedTextField(local.buyerBranchCode, { localDetailsJson =
+                                        local.copy(buyerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        label = { Text("کد شعبه خریدار") }, singleLine = true, modifier = Modifier.weight(1f))
+                                }
+                            } else {
+                                OutlinedTextField(local.sellerBranchCode, { localDetailsJson =
+                                    local.copy(sellerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    label = { Text("کد شعبه فروشنده") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(local.buyerBranchCode, { localDetailsJson =
+                                    local.copy(buyerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    label = { Text("کد شعبه خریدار") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            }
+                        }
+                        OutlinedTextField(local.notes, { localDetailsJson = local.copy(notes = it.take(2000)).toJson() },
+                            enabled = fieldsEnabled, minLines = 2, maxLines = 4,
+                            label = { Text("توضیحات صورتحساب") }, modifier = Modifier.fillMaxWidth())
+                        Text("جزئیات تکمیلی پرداخت در پیش‌نویس محلی حفظ می‌شوند؛ ارسال رسمی و PDF فعلی الزاماً این فیلدها را منتقل نمی‌کنند.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     }
-                    if (settlementMode != InvoiceSettlement.CASH) Text(
-                        "در این نسخه، فاکتور نسیه و ترکیبی به‌صورت محلی ذخیره می‌شود؛ ارسال رسمی آن هنوز فعال نیست.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error
-                    )
+                    InvoiceEditorPanel("۵", "ذخیره و پیش‌نمایش فاکتور", "کنترل نهایی پیش از مصرف اعتبار و ثبت") {
+                        InvoiceLiveOutline(
+                            seller = sellerName,
+                            buyer = customers.firstOrNull { it.id == customerId }?.name,
+                            invoiceNumber = number,
+                            issueDate = date,
+                            lines = lines
+                        )
+                        OutlinedButton(enabled = lines.isNotEmpty(), onClick = { previewDialog = true },
+                            modifier = Modifier.fillMaxWidth()) { Text("پیش‌نمایش فاکتور") }
+                        Text("پیش‌نمایش بدون ثبت و مصرف اعتبار است. پس از ذخیره پیش‌نویس، PDF از صفحه جزئیات قابل دریافت است.",
+                            style = MaterialTheme.typography.bodySmall)
                     }
-                    InvoiceLiveOutline(
-                        seller = sellerName,
-                        buyer = customers.firstOrNull { it.id == customerId }?.name,
-                        invoiceNumber = number,
-                        issueDate = date,
-                        lines = lines
-                    )
                     Spacer(Modifier.height(10.dp))
                 }
             }
