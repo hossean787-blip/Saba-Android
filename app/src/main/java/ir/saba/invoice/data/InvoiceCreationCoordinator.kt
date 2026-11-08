@@ -14,7 +14,8 @@ enum class InvoiceCreditKind { PAID, GIFT }
 data class InvoiceCreationSnapshot(
     val customerId: Long, val number: String, val date: String, val lines: List<InvoiceLine>,
     val settlementMode: String = InvoiceSettlement.CASH, val cashPaidRial: Long? = null,
-    val subject: String = InvoiceSubject.ORIGINAL, val referenceTaxId: String? = null
+    val subject: String = InvoiceSubject.ORIGINAL, val referenceTaxId: String? = null,
+    val localDetailsJson: String = ""
 )
 
 /** Durable, immutable request before remote debit; invoice and local completion receipt commit together.
@@ -50,7 +51,8 @@ class InvoiceCreationCoordinator(
         val cash = if (root.has("cashPaidRial") && !root.isNull("cashPaidRial"))
             root.getLong("cashPaidRial") else null
         return InvoiceCreationSnapshot(root.getString("customer").toLong(),root.getString("number"),root.getString("date"),lines,mode,cash,
-            root.optString("subject", InvoiceSubject.ORIGINAL), root.optString("referenceTaxId").takeIf { it.isNotBlank() })
+            root.optString("subject", InvoiceSubject.ORIGINAL), root.optString("referenceTaxId").takeIf { it.isNotBlank() },
+            root.optString("localDetailsJson"))
     }
     private fun encode(snapshot:InvoiceCreationSnapshot):String {
         val rows=JSONArray()
@@ -64,6 +66,7 @@ class InvoiceCreationCoordinator(
         snapshot.cashPaidRial?.let { root.put("cashPaidRial", it) }
         root.put("subject", snapshot.subject)
         snapshot.referenceTaxId?.let { root.put("referenceTaxId", it) }
+        root.put("localDetailsJson", snapshot.localDetailsJson)
         return root.toString().also { require(it.length<=2_000_000) }
     }
     suspend fun prepare(companyId:Long,input:InvoiceCreationSnapshot,requestId:String,kind:InvoiceCreditKind):InvoiceCreationClaim = db.withTransaction {
@@ -74,6 +77,7 @@ class InvoiceCreationCoordinator(
         val lines=input.lines.map{it.copy(id=0,invoiceId=0)}
         val totals = InvoiceCalculator.calculate(lines)
         InvoiceSettlement.amounts(input.settlementMode,input.cashPaidRial,totals.totalAmountRial)
+        if(input.localDetailsJson.isNotBlank()) InvoiceLocalDetails.fromJson(input.localDetailsJson)
         InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, companyId,
             input.customerId, input.subject, input.referenceTaxId, lines)
         val existing=db.invoiceCreationClaimDao().byKey(key) ?: db.invoiceCreationClaimDao().pending(companyId)
@@ -128,7 +132,8 @@ class InvoiceCreationCoordinator(
             val content=validatePending(claim)
             val id=InvoiceRepository(db).saveDraft(claim.companyId,content.customerId,content.number,content.date,
                 content.lines,serverPromoConfirmed=true,settlementMode=content.settlementMode,cashPaidRial=content.cashPaidRial,
-                subject=content.subject,referenceTaxId=content.referenceTaxId)
+                subject=content.subject,referenceTaxId=content.referenceTaxId,
+                localDetailsJson=content.localDetailsJson)
             check(db.invoiceCreationClaimDao().complete(claim.requestId,id)==1)
             id
         }
