@@ -811,8 +811,11 @@ private fun TotalsCard(lines: List<InvoiceLine>, stored: Invoice? = null) {
 }
 
 @Composable
-private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, onDismiss: () -> Unit, onSave: (InvoiceLine) -> Unit) {
+private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
+    onDismiss: () -> Unit, onSave: (InvoiceLine) -> Unit
+) {
     var code by rememberSaveable { mutableStateOf(initial?.itemCode.orEmpty()) }
+    var itemTitle by rememberSaveable { mutableStateOf(initial?.itemTitle.orEmpty().ifBlank { initial?.description.orEmpty() }) }
     var description by rememberSaveable { mutableStateOf(initial?.description.orEmpty()) }
     var quantity by rememberSaveable { mutableStateOf(initial?.let(InvoiceLineAmounts::quantityText) ?: "1") }
     var unit by rememberSaveable { mutableStateOf(initial?.unitCode.orEmpty()) }
@@ -821,80 +824,112 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
     var tax by rememberSaveable { mutableStateOf(initial?.let(InvoiceLineAmounts::vatText).orEmpty()) }
     var vatHint by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
-    val scroll = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxWidth().padding(12.dp).imePadding(),
-        title = { Text(if (initial == null) "افزودن ردیف" else "ویرایش ردیف") },
-        text = {
-            Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
-                InvoiceIdentifierPicker(ownerId = ownerId, companyId = companyId, enabled = true) { identifier ->
-                    try {
-                        val selected = InvoiceIdentifierPrefill.from(identifier)
-                        code = selected.code
-                        description = selected.description
-                        tax = selected.vatRatePercent
-                        vatHint = if (selected.requiresVatReview) {
-                            "نرخ مالیات این شناسه مشخص یا قابل ثبت به‌صورت عدد صحیح نیست؛ نرخ معتبر را دستی وارد کنید."
-                        } else "نرخ واردشده از بانک نیازمند بررسی اعتبار روز است."
-                        error = ""
-                    } catch (e: IllegalArgumentException) {
-                        error = e.message ?: "شناسه قابل انتخاب نیست."
-                    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = androidx.compose.ui.graphics.Color(0xFFF2F8FA),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFDCE8EF))
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text(if (initial == null) "مشخصات ردیف جدید" else "اصلاح مشخصات کالا/خدمت",
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            Text("۱. شناسه کالا یا خدمت را انتخاب کنید؛ نرخ مالیات و عنوان آن از بانک خوانده می‌شود.",
+                style = MaterialTheme.typography.labelSmall)
+            InvoiceIdentifierPicker(ownerId = ownerId, companyId = companyId, enabled = true) { identifier ->
+                try {
+                    val selected = InvoiceIdentifierPrefill.from(identifier)
+                    code = selected.code
+                    itemTitle = selected.description
+                    description = selected.description
+                    tax = selected.vatRatePercent
+                    vatHint = if (selected.requiresVatReview)
+                        "نرخ مالیات برای این شناسه معلوم نیست؛ نرخ معتبر را خودتان بررسی و وارد کنید."
+                    else "نرخ بانک شناسه‌ها باید با مقررات معتبر روز کنترل شود."
+                    error = ""
+                } catch (e: IllegalArgumentException) {
+                    error = e.message ?: "شناسه قابل انتخاب نیست."
                 }
-                OutlinedTextField(description, { description = it }, label = { Text("شرح کالا یا خدمت") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(code, { code = it }, label = { Text("شناسه کالا/خدمت (اختیاری برای ثبت محلی)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                NumberField(quantity, { quantity = it }, "تعداد / مقدار (تا ۸ رقم اعشار)")
-                OutlinedTextField(
-                    unit, { unit = InvoiceInput.digits(it).trim() },
-                    label = { Text("کد واحد سنجش هر ردیف") }, singleLine = true,
-                    supportingText = { Text("برای ارسال رسمی، هر کالا واحد معتبر خودش را نیاز دارد.") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("1627" to "عدد", "164" to "کیلوگرم", "165" to "متر").forEach { (key, title) ->
-                        FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("1637" to "لیتر", "16103" to "ساعت", "1653" to "واحد").forEach { (key, title) ->
-                        FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
-                    }
-                }
-                NumberField(price, { price = it }, "قیمت واحد به ریال")
-                NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
-                NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
-                if (vatHint.isNotEmpty()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
             }
-        },
-        confirmButton = { TextButton(onClick = {
-            try {
-                val row = InvoiceLineAmounts.fromUserInput(
-                    code = code, description = description,
-                    rawQuantity = quantity, price = InvoiceInput.wholeNumber(price, "قیمت"),
-                    discount = InvoiceInput.wholeNumber(discount, "تخفیف"),
-                    rawRate = tax, unit = unit
-                )
-                InvoiceCalculator.calculate(listOf(row))
-                onSave(row)
-            } catch (e: ArithmeticException) {
-                error = "مبلغ ردیف یا جمع فاکتور بیش از محدوده مجاز است."
-                scope.launch { scroll.animateScrollTo(0) }
-            } catch (e: IllegalArgumentException) {
-                error = e.message ?: "اطلاعات ردیف معتبر نیست."
-                scope.launch { scroll.animateScrollTo(0) }
+            OutlinedTextField(code, { code = InvoiceInput.digits(it).trim() },
+                label = { Text("شناسه کالا و خدمت") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(tax, { tax = it; vatHint = "" },
+                label = { Text("نرخ مالیات (درصد)") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+            OutlinedTextField(itemTitle, { itemTitle = it },
+                label = { Text("عنوان کالا/خدمت") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(description, { description = it },
+                label = { Text("شرح کالا یا خدمت") },
+                modifier = Modifier.fillMaxWidth())
+            Text("واحد اندازه‌گیری", style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold)
+            OutlinedTextField(unit, { unit = InvoiceInput.digits(it).trim() },
+                label = { Text("کد واحد اندازه‌گیری") }, singleLine = true,
+                supportingText = { Text("برای ارسال رسمی، کد واحد معتبر هر قلم ضروری است.") },
+                modifier = Modifier.fillMaxWidth())
+            Row(Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                listOf("1627" to "عدد", "164" to "کیلوگرم", "165" to "متر",
+                    "1637" to "لیتر", "16103" to "ساعت", "1653" to "واحد").forEach { (key, title) ->
+                    FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
+                }
             }
-        }) { Text("ثبت ردیف") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
-    )
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth >= 380.dp) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NumberField(quantity, { quantity = it }, "مقدار/تعداد", modifier = Modifier.weight(1f))
+                        NumberField(price, { price = it }, "فی (ریال)", modifier = Modifier.weight(1f))
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NumberField(quantity, { quantity = it }, "تعداد / مقدار (تا ۸ رقم اعشار)")
+                        NumberField(price, { price = it }, "قیمت واحد به ریال")
+                    }
+                }
+            }
+            NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
+            // Keep the existing Compose test label and decimal-VAT input behavior.
+            NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
+            if (vatHint.isNotBlank()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        try {
+                            val row = InvoiceLineAmounts.fromUserInput(
+                                code = code, description = description,
+                                rawQuantity = quantity,
+                                price = InvoiceInput.wholeNumber(price, "قیمت"),
+                                discount = InvoiceInput.wholeNumber(discount, "تخفیف"),
+                                rawRate = tax, unit = unit
+                            ).copy(itemTitle = itemTitle.trim().ifBlank { description.trim() })
+                            InvoiceCalculator.calculate(listOf(row))
+                            onSave(row)
+                        } catch (e: ArithmeticException) {
+                            error = "مبلغ ردیف یا جمع فاکتور بیش از محدوده مجاز است."
+                        } catch (e: IllegalArgumentException) {
+                            error = e.message ?: "اطلاعات ردیف معتبر نیست."
+                        }
+                    }) { Text("ثبت ردیف") }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(0.7f)) {
+                    Text("انصراف")
+                }
+            }
+        }
+    }
 }
 
 @Composable
-private fun NumberField(value: String, onChange: (String) -> Unit, label: String) {
+private fun NumberField(value: String, onChange: (String) -> Unit, label: String,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
     OutlinedTextField(value, onChange, label = { Text(label) }, singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr), modifier = Modifier.fillMaxWidth())
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+        modifier = modifier)
 }
