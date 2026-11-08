@@ -135,7 +135,9 @@ class InvoiceScreenTest {
             compose.onAllNodesWithText("اعتبار مودی: 0 | اعتبار هدیه: 0").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("صدور فاکتور جدید").performClick()
-        compose.onNodeWithText("شماره فاکتور").assertExists()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("شماره فاکتور").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("خلاصه زنده صورتحساب").assertExists()
         compose.onNodeWithText("شماره فاکتور").performTextInput("۱۲")
         compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextInput("۱۴۰۵/۰۷/۰۲")
