@@ -68,12 +68,15 @@ jobs:
           "$TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/certs.txt"
           ACTUAL="$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | tr 'A-F' 'a-f')"
           test -n "$ACTUAL"
+          # Public SHA-256 fingerprint of the established SURA release signing
+          # certificate; never publish an APK that requires uninstalling the app.
+          KNOWN="55a5c9f677f899630bc792330606161560a8dea94b7fe0eabe11d47a013d7b0b"
+          [[ "$ACTUAL" == "$KNOWN" ]] || { echo "::error::APK signer differs from the SURA release key; update would not be installable"; exit 1; }
           if [[ -n "${EXPECTED_CERT_SHA256:-}" ]]; then
             EXP="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr 'A-F' 'a-f')"
-            [[ "$ACTUAL" == "$EXP" ]] || { echo "::error::Signer certificate differs from the previously installed app"; exit 1; }
-          else
-            echo "::warning::SURA_EXPECTED_CERT_SHA256 not set; upgrade compatibility was not checked"
+            [[ "$ACTUAL" == "$EXP" ]] || { echo "::error::APK signer differs from explicitly configured device certificate"; exit 1; }
           fi
+          echo "Existing SURA release certificate verified: $ACTUAL"
           "$TOOLS/aapt" dump badging "$APK" | grep '^package:' | tee "$RUNNER_TEMP/badging.txt"
           grep -q "name='ir.saba.invoice'" "$RUNNER_TEMP/badging.txt"
           sha256sum "$APK" | tee app/build/outputs/apk/release/app-release.apk.sha256
