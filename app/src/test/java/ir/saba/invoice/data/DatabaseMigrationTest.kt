@@ -63,7 +63,7 @@ class DatabaseMigrationTest {
             it.version = 1
         }
         val upgraded = Room.databaseBuilder(context, SabaDatabase::class.java, name)
-            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7, SabaDatabase.MIGRATION_7_8, SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10, SabaDatabase.MIGRATION_10_11, SabaDatabase.MIGRATION_11_12, SabaDatabase.MIGRATION_12_13).build()
+            .addMigrations(SabaDatabase.MIGRATION_1_2, SabaDatabase.MIGRATION_2_3, SabaDatabase.MIGRATION_3_4, SabaDatabase.MIGRATION_4_5, SabaDatabase.MIGRATION_5_6, SabaDatabase.MIGRATION_6_7, SabaDatabase.MIGRATION_7_8, SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10, SabaDatabase.MIGRATION_10_11, SabaDatabase.MIGRATION_11_12, SabaDatabase.MIGRATION_12_13, SabaDatabase.MIGRATION_13_14).build()
         try {
             val details = InvoiceRepository(upgraded).detailsForCompany(company, invoice)
             assertEquals(customer, details.invoice.customerId)
@@ -100,7 +100,7 @@ class DatabaseMigrationTest {
             restoreLegacyInvoiceLineLayout(it)
             it.version=8
         }
-        db=Room.databaseBuilder(context,SabaDatabase::class.java,name).addMigrations(SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10, SabaDatabase.MIGRATION_10_11, SabaDatabase.MIGRATION_11_12, SabaDatabase.MIGRATION_12_13).build()
+        db=Room.databaseBuilder(context,SabaDatabase::class.java,name).addMigrations(SabaDatabase.MIGRATION_8_9, SabaDatabase.MIGRATION_9_10, SabaDatabase.MIGRATION_10_11, SabaDatabase.MIGRATION_11_12, SabaDatabase.MIGRATION_12_13, SabaDatabase.MIGRATION_13_14).build()
         try {
             assertEquals(claim,db.invoiceCreationClaimDao().pending(company))
             assertTrue(db.officialSubmissionDao().forCompany(company).isEmpty())
