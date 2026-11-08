@@ -106,9 +106,13 @@ class InvoiceEditorVisualInstrumentedTest {
         compose.onNodeWithTag("invoiceStickyActionDock").assertExists()
         compose.onNodeWithTag("invoiceSupportedTaxFormat").assertExists()
         screenshot("invoice-editor-header-emulator")
-        compose.onNodeWithTag("invoiceItemRow0").performScrollTo()
+        // The row itself has a horizontal scroll parent: scrolling that node
+        // alone need not move the outer invoice page. Scroll the section title
+        // vertically to capture the actual ledger rather than a duplicate header.
+        compose.onNodeWithText("جدول فاکتور").performScrollTo()
         compose.onNodeWithTag("invoiceQuickRowActions").assertExists()
         compose.onNodeWithTag("invoiceAccessibleTotals").assertExists()
+        compose.onNodeWithTag("invoiceItemRow0").assertExists()
         compose.onNodeWithText("1. خدمات آزمایشی").assertExists()
         screenshot("invoice-editor-lines-emulator")
         compose.onNodeWithText("ویرایش ردیف").performScrollTo().performClick()
