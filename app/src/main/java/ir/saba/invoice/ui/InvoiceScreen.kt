@@ -4,12 +4,15 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -870,8 +873,12 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
     var tax by rememberSaveable { mutableStateOf(initial?.let(InvoiceLineAmounts::vatText).orEmpty()) }
     var vatHint by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
+    val headerRequester = remember { BringIntoViewRequester() }
+    // Editing from the wide grid opens this form below the table. Explicitly
+    // reveal the form heading so users do not think the edit button failed.
+    LaunchedEffect(initial) { headerRequester.bringIntoView() }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("invoiceInlineLineEditor"),
         color = androidx.compose.ui.graphics.Color(0xFFF2F8FA),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFDCE8EF))
@@ -879,6 +886,7 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
         Column(Modifier.fillMaxWidth().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Text(if (initial == null) "مشخصات ردیف جدید" else "اصلاح مشخصات کالا/خدمت",
+                modifier = Modifier.bringIntoViewRequester(headerRequester).testTag("invoiceLineEditorHeading"),
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             Text("۱. شناسه کالا یا خدمت را انتخاب کنید؛ نرخ مالیات و عنوان آن از بانک خوانده می‌شود.",
