@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
+import ir.saba.invoice.data.InvoiceLocalDetails
 import ir.saba.invoice.domain.InvoiceInput
 import ir.saba.invoice.domain.InvoiceIdentifierPrefill
 import ir.saba.invoice.domain.InvoiceLineAmounts
@@ -35,20 +36,25 @@ import java.text.NumberFormat
 import java.util.Locale
 
 private val LinesSaver = listSaver<List<InvoiceLine>, String>(
-    save = { rows -> listOf("__SURA_INVOICE_LINES_V2__") + rows.flatMap {
+    save = { rows -> listOf("__SURA_INVOICE_LINES_V3__") + rows.flatMap {
         listOf(it.itemCode, it.description, it.quantity.toString(), it.unitPriceRial.toString(),
-            it.discountRial.toString(), it.taxRatePercent.toString(), it.unitCode, it.quantityExact, it.vatRateExact)
+            it.discountRial.toString(), it.taxRatePercent.toString(), it.unitCode, it.quantityExact,
+            it.vatRateExact, it.itemTitle)
     } },
     restore = { values ->
-        val versioned = values.firstOrNull() == "__SURA_INVOICE_LINES_V2__"
-        val data = if (versioned) values.drop(1) else values
-        val width = if (versioned) 9 else 6
-        data.chunked(width).map { item ->
+        val version = values.firstOrNull()
+        val width = when(version) {
+            "__SURA_INVOICE_LINES_V3__" -> 10
+            "__SURA_INVOICE_LINES_V2__" -> 9
+            else -> 6
+        }
+        val data = if (width > 6) values.drop(1) else values
+        data.chunked(width).filter { it.size == width }.map { item ->
             InvoiceLine(invoiceId = 0, itemCode = item[0], description = item[1],
                 quantity = item[2].toLong(), unitPriceRial = item[3].toLong(),
                 discountRial = item[4].toLong(), taxRatePercent = item[5].toInt(),
                 unitCode = item.getOrElse(6) { "" }, quantityExact = item.getOrElse(7) { "" },
-                vatRateExact = item.getOrElse(8) { "" })
+                vatRateExact = item.getOrElse(8) { "" }, itemTitle = item.getOrElse(9) { "" })
         }
     }
 )
@@ -159,6 +165,8 @@ private fun InvoiceScreenContent(
     var cashPortionInput by rememberSaveable(companyId) { mutableStateOf("") }
     var subject by rememberSaveable(companyId) { mutableStateOf(InvoiceSubject.ORIGINAL) }
     var referenceTaxId by rememberSaveable(companyId) { mutableStateOf("") }
+    var localDetailsJson by rememberSaveable(companyId) { mutableStateOf("") }
+    var previewDialog by rememberSaveable { mutableStateOf(false) }
     var acceptedOriginals by remember(companyId) { mutableStateOf(emptyList<Pair<String, Long>>()) }
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var lines by rememberSaveable(stateSaver = LinesSaver) { mutableStateOf(emptyList<InvoiceLine>()) }
@@ -187,6 +195,7 @@ private fun InvoiceScreenContent(
         customerId=saved.customerId;number=saved.number;date=saved.date;lines=saved.lines
         settlementMode=saved.settlementMode
         subject=saved.subject;referenceTaxId=saved.referenceTaxId.orEmpty()
+        localDetailsJson=saved.localDetailsJson
         cashPortionInput=saved.cashPaidRial?.toString().orEmpty()
         error="";mode="edit"
     }
@@ -199,7 +208,7 @@ private fun InvoiceScreenContent(
         operationKey=java.util.UUID.randomUUID().toString()
         invoiceId=null;number="";date="";customerId=customers.firstOrNull()?.id
         settlementMode=InvoiceSettlement.CASH;cashPortionInput=""
-        subject=InvoiceSubject.ORIGINAL;referenceTaxId=""
+        subject=InvoiceSubject.ORIGINAL;referenceTaxId="";localDetailsJson=""
         lines=emptyList();error="";mode="edit"
     }
     LaunchedEffect(companyId,account) {
@@ -264,7 +273,7 @@ private fun InvoiceScreenContent(
                                     else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
                                 }
                                 val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash,
-                                    subject,referenceTaxId.takeIf { it.isNotBlank() }),operationKey,kind)
+                                    subject,referenceTaxId.takeIf { it.isNotBlank() }, localDetailsJson),operationKey,kind)
                                 restoreClaim(claim)
                                 creation.finish(claim.requestId).also{pendingCreation=null}
                             } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
