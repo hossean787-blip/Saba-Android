@@ -114,6 +114,7 @@ class InvoiceEditorVisualInstrumentedTest {
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceInlineLineEditor").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onAllNodesWithTag("invoiceInlineLineEditor").assertCountEquals(1)
         compose.onNodeWithTag("invoiceLineEditorHeading").performScrollTo()
         compose.onNodeWithTag("invoiceLineEditorHeading").assertIsDisplayed()
         compose.onNodeWithText("اصلاح مشخصات کالا/خدمت").assertExists()
