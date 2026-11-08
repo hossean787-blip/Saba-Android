@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -859,6 +860,7 @@ private fun TotalsCard(lines: List<InvoiceLine>, stored: Invoice? = null) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
     onDismiss: () -> Unit, onSave: (InvoiceLine) -> Unit
