@@ -83,6 +83,23 @@ class InvoiceScreenTest {
         compose.onNodeWithText("ثبت ردیف").performClick()
     }
 
+    @Test fun professionalInvoiceEditorKeepsSectionsAndSaveVisible() {
+        compose.setContent { Screen() }
+        openNew()
+        compose.onNodeWithTag("invoiceProfessionalHeader").assertExists()
+        compose.onNodeWithTag("invoiceWorkflowProgress").assertExists()
+        compose.onNodeWithTag("invoiceSection۱").assertExists()
+        compose.onNodeWithTag("invoiceSection۲").assertExists()
+        compose.onNodeWithTag("invoiceSection۳").assertExists()
+        compose.onNodeWithTag("invoiceSection۴").assertExists()
+        compose.onNodeWithTag("invoiceStickyActionDock").assertExists()
+        compose.onNodeWithText("ذخیره پیش‌نویس").assertIsNotEnabled()
+        addLine()
+        compose.onNodeWithTag("invoiceItemRow0").assertExists()
+        compose.onNodeWithText("ذخیره پیش‌نویس").assertIsEnabled()
+        compose.onNodeWithTag("invoiceStickyActionDock").assertExists()
+    }
+
     @Test fun createsDraftFromPersianInputAndOpensDetails() {
         compose.setContent { Screen() }
         openNew(); addLine()
