@@ -115,6 +115,7 @@ class InvoiceEditorVisualInstrumentedTest {
             compose.onAllNodesWithTag("invoiceInlineLineEditor").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("invoiceLineEditorHeading").performScrollTo()
+        compose.onNodeWithTag("invoiceLineEditorHeading").assertIsDisplayed()
         compose.onNodeWithText("اصلاح مشخصات کالا/خدمت").assertExists()
         screenshot("invoice-editor-line-dialog-emulator")
     }
