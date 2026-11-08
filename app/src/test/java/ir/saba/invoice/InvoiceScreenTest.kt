@@ -168,7 +168,10 @@ class InvoiceScreenTest {
         compose.onNodeWithText("شماره فاکتور").performTextInput("۱۲")
         compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextInput("۱۴۰۵/۰۷/۰۲")
         addLine()
-        compose.onNodeWithText("مبلغ قابل پرداخت").assertExists()
+        // Totals are intentionally visible both above the wide grid and in the
+        // final outline so accountants don't have to swipe to find the sum.
+        check(compose.onAllNodesWithText("مبلغ قابل پرداخت", useUnmergedTree = true)
+            .fetchSemanticsNodes().isNotEmpty())
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.").fetchSemanticsNodes().isNotEmpty()
