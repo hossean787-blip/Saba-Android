@@ -241,7 +241,7 @@ internal fun InvoiceEditorItemsTable(
     onCopy: (Int) -> Unit,
     onDelete: (Int) -> Unit
 ) {
-    val widths = listOf(54.dp, 166.dp, 208.dp, 114.dp, 130.dp, 130.dp, 140.dp, 132.dp, 160.dp, 188.dp)
+    val widths = listOf(54.dp, 166.dp, 208.dp, 114.dp, 130.dp, 130.dp, 140.dp, 132.dp, 160.dp, 252.dp)
     val headers = listOf("ردیف", "عنوان کالا/خدمت", "شرح کالا/خدمت", "مقدار/تعداد",
         "مبلغ فی", "مبلغ تخفیف", "بعد از تخفیف", "مبلغ مالیات",
         "مبلغ کل کالا/خدمت", "عملیات")
@@ -294,6 +294,10 @@ internal fun InvoiceEditorItemsTable(
                             TextButton(onClick = { onEdit(i) }, enabled = enabled,
                                 contentPadding = PaddingValues(1.dp)) {
                                 Text("ویرایش ردیف", style = MaterialTheme.typography.labelSmall)
+                            }
+                            TextButton(onClick = { onCopy(i) }, enabled = enabled && lines.size < 500,
+                                contentPadding = PaddingValues(1.dp)) {
+                                Text("کپی ردیف", style = MaterialTheme.typography.labelSmall)
                             }
                             TextButton(onClick = { onDelete(i) }, enabled = enabled,
                                 contentPadding = PaddingValues(1.dp)) {
