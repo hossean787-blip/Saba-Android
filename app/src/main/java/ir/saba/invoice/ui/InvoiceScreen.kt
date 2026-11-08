@@ -246,6 +246,41 @@ private fun InvoiceScreenContent(
         }
     }
 
+    // Preserve the existing credit-idempotent persistence path; only the UI entry moved.
+    fun saveCurrentInvoice() {
+        perform {
+                            val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
+                            InvoiceSubject.validate(subject, referenceTaxId.takeIf { it.isNotBlank() })
+                            val settlementCash = InvoiceSettlement.cashFromUserInput(
+                                settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
+                            )
+                            val savedId = if(invoiceId==null) {
+                                val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)} ?: run {
+                                    val verifiedPaid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
+                                    val verifiedGift = runCatching { activeGateway.giftBalance(accessToken) }.getOrDefault(0)
+                                    promoRemaining = verifiedGift
+                                    if (verifiedPaid > 0) InvoiceCreditKind.PAID
+                                    else if (verifiedGift > 0) InvoiceCreditKind.GIFT
+                                    else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
+                                }
+                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash,
+                                    subject,referenceTaxId.takeIf { it.isNotBlank() }),operationKey,kind)
+                                restoreClaim(claim)
+                                creation.finish(claim.requestId).also{pendingCreation=null}
+                            } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
+                                settlementMode=settlementMode,cashPaidRial=settlementCash,
+                                subject=subject,referenceTaxId=referenceTaxId.takeIf { it.isNotBlank() })
+                            // Retain identity before refreshing, so a retry never creates a second draft.
+                            invoiceId = savedId
+                            operationKey = java.util.UUID.randomUUID().toString()
+                            onChanged()
+                            runCatching { refreshPaidBalance() }
+                            mode = "details"
+                            onNotice("فاکتور جدید ثبت شد؛ شارژ هنگام ایجاد اولیه مصرف می‌شود، نه هنگام ارسال.")
+
+        }
+    }
+
     LaunchedEffect(mode, invoiceId) {
         if ((mode == "details" || mode == "template") && invoiceId != null) {
             details = null
@@ -572,42 +607,19 @@ private fun InvoiceScreenContent(
                         issueDate = date,
                         lines = lines
                     )
-                    Button(enabled = !busy && lines.isNotEmpty(), onClick = {
-                        perform {
-                            val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
-                            InvoiceSubject.validate(subject, referenceTaxId.takeIf { it.isNotBlank() })
-                            val settlementCash = InvoiceSettlement.cashFromUserInput(
-                                settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
-                            )
-                            val savedId = if(invoiceId==null) {
-                                val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)} ?: run {
-                                    val verifiedPaid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
-                                    val verifiedGift = runCatching { activeGateway.giftBalance(accessToken) }.getOrDefault(0)
-                                    promoRemaining = verifiedGift
-                                    if (verifiedPaid > 0) InvoiceCreditKind.PAID
-                                    else if (verifiedGift > 0) InvoiceCreditKind.GIFT
-                                    else throw IllegalStateException("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.")
-                                }
-                                val claim=creation.prepare(companyId,InvoiceCreationSnapshot(selectedCustomer,number,date,lines,settlementMode,settlementCash,
-                                    subject,referenceTaxId.takeIf { it.isNotBlank() }),operationKey,kind)
-                                restoreClaim(claim)
-                                creation.finish(claim.requestId).also{pendingCreation=null}
-                            } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
-                                settlementMode=settlementMode,cashPaidRial=settlementCash,
-                                subject=subject,referenceTaxId=referenceTaxId.takeIf { it.isNotBlank() })
-                            // Retain identity before refreshing, so a retry never creates a second draft.
-                            invoiceId = savedId
-                            operationKey = java.util.UUID.randomUUID().toString()
-                            onChanged()
-                            runCatching { refreshPaidBalance() }
-                            mode = "details"
-                            onNotice("فاکتور جدید ثبت شد؛ شارژ هنگام ایجاد اولیه مصرف می‌شود، نه هنگام ارسال.")
-                        }
-                    }, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "در حال ذخیره…" else "ذخیره پیش‌نویس") }
-                    OutlinedButton(enabled = !busy, onClick = { confirmation = "leave" }, modifier = Modifier.fillMaxWidth()) { Text("انصراف از ویرایش") }
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(10.dp))
                 }
             }
+        }
+        if (mode == "edit") {
+            InvoiceEditorDock(
+                total = if (lines.isEmpty()) null else
+                    runCatching { InvoiceCalculator.calculate(lines).totalAmountRial }.getOrNull(),
+                saving = busy,
+                canSave = lines.isNotEmpty(),
+                onSave = { saveCurrentInvoice() },
+                onCancel = { confirmation = "leave" }
+            )
         }
     }
 
