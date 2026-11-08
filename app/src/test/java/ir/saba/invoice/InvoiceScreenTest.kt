@@ -49,6 +49,7 @@ class InvoiceScreenTest {
     private var company = 0L
     private var customer = 0L
     private var invoices by mutableStateOf(emptyList<Invoice>())
+    private val surfacedNotices = mutableListOf<String>()
 
     @Before fun setup() = runBlocking {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
@@ -63,7 +64,7 @@ class InvoiceScreenTest {
     @Composable private fun Screen() {
         MaterialTheme {
             InvoiceScreen(db, ownerId, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
-                onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = {}, onEditorActive = {}, availableCharge = 10, creditGateway = creditGateway)
+                onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = { surfacedNotices.add(it) }, onEditorActive = {}, availableCharge = 10, creditGateway = creditGateway)
         }
     }
     private fun openNew() {
@@ -252,7 +253,8 @@ class InvoiceScreenTest {
             compose.onAllNodesWithTag("invoiceItemRow0").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
-        compose.waitUntil(15000) { invoices.size == 1 }
+        compose.waitUntil(15000) { invoices.size == 1 || surfacedNotices.isNotEmpty() }
+        assertEquals("Invoice save failed; UI notices: ${surfacedNotices.joinToString(" | ")}", 1, invoices.size)
         runBlocking {
             val row = db.invoiceLineDao().forInvoice(invoices.single().id).single()
             assertEquals(code, row.itemCode)
