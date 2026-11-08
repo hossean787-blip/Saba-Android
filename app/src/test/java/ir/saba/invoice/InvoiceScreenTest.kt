@@ -95,6 +95,8 @@ class InvoiceScreenTest {
         openNew()
         compose.onNodeWithTag("invoiceProfessionalHeader").assertExists()
         compose.onNodeWithTag("invoiceWorkflowProgress").assertExists()
+        compose.onNodeWithTag("invoiceSupportedTaxFormat").assertExists()
+        compose.onNodeWithTag("invoiceQuickPreview").assertIsNotEnabled()
         compose.onNodeWithTag("invoiceSection۱").assertExists()
         compose.onNodeWithTag("invoiceSection۲").assertExists()
         compose.onNodeWithTag("invoiceSection۳").assertExists()
@@ -103,8 +105,25 @@ class InvoiceScreenTest {
         compose.onNodeWithText("ذخیره پیش‌نویس").assertIsNotEnabled()
         addLine()
         compose.onNodeWithTag("invoiceItemRow0").assertExists()
+        compose.onNodeWithTag("invoiceAccessibleTotals").assertExists()
+        compose.onNodeWithTag("invoiceQuickPreview").assertIsEnabled()
         compose.onNodeWithText("ذخیره پیش‌نویس").assertIsEnabled()
         compose.onNodeWithTag("invoiceStickyActionDock").assertExists()
+    }
+
+    @Test fun quickPreviewShowsAccountingTotalsWithoutSavingOrConsumingCredit() {
+        compose.setContent { Screen() }
+        openNew()
+        addLine()
+        compose.onNodeWithTag("invoiceQuickPreview").performClick()
+        compose.onNodeWithText("پیش‌نمایش محلی صورتحساب").assertExists()
+        compose.onNodeWithText("مبلغ قابل پرداخت", useUnmergedTree = true)
+            .assertExists()
+        assertEquals(10L, creditGateway.remaining)
+        assertEquals(0, creditGateway.requestedKeys.size)
+        runBlocking { assertEquals(0, db.invoiceDao().forCompany(company).size) }
+        compose.onNodeWithText("بازگشت به فاکتور").performClick()
+        compose.onNodeWithText("شماره فاکتور").assertExists()
     }
 
     @Test fun createsDraftFromPersianInputAndOpensDetails() {
