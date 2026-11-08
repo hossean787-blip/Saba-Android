@@ -81,7 +81,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("شرح کالا یا خدمت").performTextInput("خدمت آزمایشی")
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("۱۰۰۰")
         compose.onNodeWithText("درصد مالیات (تا ۲ رقم اعشار)").performScrollTo().performTextInput("۱۰")
-        compose.onNodeWithText("ثبت ردیف").performClick()
+        compose.onNodeWithText("ثبت ردیف").performScrollTo().performClick()
         compose.waitForIdle()
         val row = compose.onAllNodesWithTag("invoiceItemRow0", useUnmergedTree = true).fetchSemanticsNodes()
         if (row.isEmpty()) {
@@ -252,7 +252,7 @@ class InvoiceScreenTest {
         }
         compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performClick()
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("1000")
-        compose.onNodeWithText("ثبت ردیف").performClick()
+        compose.onNodeWithText("ثبت ردیف").performScrollTo().performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceItemRow0").fetchSemanticsNodes().isNotEmpty()
         }
@@ -336,7 +336,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("کپی ردیف").performScrollTo().performClick()
         compose.onNodeWithText("شرح کالا یا خدمت")
             .assertTextContains("خدمت آزمایشی")
-        compose.onNodeWithText("ثبت ردیف").performClick()
+        compose.onNodeWithText("ثبت ردیف").performScrollTo().performClick()
         compose.onNodeWithText("2. خدمت آزمایشی").assertExists()
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
