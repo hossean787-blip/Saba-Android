@@ -86,7 +86,7 @@ class InvoiceScreenTest {
     @Test fun createsDraftFromPersianInputAndOpensDetails() {
         compose.setContent { Screen() }
         openNew(); addLine()
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
         compose.waitUntil(15000) { compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("فاکتور 12").assertExists()
@@ -124,7 +124,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextInput("۱۴۰۵/۰۷/۰۲")
         addLine()
         compose.onNodeWithText("مبلغ قابل پرداخت").assertExists()
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("اعتبار کافی یا اتصال معتبر به سرور موجود نیست؛ فرم فعلی محفوظ است.").fetchSemanticsNodes().isNotEmpty()
         }
@@ -137,12 +137,12 @@ class InvoiceScreenTest {
         creditGateway.failAfterDebit = true
         compose.setContent { Screen() }
         openNew(); addLine()
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("تأیید مصرف دریافت نشد").fetchSemanticsNodes().isNotEmpty()
         }
         runBlocking { check(db.invoiceDao().forCompany(company).isEmpty()) }
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
         assertEquals(2, creditGateway.requestedKeys.size)
         assertEquals(1, creditGateway.requestedKeys.toSet().size)
@@ -161,7 +161,7 @@ class InvoiceScreenTest {
     @Test fun cancellationRequiresConfirmationAndDoesNotCreateDraft() {
         compose.setContent { Screen() }
         openNew()
-        compose.onNodeWithText("انصراف از ویرایش").performScrollTo().performClick()
+        compose.onNodeWithText("انصراف از ویرایش").performClick()
         compose.onNodeWithText("خروج از ویرایش؟").assertExists()
         compose.onNodeWithText("تأیید").performClick()
         compose.onNodeWithText("صدور فاکتور جدید").assertExists()
@@ -227,7 +227,7 @@ class InvoiceScreenTest {
         compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performClick()
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("1000")
         compose.onNodeWithText("ثبت ردیف").performClick()
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
         runBlocking {
             val row = db.invoiceLineDao().forInvoice(invoices.single().id).single()
@@ -277,7 +277,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("ترکیبی").performScrollTo().performClick()
         compose.onNodeWithText("سهم نقدی از مبلغ کل (ریال)")
             .performScrollTo().performTextInput("۴۰۰")
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("تسویه: نقدی و نسیه").fetchSemanticsNodes().isNotEmpty()
@@ -308,7 +308,7 @@ class InvoiceScreenTest {
             .assertTextContains("خدمت آزمایشی")
         compose.onNodeWithText("ثبت ردیف").performClick()
         compose.onNodeWithText("2. خدمت آزمایشی").assertExists()
-        compose.onNodeWithText("ذخیره پیش‌نویس").performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
         runBlocking {
             val rows = db.invoiceLineDao().forInvoice(invoices.single().id)
