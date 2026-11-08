@@ -250,7 +250,8 @@ class InvoiceScreenTest {
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceSelectIdentifier_" + code).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performClick()
+        compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performScrollTo().performClick()
+        compose.onNodeWithText("شناسه کالا و خدمت").assertTextContains(code)
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("1000")
         compose.onNodeWithText("ثبت ردیف").performScrollTo().performClick()
         compose.waitUntil(15000) {
@@ -333,9 +334,10 @@ class InvoiceScreenTest {
         compose.setContent { Screen() }
         openNew()
         addLine()
+        compose.onNodeWithTag("invoiceSection۳").performScrollTo()
         compose.onNodeWithText("کپی ردیف").performScrollTo().performClick()
         compose.onNodeWithText("شرح کالا یا خدمت")
-            .assertTextContains("خدمت آزمایشی")
+            .performScrollTo().assertTextContains("خدمت آزمایشی")
         compose.onNodeWithText("ثبت ردیف").performScrollTo().performClick()
         compose.onNodeWithText("2. خدمت آزمایشی").assertExists()
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
