@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -720,24 +719,10 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxWidth().padding(12.dp).imePadding(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
-        containerColor = androidx.compose.ui.graphics.Color.White,
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(if (initial == null) "افزودن ردیف" else "ویرایش ردیف",
-                    fontWeight = FontWeight.Bold,
-                    color = androidx.compose.ui.graphics.Color(0xFF132D43))
-                Text("کالا / خدمت • مقدار • قیمت • مالیات",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.ui.graphics.Color(0xFF667D8B))
-            }
-        },
+        title = { Text(if (initial == null) "افزودن ردیف" else "ویرایش ردیف") },
         text = {
             Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (error.isNotBlank()) Text(error,
-                    modifier = Modifier.testTag("invoiceLineError"),
-                    color = MaterialTheme.colorScheme.error)
-                Text("۱. انتخاب کالا و خدمت", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                 InvoiceIdentifierPicker(ownerId = ownerId, companyId = companyId, enabled = true) { identifier ->
                     try {
                         val selected = InvoiceIdentifierPrefill.from(identifier)
@@ -752,7 +737,6 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
                         error = e.message ?: "شناسه قابل انتخاب نیست."
                     }
                 }
-                Text("۲. مشخصات ردیف", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 OutlinedTextField(description, { description = it }, label = { Text("شرح کالا یا خدمت") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(code, { code = it }, label = { Text("شناسه کالا/خدمت (اختیاری برای ثبت محلی)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 NumberField(quantity, { quantity = it }, "تعداد / مقدار (تا ۸ رقم اعشار)")
@@ -772,7 +756,6 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?, 
                         FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
                     }
                 }
-                Text("۳. مبالغ و مالیات", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 NumberField(price, { price = it }, "قیمت واحد به ریال")
                 NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
                 NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
