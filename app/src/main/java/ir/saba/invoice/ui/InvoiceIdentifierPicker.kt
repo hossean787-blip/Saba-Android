@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -141,8 +138,8 @@ internal fun InvoiceIdentifierPicker(
                     saved.filter {
                         q.isBlank() || SuraIdentifierStore.normalize(it.id).contains(q) ||
                             SuraIdentifierStore.normalize(it.description).contains(q)
-                    }.take(35)
-                } else matches
+                    }.take(8)
+                } else matches.take(8)
                 if (mode == "saved" && options.isEmpty()) {
                     Text(
                         "شناسه‌ای برای این مؤدی پیدا نشد. ابتدا در بخش «شناسه کالا و خدمات» ثبت دستی یا ورود اکسل انجام دهید.",
@@ -150,9 +147,11 @@ internal fun InvoiceIdentifierPicker(
                     )
                 }
                 if (options.isNotEmpty()) {
+                    Text("۸ شناسه نخست نمایش داده می‌شود؛ برای یافتن شناسه‌های دیگر، فیلتر را دقیق‌تر کنید.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF58717C))
                     Column(
-                        Modifier.fillMaxWidth().heightIn(max = 188.dp)
-                            .verticalScroll(rememberScrollState()),
+                        Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         options.forEach { item ->
