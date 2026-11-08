@@ -104,8 +104,10 @@ class InvoiceEditorVisualInstrumentedTest {
             compose.onAllNodesWithTag("invoiceProfessionalHeader").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("invoiceStickyActionDock").assertExists()
+        compose.onNodeWithTag("invoiceSupportedTaxFormat").assertExists()
         screenshot("invoice-editor-header-emulator")
         compose.onNodeWithTag("invoiceItemRow0").performScrollTo()
+        compose.onNodeWithTag("invoiceAccessibleTotals").assertExists()
         compose.onNodeWithText("1. خدمات آزمایشی").assertExists()
         screenshot("invoice-editor-lines-emulator")
         compose.onNodeWithText("ویرایش ردیف").performScrollTo().performClick()
