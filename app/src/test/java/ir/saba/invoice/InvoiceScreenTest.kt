@@ -186,7 +186,11 @@ class InvoiceScreenTest {
                 onChanged={},onNotice={},onEditorActive={},creditGateway=creditGateway)
         } }
         compose.onNodeWithText("صدور فاکتور جدید").performClick()
-        compose.onNodeWithText("تنظیم صورتحساب جدید").assertExists()
+        // Opening the editor reads the pending-credit claim from Room on a
+        // coroutine; wait for the actual rendered state rather than racing it.
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("تنظیم صورتحساب جدید").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("مشتری: انتخاب کنید").assertExists()
         compose.onNodeWithText("افزودن کالا یا خدمت").assertExists()
         assertEquals(10L,creditGateway.remaining)
