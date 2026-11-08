@@ -176,6 +176,7 @@ private fun InvoiceScreenContent(
     var error by rememberSaveable { mutableStateOf("") }
     var details by remember { mutableStateOf<InvoiceDetails?>(null) }
     var lineDialog by rememberSaveable { mutableStateOf(false) }
+    var lineEditorZone by rememberSaveable { mutableStateOf("pick") }
     var lineIndex by rememberSaveable { mutableIntStateOf(-1) }
     var duplicateLineIndex by rememberSaveable { mutableIntStateOf(-1) }
     var confirmation by rememberSaveable { mutableStateOf("") }
@@ -712,19 +713,37 @@ private fun InvoiceScreenContent(
         }
     }
 
-    if (lineDialog) LineEditor(
-        ownerId = ownerId,
-        companyId = companyId,
-        initial = lines.getOrNull(if (lineIndex >= 0) lineIndex else duplicateLineIndex),
-        onDismiss = { lineDialog = false; duplicateLineIndex = -1 },
-        onSave = { row ->
-            val next = lines.toMutableList()
-            if (lineIndex < 0) next.add(row) else next[lineIndex] = row
-            // Validate the whole invoice as well as the line, including total overflow.
-            InvoiceCalculator.calculate(next)
-            lines = next.toList(); lineDialog = false; duplicateLineIndex = -1
-        }
-    )
+    if (previewDialog && mode == "edit") {
+        val localPreview = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson) }
+        AlertDialog(
+            onDismissRequest = { previewDialog = false },
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            title = { Text("پیش‌نمایش محلی صورتحساب") },
+            text = {
+                Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("فروشنده: ${sellerName.ifBlank { "مؤدی انتخاب‌شده" }}")
+                    Text("مشتری: ${customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب‌نشده"}")
+                    Text("نوع اول | الگوی ۱ | موضوع: ${InvoiceSubject.label(subject)}")
+                    Text("سریال: ${number.ifBlank { "خودکار" }} | تاریخ: ${date.ifBlank { "نامشخص" }}")
+                    InvoiceEditorItemsTable(lines, enabled = false,
+                        onEdit = {}, onCopy = {}, onDelete = {})
+                    InvoiceLiveOutline(sellerName, customers.firstOrNull { it.id == customerId }?.name,
+                        number, date, lines)
+                    Text("روش تسویه: ${InvoiceSettlement.label(settlementMode)}")
+                    if (localPreview.paymentMethod.isNotBlank()) Text("روش پرداخت: ${localPreview.paymentMethod}")
+                    if (localPreview.paymentDate.isNotBlank()) Text("تاریخ پرداخت: ${localPreview.paymentDate}")
+                    if (localPreview.paymentTrackingNumber.isNotBlank()) Text("شماره پیگیری: ${localPreview.paymentTrackingNumber}")
+                    if (localPreview.notes.isNotBlank()) Text("توضیحات: ${localPreview.notes}")
+                    Text("این پیش‌نمایش محلی است؛ نه PDF نهایی و نه رسید ارسال سامانه مؤدیان.",
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { previewDialog = false }) { Text("بازگشت به فاکتور") } }
+        )
+    }
 
     if (confirmation.isNotEmpty()) AlertDialog(
         onDismissRequest = { if (!busy) confirmation = "" },
