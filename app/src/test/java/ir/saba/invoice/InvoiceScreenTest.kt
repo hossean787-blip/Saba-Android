@@ -247,8 +247,13 @@ class InvoiceScreenTest {
         compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performClick()
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("1000")
         compose.onNodeWithText("ثبت ردیف").performClick()
-        // A full-height Android Dialog is removed on the next Compose frame.
-        // Do not tap the parent editor's dock before the selected row is visible.
+        // Detect validation errors before waiting for a row that could never appear.
+        compose.waitForIdle()
+        val lineErrors = compose.onAllNodesWithTag("invoiceLineError").fetchSemanticsNodes()
+        if (lineErrors.isNotEmpty()) {
+            throw AssertionError("Saved identifier row refused: " +
+                lineErrors.joinToString { it.config.toString() })
+        }
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceItemRow0").fetchSemanticsNodes().isNotEmpty()
         }
