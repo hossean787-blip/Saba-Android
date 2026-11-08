@@ -108,5 +108,8 @@ class InvoiceEditorVisualInstrumentedTest {
         compose.onNodeWithTag("invoiceItemRow0").performScrollTo()
         compose.onNodeWithText("1. خدمات آزمایشی").assertExists()
         screenshot("invoice-editor-lines-emulator")
+        compose.onNodeWithText("ویرایش ردیف").performScrollTo().performClick()
+        compose.onNodeWithText("۳. مبالغ و مالیات").assertExists()
+        screenshot("invoice-editor-line-dialog-emulator")
     }
 }

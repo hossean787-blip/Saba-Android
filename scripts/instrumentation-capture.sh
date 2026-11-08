@@ -25,7 +25,7 @@ adb shell am instrument -w \
 grep -q 'OK (6 tests)' app/build/sura-intro-verification.txt
 
 adb pull /sdcard/Android/data/ir.saba.invoice/files/screenshots/ app/build/emulator-screenshots/
-for frame in sura-intro-particles-emulator.png sura-intro-mark-emulator.png home-emulator.png moadian-table-emulator.png moadian-form-emulator.png owner-account-emulator.png app-settings-emulator.png invoice-editor-header-emulator.png invoice-editor-lines-emulator.png; do
+for frame in sura-intro-particles-emulator.png sura-intro-mark-emulator.png home-emulator.png moadian-table-emulator.png moadian-form-emulator.png owner-account-emulator.png app-settings-emulator.png invoice-editor-header-emulator.png invoice-editor-lines-emulator.png invoice-editor-line-dialog-emulator.png; do
   match="$(find app/build/emulator-screenshots -type f -name "$frame" -size +1000c -print -quit)"
   if [[ -z "$match" ]]; then
     echo "Missing/empty real device frame: $frame" >&2
