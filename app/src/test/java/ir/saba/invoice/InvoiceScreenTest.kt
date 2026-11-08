@@ -105,6 +105,7 @@ class InvoiceScreenTest {
         compose.onNodeWithText("ذخیره پیش‌نویس").assertIsNotEnabled()
         addLine()
         compose.onNodeWithTag("invoiceItemRow0").assertExists()
+        compose.onNodeWithTag("invoiceQuickRowActions").assertExists()
         compose.onNodeWithTag("invoiceAccessibleTotals").assertExists()
         compose.onNodeWithTag("invoiceQuickPreview").assertIsEnabled()
         compose.onNodeWithText("ذخیره پیش‌نویس").assertIsEnabled()
