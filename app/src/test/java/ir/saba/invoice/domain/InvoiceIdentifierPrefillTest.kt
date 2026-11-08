@@ -33,6 +33,16 @@ class InvoiceIdentifierPrefillTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
+    fun rejectsFourteenDigitIdentifierBeforeInvoiceIsSaved() {
+        InvoiceIdentifierPrefill.from(identifier("12345678901234", "10"))
+    }
+
+    @Test fun preservesLeadingZeroInSendableThirteenDigitIdentifier() {
+        val selected = InvoiceIdentifierPrefill.from(identifier("۰۰۱۲۳۴۵۶۷۸۹۰۱", "10"))
+        assertEquals("0012345678901", selected.code)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
     fun rejectsNonNumericIdentifiers() {
         InvoiceIdentifierPrefill.from(identifier("not-a-tax-code", "10"))
     }
