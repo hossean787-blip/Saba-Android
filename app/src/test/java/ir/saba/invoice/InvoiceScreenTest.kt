@@ -82,6 +82,12 @@ class InvoiceScreenTest {
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("۱۰۰۰")
         compose.onNodeWithText("درصد مالیات (تا ۲ رقم اعشار)").performScrollTo().performTextInput("۱۰")
         compose.onNodeWithText("ثبت ردیف").performClick()
+        compose.waitForIdle()
+        val row = compose.onAllNodesWithTag("invoiceItemRow0", useUnmergedTree = true).fetchSemanticsNodes()
+        if (row.isEmpty()) {
+            throw AssertionError("ردیف پس از ثبت اضافه نشد؛ درخت رابط:\n" +
+                compose.onRoot(useUnmergedTree = true).printToString().take(13000))
+        }
     }
 
     @Test fun professionalInvoiceEditorKeepsSectionsAndSaveVisible() {
