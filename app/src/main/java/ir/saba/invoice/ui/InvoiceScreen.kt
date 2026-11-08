@@ -501,8 +501,7 @@ private fun InvoiceScreenContent(
                             Text("فروشنده / مؤدی: ${sellerName.ifBlank { "مؤدی انتخاب‌شده" }}",
                                 modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                         }
-                        Text("نوع صورتحساب: نوع اول  |  الگوی صورتحساب: الگوی ۱ (فروش)",
-                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        InvoiceSupportedTaxFormat()
                         Text("ارسال رسمی در نسخه فعلی فقط برای نوع اول، الگوی فروش، موضوع اصلی و تسویه نقدی فعال است.",
                             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         var expandedBuyer by remember { mutableStateOf(false) }
@@ -519,6 +518,24 @@ private fun InvoiceScreenContent(
                                         referenceTaxId = ""
                                         expandedBuyer = false
                                     })
+                                }
+                            }
+                        }
+                        val selectedBuyer = customers.firstOrNull { it.id == customerId }
+                        if (selectedBuyer != null) {
+                            Surface(Modifier.fillMaxWidth(),
+                                color = androidx.compose.ui.graphics.Color(0xFFF1F7FA),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("مشخصات خریدار انتخاب‌شده", fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodySmall)
+                                    Text(selectedBuyer.name, style = MaterialTheme.typography.bodyMedium)
+                                    if (selectedBuyer.nationalId.isNotBlank())
+                                        Text("شناسه ملی/کد ملی: ${selectedBuyer.nationalId}",
+                                            style = MaterialTheme.typography.bodySmall)
+                                    if (selectedBuyer.economicId.isNotBlank())
+                                        Text("کد اقتصادی: ${selectedBuyer.economicId}",
+                                            style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
@@ -736,7 +753,8 @@ private fun InvoiceScreenContent(
                 saving = busy,
                 canSave = lines.isNotEmpty(),
                 onSave = { saveCurrentInvoice() },
-                onCancel = { confirmation = "leave" }
+                onCancel = { confirmation = "leave" },
+                onPreview = { previewDialog = true }
             )
         }
     }
@@ -883,6 +901,8 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
             OutlinedTextField(code, { code = InvoiceInput.digits(it).trim() },
                 label = { Text("شناسه کالا و خدمت") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
+            NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
+            if (vatHint.isNotBlank()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(itemTitle, { itemTitle = it },
                 label = { Text("عنوان کالا/خدمت") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
@@ -916,9 +936,37 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
                 }
             }
             NumberField(discount, { discount = it }, "تخفیف کل این ردیف به ریال")
-            // Keep the existing Compose test label and decimal-VAT input behavior.
-            NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
-            if (vatHint.isNotBlank()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
+            // Local, read-only preview: never spends credit or calls the tax service.
+            val provisional = remember(code, description, quantity, price, discount, tax, unit) {
+                runCatching {
+                    val row = InvoiceLineAmounts.fromUserInput(
+                        code = code, description = description, rawQuantity = quantity,
+                        price = InvoiceInput.wholeNumber(price, "قیمت"),
+                        discount = InvoiceInput.wholeNumber(discount, "تخفیف"),
+                        rawRate = tax, unit = unit)
+                    InvoiceCalculator.calculate(listOf(row))
+                }.getOrNull()
+            }
+            if (provisional != null) {
+                val gross = runCatching {
+                    Math.addExact(provisional.netAmountRial, InvoiceInput.wholeNumber(discount, "تخفیف"))
+                }.getOrNull()
+                Surface(Modifier.fillMaxWidth(),
+                    color = androidx.compose.ui.graphics.Color(0xFFE5F5F0),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("محاسبه همین ردیف پیش از افزودن", fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        if (gross != null) Text("مبلغ قبل از تخفیف: ${rial(gross)}")
+                        Text("خالص پس از تخفیف: ${rial(provisional.netAmountRial)}")
+                        Text("مبلغ مالیات: ${rial(provisional.taxAmountRial)}")
+                        Text("مبلغ کل کالا/خدمت: ${rial(provisional.totalAmountRial)}",
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            Text("با ثبت ردیف، این قلم به جدول فاکتور اضافه می‌شود؛ هنوز فاکتوری ذخیره نشده است.",
+                style = MaterialTheme.typography.labelSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()) {
                 Button(
