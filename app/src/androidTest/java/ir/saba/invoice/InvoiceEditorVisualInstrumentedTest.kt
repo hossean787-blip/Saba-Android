@@ -107,6 +107,7 @@ class InvoiceEditorVisualInstrumentedTest {
         compose.onNodeWithTag("invoiceSupportedTaxFormat").assertExists()
         screenshot("invoice-editor-header-emulator")
         compose.onNodeWithTag("invoiceItemRow0").performScrollTo()
+        compose.onNodeWithTag("invoiceQuickRowActions").assertExists()
         compose.onNodeWithTag("invoiceAccessibleTotals").assertExists()
         compose.onNodeWithText("1. خدمات آزمایشی").assertExists()
         screenshot("invoice-editor-lines-emulator")
