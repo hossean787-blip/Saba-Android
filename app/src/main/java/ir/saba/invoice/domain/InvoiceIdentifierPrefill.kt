@@ -16,8 +16,11 @@ data class InvoiceIdentifierPrefill(
     companion object {
         fun from(identifier: SuraIdentifier): InvoiceIdentifierPrefill {
             val code = SuraIdentifierStore.normalize(identifier.id).replace(" ", "")
-            require(code.matches(Regex("[0-9]{13,14}"))) {
-                "شناسه انتخاب‌شده باید ۱۳ یا ۱۴ رقم باشد."
+            // The official v2 invoice mapper accepts 13-digit item/service IDs only.
+            // Preserve longer source identifiers in the catalog, but never insert one
+            // into an invoice row that is guaranteed to fail the official send gate.
+            require(code.matches(Regex("[0-9]{13}"))) {
+                "برای ردیف صورتحساب رسمی، شناسه کالا/خدمت باید دقیقاً ۱۳ رقم باشد؛ شناسه ۱۴ رقمی قابل ارسال نیست."
             }
             val description = identifier.description.trim()
             require(description.isNotEmpty()) { "شرح شناسه انتخاب‌شده خالی است." }
