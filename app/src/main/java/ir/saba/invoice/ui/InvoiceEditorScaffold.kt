@@ -154,6 +154,41 @@ internal fun InvoiceEditorPanel(
     }
 }
 
+/**
+ * Only fiscal format currently supported by the real submission pipeline.
+ * Display two individually labeled, non-editable selections rather than a
+ * misleading free-text declaration or a menu with unsupported choices.
+ */
+@Composable
+internal fun InvoiceSupportedTaxFormat() {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("invoiceSupportedTaxFormat")) {
+        if (maxWidth >= 440.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InvoiceTaxFormatField("نوع صورتحساب", "نوع اول", Modifier.weight(1f))
+                InvoiceTaxFormatField("الگوی صورتحساب", "الگوی ۱ ـ فروش", Modifier.weight(1f))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                InvoiceTaxFormatField("نوع صورتحساب", "نوع اول", Modifier.fillMaxWidth())
+                InvoiceTaxFormatField("الگوی صورتحساب", "الگوی ۱ ـ فروش", Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun InvoiceTaxFormatField(title: String, selected: String, modifier: Modifier) {
+    Surface(modifier, color = ivory, shape = RoundedCornerShape(11.dp),
+        border = BorderStroke(1.dp, edge)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = muted, style = MaterialTheme.typography.labelSmall)
+            Text(selected, color = ink, fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
 @Composable
 internal fun InvoiceEditorEmptyItems() {
     Surface(color = ivory, shape = RoundedCornerShape(13.dp),
@@ -254,6 +289,33 @@ internal fun InvoiceEditorItemsTable(
             sum.add(InvoiceLineAmounts.effectiveQuantity(line))
         }.stripTrailingZeros().toPlainString() }.getOrNull() }
     Column(Modifier.fillMaxWidth().testTag("invoiceItemsTable"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (summary != null) {
+            // The full accounting grid is horizontally scrollable on phones.
+            // Always expose the financially significant totals without swiping.
+            Surface(Modifier.fillMaxWidth().testTag("invoiceAccessibleTotals"),
+                color = Color(0xFFEDF7F5), shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFB9DDCF))) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("خالص پس از تخفیف", color = ink, style = MaterialTheme.typography.bodySmall)
+                        Text(rial(summary.netAmountRial), color = ink, fontWeight = FontWeight.SemiBold)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("جمع تخفیف", color = muted, style = MaterialTheme.typography.bodySmall)
+                        Text(discountSum?.let(::rial) ?: "—", color = ink)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("جمع مالیات", color = muted, style = MaterialTheme.typography.bodySmall)
+                        Text(rial(summary.taxAmountRial), color = ink)
+                    }
+                    HorizontalDivider(color = Color(0xFFB9DDCF))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("مبلغ قابل پرداخت", color = ink, fontWeight = FontWeight.Bold)
+                        Text(rial(summary.totalAmountRial), color = sea, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         Text("برای مشاهده همه ستون‌ها، جدول را به چپ یا راست بکشید.",
             style = MaterialTheme.typography.labelSmall, color = muted)
         Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -408,7 +470,8 @@ internal fun InvoiceEditorDock(
     saving: Boolean,
     canSave: Boolean,
     onSave: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onPreview: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("invoiceStickyActionDock"),
@@ -428,23 +491,26 @@ internal fun InvoiceEditorDock(
                     style = MaterialTheme.typography.titleMedium)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                OutlinedButton(
-                    onClick = onCancel, enabled = !saving,
-                    modifier = Modifier.weight(0.42f),
-                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("انصراف از ویرایش", style = MaterialTheme.typography.labelSmall) }
-                Button(
-                    onClick = onSave, enabled = !saving && canSave,
+                OutlinedButton(onClick = onPreview, enabled = !saving && canSave,
+                    modifier = Modifier.weight(0.42f).testTag("invoiceQuickPreview"),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp)) {
+                    Text("پیش‌نمایش", style = MaterialTheme.typography.bodySmall)
+                }
+                Button(onClick = onSave, enabled = !saving && canSave,
                     modifier = Modifier.weight(0.58f),
                     contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = sea)
-                ) {
+                    colors = ButtonDefaults.buttonColors(containerColor = sea)) {
                     Text(if (saving) "در حال ذخیره…" else "ذخیره پیش‌نویس",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodySmall)
+                        fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
                 }
+            }
+            TextButton(onClick = onCancel, enabled = !saving,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 1.dp)) {
+                Text("انصراف از ویرایش", style = MaterialTheme.typography.labelSmall,
+                    color = muted)
             }
         }
     }
