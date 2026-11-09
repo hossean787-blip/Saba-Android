@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
+import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
@@ -96,6 +97,14 @@ public final class AdminActivity extends Activity {
         }
         @Override public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
             handler.cancel(); // Never bypass a certificate error, including in debug builds.
+        }
+        @Override public void onPageFinished(WebView view, String url) {
+            if (!ENTRY.equals(url)) return;
+            // A safe UI health probe for emulator QA; never log account details or tokens.
+            if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                view.evaluateJavascript("(function(){return !!document.getElementById('inp-email') && !!document.getElementById('login-screen') && !!window.SuraReports && typeof SuraReports.makeXlsx==='function';})()",
+                    result -> Log.i("SURA_ADMIN_TEST", "login_ready=" + result));
+            }
         }
         private WebResourceResponse asset(String path, String type) {
             try {
