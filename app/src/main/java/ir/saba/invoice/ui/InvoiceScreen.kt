@@ -370,8 +370,6 @@ private fun InvoiceScreenContent(
                                 onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
                             } else if (loaded.invoice.subject != InvoiceSubject.ORIGINAL) {
                                 onNotice("این صورتحساب اصلاحی فقط در دستگاه ثبت شده؛ ارسال رسمی اصلاحیه هنوز فعال نیست.")
-                            } else if (loaded.invoice.settlementMode != InvoiceSettlement.CASH) {
-                                onNotice("ارسال رسمی نسیه و ترکیبی هنوز فعال نیست؛ فقط خروجی محلی مجاز است.")
                             } else onOpenOfficialSubmission()
                         })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
@@ -481,14 +479,13 @@ private fun InvoiceScreenContent(
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
                         if (invoice.status == "FINALIZED") {
-                            if (invoice.settlementMode == InvoiceSettlement.CASH && invoice.subject == InvoiceSubject.ORIGINAL) {
+                            if (invoice.subject == InvoiceSubject.ORIGINAL) {
                                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
                                     onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
                             } else {
                                 Text(if (invoice.subject != InvoiceSubject.ORIGINAL)
                                     "صورتحساب اصلاحی فقط محلی است؛ ارسال رسمی اصلاحیه در این نسخه فعال نیست."
-                                    else "ارسال رسمی روش " + InvoiceSettlement.label(invoice.settlementMode) +
-                                        " هنوز فعال نیست؛ فاکتور و مبالغ آن در دستگاه محفوظ هستند.",
+                                    else "این نوع صورتحساب در مسیر ارسال رسمی پشتیبانی نمی‌شود.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.error)
                             }
@@ -562,7 +559,7 @@ private fun InvoiceScreenContent(
                                 modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                         }
                         InvoiceSupportedTaxFormat()
-                        Text("ارسال رسمی در نسخه فعلی فقط برای نوع اول، الگوی فروش، موضوع اصلی و تسویه نقدی فعال است.",
+                        Text("ارسال رسمی نوع اول، الگوی فروش و موضوع اصلی با تسویه نقدی، نسیه یا ترکیبی پس از اعتبارسنجی مبلغ فعال است.",
                             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         var expandedBuyer by remember { mutableStateOf(false) }
                         Box {
@@ -721,8 +718,8 @@ private fun InvoiceScreenContent(
                         if (settlementMode == InvoiceSettlement.MIXED)
                             NumberField(cashPortionInput, { cashPortionInput = it }, "سهم نقدی از مبلغ کل (ریال)")
                         if (settlementMode != InvoiceSettlement.CASH)
-                            Text("تسویه نسیه و ترکیبی فعلاً فقط محلی ذخیره می‌شود؛ ارسال رسمی آن فعال نیست.",
-                                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            Text("برای ارسال رسمی، سهم نقدی و نسیه باید مطابق قواعد نسخه ۷.۹ به ریال قابل تفکیک و اعتبارسنجی باشند.",
+                                color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         val fieldsEnabled = !busy && !editorLocked
                         OutlinedTextField(local.article17Subject, { localDetailsJson =
                             local.copy(article17Subject = it.take(120)).toJson() }, enabled = fieldsEnabled,

@@ -114,13 +114,42 @@ class MoadianInvoiceMapperTest {
         }
     }
 
-    @Test fun nonCashSettlementMustNeverBeUploadedAsCashPatternOne() {
-        rejected {
-            map(invoice.copy(settlementMode = "CREDIT", cashPaidRial = 0L))
-        }
-        rejected {
-            map(invoice.copy(settlementMode = "MIXED", cashPaidRial = 1100L))
-        }
+    @Test fun creditTypeOneHasZeroCashAndNetAmountOnCredit() {
+        val payload=JSONObject(map(invoice.copy(settlementMode = "CREDIT", cashPaidRial = 0L)))
+        val h=payload.getJSONObject("header")
+        assertEquals(2,h.getInt("setm"))
+        assertEquals(0,h.getLong("cap"))
+        assertEquals(2000,h.getLong("insp"))
+        assertEquals(0,h.getLong("tvop"))
+        assertEquals(0,payload.getJSONArray("body").getJSONObject(0).getLong("cop"))
+        assertEquals(0,payload.getJSONArray("body").getJSONObject(0).getLong("vop"))
+        assertEquals(2200,h.getLong("tbill"))
+    }
+
+    @Test fun mixedTypeOneApportionsNetAndVatWithoutFloatingPoint() {
+        val payload=JSONObject(map(invoice.copy(settlementMode = "MIXED", cashPaidRial = 1100L)))
+        val h=payload.getJSONObject("header")
+        assertEquals(3,h.getInt("setm"))
+        assertEquals(1000L,h.getLong("cap"))
+        assertEquals(1000L,h.getLong("insp"))
+        assertEquals(100L,h.getLong("tvop"))
+        val line=payload.getJSONArray("body").getJSONObject(0)
+        assertEquals(1100L,line.getLong("cop"))
+        assertEquals(100L,line.getLong("vop"))
+        assertEquals(2200L,h.getLong("tbill"))
+    }
+
+    @Test fun impossibleMixedVatSplitFailsClosedInsteadOfRoundingClientCash() {
+        val shortLine = lines.single().copy(quantity = 1L, unitPriceRial = 10L,
+            taxRatePercent = 10)
+        rejected { map(invoice.copy(totalAmountRial = 11L, taxAmountRial = 1L,
+            settlementMode = "MIXED", cashPaidRial = 10L),listOf(shortLine)) }
+    }
+
+    @Test fun nonCashRequiresExplicitAndAccuratePaidAmount() {
+        rejected { map(invoice.copy(settlementMode = "CREDIT", cashPaidRial = null)) }
+        rejected { map(invoice.copy(settlementMode = "MIXED", cashPaidRial = 2200L)) }
+        rejected { map(invoice.copy(settlementMode = "MIXED", cashPaidRial = 0L)) }
     }
 
 }

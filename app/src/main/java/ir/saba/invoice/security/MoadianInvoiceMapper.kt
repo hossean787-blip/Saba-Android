@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.math.BigDecimal
 import java.time.*
 
-/** Explicitly supported: original type-one, pattern-one, domestic rial cash sale only. */
+/** Type-one pattern-one original sales, rial settlement 1/2/3 with strict amount reconciliation. */
 object MoadianInvoiceMapper {
     fun defaultIssueTime(jalali: String): String =
         JalaliCalendar.toGregorian(jalali).atTime(12, 0)
@@ -21,8 +21,7 @@ object MoadianInvoiceMapper {
     fun map(company: Company, customer: Customer, buyerProfile: CustomerProfile?, details: MoadianDetails,
             invoice: Invoice, lines: List<InvoiceLine>, issueTime: String, unit: String, now: Long): String {
         require(invoice.status == "FINALIZED" && invoice.companyId == company.id && customer.id == invoice.customerId && customer.companyId == company.id)
-        // The current official mapper encodes setm=1. Never send a noncash invoice as cash.
-        InvoiceSettlement.requireSupportedForOfficialCash(invoice)
+        // Never encode a credit/mixed invoice as cash. Allocations are checked below.
         InvoiceSubject.requireSupportedForOfficialSubmission(invoice)
         val local = InvoiceLocalDetails.fromJson(invoice.localDetailsJson)
         require(!local.article9Flag) {
@@ -61,20 +60,27 @@ object MoadianInvoiceMapper {
         val calculated = contract.items.map { MoadianLine(it.productServiceId,it.description,it.quantity,it.unitPriceRial,it.discountRial,it.vatPercent) }
         val total = MoadianCalculator.total(calculated)
         require(total.payableRial.longValueExact() == invoice.totalAmountRial && total.vatRial.longValueExact() == invoice.taxAmountRial) { "جمع فاکتور با قواعد مالیاتی تطابق ندارد؛ ارسال متوقف شد." }
-        require(total.netRial > BigDecimal.ZERO) { "در مسیر فروش نقدی، مبلغ پس از تخفیف باید مثبت باشد." }
+        require(total.netRial > BigDecimal.ZERO) { "مبلغ پس از تخفیف باید مثبت باشد." }
+        val settlement = MoadianRialSettlementCalculator.calculate(
+            invoice, calculated.map(MoadianCalculator::calculate)
+        )
         val body = JSONArray()
         calculated.forEachIndexed { index, line ->
             val t = MoadianCalculator.calculate(line)
             body.put(JSONObject().put("sstid",line.productId).put("sstt",line.description)
                 .put("mu",lines[index].unitCode.ifBlank { unit })
                 .put("am",line.quantity).put("fee",line.unitPriceRial).put("prdis",t.grossRial).put("dis",t.discountRial)
-                .put("adis",t.netRial).put("vra",line.vatPercent).put("vam",t.vatRial).put("cop",t.payableRial).put("vop",t.vatRial).put("tsstam",t.payableRial))
+                .put("adis",t.netRial).put("vra",line.vatPercent).put("vam",t.vatRial)
+                .put("cop",settlement.lineCashInclusive[index]).put("vop",settlement.linePaidVat[index])
+                .put("tsstam",t.payableRial))
         }
         val header = JSONObject().put("taxid",taxId).put("indatim",issued).put("inty",1).put("inno",serial.toString(16).uppercase(java.util.Locale.ROOT).padStart(10,'0'))
             .put("inp",1).put("ins",1).put("tins",company.economicId).put("tob",if(legal) 2 else 1)
-            .put("bid",customer.nationalId).put("tinb",customer.economicId).put("setm",1)
+            .put("bid",customer.nationalId).put("tinb",customer.economicId).put("setm",settlement.method)
             .put("tprdis",total.grossRial).put("tdis",total.discountRial).put("tadis",total.netRial).put("tvam",total.vatRial)
-            .put("todam",0).put("tvop",total.vatRial).put("tbill",total.payableRial).put("cap",total.netRial) // V7.9 table 25: cap = tbill - VAT - other taxes - credit amount.
+            .put("todam",0).put("tvop",settlement.totalPaidVat).put("tbill",total.payableRial)
+            .put("cap",settlement.cashBase)
+        if (settlement.method != 1) header.put("insp", settlement.creditBase)
         if (local.note1.isNotBlank()) header.put("nti1", local.note1)
         if (local.note2.isNotBlank()) header.put("nti2", local.note2)
         return JSONObject().put("header",header).put("body",body).put("payments",JSONArray()).toString()

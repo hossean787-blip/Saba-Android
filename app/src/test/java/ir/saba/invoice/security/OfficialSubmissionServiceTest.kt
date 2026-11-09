@@ -103,6 +103,33 @@ class OfficialSubmissionServiceTest {
         assertEquals(0, api.gets)
     }
 
+    @Test fun creditAndMixedPreparationKeepOfficialSharesWithoutNetwork()=runBlocking {
+        val original=requireNotNull(db.invoiceDao().byId(invoice))
+        db.invoiceDao().update(original.copy(settlementMode="CREDIT",cashPaidRial=0L))
+        val credit=service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164")
+        val c=JSONObject(credit.payload).getJSONObject("header")
+        assertEquals(2,c.getInt("setm"))
+        assertEquals(2000L,c.getLong("insp"))
+        assertEquals(0L,c.getLong("cap"))
+
+        val mixedId=db.invoiceDao().insert(original.copy(
+            id=0L,invoiceNumber="13",settlementMode="MIXED",cashPaidRial=1100L
+        ))
+        db.invoiceLineDao().insertAll(listOf(
+            InvoiceLine(invoiceId=mixedId,itemCode="2710000138624",
+                description="کالا",quantity=2,unitPriceRial=1000,taxRatePercent=10)
+        ))
+        val mixed=service.prepare(company,mixedId,"2026-11-03T12:00:00+03:30","164")
+        val h=JSONObject(mixed.payload).getJSONObject("header")
+        assertEquals(3,h.getInt("setm"))
+        assertEquals(1000L,h.getLong("cap"))
+        assertEquals(1000L,h.getLong("insp"))
+        assertEquals(100L,h.getLong("tvop"))
+        assertEquals("PREPARED",mixed.state)
+        assertEquals(0,api.posts)
+        assertEquals(0,api.gets)
+    }
+
     @Test fun acknowledgementIsNotAcceptanceAndSignedInquiryIsBoundToInvoice()=runBlocking {
         val row=prepare();assertEquals("PREPARED",row.state);assertEquals(0,api.posts)
         val sent=service.submit(row.requestId);assertEquals("SUBMITTED",sent.state);assertNull(sent.signedReceipt)
@@ -252,7 +279,7 @@ class OfficialSubmissionServiceTest {
     }
     @Test fun expiredAppSessionBetweenMetadataAndPostDoesNotClaimOrSend()=runBlocking {
         val row=prepare();var checks=0
-        val gated=OfficialSubmissionService(db,account,credentials,api,sessionCheck={checks++;require(checks<3)}){now}
+        val gated=OfficialSubmissionService(db,account,credentials,api,sessionCheck={checks++;require(checks<4)}){now}
         reject{gated.submit(row.requestId)}
         assertEquals("PREPARED",db.officialSubmissionDao().byId(row.requestId)!!.state)
         assertEquals(0,api.posts);assertTrue(api.gets>0)
