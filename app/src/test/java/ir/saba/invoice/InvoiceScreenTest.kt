@@ -444,9 +444,16 @@ class InvoiceScreenTest {
             throw AssertionError("Reference picker absent after selected correction; UI tree:\n" +
                 compose.onRoot(useUnmergedTree = true).printToString().take(20000), failure)
         }
-        compose.onNodeWithText("شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده")
-            .performClick()
-        compose.onNodeWithText(referenceTaxId).performClick()
+        // The reference picker also follows a nested scroll container; dispatch
+        // its semantic click instead of an offscreen synthetic touch.
+        compose.onNodeWithText(referenceLabel)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText(referenceTaxId, useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(referenceTaxId)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         compose.onNodeWithText("کپی اقلام صورتحساب مرجع برای اصلاح")
             .performScrollTo().performClick()
         compose.waitUntil(15000) {
