@@ -428,10 +428,17 @@ class InvoiceScreenTest {
         // The subject chips scroll horizontally; first scroll the outer invoice form vertically.
         compose.onNodeWithText("موضوع صورتحساب").performScrollTo()
         compose.onNodeWithText("اصلاحی (محلی)").assertIsEnabled().performClick()
-        compose.waitUntil(15000) {
-            compose.onAllNodesWithText(
-                "شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده"
-            ).fetchSemanticsNodes().isNotEmpty()
+        compose.waitForIdle()
+        compose.onNodeWithText("اصلاحی (محلی)").assertIsSelected()
+        val referenceLabel = "شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده"
+        try {
+            compose.waitUntil(15000) {
+                compose.onAllNodesWithText(referenceLabel, useUnmergedTree = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (failure: Exception) {
+            throw AssertionError("Reference picker absent after selected correction; UI tree:\n" +
+                compose.onRoot(useUnmergedTree = true).printToString().take(20000), failure)
         }
         compose.onNodeWithText("شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده")
             .performClick()
