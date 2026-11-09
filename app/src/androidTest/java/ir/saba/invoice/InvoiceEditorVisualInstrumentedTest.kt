@@ -115,6 +115,10 @@ class InvoiceEditorVisualInstrumentedTest {
         compose.onNodeWithTag("invoiceItemRow0").assertExists()
         compose.onNodeWithText("1. خدمات آزمایشی").assertExists()
         screenshot("invoice-editor-lines-emulator")
+        compose.onNodeWithText("مدارک، یادداشت‌ها و ارسال در آینده").performScrollTo()
+        compose.onNodeWithText("انتخاب و پیوست سند از دستگاه").assertExists()
+        compose.onNodeWithText("تنظیم ارسال در آینده (اختیاری)").assertExists()
+        screenshot("invoice-editor-extras-emulator")
         compose.onNodeWithText("ویرایش ردیف").performScrollTo().performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceInlineLineEditor").fetchSemanticsNodes().isNotEmpty()

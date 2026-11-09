@@ -118,6 +118,71 @@ class InvoiceSubjectWorkflowTest {
         assertTrue(db.invoiceDao().forCompany(foreignCompany).isEmpty())
     }
 
+
+    @Test fun acceptedOriginalAllowsOnlyDecreasedLocalReturnAndNeverOfficialSubmit() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, SabaDatabase::class.java).build()
+        try {
+            val company = db.companyDao().insert(Company(
+                purchaserId = account.ownerId, name = "فروشنده", nationalId = "1001"))
+            val buyer = db.customerDao().insert(Customer(companyId = company, name = "خریدار"))
+            val repo = InvoiceRepository(db)
+            val originals = listOf(InvoiceLine(
+                invoiceId = 0, description = "خدمت", itemCode = "1234567890123",
+                quantity = 4, unitPriceRial = 1000, taxRatePercent = 10, unitCode = "1627"))
+            val originalId = repo.saveDraft(company, buyer, "101", "1405/08/10",
+                originals, serverPromoConfirmed = true)
+            repo.finalizeDraft(company, originalId)
+            db.officialSubmissionDao().insert(OfficialSubmission(
+                requestId = UUID.randomUUID().toString(), ownerId = account.ownerId,
+                companyId = company, invoiceId = originalId, fiscalId = "A11216",
+                taxId = taxId, payload = "{}", payloadHash = "hash", preparedAt = 100,
+                state = "ACCEPTED", referenceNumber = "valid-reference", signedReceipt = "receipt"
+            ))
+            val remaining = originals.map { it.copy(quantity = 2) }
+            expectInvalid {
+                repo.saveDraft(company, buyer, "102", "1405/08/11",
+                    originals, serverPromoConfirmed = true,
+                    subject = InvoiceSubject.RETURN, referenceTaxId = taxId)
+            }
+            expectInvalid {
+                repo.saveDraft(company, buyer, "102", "1405/08/11",
+                    remaining.map { it.copy(itemCode = "8888888888888") },
+                    serverPromoConfirmed = true,
+                    subject = InvoiceSubject.RETURN, referenceTaxId = taxId)
+            }
+            expectInvalid {
+                repo.saveDraft(company, buyer, "102", "1405/08/11",
+                    originals.map { it.copy(quantity = 5) },
+                    serverPromoConfirmed = true,
+                    subject = InvoiceSubject.RETURN, referenceTaxId = taxId)
+            }
+            expectInvalid {
+                repo.saveDraft(company, buyer, "102", "1405/08/09",
+                    remaining, serverPromoConfirmed = true,
+                    subject = InvoiceSubject.RETURN, referenceTaxId = taxId)
+            }
+            val id = repo.saveDraft(company, buyer, "102", "1405/08/11",
+                remaining, serverPromoConfirmed = true,
+                subject = InvoiceSubject.RETURN, referenceTaxId = taxId)
+            val saved = repo.detailsForCompany(company, id)
+            assertEquals(InvoiceSubject.RETURN, saved.invoice.subject)
+            assertEquals(2, saved.lines.single().quantity)
+            repo.finalizeDraft(company, id)
+            try {
+                InvoiceSubject.requireSupportedForOfficialSubmission(
+                    requireNotNull(db.invoiceDao().byId(id)))
+                fail("A local return must never be submitted as original")
+            } catch (_: IllegalArgumentException) {}
+            expectInvalid {
+                repo.saveDraft(company, buyer, "103", "1405/08/12",
+                    remaining, serverPromoConfirmed = true,
+                    subject = InvoiceSubject.CORRECTION, referenceTaxId = taxId)
+            }
+            assertEquals(2, db.invoiceDao().forCompany(company).size)
+        } finally { db.close() }
+    }
+
     @Test fun noAcceptedReferenceNeverAuthorizesRemoteCreditConsumption() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, SabaDatabase::class.java).build()

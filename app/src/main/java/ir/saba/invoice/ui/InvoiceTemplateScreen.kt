@@ -76,9 +76,11 @@ object SuraInvoicePdf {
             c.drawColor(Color.WHITE)
             rect(c, 21f, 20f, 574f, 84f, navy)
             text(c, if (logo) "SURA | سورا" else "صورتحساب", 557f, 32f, 250, 22f, true, Color.WHITE)
-            text(c, if (invoice.subject == InvoiceSubject.CORRECTION)
-                "صورتحساب اصلاحی — ثبت محلی، فاقد ارسال رسمی"
-                else "صورتحساب فروش کالا و خدمات",
+            text(c, when (invoice.subject) {
+                InvoiceSubject.CORRECTION -> "صورتحساب اصلاحی — ثبت محلی، فاقد ارسال رسمی"
+                InvoiceSubject.RETURN -> "برگشت از فروش — ثبت محلی، فاقد ارسال رسمی"
+                else -> "صورتحساب فروش کالا و خدمات"
+            },
                 555f, 60f, 400, 12f, false, Color.WHITE)
             rect(c, 22f, 95f, 574f, 128f, blue)
             text(c, "شماره صورتحساب: ${invoice.invoiceNumber}", 559f, 103f, 235, 11f, true)
@@ -130,8 +132,8 @@ object SuraInvoicePdf {
             if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
             if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
             }
-            if (invoice.subject == InvoiceSubject.CORRECTION) {
-                text(c, "مرجع اصلاحیه: " + invoice.referenceTaxId.orEmpty() +
+            if (invoice.subject == InvoiceSubject.CORRECTION || invoice.subject == InvoiceSubject.RETURN) {
+                text(c, "مرجع سند ارجاعی: " + invoice.referenceTaxId.orEmpty() +
                     " • صفحه " + (pageIndex + 1) + " از " + pages.size,
                     558f, 781f, 522, 9f, true, navy, maxLines=1, includePad=false)
             } else {

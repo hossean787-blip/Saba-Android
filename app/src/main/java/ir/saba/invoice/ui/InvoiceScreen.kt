@@ -600,7 +600,8 @@ private fun InvoiceScreenContent(
                             }
                         }
                     Text("موضوع صورتحساب", style = MaterialTheme.typography.titleSmall)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = subject == InvoiceSubject.ORIGINAL,
                             enabled = !busy && !editorLocked,
                             onClick = { subject = InvoiceSubject.ORIGINAL;referenceTaxId = "" },
@@ -608,10 +609,16 @@ private fun InvoiceScreenContent(
                         FilterChip(selected = subject == InvoiceSubject.CORRECTION,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
                             onClick = { subject = InvoiceSubject.CORRECTION;referenceTaxId = "" },
-                            label = { Text("اصلاحی (ثبت محلی)") })
+                            label = { Text("اصلاحی (محلی)") })
+                        FilterChip(selected = subject == InvoiceSubject.RETURN,
+                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
+                            onClick = { subject = InvoiceSubject.RETURN; referenceTaxId = ""; lines = emptyList() },
+                            label = { Text("برگشت از فروش (محلی)") })
                     }
-                    if (subject == InvoiceSubject.CORRECTION) {
-                        Text("برای اصلاحی، تنها صورتحساب اصلی تأییدشده همان مؤدی و خریدار قابل ارجاع است. ارسال رسمی اصلاحیه هنوز پشتیبانی نمی‌شود.",
+                    if (subject == InvoiceSubject.CORRECTION || subject == InvoiceSubject.RETURN) {
+                        Text(if (subject == InvoiceSubject.RETURN)
+                            "برگشت از فروش محلی: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند. ارسال رسمی آن فعال نیست."
+                            else "برای اصلاحی، تنها صورتحساب اصلی تأییدشده همان مؤدی و خریدار قابل ارجاع است. ارسال رسمی اصلاحیه هنوز پشتیبانی نمی‌شود.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)
                         var expandedReference by remember { mutableStateOf(false) }
@@ -653,12 +660,16 @@ private fun InvoiceScreenContent(
                                         val copied = original.lines.map { it.copy(id = 0, invoiceId = 0) }
                                         InvoiceCalculator.calculate(copied)
                                         lines = copied
-                                        onNotice("اقلام مرجع بارگذاری شد؛ اکنون مبلغ و مقدار را اصلاح کنید. هنوز فاکتوری ثبت نشده است.")
+                                        onNotice(if (subject == InvoiceSubject.RETURN)
+                                            "اقلام مرجع کپی شد؛ مقدار باقی‌مانده پس از برگشت را کاهش دهید. ثبت محلی است."
+                                            else "اقلام مرجع بارگذاری شد؛ اکنون مبلغ و مقدار را اصلاح کنید. هنوز فاکتوری ثبت نشده است.")
                                     }
-                                }) { Text("کپی اقلام صورتحساب مرجع برای اصلاح") }
+                                }) { Text(if (subject == InvoiceSubject.RETURN)
+                                    "کپی اقلام مرجع برای برگشت از فروش"
+                                    else "کپی اقلام صورتحساب مرجع برای اصلاح") }
                         }
                     } else if (acceptedOriginals.isEmpty()) {
-                        Text("صورتحساب اصلاحی پس از پذیرش صورتحساب اصلی و ثبت رسید معتبر در دسترس می‌شود.",
+                        Text("صورتحساب ارجاعی پس از پذیرش صورتحساب اصلی و ثبت رسید معتبر در دسترس می‌شود.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     }
