@@ -680,8 +680,8 @@ const ROLE_COLORS = { admin: 'var(--red)', editor: 'var(--yellow)', viewer: 'var
 const CAN = {
   editPackages:  () => ADMIN_ROLE === 'admin',
   adjustWallet:  () => ADMIN_ROLE === 'admin',
-  giftCredit:    () => ADMIN_ROLE !== 'viewer',
-  transferCredit:() => ADMIN_ROLE !== 'viewer',
+  giftCredit:    () => ADMIN_ROLE === 'admin',
+  transferCredit:() => ADMIN_ROLE === 'admin',
   exportData:    () => ADMIN_ROLE !== 'viewer',
 };
 
