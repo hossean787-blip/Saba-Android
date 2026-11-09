@@ -425,10 +425,16 @@ class InvoiceScreenTest {
         }
         compose.setContent { Screen() }
         openNew()
-        compose.onNodeWithText("اصلاحی (محلی)").performScrollTo()
-            .assertIsEnabled().performClick()
+        // The subject chips scroll horizontally; first scroll the outer invoice form vertically.
+        compose.onNodeWithText("موضوع صورتحساب").performScrollTo()
+        compose.onNodeWithText("اصلاحی (محلی)").assertIsEnabled().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText(
+                "شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده"
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده")
-            .performScrollTo().performClick()
+            .performClick()
         compose.onNodeWithText(referenceTaxId).performClick()
         compose.onNodeWithText("کپی اقلام صورتحساب مرجع برای اصلاح")
             .performScrollTo().performClick()

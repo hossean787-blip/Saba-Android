@@ -116,6 +116,7 @@ class InvoiceEditorVisualInstrumentedTest {
         compose.onNodeWithText("1. خدمات آزمایشی").assertExists()
         screenshot("invoice-editor-lines-emulator")
         compose.onNodeWithText("مدارک، یادداشت‌ها و ارسال در آینده").performScrollTo()
+        compose.onNodeWithText("یادداشت ۱").performScrollTo()
         compose.onNodeWithText("انتخاب و پیوست سند از دستگاه").assertExists()
         compose.onNodeWithText("تنظیم ارسال در آینده (اختیاری)").assertExists()
         screenshot("invoice-editor-extras-emulator")

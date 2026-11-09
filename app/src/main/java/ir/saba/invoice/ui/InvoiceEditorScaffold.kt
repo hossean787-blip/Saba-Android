@@ -89,7 +89,8 @@ internal fun InvoiceEditorProgress(
         "۲  انتخاب کالا" to hasItems,
         "۳  جدول فاکتور" to hasItems,
         "۴  تسویه" to settlementReady,
-        "۵  پیش‌نمایش" to hasItems
+        "۵  تکمیلی (اختیاری)" to true,
+        "۶  پیش‌نمایش" to hasItems
     )
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("invoiceWorkflowProgress"),

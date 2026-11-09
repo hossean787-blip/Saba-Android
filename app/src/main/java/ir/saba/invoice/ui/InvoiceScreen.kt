@@ -801,6 +801,9 @@ private fun InvoiceScreenContent(
                             localDetailsJson = local.copy(note2 = it.take(1200)).toJson()
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
                             label = { Text("یادداشت ۲") }, minLines = 2, maxLines = 3)
+                        Text("برای ارسال رسمی، یادداشت ۱ و ۲ هرکدام حداکثر ۳۰ نویسه دارند؛ متن بلندتر فقط برای ثبت محلی است.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary)
                         OutlinedTextField(local.invoiceDescription, {
                             localDetailsJson = local.copy(invoiceDescription = it.take(120)).toJson()
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
@@ -812,6 +815,10 @@ private fun InvoiceScreenContent(
                                 onCheckedChange = { localDetailsJson = local.copy(article9Flag = it).toJson() },
                                 enabled = fieldsEnabled)
                         }
+                        if (local.article9Flag) Text(
+                            "ارسال رسمی سند موضوع ماده ۹ هنوز فعال نیست؛ فقط در دستگاه ثبت می‌شود.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
                         Text("پیوست اسناد و مدارک", fontWeight = FontWeight.SemiBold)
                         Text("حداکثر ۵ فایل، هر فایل ۶ مگابایت؛ فقط مرجع سند در برنامه ذخیره می‌شود.",
                             style = MaterialTheme.typography.bodySmall)
