@@ -147,19 +147,20 @@ class InvoiceScreenTest {
         }
         compose.onNodeWithText("ویرایش پیش‌نویس").performClick()
         compose.waitUntil(15000) {
-            compose.onAllNodesWithTag("invoiceLocalNotes").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("ذخیره پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("invoiceLocalNotes").performTextReplacement("یادداشت اصلاح‌شده")
+        // Save the reopened editor without changing any supplementary field.
+        // This catches both a missing restore and an omitted repository argument.
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) {
-            runBlocking {
-                db.invoiceDao().forCompany(company).single().let {
-                    val details = InvoiceLocalDetails.fromJson(it.localDetailsJson)
-                    details.notes == "یادداشت اصلاح‌شده" &&
-                        details.paymentMethod == "کارتخوان" &&
-                        details.paymentTrackingNumber == "۱۲۳"
-                }
-            }
+            compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
+        }
+        runBlocking {
+            val persisted = db.invoiceDao().forCompany(company).single()
+            val metadata = InvoiceLocalDetails.fromJson(persisted.localDetailsJson)
+            assertEquals("یادداشت پیشین", metadata.notes)
+            assertEquals("کارتخوان", metadata.paymentMethod)
+            assertEquals("۱۲۳", metadata.paymentTrackingNumber)
         }
         assertEquals(10L, creditGateway.remaining)
     }
