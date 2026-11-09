@@ -17,6 +17,11 @@ assert 'connect-src https://fiiitzfbdjzpmepzjsjw.supabase.co' in html
 assert 'https://cdnjs' not in html and 'https://fonts.googleapis.com' not in html
 assert '<script src="/assets/admin/reports.js"></script>' in html
 assert 'SuraReports.makeXlsx' in html and 'SuraReports.download' in html
+import re
+inline_scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+assert len(inline_scripts) == 1
+for js_source in [inline_scripts[0],js]:
+    assert '?.' not in js_source and '??' not in js_source, 'Old Android WebViews cannot parse modern optional syntax'
 assert 'sb_publishable_' in html
 assert not re.search(r'(?:eyJhbGci|sb_secret_|SUPABASE_SERVICE_ROLE_KEY)\S{15,}',html)
 assert 'setAllowFileAccess(false)' in java and 'setAllowContentAccess(false)' in java

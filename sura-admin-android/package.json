@@ -1,0 +1,7 @@
+{
+  "name": "sura-manager-web-compat",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {"web:build": "node tools/downlevel-web.cjs"},
+  "devDependencies": {"typescript": "5.8.3"}
+}

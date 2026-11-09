@@ -27,6 +27,10 @@ APK آزمایشی در `sura-admin-android/app/build/outputs/apk/debug/app-debu
 
 مسیر ساخت ابری: `.github/workflows/sura-manager-android.yml`؛ پس از موفقیت، artifact با نام `SURA-Manager-debug-APK` ایجاد می‌شود.
 
+## سازگاری WebView قدیمی
+
+فایل‌های خام رابط در `sources/` نگهداری شده‌اند و کدهایی که در APK قرار می‌گیرند به سطح جاوااسکریپت **ES2017** تبدیل شده‌اند تا WebViewهای قدیمی‌تر مانند Chrome/WebView 74 اندروید ۱۰ نیز بتوانند آن‌ها را اجرا کنند. برای اعمال تغییرات به سورس HTML/JS، ابتدا `npm install` و سپس `npm run web:build` را اجرا کنید؛ فایل‌های تولیدی زیر `app/src/main/assets/admin/` را ثبت کنید.
+
 ## آزمون‌ها و محدودیت انتشار
 
 ```bash

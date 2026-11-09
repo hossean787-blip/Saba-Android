@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://fiiitzfbdjzpmepzjsjw.supabase.co; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>سورا مدیر | مرکز کنترل</title>
+<script src="/assets/admin/reports.js"></script>
+
+
+<style>
+/* ── layout: fixed sidebar + content scrolls ── */
+:root {
+  --bg:        #0d1117;
+  --bg2:       #161b24;
+  --bg3:       #1e2633;
+  --border:    #2a3344;
+  --fg:        #e8edf5;
+  --fg2:       #8b9ab0;
+  --fg3:       #556070;
+  --accent:    #3d8ef5;
+  --accent2:   #1a5cbf;
+  --accent-bg: rgba(61,142,245,.10);
+  --green:     #22c55e;
+  --green-bg:  rgba(34,197,94,.10);
+  --yellow:    #f59e0b;
+  --yellow-bg: rgba(245,158,11,.10);
+  --red:       #ef4444;
+  --red-bg:    rgba(239,68,68,.10);
+  --radius:    10px;
+  --sidebar:   240px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg:        #f4f6fa;
+  --bg2:       #ffffff;
+  --bg3:       #edf0f7;
+  --border:    #d6dce8;
+  --fg:        #0f1620;
+  --fg2:       #4e5e78;
+  --fg3:       #9aaabf;
+  --accent:    #1a6fe8;
+  --accent2:   #1253b8;
+  --accent-bg: rgba(26,111,232,.08);
+  --green:     #16a34a;
+  --green-bg:  rgba(22,163,74,.08);
+  --yellow:    #d97706;
+  --yellow-bg: rgba(217,119,6,.08);
+  --red:       #dc2626;
+  --red-bg:    rgba(220,38,38,.08);
+  color-scheme: light;
+}}
+:root[data-theme="light"] {
+  --bg:#f4f6fa;--bg2:#ffffff;--bg3:#edf0f7;--border:#d6dce8;
+  --fg:#0f1620;--fg2:#4e5e78;--fg3:#9aaabf;
+  --accent:#1a6fe8;--accent2:#1253b8;--accent-bg:rgba(26,111,232,.08);
+  --green:#16a34a;--green-bg:rgba(22,163,74,.08);
+  --yellow:#d97706;--yellow-bg:rgba(217,119,6,.08);
+  --red:#dc2626;--red-bg:rgba(220,38,38,.08);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: 'Noto Sans Arabic', 'Noto Naskh Arabic', system-ui, sans-serif;
+  background: var(--bg); color: var(--fg);
+  direction: rtl;
+  display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+  overflow: hidden;
+}
+
+/* ── Login Screen ── */
+#login-screen {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); z-index: 100;
+  padding: 24px;
+}
+.login-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px 36px;
+  width: 100%; max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35);
+}
+.login-logo {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 32px; justify-content: center;
+}
+.login-logo svg { width: 36px; height: 36px; }
+.login-logo span {
+  font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em;
+}
+.login-logo small {
+  display: block; font-size: .7rem; color: var(--fg2);
+  font-weight: 400; letter-spacing: .05em;
+}
+.form-group { margin-bottom: 18px; }
+.form-group label {
+  display: block; font-size: .82rem; color: var(--fg2);
+  margin-bottom: 6px; font-weight: 500;
+}
+.form-group input {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--fg); border-radius: var(--radius);
+  font-family: inherit; font-size: .95rem; outline: none;
+  transition: border .15s;
+}
+.form-group input:focus { border-color: var(--accent); }
+.btn-primary {
+  width: 100%; padding: 11px;
+  background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius); font-family: inherit;
+  font-size: .95rem; font-weight: 600; cursor: pointer;
+  transition: background .15s; margin-top: 4px;
+}
+.btn-primary:hover { background: var(--accent2); }
+.login-error {
+  background: var(--red-bg); color: var(--red);
+  border: 1px solid rgba(239,68,68,.3);
+  border-radius: 8px; padding: 10px 14px;
+  font-size: .85rem; margin-top: 14px; display: none;
+}
+.login-note {
+  color: var(--fg3); font-size: .78rem; text-align: center;
+  margin-top: 20px; line-height: 1.7;
+}
+
+/* ── App Shell ── */
+#app {
+  display: none; flex: 1; height: 100%;
+  flex-direction: row; overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--sidebar); flex-shrink: 0;
+  background: var(--bg2); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  height: 100%; overflow: hidden;
+}
+.sidebar-header {
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 8px;
+}
+.brand-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--accent); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.brand-icon svg { width: 18px; height: 18px; fill: #fff; }
+.brand-name { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+.brand-sub { font-size: .7rem; color: var(--fg2); margin-top: 1px; }
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 10px 8px; }
+.nav-section { margin-bottom: 20px; }
+.nav-section-title {
+  font-size: .67rem; font-weight: 600; color: var(--fg3);
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 0 8px; margin-bottom: 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 8px;
+  cursor: pointer; color: var(--fg2);
+  font-size: .875rem; font-weight: 500;
+  transition: all .12s; user-select: none;
+  white-space: nowrap;
+}
+.nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+.nav-item:hover { background: var(--bg3); color: var(--fg); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); }
+.nav-badge {
+  margin-right: auto; background: var(--accent);
+  color: #fff; font-size: .68rem; font-weight: 700;
+  padding: 1px 7px; border-radius: 20px;
+}
+.sidebar-footer {
+  padding: 12px 8px; border-top: 1px solid var(--border);
+}
+.user-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px;
+  cursor: pointer; transition: background .12s;
+}
+.user-row:hover { background: var(--bg3); }
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent2); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 700; flex-shrink: 0;
+}
+.user-name { font-size: .82rem; font-weight: 600; }
+.user-role { font-size: .7rem; color: var(--fg2); }
+
+/* ── Main Content ── */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  height: 56px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 12px; flex-shrink: 0;
+}
+.topbar-title { font-size: 1rem; font-weight: 700; }
+.topbar-sub { font-size: .8rem; color: var(--fg2); margin-top: 1px; }
+.topbar-spacer { flex: 1; }
+.topbar-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--fg2); padding: 6px 12px; border-radius: 8px;
+  cursor: pointer; font-family: inherit; font-size: .82rem;
+  font-weight: 500; transition: all .12s; white-space: nowrap;
+}
+.topbar-btn:hover { background: var(--border); color: var(--fg); }
+.topbar-btn svg { width: 15px; height: 15px; }
+.topbar-btn.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.topbar-btn.accent:hover { background: var(--accent2); }
+
+.content { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* ── Cards & Grid ── */
+.stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 16px;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute;
+  top: 0; right: 0; left: 0; height: 3px;
+}
+.stat-card.blue::before { background: var(--accent); }
+.stat-card.green::before { background: var(--green); }
+.stat-card.yellow::before { background: var(--yellow); }
+.stat-card.red::before { background: var(--red); }
+.stat-label { font-size: .75rem; color: var(--fg2); font-weight: 500; margin-bottom: 8px; }
+.stat-val {
+  font-size: 1.65rem; font-weight: 700; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.stat-val.small { font-size: 1.25rem; }
+.stat-delta {
+  font-size: .75rem; margin-top: 6px; display: flex;
+  align-items: center; gap: 3px;
+}
+.stat-delta.up { color: var(--green); }
+.stat-delta.dn { color: var(--red); }
+.stat-icon {
+  position: absolute; bottom: 14px; left: 14px;
+  opacity: .12; width: 40px; height: 40px;
+}
+
+.panel {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 16px;
+}
+.panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.panel-head h3 { font-size: .9rem; font-weight: 700; margin: 0; }
+.panel-head span { color: var(--fg2); font-size: .8rem; }
+.panel-actions { margin-right: auto; display: flex; gap: 8px; }
+
+/* ── Table ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+th {
+  padding: 10px 14px; text-align: right;
+  font-size: .72rem; font-weight: 600; color: var(--fg3);
+  letter-spacing: .04em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+td {
+  padding: 11px 14px; border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums; vertical-align: middle;
+  min-width: 0;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg3); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: .73rem; font-weight: 600; white-space: nowrap;
+}
+.badge.green { background: var(--green-bg); color: var(--green); }
+.badge.yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge.red { background: var(--red-bg); color: var(--red); }
+.badge.blue { background: var(--accent-bg); color: var(--accent); }
+.badge.gray { background: var(--bg3); color: var(--fg2); }
+
+.action-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--fg2); padding: 4px 10px; border-radius: 6px;
+  cursor: pointer; font-family: inherit; font-size: .78rem;
+  transition: all .12s;
+}
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+.action-btn + .action-btn { margin-right: 4px; }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; width: 100%; max-width: 480px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid var(--border);
+}
+.modal-head h3 { font-size: .95rem; font-weight: 700; margin: 0; }
+.modal-close {
+  background: none; border: none; color: var(--fg2);
+  cursor: pointer; padding: 4px; border-radius: 6px;
+  line-height: 1; font-size: 1.1rem; transition: color .12s;
+}
+.modal-close:hover { color: var(--fg); }
+.modal-body { padding: 20px; }
+.modal-foot {
+  padding: 14px 20px; border-top: 1px solid var(--border);
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+.btn { padding: 9px 20px; border-radius: 8px; font-family: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border); transition: all .12s; }
+.btn-accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-accent:hover { background: var(--accent2); }
+.btn-ghost { background: none; color: var(--fg2); }
+.btn-ghost:hover { background: var(--bg3); }
+.btn-danger { background: var(--red-bg); color: var(--red); border-color: rgba(239,68,68,.3); }
+
+.field-row { margin-bottom: 14px; }
+.field-row label { display: block; font-size: .8rem; color: var(--fg2); font-weight: 500; margin-bottom: 5px; }
+.field-row input, .field-row select, .field-row textarea {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--fg); border-radius: 8px; font-family: inherit;
+  font-size: .88rem; outline: none; transition: border .15s;
+}
+.field-row input:focus, .field-row select:focus, .field-row textarea:focus { border-color: var(--accent); }
+.field-row textarea { resize: vertical; min-height: 80px; }
+.field-row select option { background: var(--bg2); }
+
+/* ── Filters row ── */
+.filters { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.search-input {
+  flex: 1; min-width: 160px; padding: 7px 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--fg); border-radius: 8px; font-family: inherit;
+  font-size: .85rem; outline: none; transition: border .15s;
+}
+.search-input:focus { border-color: var(--accent); }
+.filter-select {
+  padding: 7px 12px; background: var(--bg3);
+  border: 1px solid var(--border); color: var(--fg);
+  border-radius: 8px; font-family: inherit; font-size: .85rem;
+  outline: none; cursor: pointer;
+}
+.filter-select option { background: var(--bg2); }
+
+/* ── Toast ── */
+.toast-wrap {
+  position: fixed; bottom: 24px; left: 24px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 300; pointer-events: none;
+}
+.toast {
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--fg); padding: 11px 16px; border-radius: 10px;
+  font-size: .85rem; font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: auto;
+  animation: slideIn .2s ease;
+}
+.toast.success { border-color: rgba(34,197,94,.4); }
+.toast.error { border-color: rgba(239,68,68,.4); }
+.toast-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.toast.success .toast-dot { background: var(--green); }
+.toast.error .toast-dot { background: var(--red); }
+@keyframes slideIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+
+/* ── Credit gift row ── */
+.credit-quick {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 16px;
+}
+.credit-tile {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; cursor: pointer;
+  transition: border .15s;
+}
+.credit-tile:hover { border-color: var(--accent); }
+.credit-tile h4 { font-size: .85rem; font-weight: 600; margin: 0 0 4px; }
+.credit-tile p { font-size: .78rem; color: var(--fg2); margin: 0; }
+
+/* ── Chart mini bar ── */
+.mini-bars { display: flex; align-items: flex-end; gap: 4px; height: 52px; }
+.bar-item { flex: 1; min-width: 0; }
+.bar-fill {
+  border-radius: 4px 4px 0 0; width: 100%;
+  transition: height .3s;
+}
+.bar-label { font-size: .65rem; color: var(--fg3); text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* ── Pagination ── */
+.pagination {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 6px; padding: 12px 16px;
+  border-top: 1px solid var(--border); font-size: .82rem;
+}
+.pg-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--fg2); width: 30px; height: 30px;
+  border-radius: 6px; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.pg-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.pg-btn:disabled { opacity: .4; cursor: default; }
+.pg-info { color: var(--fg2); }
+
+/* ── Supabase config notice ── */
+.config-notice {
+  background: var(--yellow-bg); border: 1px solid rgba(245,158,11,.3);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: .82rem; color: var(--yellow); margin-bottom: 16px;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.config-notice svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Settings ── */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.setting-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px;
+}
+.setting-card h4 { font-size: .85rem; font-weight: 600; margin: 0 0 12px; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .sidebar { width: 200px; --sidebar: 200px; }
+  .stat-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 640px) {
+  .sidebar { display: none; }
+  .stat-grid { grid-template-columns: repeat(2,1fr); }
+  .settings-grid { grid-template-columns: 1fr; }
+  .credit-quick { grid-template-columns: 1fr; }
+}
+
+/* Release 2: responsive layout, accessible controls, refined focus states */
+.advanced-config{margin:0 0 18px;color:var(--fg3);font-size:.73rem;border-radius:8px;}
+.advanced-config summary{cursor:pointer;padding:4px 2px;}
+.advanced-config[open]{padding:12px;border:1px solid var(--border);background:var(--bg3);}
+.advanced-config[open] .form-group{margin-top:12px;margin-bottom:6px;}
+.advanced-config input{font-size:.7rem;opacity:.72;}
+:root { --radius:14px; --accent:#5299ff; --accent2:#2579e7; }
+body { padding-left:0; padding-right:0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset:3px; }
+button:disabled { opacity:.45; cursor:not-allowed!important; }
+.sidebar-brand { align-items:center; }
+.sidebar { box-shadow: -4px 0 32px rgba(0,0,0,.10); }
+.nav-item, .action-btn, .topbar-btn, .btn { transition: background .16s, color .16s, transform .16s, border-color .16s; }
+.nav-item:active, .action-btn:active, .topbar-btn:active { transform:scale(.98); }
+.content { scroll-behavior:smooth; padding:24px; }
+.stat-card { border-radius:14px; min-height:108px; }
+.stat-card.blue { background:linear-gradient(135deg,var(--bg2),var(--accent-bg)); }
+.login-card { border-radius:22px; }
+.login-card::before { content:''; display:block; height:4px; border-radius:3px; background:linear-gradient(90deg,#3997ff,#53c7a2); margin:-40px -36px 32px; }
+.tbl-wrap { scrollbar-width:thin; }
+.tbl-wrap td { line-height:1.65; }
+.mobile-menu { display:none; border:1px solid var(--border); border-radius:10px; background:var(--bg3); color:var(--fg); height:36px; width:40px; place-items:center; cursor:pointer; }
+.drawer-backdrop { display:none; }
+.role-only { display:none!important; }
+.empty-note { margin:14px 0; padding:13px; font-size:.84rem; color:var(--fg2); background:var(--bg3); border-radius:10px; }
+.card-grid { display:grid; grid-template-columns:1fr 1.6fr; gap:14px; }
+.stat-grid.three { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+@media(max-width:900px){ .content { padding:16px; } .card-grid { grid-template-columns:1fr; } }
+@media(max-width:640px){
+  #app { width:100%; }
+  .sidebar { display:flex; position:fixed; right:0; top:0; bottom:0; width:min(82vw,300px); z-index:99; transform:translateX(105%); transition:transform .26s ease; height:100dvh; }
+  body.drawer-open .sidebar { transform:translateX(0); }
+  .drawer-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:98; }
+  body.drawer-open .drawer-backdrop { display:block; }
+  .mobile-menu { display:grid; }
+  .topbar { height:auto; min-height:62px; padding:10px 12px; gap:8px; }
+  .topbar-sub { font-size:.7rem; }
+  .topbar-btn { padding:8px; font-size:.75rem; }
+  .topbar-title { font-size:.91rem; }
+  .content { padding:14px; }
+  .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .stat-grid.three { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  .stat-val { font-size:1.28rem; }
+  .stat-val.small { font-size:1.05rem; overflow-wrap:anywhere; }
+  .stat-card { padding:14px; }
+  .panel-head { flex-wrap:wrap; }
+  .panel-actions { width:100%; justify-content:flex-start; }
+  .login-card { padding:26px 20px; }
+  .login-card::before { margin:-26px -20px 25px; }
+  #login-screen { overflow-y:auto; align-items:flex-start; padding:28px 14px; }
+  .modal { width:min(94vw,460px); max-height:90dvh; overflow:auto; }
+}
+@media(prefers-reduced-motion:reduce){ *,*:before,*:after{transition-duration:.01ms!important;animation-duration:.01ms!important;scroll-behavior:auto!important} }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="10" fill="#3d8ef5"/>
+        <path d="M10 26 L18 10 L26 26" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M13 21 h10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <span>سورا</span>
+        <small>اپ اختصاصی مدیرکل • اتصال امن به سرور سورا</small>
+      </div>
+    </div>
+    <details class="advanced-config" hidden>
+      <summary>تنظیمات اتصال (پیکربندی‌شده)</summary>
+      <div class="form-group"><label>آدرس سرور رسمی سورا</label>
+        <input type="url" id="inp-url" value="https://fiiitzfbdjzpmepzjsjw.supabase.co" readonly></div>
+      <div class="form-group"><label>کلید عمومی انتشار (بدون دسترسی مدیریتی)</label>
+        <input type="text" id="inp-anon" value="sb_publishable_loYRUibarkSaekgzXQoogQ_Ic_MlDW1" readonly autocomplete="off"></div>
+    </details>
+    <div class="form-group">
+      <label>ایمیل مدیر</label>
+      <input type="email" id="inp-email" placeholder="admin@example.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>رمز عبور</label>
+      <input type="password" id="inp-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">ورود به پنل</button>
+    <div class="login-error" id="login-error"></div>
+    <p class="login-note">ورود با Supabase Auth — کلید service_role هرگز به مرورگر نمی‌رسد.<br>فقط مدیرانی که در <code style="background:rgba(0,0,0,.2);padding:1px 5px;border-radius:4px">sura_admin_roles</code> ثبت شده‌اند می‌توانند وارد شوند.</p>
+  </div>
+</div>
+
+<!-- App Shell -->
+<div id="drawer-backdrop" class="drawer-backdrop" onclick="closeDrawer()" aria-hidden="true"></div>
+<div id="app">
+  <!-- Sidebar -->
+  <nav class="sidebar" aria-label="منوی مدیریت">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 18 18"><path d="M3 15 L9 3 L15 15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor"/><path d="M5.5 11 h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">سورا</div>
+          <div class="brand-sub">مرکز کنترل و مالی</div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">داشبورد</div>
+        <div class="nav-item active" onclick="showPage('dashboard')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="2" width="6" height="6" rx="1.5"/><rect x="10" y="2" width="6" height="6" rx="1.5"/><rect x="2" y="10" width="6" height="6" rx="1.5"/><rect x="10" y="10" width="6" height="6" rx="1.5"/></svg>
+          نمای کلی
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">مدیریت</div>
+        <div class="nav-item" onclick="showPage('users')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          کاربران و مودیان
+        </div>
+        <div class="nav-item" onclick="showPage('credits')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="14" height="11" rx="2"/><path d="M2 8h14"/><path d="M6 12h2"/></svg>
+          مدیریت اعتبار
+        </div>
+        <div class="nav-item" onclick="showPage('packages')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="12" height="12" rx="2"/><path d="M3 7.5h12M7.5 3v12"/></svg>
+          بسته‌های فروش
+        </div>
+        <div class="nav-item" onclick="showPage('payments')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 5h14v9a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/><path d="M2 5l2-2h10l2 2"/><path d="M7 11h4"/></svg>
+          تراکنش‌های زرین‌پال
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">گزارش</div>
+        <div class="nav-item" onclick="showPage('reports')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 14V6l4-3 4 2 4-3v11"/><path d="M3 14h12"/></svg>
+          فروش و مالیات
+        </div>
+        <div class="nav-item" onclick="showPage('gifts')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="8" width="14" height="8" rx="1.5"/><path d="M2 8h14M9 8V2M9 2c0 0-3-2-3 1.5S9 6 9 6M9 2c0 0 3-2 3 1.5S9 6 9 6"/></svg>
+          اعتبار هدیه
+        </div>
+        <div class="nav-item" onclick="showPage('settings')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="2.5"/><path d="M9 2.5v1M9 14.5v1M2.5 9h1M14.5 9h1M4.2 4.2l.7.7M13.1 13.1l.7.7M13.1 4.9l-.7.7M4.9 13.1l-.7.7"/></svg>
+          تنظیمات
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-row" onclick="logout()">
+        <div class="user-avatar" id="user-avatar">م</div>
+        <div>
+          <div class="user-name" id="user-name">مدیر سیستم</div>
+          <div id="sidebar-role-badge" style="font-size:.7rem;color:var(--red)">مدیر ارشد</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <button type="button" class="mobile-menu" aria-label="باز کردن فهرست" aria-expanded="false" id="mobile-menu" onclick="toggleDrawer()">☰</button>
+      <div>
+        <div class="topbar-title" id="page-title">نمای کلی</div>
+        <div class="topbar-sub" id="page-sub">خلاصه وضعیت فروش و اعتبار</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <button class="topbar-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="تغییر حالت نمایش">☾ نمایش</button>
+      <button class="topbar-btn" onclick="refreshData()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 8a6 6 0 0112 0"/><path d="M14 5v3h-3"/><path d="M14 8a6 6 0 01-12 0"/><path d="M2 11V8h3"/></svg>
+        بروزرسانی
+      </button>
+      <button class="topbar-btn" id="topbar-action" style="display:none"></button>
+    </div>
+
+    <div class="content" id="content">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h3 id="modal-title"></h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot" id="modal-foot"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+// service_role هرگز اینجا نیست — فقط JWT کاربر
+let SB_URL = 'https://fiiitzfbdjzpmepzjsjw.supabase.co';
+let SB_ANON = '';         // anon key (عمومی است، مشکلی ندارد)
+let USER_JWT = '';        // از Supabase Auth
+let ADMIN_API = '';       // https://...supabase.co/functions/v1/sura-admin-api
+let REFRESH_TOKEN = '';
+let JWT_EXP = 0;
+let CURRENT_EMAIL = '';
+let renderSerial = 0;
+let currentPage = 'dashboard';
+let currentData = {};
+let ADMIN_ROLE = 'viewer';
+const ROLE_LABELS = { admin: 'مدیر ارشد', editor: 'ویرایشگر', viewer: 'ناظر' };
+const ROLE_COLORS = { admin: 'var(--red)', editor: 'var(--yellow)', viewer: 'var(--green)' };
+const CAN = {
+  editPackages:  () => ADMIN_ROLE === 'admin',
+  adjustWallet:  () => ADMIN_ROLE === 'admin',
+  giftCredit:    () => ADMIN_ROLE === 'admin',
+  transferCredit:() => ADMIN_ROLE === 'admin',
+  exportData:    () => ADMIN_ROLE !== 'viewer',
+};
+
+// ── Auth: verified Supabase Auth identity + server-checked role ──
+function newUUID(){
+ if(crypto.randomUUID)return crypto.randomUUID();
+ const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
+ bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+ const h=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');
+ return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+function validUUID(value) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value)); }
+function html(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function fail(text) { const e = document.getElementById('login-error'); e.textContent = text; e.style.display = 'block'; }
+function parseError(err) {
+  const codes = { unauthorized:'اجازه ورود ندارید یا نشست شما منقضی شده است.', insufficient_role:'سطح دسترسی برای این عملیات کافی نیست.',
+    invalid_adjustment:'اطلاعات اصلاح اعتبار معتبر نیست.', invalid_transfer:'اطلاعات انتقال معتبر نیست.',
+    balance_changed:'موجودی در سرور تغییر کرده است؛ صفحه را به‌روزرسانی کنید.', taxpayer_wallet_not_found:'کیف‌پول این مؤدی وجود ندارد.',
+    owner_not_found:'حساب مالک یافت نشد.', invalid_price:'قیمت معتبر نیست.', idempotency_conflict:'شناسه درخواست قبلاً با اطلاعات متفاوت استفاده شده است.',
+    not_admin:'تنها مدیر ارشد مجاز به اصلاح موجودی است.', no_change:'موجودی جدید با قبلی برابر است.',
+    read_failed:'خطا در دریافت اطلاعات از پایگاه داده.', database_operation_failed:'عملیات دیتابیس انجام نشد.'};
+  return codes[err?.message] || err?.message || 'خطای ناشناخته';
+}
+function restoreUi(me) {
+  ADMIN_ROLE = me.role; CURRENT_EMAIL = me.email || CURRENT_EMAIL;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-name').textContent = CURRENT_EMAIL;
+  document.getElementById('user-avatar').textContent = (CURRENT_EMAIL || 'م')[0].toUpperCase();
+  document.getElementById('sidebar-role-badge').textContent = ROLE_LABELS[ADMIN_ROLE];
+  document.getElementById('sidebar-role-badge').style.color = ROLE_COLORS[ADMIN_ROLE];
+  showPage('dashboard');
+}
+function persistSession() {
+  try { sessionStorage.setItem('sura_admin_session_v2',JSON.stringify({url:SB_URL,anon:SB_ANON,token:USER_JWT,refresh:REFRESH_TOKEN,exp:JWT_EXP,email:CURRENT_EMAIL})); } catch {}
+}
+function setSession(resp) {
+  USER_JWT = resp.access_token;
+  REFRESH_TOKEN = resp.refresh_token || REFRESH_TOKEN;
+  JWT_EXP = Math.floor(Date.now()/1000)+(resp.expires_in || 3600);
+  persistSession();
+}
+async function refreshSession() {
+  if (!REFRESH_TOKEN) throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');
+  const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method:'POST', headers:{apikey:SB_ANON,'content-type':'application/json'},
+    body:JSON.stringify({refresh_token:REFRESH_TOKEN})
+  });
+  if (!r.ok) { logout(); throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.'); }
+  setSession(await r.json());
+}
+async function ensureFreshToken() { if (Date.now()/1000 > JWT_EXP-90) await refreshSession(); }
+async function getMe() {
+  const r = await fetch(`${ADMIN_API}/me`,{headers:{authorization:`Bearer ${USER_JWT}`,apikey:SB_ANON}});
+  if (!r.ok) throw new Error(r.status===401?'حساب شما دسترسی مدیریت ندارد.':'خطا در احراز دسترسی مدیر.');
+  const me = await r.json();
+  if (!['admin','editor','viewer'].includes(me.role)) throw new Error('نقش مدیریتی معتبر نیست.');
+  return me;
+}
+async function doLogin() {
+  const url = document.getElementById('inp-url').value.trim().replace(/\/+$/,'');
+  const anon = document.getElementById('inp-anon').value.trim();
+  const email = document.getElementById('inp-email').value.trim();
+  const pass = document.getElementById('inp-password').value;
+  document.getElementById('login-error').style.display='none';
+  if (url!=='https://fiiitzfbdjzpmepzjsjw.supabase.co') return fail('آدرس رسمی سرور تطابق ندارد.');
+  if (!(anon.startsWith('eyJ') || anon.startsWith('sb_publishable_'))) return fail('کلید عمومی (Anon/Publishable) را وارد کنید.');
+  if (!email || !pass) return fail('ایمیل و رمز عبور الزامی است.');
+  const btn = document.querySelector('#login-screen .btn-primary');
+  btn.disabled=true; btn.textContent='در حال ورود...';
+  try {
+    const resp = await fetch(`${url}/auth/v1/token?grant_type=password`, {method:'POST',headers:{apikey:anon,'content-type':'application/json'},body:JSON.stringify({email,password:pass})});
+    if (!resp.ok) throw new Error('ورود ناموفق بود؛ ایمیل، رمز یا وضعیت حساب را بررسی کنید.');
+    SB_URL=url; SB_ANON=anon; ADMIN_API=`${url}/functions/v1/sura-admin-api`; CURRENT_EMAIL=email;
+    setSession(await resp.json());
+    const me=await getMe(); restoreUi(me);
+    document.getElementById('inp-password').value='';
+  } catch(e){ USER_JWT='';REFRESH_TOKEN='';try{sessionStorage.removeItem('sura_admin_session_v2')}catch{} fail(parseError(e)); }
+  finally {btn.disabled=false; btn.textContent='ورود به پنل';}
+}
+function logout() {
+  closeDrawer();
+  try {sessionStorage.removeItem('sura_admin_session_v2');localStorage.removeItem('sura_session');}catch{}
+  USER_JWT=''; REFRESH_TOKEN=''; ADMIN_ROLE='viewer';JWT_EXP=0;CURRENT_EMAIL='';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('inp-password').value='';
+}
+async function adminFetch(endpoint, body) {
+  if (!USER_JWT) throw new Error('ابتدا وارد حساب مدیر شوید.');
+  await ensureFreshToken();
+  const r = await fetch(`${ADMIN_API}/${endpoint}`,{
+    method:'POST',headers:{authorization:`Bearer ${USER_JWT}`,apikey:SB_ANON,'content-type':'application/json'},body:JSON.stringify(body)
+  });
+  if(r.status===401){logout();throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');}
+  const data=await r.json().catch(()=>({error:'server_unavailable'}));
+  if(!r.ok) throw new Error(data.error||`HTTP ${r.status}`);
+  return data;
+}
+async function sbGet(tableQuery){
+  const [table,query='']=tableQuery.split('?');
+  return adminFetch('query',{table,query});
+}
+async function sbPatch(tableFilter,data){
+  const [table,filter='']=tableFilter.split('?');
+  return adminFetch('mutate',{table,method:'PATCH',filter,data});
+}
+async function sbRpc(fn,params){return adminFetch('rpc',{fn,params});}
+
+
+// ── Navigation ──────────────────────────────────────────
+function showPage(page) {
+  currentPage = page;
+  closeDrawer();
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const items = document.querySelectorAll('.nav-item');
+  const pageMap = { dashboard:0, users:1, credits:2, packages:3, payments:4, reports:5, gifts:6, settings:7 };
+  items[pageMap[page]]?.classList.add('active');
+  const titles = {
+    dashboard: ['نمای کلی', 'خلاصه وضعیت فروش و اعتبار'],
+    users: ['کاربران و مودیان', 'مدیریت کاربران و موجودی اعتبار'],
+    credits: ['مدیریت اعتبار', 'انتقال و سوابق اعتبار'],
+    packages: ['بسته‌های فروش', 'قیمت‌گذاری و مدیریت بسته‌ها'],
+    payments: ['تراکنش‌های زرین‌پال', 'وضعیت پرداخت و تسویه'],
+    reports: ['گزارش فروش', 'مبالغ دریافتی و خروجی قابل رسیدگی'],
+    gifts: ['اعتبار هدیه', 'مدیریت کدهای تبلیغاتی و سوابق'],
+    settings: ['تنظیمات', 'پیکربندی سیستم و امنیت'],
+  };
+  const [t, s] = titles[page] || ['', ''];
+  document.getElementById('page-title').textContent = t;
+  document.getElementById('page-sub').textContent = s;
+  const btn = document.getElementById('topbar-action');
+  btn.style.display = 'none';
+  renderPage(page);
+}
+
+function refreshData() { showPage(currentPage); }
+
+function toggleTheme(){
+ const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
+ document.documentElement.dataset.theme=next;
+ try{localStorage.setItem('sura_admin_theme_v2',next);}catch{}
+ const b=document.getElementById('theme-toggle');if(b)b.textContent=next==='dark'?'☀ روشن':'☾ تیره';
+}
+(function initTheme(){
+ let setting='dark';try{setting=localStorage.getItem('sura_admin_theme_v2')||'dark';}catch{}
+ document.documentElement.dataset.theme=setting==='light'?'light':'dark';
+ const b=document.getElementById('theme-toggle');if(b)b.textContent=setting==='light'?'☾ تیره':'☀ روشن';
+})();
+function toggleDrawer(){const open=!document.body.classList.contains('drawer-open');document.body.classList.toggle('drawer-open',open);document.getElementById('mobile-menu').setAttribute('aria-expanded',String(open));}
+function closeDrawer(){document.body.classList.remove('drawer-open');document.getElementById('mobile-menu')?.setAttribute('aria-expanded','false');}
+document.addEventListener('keydown', e=>{if(e.key==='Escape'){closeModal();closeDrawer();}});
+// ── Toast ───────────────────────────────────────────────
+function toast(msg, type='success') {
+  const w = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const dot = document.createElement('span'); dot.className='toast-dot'; el.appendChild(dot); el.appendChild(document.createTextNode(String(msg)));
+  w.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ── Modal ───────────────────────────────────────────────
+function openModal(title, bodyHtml, footHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-foot').innerHTML = footHtml || '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+// ── Format helpers ───────────────────────────────────────
+function fmtRial(n) { return Number(n||0).toLocaleString('fa-IR') + ' ریال'; }
+function fmtNum(n) { return Number(n||0).toLocaleString('fa-IR'); }
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fa-IR', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function fmtShortDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fa-IR', { month:'short', day:'numeric' });
+}
+
+// ── Pages ───────────────────────────────────────────────
+async function renderPage(page) {
+  const c = document.getElementById('content');
+  const request = ++renderSerial;
+  c.innerHTML = `<div class="empty-note" role="status">در حال دریافت اطلاعات از سرور…</div>`;
+  try {
+    const view = document.createElement('div');
+    if (page === 'dashboard') await renderDashboard(view);
+    else if (page === 'users') await renderUsers(view);
+    else if (page === 'credits') await renderCredits(view);
+    else if (page === 'packages') await renderPackages(view);
+    else if (page === 'payments') await renderPayments(view);
+    else if (page === 'reports') await renderReports(view);
+    else if (page === 'gifts') await renderGifts(view);
+    else if (page === 'settings') await renderSettings(view);
+    if (request===renderSerial) c.innerHTML=view.innerHTML;
+  } catch(e) {
+    if(request===renderSerial) c.innerHTML = `<div class="config-notice" role="alert">خطا در دریافت داده: ${html(parseError(e))} <button class="action-btn" onclick="refreshData()">تلاش مجدد</button></div>`;
+  }
+}
+
+// ── Dashboard ──────────────────────────────────────────
+async function renderDashboard(c) {
+  const [ord,wlt,prm,grt] = await Promise.all([
+    sbGet('sura_payment_orders?select=id,state,amount_rial,credit_units,created_at&order=created_at.desc&limit=1000'),
+    sbGet('sura_owner_wallets?select=credits&limit=1000'),
+    sbGet('sura_promo_redemptions?select=credits_remaining,credits_granted&limit=1000'),
+    sbGet('sura_credit_grants?select=units,created_at&order=created_at.desc&limit=1000')
+  ]);
+
+
+  const verified = ord.filter(o => o.state === 'verified');
+  const totalRev = verified.reduce((s,o) => s + (o.amount_rial||0), 0);
+  const totalCredits = verified.reduce((s,o) => s + (o.credit_units||0), 0);
+  const totalUsers = wlt.length;
+  const promoRemaining = prm.reduce((s,p) => s + (p.credits_remaining||0), 0);
+
+  // 7-day revenue bars
+  const days7 = Array.from({length:7}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate()-6+i);
+    return { label: fmtShortDate(d.toISOString()), day: d.toDateString(), val: 0 };
+  });
+  verified.forEach(o => {
+    const d = new Date(o.created_at).toDateString();
+    const slot = days7.find(s => s.day === d);
+    if (slot) slot.val += o.amount_rial||0;
+  });
+  const maxBar = Math.max(...days7.map(d => d.val), 1);
+
+  const recentOrders = ord.slice(0,6);
+  const stateLabel = { created:'ایجاد شده', requested:'ارجاع به درگاه', verified:'تسویه شده', failed:'ناموفق' };
+  const stateBadge = { created:'gray', requested:'yellow', verified:'green', failed:'red' };
+
+  c.innerHTML = `
+  ${ord.length>=1000||wlt.length>=1000?'<div class="empty-note">آمار بر اساس حداکثر ۱۰۰۰ رکورد اخیر هر جدول محاسبه شده است، نه لزوماً کل تاریخچه.</div>':''}
+  <div class="stat-grid">
+    <div class="stat-card blue">
+      <div class="stat-label">درآمد تأیید شده (ریال)</div>
+      <div class="stat-val small">${fmtRial(totalRev)}</div>
+      <div class="stat-delta up">▲ ${verified.length} تراکنش موفق</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">اعتبار فروخته شده</div>
+      <div class="stat-val">${fmtNum(totalCredits)}</div>
+      <div class="stat-delta up">▲ مجموع واحد</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-label">کاربران دارای کیف‌پول</div>
+      <div class="stat-val">${fmtNum(totalUsers)}</div>
+      <div class="stat-delta">کیف‌پول فعال</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">اعتبار هدیه باقی‌مانده</div>
+      <div class="stat-val">${fmtNum(promoRemaining)}</div>
+      <div class="stat-delta">از ${fmtNum(prm.length)} بازخرید</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="panel">
+      <div class="panel-head"><h3>درآمد ۷ روز اخیر</h3></div>
+      <div style="padding:16px">
+        <div class="mini-bars" id="bars">
+          ${days7.map(d => `<div class="bar-item">
+            <div class="bar-fill" style="height:${Math.max(4, Math.round((d.val/maxBar)*44))}px;background:var(--accent);opacity:.8"></div>
+            <div class="bar-label">${d.label}</div>
+          </div>`).join('')}
+        </div>
+        <div style="font-size:.72rem;color:var(--fg3);margin-top:8px">مبالغ به ریال — تسویه شده</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>آخرین تراکنش‌ها</h3>
+        <span class="panel-actions"><button class="action-btn" onclick="showPage('payments')">مشاهده همه</button></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>شناسه سفارش</th><th>اعتبار</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
+          <tbody>
+            ${recentOrders.length ? recentOrders.map(o => `<tr>
+              <td style="font-size:.75rem;color:var(--fg2)">${o.id.slice(0,8)}…</td>
+              <td>${fmtNum(o.credit_units)}</td>
+              <td>${fmtRial(o.amount_rial)}</td>
+              <td><span class="badge ${stateBadge[o.state]||'gray'}">${stateLabel[o.state]||o.state}</span></td>
+              <td>${fmtShortDate(o.created_at)}</td>
+            </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:24px">داده‌ای یافت نشد</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Users ────────────────────────────────────────────────
+async function renderUsers(c) {
+  const [wlt,tax] = await Promise.all([
+    sbGet('sura_owner_wallets?select=owner_id,credits,updated_at&order=credits.desc&limit=1000'),
+    sbGet('sura_taxpayer_wallets?select=owner_id,local_taxpayer_id,credits,updated_at&order=credits.desc&limit=1000')
+  ]);
+  const isAdmin = CAN.adjustWallet(), canTransfer = CAN.transferCredit();
+  c.innerHTML = `
+  ${wlt.length>=1000||tax.length>=1000?'<div class="empty-note">فهرست به ۱۰۰۰ رکورد اخیر محدود است؛ برای گزارش جامع از روش گزارش‌گیری سروری استفاده کنید.</div>':''}
+  <div class="panel">
+    <div class="panel-head"><h3>کیف‌پول کاربران</h3><span>${fmtNum(wlt.length)} مالک</span>
+      ${isAdmin?'<span class="panel-actions"><button class="action-btn" onclick="openGiftModal()">+ اعطای اعتبار</button></span>':''}</div>
+    <div class="filters"><input class="search-input" placeholder="جست‌وجوی شناسه مالک…" aria-label="جست‌وجوی مالک" oninput="filterOwnerTable(this.value)"></div>
+    <div class="tbl-wrap"><table id="owner-table"><thead><tr><th>شناسه مالک</th><th>اعتبار</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead><tbody>
+    ${wlt.map(w=>`<tr data-uid="${html(w.owner_id)}"><td dir="ltr">${html(w.owner_id)}</td>
+    <td><span class="badge ${w.credits>0?'green':'gray'}">${fmtNum(w.credits)} واحد</span></td><td>${fmtDate(w.updated_at)}</td>
+    <td>${canTransfer?`<button class="action-btn" onclick="openTransferModal('${html(w.owner_id)}',${Number(w.credits)})">انتقال</button>`:''}
+    ${isAdmin?`<button class="action-btn" onclick="openAdjustModal('${html(w.owner_id)}',${Number(w.credits)},null)">اصلاح</button>`:''}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-note">کیف‌پولی وجود ندارد.</td></tr>'}
+    </tbody></table></div>
+  </div>
+  <div class="panel"><div class="panel-head"><h3>اعتبار مؤدیان</h3><span>${fmtNum(tax.length)} مؤدی</span></div>
+  <div class="tbl-wrap"><table><thead><tr><th>شناسه مالک</th><th>کد مؤدی</th><th>اعتبار</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead><tbody>
+  ${tax.map(t=>`<tr><td dir="ltr">${html(t.owner_id.slice(0,12))}…</td><td>${fmtNum(t.local_taxpayer_id)}</td>
+  <td><span class="badge ${t.credits>0?'blue':'gray'}">${fmtNum(t.credits)} واحد</span></td><td>${fmtDate(t.updated_at)}</td>
+  <td>${isAdmin?`<button class="action-btn" onclick="openAdjustModal('${html(t.owner_id)}',${Number(t.credits)},${Number(t.local_taxpayer_id)})">اصلاح</button>`:'—'}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-note">مودی دارای کیف‌پول ثبت نشده است.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+
+
+function filterOwnerTable(q) {
+  document.querySelectorAll('#owner-table tbody tr').forEach(tr => {
+    tr.style.display = q ? (tr.dataset.uid||'').includes(q) ? '' : 'none' : '';
+  });
+}
+
+function openTransferModal(uid, bal) {
+  if (!CAN.transferCredit()) return toast('دسترسی کافی ندارید','error');
+  openModal('انتقال اعتبار به مؤدی', `
+    <div class="empty-note">موجودی مالک: ${fmtNum(bal)} واحد. انتقال فقط از موجودی مالک به مؤدی همین مالک است.</div>
+    <div class="field-row"><label>شناسه عددی مؤدی</label><input type="number" id="m-taxpayer" min="1" step="1"></div>
+    <div class="field-row"><label>تعداد اعتبار</label><input type="number" id="m-amount" min="1" max="${bal}" step="1"></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="doTransfer('${uid}')">تأیید انتقال</button>`
+  );
+  document.getElementById('modal').dataset.request=newUUID();
+}
+async function submitBusy(task) {
+  const b=document.getElementById('modal-submit');
+  if(b?.disabled) return;
+  if(b) b.disabled=true;
+  try {await task();} finally{if(b)b.disabled=false;}
+}
+async function doTransfer(owner) {return submitBusy(async()=>{
+  const t=Number(document.getElementById('m-taxpayer').value), c=Number(document.getElementById('m-amount').value);
+  if(!Number.isSafeInteger(t)||t<1||!Number.isSafeInteger(c)||c<1) return toast('شناسه و اعتبار باید عدد صحیح مثبت باشند.','error');
+  if(!confirm('انتقال '+fmtNum(c)+' واحد اعتبار به مؤدی '+fmtNum(t)+' انجام شود؟'))return;
+  try {const r=await sbRpc('sura_transfer_owner_credit',{p_owner:owner,p_taxpayer:t,p_credits:c,p_request:document.getElementById('modal').dataset.request});
+    if(r?.error)throw new Error(r.error); toast('انتقال ثبت شد. شماره پیگیری: '+r.receipt,'success');closeModal();showPage('users');
+  }catch(e){toast('انتقال ناموفق: '+parseError(e),'error');}
+});}
+function openAdjustModal(owner, balance, taxpayer=null) {
+  if(!CAN.adjustWallet())return toast('فقط مدیر ارشد می‌تواند اعتبار را اصلاح کند.','error');
+  const isTaxpayer=taxpayer!==null;
+  openModal(isTaxpayer?'اصلاح اعتبار مؤدی':'اصلاح اعتبار مالک',`
+    <div class="empty-note">این تغییر مالی است و همراه با نام مدیر، مانده قبل و بعد و دلیل، در دفتر ممیزی ثبت می‌شود.</div>
+    <div class="field-row"><label>موجودی ثبت‌شده (واحد)</label><input type="number" id="adj-expected" value="${balance}" readonly></div>
+    <div class="field-row"><label>موجودی جدید (واحد)</label><input type="number" id="adj-new" min="0" max="1000000000" step="1" value="${balance}"></div>
+    <div class="field-row"><label>دلیل اصلاح (الزامی، حداقل ۵ حرف)</label><textarea id="adj-reason" maxlength="500" placeholder="برای مثال: اصلاح پس از تطبیق با رسید رسمی"></textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-danger" onclick="doAdjust('${owner}',${isTaxpayer?taxpayer:'null'})">ثبت اصلاح</button>`);
+  document.getElementById('modal').dataset.request=newUUID();
+}
+async function doAdjust(owner,taxpayer){return submitBusy(async()=>{
+  const expected=Number(document.getElementById('adj-expected').value), balance=Number(document.getElementById('adj-new').value);
+  const reason=document.getElementById('adj-reason').value.trim();
+  if(!Number.isSafeInteger(balance)||balance<0||balance>1000000000||balance===expected||reason.length<5)
+    return toast('موجودی جدید باید متفاوت و دلیل اصلاح معتبر باشد.','error');
+  if(!confirm('تغییر موجودی از '+fmtNum(expected)+' به '+fmtNum(balance)+' واحد ثبت شود؟'))return;
+  try{const r=await adminFetch('adjust',{owner,taxpayer,expected,balance,reason,request:document.getElementById('modal').dataset.request});
+    if(r?.error)throw new Error(r.error);toast('اصلاح ثبت و ممیزی شد. کد: '+r.receipt,'success');closeModal();showPage('users');
+  }catch(e){toast('اصلاح ناموفق: '+parseError(e),'error');}
+});}
+function openGiftModal() {
+  if(!CAN.adjustWallet())return toast('فقط مدیر ارشد مجاز به هدیه اعتبار است.','error');
+  openModal('اعطای اعتبار هدیه',`
+    <div class="empty-note">اعتبار بدون پرداخت افزوده می‌شود. مانده فعلی حساب باید از سرور خوانده شود؛ عملیات در دفتر ممیزی ثبت می‌شود.</div>
+    <div class="field-row"><label>شناسه UUID مالک</label><input type="text" id="gift-uid" dir="ltr" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+    <div class="field-row"><label>تعداد اعتبار هدیه (واحد)</label><input type="number" id="gift-amount" min="1" step="1"></div>
+    <div class="field-row"><label>دلیل هدیه (الزامی)</label><input type="text" id="gift-note" maxlength="500" placeholder="تخصیص اعتباری با مجوز مدیر ارشد"></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="doGiftDirect()">ثبت هدیه</button>`);
+  document.getElementById('modal').dataset.request=newUUID();
+}
+async function doGiftDirect(){return submitBusy(async()=>{
+  const owner=document.getElementById('gift-uid').value.trim(), gift=Number(document.getElementById('gift-amount').value);
+  const reason=document.getElementById('gift-note').value.trim();
+  if(!validUUID(owner)||!Number.isSafeInteger(gift)||gift<1||reason.length<5)return toast('UUID، مبلغ و دلیل هدیه را بررسی کنید.','error');
+  try{
+    // No arbitrary data-table insert: only the audited atomic admin RPC is allowed.
+    const wallet=await adminFetch('wallet',{owner});
+    const expected=Number(wallet.credits),balance=expected+gift;
+    if(!Number.isSafeInteger(balance)||balance>1000000000)throw new Error('مقدار اعتبار بیش از حد مجاز است.');
+    if(!confirm('اعطای '+fmtNum(gift)+' واحد به '+owner+' تأیید شود؟'))return;
+    const r=await adminFetch('adjust',{owner,taxpayer:null,expected,balance,reason,request:document.getElementById('modal').dataset.request});
+    if(r?.error)throw new Error(r.error);toast('اعتبار هدیه ثبت شد: '+r.receipt,'success');closeModal();showPage('gifts');
+  }catch(e){toast('هدیه ثبت نشد: '+parseError(e),'error');}
+});}
+
+
+// ── Credits ─────────────────────────────────────────────
+async function renderCredits(c) {
+  const [transfers, grants, adjustments] = await Promise.all([
+    sbGet('sura_credit_transfers?select=id,owner_id,local_taxpayer_id,credits,created_at&order=created_at.desc&limit=100'),
+    sbGet('sura_credit_grants?select=id,owner_user_id,units,created_at,order_id&order=created_at.desc&limit=100'),
+    CAN.adjustWallet() ? sbGet('sura_admin_credit_adjustments?select=request_id,actor_user_id,owner_id,local_taxpayer_id,before_credits,after_credits,delta,reason,created_at&order=created_at.desc&limit=100') : Promise.resolve([])
+  ]);
+  const tr=transfers, gr=grants, adj=adjustments;
+
+  c.innerHTML = `
+  <div class="panel">
+    <div class="panel-head"><h3>سوابق انتقال اعتبار</h3><span style="color:var(--fg2)">${fmtNum(tr.length)} رکورد</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>شناسه</th><th>مالک</th><th>مودی</th><th>اعتبار</th><th>تاریخ</th></tr></thead>
+        <tbody>
+          ${tr.length ? tr.map(t => `<tr>
+            <td style="font-size:.73rem;color:var(--fg2)">${t.id||'—'}</td>
+            <td style="font-size:.73rem;direction:ltr;text-align:left">${(t.owner_id||'').slice(0,10)}…</td>
+            <td>${t.local_taxpayer_id||'—'}</td>
+            <td><span class="badge blue">${fmtNum(t.credits)}</span></td>
+            <td>${fmtDate(t.created_at)}</td>
+          </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:24px">سابقه‌ای یافت نشد</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>اعتبارهای اعطا شده (از پرداخت)</h3><span style="color:var(--fg2)">${fmtNum(gr.length)} رکورد</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>شناسه</th><th>مالک</th><th>واحد اعتبار</th><th>سفارش</th><th>تاریخ</th></tr></thead>
+        <tbody>
+          ${gr.length ? gr.map(g => `<tr>
+            <td style="font-size:.73rem;color:var(--fg2)">${(g.id||'').toString().slice(0,8)}</td>
+            <td style="font-size:.73rem;direction:ltr;text-align:left">${(g.owner_user_id||'').slice(0,10)}…</td>
+            <td><span class="badge green">${fmtNum(g.units)}</span></td>
+            <td style="font-size:.73rem;color:var(--fg2)">${(g.order_id||'').slice(0,8)}…</td>
+            <td>${fmtDate(g.created_at)}</td>
+          </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:24px">رکوردی یافت نشد</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  ${CAN.adjustWallet()?`<div class="panel"><div class="panel-head"><h3>دفتر ممیزی اصلاحات مدیرکل</h3><span>${fmtNum(adj.length)} رکورد اخیر</span></div>
+  <div class="tbl-wrap"><table><thead><tr><th>رسید</th><th>مالک</th><th>مودی</th><th>قبل</th><th>بعد</th><th>تغییر</th><th>علت</th><th>زمان</th></tr></thead><tbody>
+  ${adj.map(a=>`<tr><td dir="ltr">${html(a.request_id.slice(0,8))}…</td><td dir="ltr">${html(a.owner_id.slice(0,8))}…</td>
+  <td>${a.local_taxpayer_id===null?'مالک':fmtNum(a.local_taxpayer_id)}</td><td>${fmtNum(a.before_credits)}</td><td>${fmtNum(a.after_credits)}</td>
+  <td><span class="badge ${a.delta>=0?'green':'red'}">${a.delta>0?'+':''}${fmtNum(a.delta)}</span></td><td>${html(a.reason)}</td><td>${fmtDate(a.created_at)}</td></tr>`).join('')||'<tr><td colspan="8">اصلاحی ثبت نشده است.</td></tr>'}
+  </tbody></table></div></div>`:''}`;
+}
+
+// ── Packages ─────────────────────────────────────────────
+async function renderPackages(c){
+  const rows=await sbGet('sura_credit_pricing?select=id,price_per_invoice_rial,currency,updated_at&limit=1');
+  const p=rows[0];
+  if(!p){c.innerHTML='<div class="empty-note">قیمت‌گذاری در سرور تعریف نشده است.</div>';return;}
+  c.innerHTML=`<div class="panel">
+    <div class="panel-head"><h3>قیمت واحد اعتبار صورتحساب</h3><span class="badge green">ریال (IRR)</span></div>
+    <div class="stat-grid three" style="padding:16px;margin:0">
+      <div class="stat-card blue"><div class="stat-label">قیمت هر واحد</div><div class="stat-val small">${fmtRial(p.price_per_invoice_rial)}</div></div>
+      <div class="stat-card green"><div class="stat-label">ارز مبنا</div><div class="stat-val small">ریال ایران</div></div>
+      <div class="stat-card yellow"><div class="stat-label">آخرین تغییر</div><div class="stat-val small">${fmtDate(p.updated_at)}</div></div>
+    </div><div style="padding:12px 16px"><div class="empty-note">یک رکورد قیمت پایه در سرور وجود دارد. مالیات در جدول قیمت‌گذاری تفکیک نشده و نمی‌توان نرخ یا جمع مالیاتی را از روی آن فرض کرد.</div>
+    ${CAN.editPackages()?`<button class="btn btn-accent" onclick="openPackageModal(${Number(p.price_per_invoice_rial)})">ویرایش قیمت پایه</button>`:''}</div></div>`;
+}
+function openPackageModal(price){
+  if(!CAN.editPackages())return toast('دسترسی مدیر ارشد لازم است.','error');
+  openModal('ویرایش قیمت هر اعتبار',`<div class="field-row"><label>قیمت واحد (ریال)</label><input type="number" id="pkg-price" min="1000" max="1000000000" step="1" value="${Number(price)}"></div>
+    <div class="empty-note">تغییر قیمت فقط روی خریدهای جدید تأثیر دارد و از طریق سرور ثبت می‌شود.</div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="savePkg()">ذخیره قیمت</button>`);
+}
+async function savePkg(){return submitBusy(async()=>{
+  const value=Number(document.getElementById('pkg-price').value);
+  if(!Number.isSafeInteger(value)||value<1000||value>1000000000)return toast('قیمت پایه معتبر نیست.','error');
+  if(!confirm('قیمت پایه جدید '+fmtRial(value)+' ثبت شود؟'))return;
+  try{await sbPatch('sura_credit_pricing?id=eq.1',{price_per_invoice_rial:value,currency:'IRR'});
+    toast('قیمت پایه با موفقیت تغییر کرد','success');closeModal();showPage('packages');
+  }catch(e){toast('قیمت ذخیره نشد: '+parseError(e),'error');}
+});}
+
+
+// ── Payments ─────────────────────────────────────────────
+async function renderPayments(c) {
+  const orders = await sbGet('sura_payment_orders?select=*&order=created_at.desc&limit=200');
+  const stateLabel = { created:'ایجاد شده', requested:'ارجاع به درگاه', verified:'تسویه شده', failed:'ناموفق' };
+  const stateBadge = { created:'gray', requested:'yellow', verified:'green', failed:'red' };
+
+  c.innerHTML = `
+  <div class="panel">
+    <div class="panel-head"><h3>سفارش‌های پرداخت زرین‌پال</h3><span style="color:var(--fg2)">${orders.length} سفارش</span></div>
+    <div class="filters">
+      <select class="filter-select" onchange="filterPaymentTable(this.value)" id="pay-filter">
+        <option value="">همه وضعیت‌ها</option>
+        <option value="verified">تسویه شده</option>
+        <option value="requested">ارجاع به درگاه</option>
+        <option value="created">ایجاد شده</option>
+        <option value="failed">ناموفق</option>
+      </select>
+      <input class="search-input" placeholder="جستجو authority یا ref_id..." oninput="searchPayments(this.value)" id="pay-search">
+    </div>
+    <div class="tbl-wrap">
+      <table id="pay-table">
+        <thead><tr><th>شناسه سفارش</th><th>مالک</th><th>اعتبار</th><th>مبلغ (ریال)</th><th>Authority</th><th>Ref ID</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
+        <tbody>
+          ${orders.length ? orders.map(o => `<tr data-state="${html(o.state)}" data-q="${html((o.authority||'')+' '+(o.ref_id||''))}">
+            <td style="font-size:.72rem;direction:ltr">${o.id.slice(0,8)}…</td>
+            <td style="font-size:.72rem;direction:ltr">${(o.owner_user_id||'').slice(0,8)}…</td>
+            <td>${fmtNum(o.credit_units)}</td>
+            <td style="font-variant-numeric:tabular-nums">${fmtRial(o.amount_rial)}</td>
+            <td style="font-size:.72rem;direction:ltr">${o.authority ? html(o.authority.slice(0,14))+'…' : '—'}</td>
+            <td style="font-size:.72rem;direction:ltr">${html(o.ref_id||'—')}</td>
+            <td><span class="badge ${stateBadge[o.state]||'gray'}">${stateLabel[o.state]||o.state}</span></td>
+            <td>${fmtDate(o.created_at)}</td>
+          </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--fg3);padding:24px">تراکنشی یافت نشد</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function filterPaymentTable(state) {
+  applyPaymentFilters();
+}
+function searchPayments(q) {
+  applyPaymentFilters();
+}
+
+function applyPaymentFilters(){
+  const state=document.getElementById('pay-filter')?.value||'',q=(document.getElementById('pay-search')?.value||'').toLowerCase();
+  document.querySelectorAll('#pay-table tbody tr').forEach(tr=>{
+    tr.style.display=(!state||tr.dataset.state===state)&&(!q||(tr.dataset.q||'').toLowerCase().includes(q))?'':'none';
+  });
+}
+// ── Reports ──────────────────────────────────────────────
+async function renderReports(c){
+  const orders=await sbGet('sura_payment_orders?select=id,amount_rial,credit_units,state,created_at,owner_user_id&order=created_at.desc&limit=1000');
+  const verified=orders.filter(o=>o.state==='verified');
+  const revenue=verified.reduce((s,o)=>s+Number(o.amount_rial||0),0);
+  const credits=verified.reduce((s,o)=>s+Number(o.credit_units||0),0);
+  const monthly={};
+  verified.forEach(o=>{
+    const key=new Date(o.created_at).toLocaleDateString('fa-IR',{year:'numeric',month:'long'});
+    if(!monthly[key])monthly[key]={count:0,amount:0,credits:0};
+    monthly[key].count++;monthly[key].amount+=Number(o.amount_rial||0);monthly[key].credits+=Number(o.credit_units||0);
+  });
+  window._reportVerified=verified;window._reportMonthly=monthly;
+  c.innerHTML=`
+  <div class="empty-note">مبالغ زیر «مبلغ ثبت‌شده سفارش‌های تأییدشده» هستند. چون تفکیک مالیات در رکوردهای سفارش ذخیره نشده است، مالیات و فروش خالص محاسبه یا تخمین زده نمی‌شوند.${orders.length>=1000?' هشدار: گزارش محدود به ۱۰۰۰ سفارش اخیر است.':''}</div>
+  <div class="stat-grid three">
+    <div class="stat-card blue"><div class="stat-label">جمع مبالغ پرداخت تأییدشده</div><div class="stat-val small">${fmtRial(revenue)}</div></div>
+    <div class="stat-card green"><div class="stat-label">اعتبار فروخته‌شده</div><div class="stat-val">${fmtNum(credits)}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">سفارش تأییدشده</div><div class="stat-val">${fmtNum(verified.length)}</div></div>
+  </div>
+  <div class="panel"><div class="panel-head"><h3>گردش مالی ماهانه</h3>
+  ${CAN.exportData()?'<span class="panel-actions"><button class="action-btn" onclick="exportXLSX()">اکسل</button><button class="action-btn" onclick="exportCSV()">CSV</button></span>':''}</div>
+  <div class="tbl-wrap"><table><thead><tr><th>ماه</th><th>تعداد سفارش</th><th>تعداد واحد</th><th>مبلغ وصول‌شده (ریال)</th></tr></thead><tbody>
+  ${Object.entries(monthly).map(([m,v])=>`<tr><td>${html(m)}</td><td>${fmtNum(v.count)}</td><td>${fmtNum(v.credits)}</td><td>${fmtRial(v.amount)}</td></tr>`).join('')||'<tr><td colspan="4">سفارشی موجود نیست.</td></tr>'}
+  </tbody></table></div></div>
+  <div class="panel"><div class="panel-head"><h3>ریز سفارش‌های تأییدشده</h3></div><div class="tbl-wrap"><table>
+  <thead><tr><th>شناسه</th><th>مالک</th><th>تعداد اعتبار</th><th>مبلغ پرداخت</th><th>تاریخ</th></tr></thead><tbody>
+  ${verified.slice(0,100).map(o=>`<tr><td dir="ltr">${html(o.id.slice(0,10))}…</td><td dir="ltr">${html((o.owner_user_id||'').slice(0,10))}…</td><td>${fmtNum(o.credit_units)}</td><td>${fmtRial(o.amount_rial)}</td><td>${fmtDate(o.created_at)}</td></tr>`).join('')||'<tr><td colspan="5">سفارشی موجود نیست.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+function exportRows(){
+ return(window._reportVerified||[]).map(o=>({
+  'شناسه سفارش':o.id,'شناسه مالک':o.owner_user_id,'تعداد واحد اعتبار':o.credit_units,
+  'مبلغ ثبت‌شده پرداخت (ریال)':o.amount_rial,'تاریخ':new Date(o.created_at).toISOString()
+ }));
+}
+function exportXLSX(){
+ if(!CAN.exportData())return toast('اجازه صدور گزارش ندارید','error');
+ const orders=exportRows();
+ const monthly=Object.entries(window._reportMonthly||{}).map(([month,v])=>({'ماه':month,'سفارش':v.count,'اعتبار':v.credits,'مبلغ (ریال)':v.amount}));
+ try {
+  const blob=SuraReports.makeXlsx([{name:'تراکنش‌ها',rows:orders},{name:'ماهانه',rows:monthly}]);
+  SuraReports.download(blob,`sura-report-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('ذخیره گزارش اکسل آماده است','success');
+ }catch(err){toast('خطا در آماده‌سازی گزارش اکسل','error');}
+}
+function csvValue(v){
+ let t=String(v??'');
+ // Spreadsheet formula injection protection for exported text.
+ if(/^[=+@-]/.test(t))t="'"+t;
+ return '"'+t.replace(/"/g,'""')+'"';
+}
+function exportCSV(){
+ if(!CAN.exportData())return toast('اجازه صدور گزارش ندارید','error');
+ const head=['شناسه سفارش','شناسه مالک','اعتبار','مبلغ پرداخت (ریال)','تاریخ'];
+ const rows=exportRows().map(o=>Object.values(o));
+ const csv=[head,...rows].map(row=>row.map(csvValue).join(',')).join('\r\n');
+ const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+ SuraReports.download(blob,`sura-report-${new Date().toISOString().slice(0,10)}.csv`);
+ toast('درخواست دانلود CSV ثبت شد','success');
+}
+
+
+// ── Gifts ────────────────────────────────────────────────
+async function renderGifts(c) {
+  const [rdm, uses] = await Promise.all([
+    sbGet('sura_promo_redemptions?select=id,account_id,credits_granted,credits_remaining,redeemed_at&order=redeemed_at.desc&limit=200'),
+    sbGet('sura_promo_invoice_uses?select=id,account_id,invoice_key,used_at&order=used_at.desc&limit=200'),
+  ]);
+
+  const btn = document.getElementById('topbar-action');
+  btn.style.display = CAN.adjustWallet() && currentPage==='gifts' ? 'flex' : 'none';
+  btn.innerHTML = `+ اعطای اعتبار`;
+  btn.className = 'topbar-btn accent';
+  btn.onclick = () => openGiftModal();
+
+  c.innerHTML = `
+  <div class="stat-grid three">
+    <div class="stat-card blue"><div class="stat-label">بازخریدهای تبلیغاتی</div><div class="stat-val">${fmtNum(rdm.length)}</div></div>
+    <div class="stat-card green"><div class="stat-label">اعتبار هدیه داده شده</div><div class="stat-val">${fmtNum(rdm.reduce((s,r) => s+(r.credits_granted||0),0))}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">اعتبار هدیه باقی‌مانده</div><div class="stat-val">${fmtNum(rdm.reduce((s,r) => s+(r.credits_remaining||0),0))}</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>بازخریدهای تبلیغاتی (sura_promo_redemptions)</h3><span style="color:var(--fg2)">${rdm.length} رکورد</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>شناسه</th><th>Account</th><th>اعطا شده</th><th>باقی‌مانده</th><th>مصرف شده</th><th>تاریخ</th></tr></thead>
+        <tbody>
+          ${rdm.length ? rdm.map(r => `<tr>
+            <td>${r.id}</td>
+            <td style="font-size:.72rem;direction:ltr">${(r.account_id||'').slice(0,10)}…</td>
+            <td><span class="badge blue">${r.credits_granted}</span></td>
+            <td><span class="badge ${r.credits_remaining>0?'green':'gray'}">${r.credits_remaining}</span></td>
+            <td>${(r.credits_granted||0)-(r.credits_remaining||0)}</td>
+            <td>${fmtDate(r.redeemed_at)}</td>
+          </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--fg3);padding:24px">رکوردی یافت نشد</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>استفاده‌های تبلیغاتی از فاکتور</h3><span style="color:var(--fg2)">${uses.length} رکورد</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>شناسه</th><th>Account</th><th>کلید فاکتور</th><th>تاریخ</th></tr></thead>
+        <tbody>
+          ${uses.length ? uses.slice(0,50).map(u => `<tr>
+            <td>${u.id}</td>
+            <td style="font-size:.72rem;direction:ltr">${(u.account_id||'').slice(0,10)}…</td>
+            <td style="font-size:.72rem;direction:ltr">${(u.invoice_key||'').slice(0,16)}…</td>
+            <td>${fmtDate(u.used_at)}</td>
+          </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--fg3);padding:24px">رکوردی یافت نشد</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── Settings ─────────────────────────────────────────────
+async function renderSettings(c) {
+  const pricing = await sbGet('sura_credit_pricing?select=price_per_invoice_rial,currency&limit=1');
+  const currentPrice = pricing[0]?.price_per_invoice_rial ?? 0;
+
+  const roleLabel = ROLE_LABELS[ADMIN_ROLE] || ADMIN_ROLE;
+  const savedEmail = CURRENT_EMAIL;
+  c.innerHTML = `
+  <div class="config-notice">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.5"/></svg>
+    <span>ورود مدیر با تأیید نقش در سرور انجام می‌شود. کلید محرمانه سرور داخل پنل قرار ندارد.</span>
+  </div>
+  <div class="settings-grid">
+    <div class="setting-card">
+      <h4>اتصال جاری</h4>
+      <div class="field-row"><label>آدرس پروژه</label><input type="text" value="${html(SB_URL)}" readonly style="opacity:.6;direction:ltr"></div>
+      <div class="field-row"><label>ایمیل مدیر</label><input type="text" value="${html(savedEmail)}" readonly style="opacity:.6"></div>
+      <div class="field-row"><label>نقش</label><input type="text" value="${roleLabel}" readonly style="opacity:.6;color:${ROLE_COLORS[ADMIN_ROLE]||'var(--fg)'}"></div>
+      <div class="field-row"><label>Admin API</label><input type="text" value="${html(ADMIN_API)}" readonly style="opacity:.6;direction:ltr;font-size:.72rem"></div>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="logout()">خروج / تغییر حساب</button>
+    </div>
+    <div class="setting-card">
+      <h4>قیمت فعلی</h4>
+      <div class="field-row"><label>قیمت هر واحد اعتبار</label><input type="text" value="${fmtRial(currentPrice)}" readonly style="opacity:.6"></div>
+      <div class="field-row"><label>تفکیک مالیات</label><input type="text" value="در داده سفارش‌ها ثبت نشده" readonly style="opacity:.6"></div>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="showPage('packages')">ویرایش بسته‌ها</button>
+    </div>
+    <div class="setting-card">
+      <h4>نقشه جداول</h4>
+      <div style="font-size:.8rem;line-height:2;color:var(--fg2)">
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_owner_wallets</code></div>
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_taxpayer_wallets</code></div>
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_payment_orders</code></div>
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_credit_grants</code></div>
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_credit_transfers</code></div>
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_promo_redemptions</code></div>
+        <div>• <code style="background:var(--bg);padding:1px 5px;border-radius:4px">sura_credit_pricing</code></div>
+      </div>
+    </div>
+    <div class="setting-card">
+      <h4>ملاحظات امنیتی</h4>
+      <div style="font-size:.8rem;line-height:1.8;color:var(--fg2)">
+        <p>• service_role هرگز در مرورگر یا APK قرار ندهید</p>
+        <p>• service_role فقط در Supabase Secrets روی Edge Function است</p>
+        <p>• نشست در تب مرورگر نگهداری شده و در صورت معتبر بودن، توکن به‌روزرسانی می‌شود.</p>
+        <p>• این پنل فقط با HTTPS در اختیار مدیر قرار گیرد</p>
+        <p>• اصلاحات دستی اعتبار با رسید یکتا و دلیل در دفتر ممیزی مالی ثبت می‌شوند.</p>
+        <p>• کنترل دسترسی مدیر برای تمام درخواست‌ها در Edge Function دوباره بررسی می‌شود.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Safe session restore for this tab only ──
+window.addEventListener('DOMContentLoaded',async()=>{
+ document.querySelectorAll('.nav-item').forEach(item=>{item.tabIndex=0;item.setAttribute('role','button');item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();item.click();}});});
+ try{
+  const old=JSON.parse(sessionStorage.getItem('sura_admin_session_v2')||'null');
+  if(!old||!old.url||!old.anon||!old.token)return;
+  SB_URL=old.url;SB_ANON=old.anon;USER_JWT=old.token;REFRESH_TOKEN=old.refresh||'';
+  JWT_EXP=Number(old.exp)||0;CURRENT_EMAIL=old.email||'';ADMIN_API=`${SB_URL}/functions/v1/sura-admin-api`;
+  if(SB_URL!==document.getElementById('inp-url').value||SB_ANON!==document.getElementById('inp-anon').value){logout();return;}
+  document.getElementById('inp-email').value=CURRENT_EMAIL;
+  await ensureFreshToken();
+  const me=await getMe();restoreUi(me);
+ }catch(e){logout();}
+});
+
+
+</script>
+
+</body></html>

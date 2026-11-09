@@ -666,9 +666,9 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
 // ── State ──────────────────────────────────────────────
 // service_role هرگز اینجا نیست — فقط JWT کاربر
 let SB_URL = 'https://fiiitzfbdjzpmepzjsjw.supabase.co';
-let SB_ANON = '';         // anon key (عمومی است، مشکلی ندارد)
-let USER_JWT = '';        // از Supabase Auth
-let ADMIN_API = '';       // https://...supabase.co/functions/v1/sura-admin-api
+let SB_ANON = ''; // anon key (عمومی است، مشکلی ندارد)
+let USER_JWT = ''; // از Supabase Auth
+let ADMIN_API = ''; // https://...supabase.co/functions/v1/sura-admin-api
 let REFRESH_TOKEN = '';
 let JWT_EXP = 0;
 let CURRENT_EMAIL = '';
@@ -679,248 +679,315 @@ let ADMIN_ROLE = 'viewer';
 const ROLE_LABELS = { admin: 'مدیر ارشد', editor: 'ویرایشگر', viewer: 'ناظر' };
 const ROLE_COLORS = { admin: 'var(--red)', editor: 'var(--yellow)', viewer: 'var(--green)' };
 const CAN = {
-  editPackages:  () => ADMIN_ROLE === 'admin',
-  adjustWallet:  () => ADMIN_ROLE === 'admin',
-  giftCredit:    () => ADMIN_ROLE === 'admin',
-  transferCredit:() => ADMIN_ROLE === 'admin',
-  exportData:    () => ADMIN_ROLE !== 'viewer',
+    editPackages: () => ADMIN_ROLE === 'admin',
+    adjustWallet: () => ADMIN_ROLE === 'admin',
+    giftCredit: () => ADMIN_ROLE === 'admin',
+    transferCredit: () => ADMIN_ROLE === 'admin',
+    exportData: () => ADMIN_ROLE !== 'viewer',
 };
-
 // ── Auth: verified Supabase Auth identity + server-checked role ──
-function newUUID(){
- if(crypto.randomUUID)return crypto.randomUUID();
- const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
- bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
- const h=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');
- return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+function newUUID() {
+    if (crypto.randomUUID)
+        return crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    const h = Array.from(bytes, x => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 function validUUID(value) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value)); }
-function html(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function html(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 function fail(text) { const e = document.getElementById('login-error'); e.textContent = text; e.style.display = 'block'; }
 function parseError(err) {
-  const codes = { unauthorized:'اجازه ورود ندارید یا نشست شما منقضی شده است.', insufficient_role:'سطح دسترسی برای این عملیات کافی نیست.',
-    invalid_adjustment:'اطلاعات اصلاح اعتبار معتبر نیست.', invalid_transfer:'اطلاعات انتقال معتبر نیست.',
-    balance_changed:'موجودی در سرور تغییر کرده است؛ صفحه را به‌روزرسانی کنید.', taxpayer_wallet_not_found:'کیف‌پول این مؤدی وجود ندارد.',
-    owner_not_found:'حساب مالک یافت نشد.', invalid_price:'قیمت معتبر نیست.', idempotency_conflict:'شناسه درخواست قبلاً با اطلاعات متفاوت استفاده شده است.',
-    not_admin:'تنها مدیر ارشد مجاز به اصلاح موجودی است.', no_change:'موجودی جدید با قبلی برابر است.',
-    read_failed:'خطا در دریافت اطلاعات از پایگاه داده.', database_operation_failed:'عملیات دیتابیس انجام نشد.'};
-  return codes[err?.message] || err?.message || 'خطای ناشناخته';
+    const codes = { unauthorized: 'اجازه ورود ندارید یا نشست شما منقضی شده است.', insufficient_role: 'سطح دسترسی برای این عملیات کافی نیست.',
+        invalid_adjustment: 'اطلاعات اصلاح اعتبار معتبر نیست.', invalid_transfer: 'اطلاعات انتقال معتبر نیست.',
+        balance_changed: 'موجودی در سرور تغییر کرده است؛ صفحه را به‌روزرسانی کنید.', taxpayer_wallet_not_found: 'کیف‌پول این مؤدی وجود ندارد.',
+        owner_not_found: 'حساب مالک یافت نشد.', invalid_price: 'قیمت معتبر نیست.', idempotency_conflict: 'شناسه درخواست قبلاً با اطلاعات متفاوت استفاده شده است.',
+        not_admin: 'تنها مدیر ارشد مجاز به اصلاح موجودی است.', no_change: 'موجودی جدید با قبلی برابر است.',
+        read_failed: 'خطا در دریافت اطلاعات از پایگاه داده.', database_operation_failed: 'عملیات دیتابیس انجام نشد.' };
+    return codes[err === null || err === void 0 ? void 0 : err.message] || (err === null || err === void 0 ? void 0 : err.message) || 'خطای ناشناخته';
 }
 function restoreUi(me) {
-  ADMIN_ROLE = me.role; CURRENT_EMAIL = me.email || CURRENT_EMAIL;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  document.getElementById('user-name').textContent = CURRENT_EMAIL;
-  document.getElementById('user-avatar').textContent = (CURRENT_EMAIL || 'م')[0].toUpperCase();
-  document.getElementById('sidebar-role-badge').textContent = ROLE_LABELS[ADMIN_ROLE];
-  document.getElementById('sidebar-role-badge').style.color = ROLE_COLORS[ADMIN_ROLE];
-  showPage('dashboard');
+    ADMIN_ROLE = me.role;
+    CURRENT_EMAIL = me.email || CURRENT_EMAIL;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('user-name').textContent = CURRENT_EMAIL;
+    document.getElementById('user-avatar').textContent = (CURRENT_EMAIL || 'م')[0].toUpperCase();
+    document.getElementById('sidebar-role-badge').textContent = ROLE_LABELS[ADMIN_ROLE];
+    document.getElementById('sidebar-role-badge').style.color = ROLE_COLORS[ADMIN_ROLE];
+    showPage('dashboard');
 }
 function persistSession() {
-  try { sessionStorage.setItem('sura_admin_session_v2',JSON.stringify({url:SB_URL,anon:SB_ANON,token:USER_JWT,refresh:REFRESH_TOKEN,exp:JWT_EXP,email:CURRENT_EMAIL})); } catch {}
+    try {
+        sessionStorage.setItem('sura_admin_session_v2', JSON.stringify({ url: SB_URL, anon: SB_ANON, token: USER_JWT, refresh: REFRESH_TOKEN, exp: JWT_EXP, email: CURRENT_EMAIL }));
+    }
+    catch (_a) { }
 }
 function setSession(resp) {
-  USER_JWT = resp.access_token;
-  REFRESH_TOKEN = resp.refresh_token || REFRESH_TOKEN;
-  JWT_EXP = Math.floor(Date.now()/1000)+(resp.expires_in || 3600);
-  persistSession();
+    USER_JWT = resp.access_token;
+    REFRESH_TOKEN = resp.refresh_token || REFRESH_TOKEN;
+    JWT_EXP = Math.floor(Date.now() / 1000) + (resp.expires_in || 3600);
+    persistSession();
 }
 async function refreshSession() {
-  if (!REFRESH_TOKEN) throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');
-  const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method:'POST', headers:{apikey:SB_ANON,'content-type':'application/json'},
-    body:JSON.stringify({refresh_token:REFRESH_TOKEN})
-  });
-  if (!r.ok) { logout(); throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.'); }
-  setSession(await r.json());
+    if (!REFRESH_TOKEN)
+        throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST', headers: { apikey: SB_ANON, 'content-type': 'application/json' },
+        body: JSON.stringify({ refresh_token: REFRESH_TOKEN })
+    });
+    if (!r.ok) {
+        logout();
+        throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');
+    }
+    setSession(await r.json());
 }
-async function ensureFreshToken() { if (Date.now()/1000 > JWT_EXP-90) await refreshSession(); }
+async function ensureFreshToken() { if (Date.now() / 1000 > JWT_EXP - 90)
+    await refreshSession(); }
 async function getMe() {
-  const r = await fetch(`${ADMIN_API}/me`,{headers:{authorization:`Bearer ${USER_JWT}`,apikey:SB_ANON}});
-  if (!r.ok) throw new Error(r.status===401?'حساب شما دسترسی مدیریت ندارد.':'خطا در احراز دسترسی مدیر.');
-  const me = await r.json();
-  if (!['admin','editor','viewer'].includes(me.role)) throw new Error('نقش مدیریتی معتبر نیست.');
-  return me;
+    const r = await fetch(`${ADMIN_API}/me`, { headers: { authorization: `Bearer ${USER_JWT}`, apikey: SB_ANON } });
+    if (!r.ok)
+        throw new Error(r.status === 401 ? 'حساب شما دسترسی مدیریت ندارد.' : 'خطا در احراز دسترسی مدیر.');
+    const me = await r.json();
+    if (!['admin', 'editor', 'viewer'].includes(me.role))
+        throw new Error('نقش مدیریتی معتبر نیست.');
+    return me;
 }
 async function doLogin() {
-  const url = document.getElementById('inp-url').value.trim().replace(/\/+$/,'');
-  const anon = document.getElementById('inp-anon').value.trim();
-  const email = document.getElementById('inp-email').value.trim();
-  const pass = document.getElementById('inp-password').value;
-  document.getElementById('login-error').style.display='none';
-  if (url!=='https://fiiitzfbdjzpmepzjsjw.supabase.co') return fail('آدرس رسمی سرور تطابق ندارد.');
-  if (!(anon.startsWith('eyJ') || anon.startsWith('sb_publishable_'))) return fail('کلید عمومی (Anon/Publishable) را وارد کنید.');
-  if (!email || !pass) return fail('ایمیل و رمز عبور الزامی است.');
-  const btn = document.querySelector('#login-screen .btn-primary');
-  btn.disabled=true; btn.textContent='در حال ورود...';
-  try {
-    const resp = await fetch(`${url}/auth/v1/token?grant_type=password`, {method:'POST',headers:{apikey:anon,'content-type':'application/json'},body:JSON.stringify({email,password:pass})});
-    if (!resp.ok) throw new Error('ورود ناموفق بود؛ ایمیل، رمز یا وضعیت حساب را بررسی کنید.');
-    SB_URL=url; SB_ANON=anon; ADMIN_API=`${url}/functions/v1/sura-admin-api`; CURRENT_EMAIL=email;
-    setSession(await resp.json());
-    const me=await getMe(); restoreUi(me);
-    document.getElementById('inp-password').value='';
-  } catch(e){ USER_JWT='';REFRESH_TOKEN='';try{sessionStorage.removeItem('sura_admin_session_v2')}catch{} fail(parseError(e)); }
-  finally {btn.disabled=false; btn.textContent='ورود به پنل';}
+    const url = document.getElementById('inp-url').value.trim().replace(/\/+$/, '');
+    const anon = document.getElementById('inp-anon').value.trim();
+    const email = document.getElementById('inp-email').value.trim();
+    const pass = document.getElementById('inp-password').value;
+    document.getElementById('login-error').style.display = 'none';
+    if (url !== 'https://fiiitzfbdjzpmepzjsjw.supabase.co')
+        return fail('آدرس رسمی سرور تطابق ندارد.');
+    if (!(anon.startsWith('eyJ') || anon.startsWith('sb_publishable_')))
+        return fail('کلید عمومی (Anon/Publishable) را وارد کنید.');
+    if (!email || !pass)
+        return fail('ایمیل و رمز عبور الزامی است.');
+    const btn = document.querySelector('#login-screen .btn-primary');
+    btn.disabled = true;
+    btn.textContent = 'در حال ورود...';
+    try {
+        const resp = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: anon, 'content-type': 'application/json' }, body: JSON.stringify({ email, password: pass }) });
+        if (!resp.ok)
+            throw new Error('ورود ناموفق بود؛ ایمیل، رمز یا وضعیت حساب را بررسی کنید.');
+        SB_URL = url;
+        SB_ANON = anon;
+        ADMIN_API = `${url}/functions/v1/sura-admin-api`;
+        CURRENT_EMAIL = email;
+        setSession(await resp.json());
+        const me = await getMe();
+        restoreUi(me);
+        document.getElementById('inp-password').value = '';
+    }
+    catch (e) {
+        USER_JWT = '';
+        REFRESH_TOKEN = '';
+        try {
+            sessionStorage.removeItem('sura_admin_session_v2');
+        }
+        catch (_a) { }
+        fail(parseError(e));
+    }
+    finally {
+        btn.disabled = false;
+        btn.textContent = 'ورود به پنل';
+    }
 }
 function logout() {
-  closeDrawer();
-  try {sessionStorage.removeItem('sura_admin_session_v2');localStorage.removeItem('sura_session');}catch{}
-  USER_JWT=''; REFRESH_TOKEN=''; ADMIN_ROLE='viewer';JWT_EXP=0;CURRENT_EMAIL='';
-  document.getElementById('app').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('inp-password').value='';
+    closeDrawer();
+    try {
+        sessionStorage.removeItem('sura_admin_session_v2');
+        localStorage.removeItem('sura_session');
+    }
+    catch (_a) { }
+    USER_JWT = '';
+    REFRESH_TOKEN = '';
+    ADMIN_ROLE = 'viewer';
+    JWT_EXP = 0;
+    CURRENT_EMAIL = '';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('inp-password').value = '';
 }
 async function adminFetch(endpoint, body) {
-  if (!USER_JWT) throw new Error('ابتدا وارد حساب مدیر شوید.');
-  await ensureFreshToken();
-  const r = await fetch(`${ADMIN_API}/${endpoint}`,{
-    method:'POST',headers:{authorization:`Bearer ${USER_JWT}`,apikey:SB_ANON,'content-type':'application/json'},body:JSON.stringify(body)
-  });
-  if(r.status===401){logout();throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');}
-  const data=await r.json().catch(()=>({error:'server_unavailable'}));
-  if(!r.ok) throw new Error(data.error||`HTTP ${r.status}`);
-  return data;
+    if (!USER_JWT)
+        throw new Error('ابتدا وارد حساب مدیر شوید.');
+    await ensureFreshToken();
+    const r = await fetch(`${ADMIN_API}/${endpoint}`, {
+        method: 'POST', headers: { authorization: `Bearer ${USER_JWT}`, apikey: SB_ANON, 'content-type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (r.status === 401) {
+        logout();
+        throw new Error('نشست منقضی شده است؛ دوباره وارد شوید.');
+    }
+    const data = await r.json().catch(() => ({ error: 'server_unavailable' }));
+    if (!r.ok)
+        throw new Error(data.error || `HTTP ${r.status}`);
+    return data;
 }
-async function sbGet(tableQuery){
-  const [table,query='']=tableQuery.split('?');
-  return adminFetch('query',{table,query});
+async function sbGet(tableQuery) {
+    const [table, query = ''] = tableQuery.split('?');
+    return adminFetch('query', { table, query });
 }
-async function sbPatch(tableFilter,data){
-  const [table,filter='']=tableFilter.split('?');
-  return adminFetch('mutate',{table,method:'PATCH',filter,data});
+async function sbPatch(tableFilter, data) {
+    const [table, filter = ''] = tableFilter.split('?');
+    return adminFetch('mutate', { table, method: 'PATCH', filter, data });
 }
-async function sbRpc(fn,params){return adminFetch('rpc',{fn,params});}
-
-
+async function sbRpc(fn, params) { return adminFetch('rpc', { fn, params }); }
 // ── Navigation ──────────────────────────────────────────
 function showPage(page) {
-  currentPage = page;
-  closeDrawer();
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const items = document.querySelectorAll('.nav-item');
-  const pageMap = { dashboard:0, users:1, credits:2, packages:3, payments:4, reports:5, gifts:6, settings:7 };
-  items[pageMap[page]]?.classList.add('active');
-  const titles = {
-    dashboard: ['نمای کلی', 'خلاصه وضعیت فروش و اعتبار'],
-    users: ['کاربران و مودیان', 'مدیریت کاربران و موجودی اعتبار'],
-    credits: ['مدیریت اعتبار', 'انتقال و سوابق اعتبار'],
-    packages: ['بسته‌های فروش', 'قیمت‌گذاری و مدیریت بسته‌ها'],
-    payments: ['تراکنش‌های زرین‌پال', 'وضعیت پرداخت و تسویه'],
-    reports: ['گزارش فروش', 'مبالغ دریافتی و خروجی قابل رسیدگی'],
-    gifts: ['اعتبار هدیه', 'مدیریت کدهای تبلیغاتی و سوابق'],
-    settings: ['تنظیمات', 'پیکربندی سیستم و امنیت'],
-  };
-  const [t, s] = titles[page] || ['', ''];
-  document.getElementById('page-title').textContent = t;
-  document.getElementById('page-sub').textContent = s;
-  const btn = document.getElementById('topbar-action');
-  btn.style.display = 'none';
-  renderPage(page);
+    var _a;
+    currentPage = page;
+    closeDrawer();
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const items = document.querySelectorAll('.nav-item');
+    const pageMap = { dashboard: 0, users: 1, credits: 2, packages: 3, payments: 4, reports: 5, gifts: 6, settings: 7 };
+    (_a = items[pageMap[page]]) === null || _a === void 0 ? void 0 : _a.classList.add('active');
+    const titles = {
+        dashboard: ['نمای کلی', 'خلاصه وضعیت فروش و اعتبار'],
+        users: ['کاربران و مودیان', 'مدیریت کاربران و موجودی اعتبار'],
+        credits: ['مدیریت اعتبار', 'انتقال و سوابق اعتبار'],
+        packages: ['بسته‌های فروش', 'قیمت‌گذاری و مدیریت بسته‌ها'],
+        payments: ['تراکنش‌های زرین‌پال', 'وضعیت پرداخت و تسویه'],
+        reports: ['گزارش فروش', 'مبالغ دریافتی و خروجی قابل رسیدگی'],
+        gifts: ['اعتبار هدیه', 'مدیریت کدهای تبلیغاتی و سوابق'],
+        settings: ['تنظیمات', 'پیکربندی سیستم و امنیت'],
+    };
+    const [t, s] = titles[page] || ['', ''];
+    document.getElementById('page-title').textContent = t;
+    document.getElementById('page-sub').textContent = s;
+    const btn = document.getElementById('topbar-action');
+    btn.style.display = 'none';
+    renderPage(page);
 }
-
 function refreshData() { showPage(currentPage); }
-
-function toggleTheme(){
- const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
- document.documentElement.dataset.theme=next;
- try{localStorage.setItem('sura_admin_theme_v2',next);}catch{}
- const b=document.getElementById('theme-toggle');if(b)b.textContent=next==='dark'?'☀ روشن':'☾ تیره';
+function toggleTheme() {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try {
+        localStorage.setItem('sura_admin_theme_v2', next);
+    }
+    catch (_a) { }
+    const b = document.getElementById('theme-toggle');
+    if (b)
+        b.textContent = next === 'dark' ? '☀ روشن' : '☾ تیره';
 }
-(function initTheme(){
- let setting='dark';try{setting=localStorage.getItem('sura_admin_theme_v2')||'dark';}catch{}
- document.documentElement.dataset.theme=setting==='light'?'light':'dark';
- const b=document.getElementById('theme-toggle');if(b)b.textContent=setting==='light'?'☾ تیره':'☀ روشن';
+(function initTheme() {
+    let setting = 'dark';
+    try {
+        setting = localStorage.getItem('sura_admin_theme_v2') || 'dark';
+    }
+    catch (_a) { }
+    document.documentElement.dataset.theme = setting === 'light' ? 'light' : 'dark';
+    const b = document.getElementById('theme-toggle');
+    if (b)
+        b.textContent = setting === 'light' ? '☾ تیره' : '☀ روشن';
 })();
-function toggleDrawer(){const open=!document.body.classList.contains('drawer-open');document.body.classList.toggle('drawer-open',open);document.getElementById('mobile-menu').setAttribute('aria-expanded',String(open));}
-function closeDrawer(){document.body.classList.remove('drawer-open');document.getElementById('mobile-menu')?.setAttribute('aria-expanded','false');}
-document.addEventListener('keydown', e=>{if(e.key==='Escape'){closeModal();closeDrawer();}});
+function toggleDrawer() { const open = !document.body.classList.contains('drawer-open'); document.body.classList.toggle('drawer-open', open); document.getElementById('mobile-menu').setAttribute('aria-expanded', String(open)); }
+function closeDrawer() { var _a; document.body.classList.remove('drawer-open'); (_a = document.getElementById('mobile-menu')) === null || _a === void 0 ? void 0 : _a.setAttribute('aria-expanded', 'false'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') {
+    closeModal();
+    closeDrawer();
+} });
 // ── Toast ───────────────────────────────────────────────
-function toast(msg, type='success') {
-  const w = document.getElementById('toast-wrap');
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  const dot = document.createElement('span'); dot.className='toast-dot'; el.appendChild(dot); el.appendChild(document.createTextNode(String(msg)));
-  w.appendChild(el);
-  setTimeout(() => el.remove(), 3200);
+function toast(msg, type = 'success') {
+    const w = document.getElementById('toast-wrap');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const dot = document.createElement('span');
+    dot.className = 'toast-dot';
+    el.appendChild(dot);
+    el.appendChild(document.createTextNode(String(msg)));
+    w.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
 }
-
 // ── Modal ───────────────────────────────────────────────
 function openModal(title, bodyHtml, footHtml) {
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-body').innerHTML = bodyHtml;
-  document.getElementById('modal-foot').innerHTML = footHtml || '';
-  document.getElementById('modal-overlay').classList.add('open');
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML = bodyHtml;
+    document.getElementById('modal-foot').innerHTML = footHtml || '';
+    document.getElementById('modal-overlay').classList.add('open');
 }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
-
 // ── Format helpers ───────────────────────────────────────
-function fmtRial(n) { return Number(n||0).toLocaleString('fa-IR') + ' ریال'; }
-function fmtNum(n) { return Number(n||0).toLocaleString('fa-IR'); }
+function fmtRial(n) { return Number(n || 0).toLocaleString('fa-IR') + ' ریال'; }
+function fmtNum(n) { return Number(n || 0).toLocaleString('fa-IR'); }
 function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fa-IR', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    if (!d)
+        return '—';
+    return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 function fmtShortDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fa-IR', { month:'short', day:'numeric' });
+    if (!d)
+        return '—';
+    return new Date(d).toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' });
 }
-
 // ── Pages ───────────────────────────────────────────────
 async function renderPage(page) {
-  const c = document.getElementById('content');
-  const request = ++renderSerial;
-  c.innerHTML = `<div class="empty-note" role="status">در حال دریافت اطلاعات از سرور…</div>`;
-  try {
-    const view = document.createElement('div');
-    if (page === 'dashboard') await renderDashboard(view);
-    else if (page === 'users') await renderUsers(view);
-    else if (page === 'credits') await renderCredits(view);
-    else if (page === 'packages') await renderPackages(view);
-    else if (page === 'payments') await renderPayments(view);
-    else if (page === 'reports') await renderReports(view);
-    else if (page === 'gifts') await renderGifts(view);
-    else if (page === 'settings') await renderSettings(view);
-    if (request===renderSerial) c.innerHTML=view.innerHTML;
-  } catch(e) {
-    if(request===renderSerial) c.innerHTML = `<div class="config-notice" role="alert">خطا در دریافت داده: ${html(parseError(e))} <button class="action-btn" onclick="refreshData()">تلاش مجدد</button></div>`;
-  }
+    const c = document.getElementById('content');
+    const request = ++renderSerial;
+    c.innerHTML = `<div class="empty-note" role="status">در حال دریافت اطلاعات از سرور…</div>`;
+    try {
+        const view = document.createElement('div');
+        if (page === 'dashboard')
+            await renderDashboard(view);
+        else if (page === 'users')
+            await renderUsers(view);
+        else if (page === 'credits')
+            await renderCredits(view);
+        else if (page === 'packages')
+            await renderPackages(view);
+        else if (page === 'payments')
+            await renderPayments(view);
+        else if (page === 'reports')
+            await renderReports(view);
+        else if (page === 'gifts')
+            await renderGifts(view);
+        else if (page === 'settings')
+            await renderSettings(view);
+        if (request === renderSerial)
+            c.innerHTML = view.innerHTML;
+    }
+    catch (e) {
+        if (request === renderSerial)
+            c.innerHTML = `<div class="config-notice" role="alert">خطا در دریافت داده: ${html(parseError(e))} <button class="action-btn" onclick="refreshData()">تلاش مجدد</button></div>`;
+    }
 }
-
 // ── Dashboard ──────────────────────────────────────────
 async function renderDashboard(c) {
-  const [ord,wlt,prm,grt] = await Promise.all([
-    sbGet('sura_payment_orders?select=id,state,amount_rial,credit_units,created_at&order=created_at.desc&limit=1000'),
-    sbGet('sura_owner_wallets?select=credits&limit=1000'),
-    sbGet('sura_promo_redemptions?select=credits_remaining,credits_granted&limit=1000'),
-    sbGet('sura_credit_grants?select=units,created_at&order=created_at.desc&limit=1000')
-  ]);
-
-
-  const verified = ord.filter(o => o.state === 'verified');
-  const totalRev = verified.reduce((s,o) => s + (o.amount_rial||0), 0);
-  const totalCredits = verified.reduce((s,o) => s + (o.credit_units||0), 0);
-  const totalUsers = wlt.length;
-  const promoRemaining = prm.reduce((s,p) => s + (p.credits_remaining||0), 0);
-
-  // 7-day revenue bars
-  const days7 = Array.from({length:7}, (_,i) => {
-    const d = new Date(); d.setDate(d.getDate()-6+i);
-    return { label: fmtShortDate(d.toISOString()), day: d.toDateString(), val: 0 };
-  });
-  verified.forEach(o => {
-    const d = new Date(o.created_at).toDateString();
-    const slot = days7.find(s => s.day === d);
-    if (slot) slot.val += o.amount_rial||0;
-  });
-  const maxBar = Math.max(...days7.map(d => d.val), 1);
-
-  const recentOrders = ord.slice(0,6);
-  const stateLabel = { created:'ایجاد شده', requested:'ارجاع به درگاه', verified:'تسویه شده', failed:'ناموفق' };
-  const stateBadge = { created:'gray', requested:'yellow', verified:'green', failed:'red' };
-
-  c.innerHTML = `
-  ${ord.length>=1000||wlt.length>=1000?'<div class="empty-note">آمار بر اساس حداکثر ۱۰۰۰ رکورد اخیر هر جدول محاسبه شده است، نه لزوماً کل تاریخچه.</div>':''}
+    const [ord, wlt, prm, grt] = await Promise.all([
+        sbGet('sura_payment_orders?select=id,state,amount_rial,credit_units,created_at&order=created_at.desc&limit=1000'),
+        sbGet('sura_owner_wallets?select=credits&limit=1000'),
+        sbGet('sura_promo_redemptions?select=credits_remaining,credits_granted&limit=1000'),
+        sbGet('sura_credit_grants?select=units,created_at&order=created_at.desc&limit=1000')
+    ]);
+    const verified = ord.filter(o => o.state === 'verified');
+    const totalRev = verified.reduce((s, o) => s + (o.amount_rial || 0), 0);
+    const totalCredits = verified.reduce((s, o) => s + (o.credit_units || 0), 0);
+    const totalUsers = wlt.length;
+    const promoRemaining = prm.reduce((s, p) => s + (p.credits_remaining || 0), 0);
+    // 7-day revenue bars
+    const days7 = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - 6 + i);
+        return { label: fmtShortDate(d.toISOString()), day: d.toDateString(), val: 0 };
+    });
+    verified.forEach(o => {
+        const d = new Date(o.created_at).toDateString();
+        const slot = days7.find(s => s.day === d);
+        if (slot)
+            slot.val += o.amount_rial || 0;
+    });
+    const maxBar = Math.max(...days7.map(d => d.val), 1);
+    const recentOrders = ord.slice(0, 6);
+    const stateLabel = { created: 'ایجاد شده', requested: 'ارجاع به درگاه', verified: 'تسویه شده', failed: 'ناموفق' };
+    const stateBadge = { created: 'gray', requested: 'yellow', verified: 'green', failed: 'red' };
+    c.innerHTML = `
+  ${ord.length >= 1000 || wlt.length >= 1000 ? '<div class="empty-note">آمار بر اساس حداکثر ۱۰۰۰ رکورد اخیر هر جدول محاسبه شده است، نه لزوماً کل تاریخچه.</div>' : ''}
   <div class="stat-grid">
     <div class="stat-card blue">
       <div class="stat-label">درآمد تأیید شده (ریال)</div>
@@ -950,7 +1017,7 @@ async function renderDashboard(c) {
       <div style="padding:16px">
         <div class="mini-bars" id="bars">
           ${days7.map(d => `<div class="bar-item">
-            <div class="bar-fill" style="height:${Math.max(4, Math.round((d.val/maxBar)*44))}px;background:var(--accent);opacity:.8"></div>
+            <div class="bar-fill" style="height:${Math.max(4, Math.round((d.val / maxBar) * 44))}px;background:var(--accent);opacity:.8"></div>
             <div class="bar-label">${d.label}</div>
           </div>`).join('')}
         </div>
@@ -966,10 +1033,10 @@ async function renderDashboard(c) {
           <thead><tr><th>شناسه سفارش</th><th>اعتبار</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
           <tbody>
             ${recentOrders.length ? recentOrders.map(o => `<tr>
-              <td style="font-size:.75rem;color:var(--fg2)">${o.id.slice(0,8)}…</td>
+              <td style="font-size:.75rem;color:var(--fg2)">${o.id.slice(0, 8)}…</td>
               <td>${fmtNum(o.credit_units)}</td>
               <td>${fmtRial(o.amount_rial)}</td>
-              <td><span class="badge ${stateBadge[o.state]||'gray'}">${stateLabel[o.state]||o.state}</span></td>
+              <td><span class="badge ${stateBadge[o.state] || 'gray'}">${stateLabel[o.state] || o.state}</span></td>
               <td>${fmtShortDate(o.created_at)}</td>
             </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:24px">داده‌ای یافت نشد</td></tr>'}
           </tbody>
@@ -978,123 +1045,158 @@ async function renderDashboard(c) {
     </div>
   </div>`;
 }
-
 // ── Users ────────────────────────────────────────────────
 async function renderUsers(c) {
-  const [wlt,tax] = await Promise.all([
-    sbGet('sura_owner_wallets?select=owner_id,credits,updated_at&order=credits.desc&limit=1000'),
-    sbGet('sura_taxpayer_wallets?select=owner_id,local_taxpayer_id,credits,updated_at&order=credits.desc&limit=1000')
-  ]);
-  const isAdmin = CAN.adjustWallet(), canTransfer = CAN.transferCredit();
-  c.innerHTML = `
-  ${wlt.length>=1000||tax.length>=1000?'<div class="empty-note">فهرست به ۱۰۰۰ رکورد اخیر محدود است؛ برای گزارش جامع از روش گزارش‌گیری سروری استفاده کنید.</div>':''}
+    const [wlt, tax] = await Promise.all([
+        sbGet('sura_owner_wallets?select=owner_id,credits,updated_at&order=credits.desc&limit=1000'),
+        sbGet('sura_taxpayer_wallets?select=owner_id,local_taxpayer_id,credits,updated_at&order=credits.desc&limit=1000')
+    ]);
+    const isAdmin = CAN.adjustWallet(), canTransfer = CAN.transferCredit();
+    c.innerHTML = `
+  ${wlt.length >= 1000 || tax.length >= 1000 ? '<div class="empty-note">فهرست به ۱۰۰۰ رکورد اخیر محدود است؛ برای گزارش جامع از روش گزارش‌گیری سروری استفاده کنید.</div>' : ''}
   <div class="panel">
     <div class="panel-head"><h3>کیف‌پول کاربران</h3><span>${fmtNum(wlt.length)} مالک</span>
-      ${isAdmin?'<span class="panel-actions"><button class="action-btn" onclick="openGiftModal()">+ اعطای اعتبار</button></span>':''}</div>
+      ${isAdmin ? '<span class="panel-actions"><button class="action-btn" onclick="openGiftModal()">+ اعطای اعتبار</button></span>' : ''}</div>
     <div class="filters"><input class="search-input" placeholder="جست‌وجوی شناسه مالک…" aria-label="جست‌وجوی مالک" oninput="filterOwnerTable(this.value)"></div>
     <div class="tbl-wrap"><table id="owner-table"><thead><tr><th>شناسه مالک</th><th>اعتبار</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead><tbody>
-    ${wlt.map(w=>`<tr data-uid="${html(w.owner_id)}"><td dir="ltr">${html(w.owner_id)}</td>
-    <td><span class="badge ${w.credits>0?'green':'gray'}">${fmtNum(w.credits)} واحد</span></td><td>${fmtDate(w.updated_at)}</td>
-    <td>${canTransfer?`<button class="action-btn" onclick="openTransferModal('${html(w.owner_id)}',${Number(w.credits)})">انتقال</button>`:''}
-    ${isAdmin?`<button class="action-btn" onclick="openAdjustModal('${html(w.owner_id)}',${Number(w.credits)},null)">اصلاح</button>`:''}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-note">کیف‌پولی وجود ندارد.</td></tr>'}
+    ${wlt.map(w => `<tr data-uid="${html(w.owner_id)}"><td dir="ltr">${html(w.owner_id)}</td>
+    <td><span class="badge ${w.credits > 0 ? 'green' : 'gray'}">${fmtNum(w.credits)} واحد</span></td><td>${fmtDate(w.updated_at)}</td>
+    <td>${canTransfer ? `<button class="action-btn" onclick="openTransferModal('${html(w.owner_id)}',${Number(w.credits)})">انتقال</button>` : ''}
+    ${isAdmin ? `<button class="action-btn" onclick="openAdjustModal('${html(w.owner_id)}',${Number(w.credits)},null)">اصلاح</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-note">کیف‌پولی وجود ندارد.</td></tr>'}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><h3>اعتبار مؤدیان</h3><span>${fmtNum(tax.length)} مؤدی</span></div>
   <div class="tbl-wrap"><table><thead><tr><th>شناسه مالک</th><th>کد مؤدی</th><th>اعتبار</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead><tbody>
-  ${tax.map(t=>`<tr><td dir="ltr">${html(t.owner_id.slice(0,12))}…</td><td>${fmtNum(t.local_taxpayer_id)}</td>
-  <td><span class="badge ${t.credits>0?'blue':'gray'}">${fmtNum(t.credits)} واحد</span></td><td>${fmtDate(t.updated_at)}</td>
-  <td>${isAdmin?`<button class="action-btn" onclick="openAdjustModal('${html(t.owner_id)}',${Number(t.credits)},${Number(t.local_taxpayer_id)})">اصلاح</button>`:'—'}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-note">مودی دارای کیف‌پول ثبت نشده است.</td></tr>'}
+  ${tax.map(t => `<tr><td dir="ltr">${html(t.owner_id.slice(0, 12))}…</td><td>${fmtNum(t.local_taxpayer_id)}</td>
+  <td><span class="badge ${t.credits > 0 ? 'blue' : 'gray'}">${fmtNum(t.credits)} واحد</span></td><td>${fmtDate(t.updated_at)}</td>
+  <td>${isAdmin ? `<button class="action-btn" onclick="openAdjustModal('${html(t.owner_id)}',${Number(t.credits)},${Number(t.local_taxpayer_id)})">اصلاح</button>` : '—'}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-note">مودی دارای کیف‌پول ثبت نشده است.</td></tr>'}
   </tbody></table></div></div>`;
 }
-
-
 function filterOwnerTable(q) {
-  document.querySelectorAll('#owner-table tbody tr').forEach(tr => {
-    tr.style.display = q ? (tr.dataset.uid||'').includes(q) ? '' : 'none' : '';
-  });
+    document.querySelectorAll('#owner-table tbody tr').forEach(tr => {
+        tr.style.display = q ? (tr.dataset.uid || '').includes(q) ? '' : 'none' : '';
+    });
 }
-
 function openTransferModal(uid, bal) {
-  if (!CAN.transferCredit()) return toast('دسترسی کافی ندارید','error');
-  openModal('انتقال اعتبار به مؤدی', `
+    if (!CAN.transferCredit())
+        return toast('دسترسی کافی ندارید', 'error');
+    openModal('انتقال اعتبار به مؤدی', `
     <div class="empty-note">موجودی مالک: ${fmtNum(bal)} واحد. انتقال فقط از موجودی مالک به مؤدی همین مالک است.</div>
     <div class="field-row"><label>شناسه عددی مؤدی</label><input type="number" id="m-taxpayer" min="1" step="1"></div>
-    <div class="field-row"><label>تعداد اعتبار</label><input type="number" id="m-amount" min="1" max="${bal}" step="1"></div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="doTransfer('${uid}')">تأیید انتقال</button>`
-  );
-  document.getElementById('modal').dataset.request=newUUID();
+    <div class="field-row"><label>تعداد اعتبار</label><input type="number" id="m-amount" min="1" max="${bal}" step="1"></div>`, `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="doTransfer('${uid}')">تأیید انتقال</button>`);
+    document.getElementById('modal').dataset.request = newUUID();
 }
 async function submitBusy(task) {
-  const b=document.getElementById('modal-submit');
-  if(b?.disabled) return;
-  if(b) b.disabled=true;
-  try {await task();} finally{if(b)b.disabled=false;}
+    const b = document.getElementById('modal-submit');
+    if (b === null || b === void 0 ? void 0 : b.disabled)
+        return;
+    if (b)
+        b.disabled = true;
+    try {
+        await task();
+    }
+    finally {
+        if (b)
+            b.disabled = false;
+    }
 }
-async function doTransfer(owner) {return submitBusy(async()=>{
-  const t=Number(document.getElementById('m-taxpayer').value), c=Number(document.getElementById('m-amount').value);
-  if(!Number.isSafeInteger(t)||t<1||!Number.isSafeInteger(c)||c<1) return toast('شناسه و اعتبار باید عدد صحیح مثبت باشند.','error');
-  if(!confirm('انتقال '+fmtNum(c)+' واحد اعتبار به مؤدی '+fmtNum(t)+' انجام شود؟'))return;
-  try {const r=await sbRpc('sura_transfer_owner_credit',{p_owner:owner,p_taxpayer:t,p_credits:c,p_request:document.getElementById('modal').dataset.request});
-    if(r?.error)throw new Error(r.error); toast('انتقال ثبت شد. شماره پیگیری: '+r.receipt,'success');closeModal();showPage('users');
-  }catch(e){toast('انتقال ناموفق: '+parseError(e),'error');}
-});}
-function openAdjustModal(owner, balance, taxpayer=null) {
-  if(!CAN.adjustWallet())return toast('فقط مدیر ارشد می‌تواند اعتبار را اصلاح کند.','error');
-  const isTaxpayer=taxpayer!==null;
-  openModal(isTaxpayer?'اصلاح اعتبار مؤدی':'اصلاح اعتبار مالک',`
+async function doTransfer(owner) {
+    return submitBusy(async () => {
+        const t = Number(document.getElementById('m-taxpayer').value), c = Number(document.getElementById('m-amount').value);
+        if (!Number.isSafeInteger(t) || t < 1 || !Number.isSafeInteger(c) || c < 1)
+            return toast('شناسه و اعتبار باید عدد صحیح مثبت باشند.', 'error');
+        if (!confirm('انتقال ' + fmtNum(c) + ' واحد اعتبار به مؤدی ' + fmtNum(t) + ' انجام شود؟'))
+            return;
+        try {
+            const r = await sbRpc('sura_transfer_owner_credit', { p_owner: owner, p_taxpayer: t, p_credits: c, p_request: document.getElementById('modal').dataset.request });
+            if (r === null || r === void 0 ? void 0 : r.error)
+                throw new Error(r.error);
+            toast('انتقال ثبت شد. شماره پیگیری: ' + r.receipt, 'success');
+            closeModal();
+            showPage('users');
+        }
+        catch (e) {
+            toast('انتقال ناموفق: ' + parseError(e), 'error');
+        }
+    });
+}
+function openAdjustModal(owner, balance, taxpayer = null) {
+    if (!CAN.adjustWallet())
+        return toast('فقط مدیر ارشد می‌تواند اعتبار را اصلاح کند.', 'error');
+    const isTaxpayer = taxpayer !== null;
+    openModal(isTaxpayer ? 'اصلاح اعتبار مؤدی' : 'اصلاح اعتبار مالک', `
     <div class="empty-note">این تغییر مالی است و همراه با نام مدیر، مانده قبل و بعد و دلیل، در دفتر ممیزی ثبت می‌شود.</div>
     <div class="field-row"><label>موجودی ثبت‌شده (واحد)</label><input type="number" id="adj-expected" value="${balance}" readonly></div>
     <div class="field-row"><label>موجودی جدید (واحد)</label><input type="number" id="adj-new" min="0" max="1000000000" step="1" value="${balance}"></div>
-    <div class="field-row"><label>دلیل اصلاح (الزامی، حداقل ۵ حرف)</label><textarea id="adj-reason" maxlength="500" placeholder="برای مثال: اصلاح پس از تطبیق با رسید رسمی"></textarea></div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-danger" onclick="doAdjust('${owner}',${isTaxpayer?taxpayer:'null'})">ثبت اصلاح</button>`);
-  document.getElementById('modal').dataset.request=newUUID();
+    <div class="field-row"><label>دلیل اصلاح (الزامی، حداقل ۵ حرف)</label><textarea id="adj-reason" maxlength="500" placeholder="برای مثال: اصلاح پس از تطبیق با رسید رسمی"></textarea></div>`, `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-danger" onclick="doAdjust('${owner}',${isTaxpayer ? taxpayer : 'null'})">ثبت اصلاح</button>`);
+    document.getElementById('modal').dataset.request = newUUID();
 }
-async function doAdjust(owner,taxpayer){return submitBusy(async()=>{
-  const expected=Number(document.getElementById('adj-expected').value), balance=Number(document.getElementById('adj-new').value);
-  const reason=document.getElementById('adj-reason').value.trim();
-  if(!Number.isSafeInteger(balance)||balance<0||balance>1000000000||balance===expected||reason.length<5)
-    return toast('موجودی جدید باید متفاوت و دلیل اصلاح معتبر باشد.','error');
-  if(!confirm('تغییر موجودی از '+fmtNum(expected)+' به '+fmtNum(balance)+' واحد ثبت شود؟'))return;
-  try{const r=await adminFetch('adjust',{owner,taxpayer,expected,balance,reason,request:document.getElementById('modal').dataset.request});
-    if(r?.error)throw new Error(r.error);toast('اصلاح ثبت و ممیزی شد. کد: '+r.receipt,'success');closeModal();showPage('users');
-  }catch(e){toast('اصلاح ناموفق: '+parseError(e),'error');}
-});}
+async function doAdjust(owner, taxpayer) {
+    return submitBusy(async () => {
+        const expected = Number(document.getElementById('adj-expected').value), balance = Number(document.getElementById('adj-new').value);
+        const reason = document.getElementById('adj-reason').value.trim();
+        if (!Number.isSafeInteger(balance) || balance < 0 || balance > 1000000000 || balance === expected || reason.length < 5)
+            return toast('موجودی جدید باید متفاوت و دلیل اصلاح معتبر باشد.', 'error');
+        if (!confirm('تغییر موجودی از ' + fmtNum(expected) + ' به ' + fmtNum(balance) + ' واحد ثبت شود؟'))
+            return;
+        try {
+            const r = await adminFetch('adjust', { owner, taxpayer, expected, balance, reason, request: document.getElementById('modal').dataset.request });
+            if (r === null || r === void 0 ? void 0 : r.error)
+                throw new Error(r.error);
+            toast('اصلاح ثبت و ممیزی شد. کد: ' + r.receipt, 'success');
+            closeModal();
+            showPage('users');
+        }
+        catch (e) {
+            toast('اصلاح ناموفق: ' + parseError(e), 'error');
+        }
+    });
+}
 function openGiftModal() {
-  if(!CAN.adjustWallet())return toast('فقط مدیر ارشد مجاز به هدیه اعتبار است.','error');
-  openModal('اعطای اعتبار هدیه',`
+    if (!CAN.adjustWallet())
+        return toast('فقط مدیر ارشد مجاز به هدیه اعتبار است.', 'error');
+    openModal('اعطای اعتبار هدیه', `
     <div class="empty-note">اعتبار بدون پرداخت افزوده می‌شود. مانده فعلی حساب باید از سرور خوانده شود؛ عملیات در دفتر ممیزی ثبت می‌شود.</div>
     <div class="field-row"><label>شناسه UUID مالک</label><input type="text" id="gift-uid" dir="ltr" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
     <div class="field-row"><label>تعداد اعتبار هدیه (واحد)</label><input type="number" id="gift-amount" min="1" step="1"></div>
-    <div class="field-row"><label>دلیل هدیه (الزامی)</label><input type="text" id="gift-note" maxlength="500" placeholder="تخصیص اعتباری با مجوز مدیر ارشد"></div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="doGiftDirect()">ثبت هدیه</button>`);
-  document.getElementById('modal').dataset.request=newUUID();
+    <div class="field-row"><label>دلیل هدیه (الزامی)</label><input type="text" id="gift-note" maxlength="500" placeholder="تخصیص اعتباری با مجوز مدیر ارشد"></div>`, `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="doGiftDirect()">ثبت هدیه</button>`);
+    document.getElementById('modal').dataset.request = newUUID();
 }
-async function doGiftDirect(){return submitBusy(async()=>{
-  const owner=document.getElementById('gift-uid').value.trim(), gift=Number(document.getElementById('gift-amount').value);
-  const reason=document.getElementById('gift-note').value.trim();
-  if(!validUUID(owner)||!Number.isSafeInteger(gift)||gift<1||reason.length<5)return toast('UUID، مبلغ و دلیل هدیه را بررسی کنید.','error');
-  try{
-    // No arbitrary data-table insert: only the audited atomic admin RPC is allowed.
-    const wallet=await adminFetch('wallet',{owner});
-    const expected=Number(wallet.credits),balance=expected+gift;
-    if(!Number.isSafeInteger(balance)||balance>1000000000)throw new Error('مقدار اعتبار بیش از حد مجاز است.');
-    if(!confirm('اعطای '+fmtNum(gift)+' واحد به '+owner+' تأیید شود؟'))return;
-    const r=await adminFetch('adjust',{owner,taxpayer:null,expected,balance,reason,request:document.getElementById('modal').dataset.request});
-    if(r?.error)throw new Error(r.error);toast('اعتبار هدیه ثبت شد: '+r.receipt,'success');closeModal();showPage('gifts');
-  }catch(e){toast('هدیه ثبت نشد: '+parseError(e),'error');}
-});}
-
-
+async function doGiftDirect() {
+    return submitBusy(async () => {
+        const owner = document.getElementById('gift-uid').value.trim(), gift = Number(document.getElementById('gift-amount').value);
+        const reason = document.getElementById('gift-note').value.trim();
+        if (!validUUID(owner) || !Number.isSafeInteger(gift) || gift < 1 || reason.length < 5)
+            return toast('UUID، مبلغ و دلیل هدیه را بررسی کنید.', 'error');
+        try {
+            // No arbitrary data-table insert: only the audited atomic admin RPC is allowed.
+            const wallet = await adminFetch('wallet', { owner });
+            const expected = Number(wallet.credits), balance = expected + gift;
+            if (!Number.isSafeInteger(balance) || balance > 1000000000)
+                throw new Error('مقدار اعتبار بیش از حد مجاز است.');
+            if (!confirm('اعطای ' + fmtNum(gift) + ' واحد به ' + owner + ' تأیید شود؟'))
+                return;
+            const r = await adminFetch('adjust', { owner, taxpayer: null, expected, balance, reason, request: document.getElementById('modal').dataset.request });
+            if (r === null || r === void 0 ? void 0 : r.error)
+                throw new Error(r.error);
+            toast('اعتبار هدیه ثبت شد: ' + r.receipt, 'success');
+            closeModal();
+            showPage('gifts');
+        }
+        catch (e) {
+            toast('هدیه ثبت نشد: ' + parseError(e), 'error');
+        }
+    });
+}
 // ── Credits ─────────────────────────────────────────────
 async function renderCredits(c) {
-  const [transfers, grants, adjustments] = await Promise.all([
-    sbGet('sura_credit_transfers?select=id,owner_id,local_taxpayer_id,credits,created_at&order=created_at.desc&limit=100'),
-    sbGet('sura_credit_grants?select=id,owner_user_id,units,created_at,order_id&order=created_at.desc&limit=100'),
-    CAN.adjustWallet() ? sbGet('sura_admin_credit_adjustments?select=request_id,actor_user_id,owner_id,local_taxpayer_id,before_credits,after_credits,delta,reason,created_at&order=created_at.desc&limit=100') : Promise.resolve([])
-  ]);
-  const tr=transfers, gr=grants, adj=adjustments;
-
-  c.innerHTML = `
+    const [transfers, grants, adjustments] = await Promise.all([
+        sbGet('sura_credit_transfers?select=id,owner_id,local_taxpayer_id,credits,created_at&order=created_at.desc&limit=100'),
+        sbGet('sura_credit_grants?select=id,owner_user_id,units,created_at,order_id&order=created_at.desc&limit=100'),
+        CAN.adjustWallet() ? sbGet('sura_admin_credit_adjustments?select=request_id,actor_user_id,owner_id,local_taxpayer_id,before_credits,after_credits,delta,reason,created_at&order=created_at.desc&limit=100') : Promise.resolve([])
+    ]);
+    const tr = transfers, gr = grants, adj = adjustments;
+    c.innerHTML = `
   <div class="panel">
     <div class="panel-head"><h3>سوابق انتقال اعتبار</h3><span style="color:var(--fg2)">${fmtNum(tr.length)} رکورد</span></div>
     <div class="tbl-wrap">
@@ -1102,9 +1204,9 @@ async function renderCredits(c) {
         <thead><tr><th>شناسه</th><th>مالک</th><th>مودی</th><th>اعتبار</th><th>تاریخ</th></tr></thead>
         <tbody>
           ${tr.length ? tr.map(t => `<tr>
-            <td style="font-size:.73rem;color:var(--fg2)">${t.id||'—'}</td>
-            <td style="font-size:.73rem;direction:ltr;text-align:left">${(t.owner_id||'').slice(0,10)}…</td>
-            <td>${t.local_taxpayer_id||'—'}</td>
+            <td style="font-size:.73rem;color:var(--fg2)">${t.id || '—'}</td>
+            <td style="font-size:.73rem;direction:ltr;text-align:left">${(t.owner_id || '').slice(0, 10)}…</td>
+            <td>${t.local_taxpayer_id || '—'}</td>
             <td><span class="badge blue">${fmtNum(t.credits)}</span></td>
             <td>${fmtDate(t.created_at)}</td>
           </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:24px">سابقه‌ای یافت نشد</td></tr>'}
@@ -1119,61 +1221,70 @@ async function renderCredits(c) {
         <thead><tr><th>شناسه</th><th>مالک</th><th>واحد اعتبار</th><th>سفارش</th><th>تاریخ</th></tr></thead>
         <tbody>
           ${gr.length ? gr.map(g => `<tr>
-            <td style="font-size:.73rem;color:var(--fg2)">${(g.id||'').toString().slice(0,8)}</td>
-            <td style="font-size:.73rem;direction:ltr;text-align:left">${(g.owner_user_id||'').slice(0,10)}…</td>
+            <td style="font-size:.73rem;color:var(--fg2)">${(g.id || '').toString().slice(0, 8)}</td>
+            <td style="font-size:.73rem;direction:ltr;text-align:left">${(g.owner_user_id || '').slice(0, 10)}…</td>
             <td><span class="badge green">${fmtNum(g.units)}</span></td>
-            <td style="font-size:.73rem;color:var(--fg2)">${(g.order_id||'').slice(0,8)}…</td>
+            <td style="font-size:.73rem;color:var(--fg2)">${(g.order_id || '').slice(0, 8)}…</td>
             <td>${fmtDate(g.created_at)}</td>
           </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:24px">رکوردی یافت نشد</td></tr>'}
         </tbody>
       </table>
     </div>
   </div>
-  ${CAN.adjustWallet()?`<div class="panel"><div class="panel-head"><h3>دفتر ممیزی اصلاحات مدیرکل</h3><span>${fmtNum(adj.length)} رکورد اخیر</span></div>
+  ${CAN.adjustWallet() ? `<div class="panel"><div class="panel-head"><h3>دفتر ممیزی اصلاحات مدیرکل</h3><span>${fmtNum(adj.length)} رکورد اخیر</span></div>
   <div class="tbl-wrap"><table><thead><tr><th>رسید</th><th>مالک</th><th>مودی</th><th>قبل</th><th>بعد</th><th>تغییر</th><th>علت</th><th>زمان</th></tr></thead><tbody>
-  ${adj.map(a=>`<tr><td dir="ltr">${html(a.request_id.slice(0,8))}…</td><td dir="ltr">${html(a.owner_id.slice(0,8))}…</td>
-  <td>${a.local_taxpayer_id===null?'مالک':fmtNum(a.local_taxpayer_id)}</td><td>${fmtNum(a.before_credits)}</td><td>${fmtNum(a.after_credits)}</td>
-  <td><span class="badge ${a.delta>=0?'green':'red'}">${a.delta>0?'+':''}${fmtNum(a.delta)}</span></td><td>${html(a.reason)}</td><td>${fmtDate(a.created_at)}</td></tr>`).join('')||'<tr><td colspan="8">اصلاحی ثبت نشده است.</td></tr>'}
-  </tbody></table></div></div>`:''}`;
+  ${adj.map(a => `<tr><td dir="ltr">${html(a.request_id.slice(0, 8))}…</td><td dir="ltr">${html(a.owner_id.slice(0, 8))}…</td>
+  <td>${a.local_taxpayer_id === null ? 'مالک' : fmtNum(a.local_taxpayer_id)}</td><td>${fmtNum(a.before_credits)}</td><td>${fmtNum(a.after_credits)}</td>
+  <td><span class="badge ${a.delta >= 0 ? 'green' : 'red'}">${a.delta > 0 ? '+' : ''}${fmtNum(a.delta)}</span></td><td>${html(a.reason)}</td><td>${fmtDate(a.created_at)}</td></tr>`).join('') || '<tr><td colspan="8">اصلاحی ثبت نشده است.</td></tr>'}
+  </tbody></table></div></div>` : ''}`;
 }
-
 // ── Packages ─────────────────────────────────────────────
-async function renderPackages(c){
-  const rows=await sbGet('sura_credit_pricing?select=id,price_per_invoice_rial,currency,updated_at&limit=1');
-  const p=rows[0];
-  if(!p){c.innerHTML='<div class="empty-note">قیمت‌گذاری در سرور تعریف نشده است.</div>';return;}
-  c.innerHTML=`<div class="panel">
+async function renderPackages(c) {
+    const rows = await sbGet('sura_credit_pricing?select=id,price_per_invoice_rial,currency,updated_at&limit=1');
+    const p = rows[0];
+    if (!p) {
+        c.innerHTML = '<div class="empty-note">قیمت‌گذاری در سرور تعریف نشده است.</div>';
+        return;
+    }
+    c.innerHTML = `<div class="panel">
     <div class="panel-head"><h3>قیمت واحد اعتبار صورتحساب</h3><span class="badge green">ریال (IRR)</span></div>
     <div class="stat-grid three" style="padding:16px;margin:0">
       <div class="stat-card blue"><div class="stat-label">قیمت هر واحد</div><div class="stat-val small">${fmtRial(p.price_per_invoice_rial)}</div></div>
       <div class="stat-card green"><div class="stat-label">ارز مبنا</div><div class="stat-val small">ریال ایران</div></div>
       <div class="stat-card yellow"><div class="stat-label">آخرین تغییر</div><div class="stat-val small">${fmtDate(p.updated_at)}</div></div>
     </div><div style="padding:12px 16px"><div class="empty-note">یک رکورد قیمت پایه در سرور وجود دارد. مالیات در جدول قیمت‌گذاری تفکیک نشده و نمی‌توان نرخ یا جمع مالیاتی را از روی آن فرض کرد.</div>
-    ${CAN.editPackages()?`<button class="btn btn-accent" onclick="openPackageModal(${Number(p.price_per_invoice_rial)})">ویرایش قیمت پایه</button>`:''}</div></div>`;
+    ${CAN.editPackages() ? `<button class="btn btn-accent" onclick="openPackageModal(${Number(p.price_per_invoice_rial)})">ویرایش قیمت پایه</button>` : ''}</div></div>`;
 }
-function openPackageModal(price){
-  if(!CAN.editPackages())return toast('دسترسی مدیر ارشد لازم است.','error');
-  openModal('ویرایش قیمت هر اعتبار',`<div class="field-row"><label>قیمت واحد (ریال)</label><input type="number" id="pkg-price" min="1000" max="1000000000" step="1" value="${Number(price)}"></div>
-    <div class="empty-note">تغییر قیمت فقط روی خریدهای جدید تأثیر دارد و از طریق سرور ثبت می‌شود.</div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="savePkg()">ذخیره قیمت</button>`);
+function openPackageModal(price) {
+    if (!CAN.editPackages())
+        return toast('دسترسی مدیر ارشد لازم است.', 'error');
+    openModal('ویرایش قیمت هر اعتبار', `<div class="field-row"><label>قیمت واحد (ریال)</label><input type="number" id="pkg-price" min="1000" max="1000000000" step="1" value="${Number(price)}"></div>
+    <div class="empty-note">تغییر قیمت فقط روی خریدهای جدید تأثیر دارد و از طریق سرور ثبت می‌شود.</div>`, `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="savePkg()">ذخیره قیمت</button>`);
 }
-async function savePkg(){return submitBusy(async()=>{
-  const value=Number(document.getElementById('pkg-price').value);
-  if(!Number.isSafeInteger(value)||value<1000||value>1000000000)return toast('قیمت پایه معتبر نیست.','error');
-  if(!confirm('قیمت پایه جدید '+fmtRial(value)+' ثبت شود؟'))return;
-  try{await sbPatch('sura_credit_pricing?id=eq.1',{price_per_invoice_rial:value,currency:'IRR'});
-    toast('قیمت پایه با موفقیت تغییر کرد','success');closeModal();showPage('packages');
-  }catch(e){toast('قیمت ذخیره نشد: '+parseError(e),'error');}
-});}
-
-
+async function savePkg() {
+    return submitBusy(async () => {
+        const value = Number(document.getElementById('pkg-price').value);
+        if (!Number.isSafeInteger(value) || value < 1000 || value > 1000000000)
+            return toast('قیمت پایه معتبر نیست.', 'error');
+        if (!confirm('قیمت پایه جدید ' + fmtRial(value) + ' ثبت شود؟'))
+            return;
+        try {
+            await sbPatch('sura_credit_pricing?id=eq.1', { price_per_invoice_rial: value, currency: 'IRR' });
+            toast('قیمت پایه با موفقیت تغییر کرد', 'success');
+            closeModal();
+            showPage('packages');
+        }
+        catch (e) {
+            toast('قیمت ذخیره نشد: ' + parseError(e), 'error');
+        }
+    });
+}
 // ── Payments ─────────────────────────────────────────────
 async function renderPayments(c) {
-  const orders = await sbGet('sura_payment_orders?select=*&order=created_at.desc&limit=200');
-  const stateLabel = { created:'ایجاد شده', requested:'ارجاع به درگاه', verified:'تسویه شده', failed:'ناموفق' };
-  const stateBadge = { created:'gray', requested:'yellow', verified:'green', failed:'red' };
-
-  c.innerHTML = `
+    const orders = await sbGet('sura_payment_orders?select=*&order=created_at.desc&limit=200');
+    const stateLabel = { created: 'ایجاد شده', requested: 'ارجاع به درگاه', verified: 'تسویه شده', failed: 'ناموفق' };
+    const stateBadge = { created: 'gray', requested: 'yellow', verified: 'green', failed: 'red' };
+    c.innerHTML = `
   <div class="panel">
     <div class="panel-head"><h3>سفارش‌های پرداخت زرین‌پال</h3><span style="color:var(--fg2)">${orders.length} سفارش</span></div>
     <div class="filters">
@@ -1190,14 +1301,14 @@ async function renderPayments(c) {
       <table id="pay-table">
         <thead><tr><th>شناسه سفارش</th><th>مالک</th><th>اعتبار</th><th>مبلغ (ریال)</th><th>Authority</th><th>Ref ID</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
         <tbody>
-          ${orders.length ? orders.map(o => `<tr data-state="${html(o.state)}" data-q="${html((o.authority||'')+' '+(o.ref_id||''))}">
-            <td style="font-size:.72rem;direction:ltr">${o.id.slice(0,8)}…</td>
-            <td style="font-size:.72rem;direction:ltr">${(o.owner_user_id||'').slice(0,8)}…</td>
+          ${orders.length ? orders.map(o => `<tr data-state="${html(o.state)}" data-q="${html((o.authority || '') + ' ' + (o.ref_id || ''))}">
+            <td style="font-size:.72rem;direction:ltr">${o.id.slice(0, 8)}…</td>
+            <td style="font-size:.72rem;direction:ltr">${(o.owner_user_id || '').slice(0, 8)}…</td>
             <td>${fmtNum(o.credit_units)}</td>
             <td style="font-variant-numeric:tabular-nums">${fmtRial(o.amount_rial)}</td>
-            <td style="font-size:.72rem;direction:ltr">${o.authority ? html(o.authority.slice(0,14))+'…' : '—'}</td>
-            <td style="font-size:.72rem;direction:ltr">${html(o.ref_id||'—')}</td>
-            <td><span class="badge ${stateBadge[o.state]||'gray'}">${stateLabel[o.state]||o.state}</span></td>
+            <td style="font-size:.72rem;direction:ltr">${o.authority ? html(o.authority.slice(0, 14)) + '…' : '—'}</td>
+            <td style="font-size:.72rem;direction:ltr">${html(o.ref_id || '—')}</td>
+            <td><span class="badge ${stateBadge[o.state] || 'gray'}">${stateLabel[o.state] || o.state}</span></td>
             <td>${fmtDate(o.created_at)}</td>
           </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--fg3);padding:24px">تراکنشی یافت نشد</td></tr>'}
         </tbody>
@@ -1205,101 +1316,106 @@ async function renderPayments(c) {
     </div>
   </div>`;
 }
-
 function filterPaymentTable(state) {
-  applyPaymentFilters();
+    applyPaymentFilters();
 }
 function searchPayments(q) {
-  applyPaymentFilters();
+    applyPaymentFilters();
 }
-
-function applyPaymentFilters(){
-  const state=document.getElementById('pay-filter')?.value||'',q=(document.getElementById('pay-search')?.value||'').toLowerCase();
-  document.querySelectorAll('#pay-table tbody tr').forEach(tr=>{
-    tr.style.display=(!state||tr.dataset.state===state)&&(!q||(tr.dataset.q||'').toLowerCase().includes(q))?'':'none';
-  });
+function applyPaymentFilters() {
+    var _a, _b;
+    const state = ((_a = document.getElementById('pay-filter')) === null || _a === void 0 ? void 0 : _a.value) || '', q = (((_b = document.getElementById('pay-search')) === null || _b === void 0 ? void 0 : _b.value) || '').toLowerCase();
+    document.querySelectorAll('#pay-table tbody tr').forEach(tr => {
+        tr.style.display = (!state || tr.dataset.state === state) && (!q || (tr.dataset.q || '').toLowerCase().includes(q)) ? '' : 'none';
+    });
 }
 // ── Reports ──────────────────────────────────────────────
-async function renderReports(c){
-  const orders=await sbGet('sura_payment_orders?select=id,amount_rial,credit_units,state,created_at,owner_user_id&order=created_at.desc&limit=1000');
-  const verified=orders.filter(o=>o.state==='verified');
-  const revenue=verified.reduce((s,o)=>s+Number(o.amount_rial||0),0);
-  const credits=verified.reduce((s,o)=>s+Number(o.credit_units||0),0);
-  const monthly={};
-  verified.forEach(o=>{
-    const key=new Date(o.created_at).toLocaleDateString('fa-IR',{year:'numeric',month:'long'});
-    if(!monthly[key])monthly[key]={count:0,amount:0,credits:0};
-    monthly[key].count++;monthly[key].amount+=Number(o.amount_rial||0);monthly[key].credits+=Number(o.credit_units||0);
-  });
-  window._reportVerified=verified;window._reportMonthly=monthly;
-  c.innerHTML=`
-  <div class="empty-note">مبالغ زیر «مبلغ ثبت‌شده سفارش‌های تأییدشده» هستند. چون تفکیک مالیات در رکوردهای سفارش ذخیره نشده است، مالیات و فروش خالص محاسبه یا تخمین زده نمی‌شوند.${orders.length>=1000?' هشدار: گزارش محدود به ۱۰۰۰ سفارش اخیر است.':''}</div>
+async function renderReports(c) {
+    const orders = await sbGet('sura_payment_orders?select=id,amount_rial,credit_units,state,created_at,owner_user_id&order=created_at.desc&limit=1000');
+    const verified = orders.filter(o => o.state === 'verified');
+    const revenue = verified.reduce((s, o) => s + Number(o.amount_rial || 0), 0);
+    const credits = verified.reduce((s, o) => s + Number(o.credit_units || 0), 0);
+    const monthly = {};
+    verified.forEach(o => {
+        const key = new Date(o.created_at).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long' });
+        if (!monthly[key])
+            monthly[key] = { count: 0, amount: 0, credits: 0 };
+        monthly[key].count++;
+        monthly[key].amount += Number(o.amount_rial || 0);
+        monthly[key].credits += Number(o.credit_units || 0);
+    });
+    window._reportVerified = verified;
+    window._reportMonthly = monthly;
+    c.innerHTML = `
+  <div class="empty-note">مبالغ زیر «مبلغ ثبت‌شده سفارش‌های تأییدشده» هستند. چون تفکیک مالیات در رکوردهای سفارش ذخیره نشده است، مالیات و فروش خالص محاسبه یا تخمین زده نمی‌شوند.${orders.length >= 1000 ? ' هشدار: گزارش محدود به ۱۰۰۰ سفارش اخیر است.' : ''}</div>
   <div class="stat-grid three">
     <div class="stat-card blue"><div class="stat-label">جمع مبالغ پرداخت تأییدشده</div><div class="stat-val small">${fmtRial(revenue)}</div></div>
     <div class="stat-card green"><div class="stat-label">اعتبار فروخته‌شده</div><div class="stat-val">${fmtNum(credits)}</div></div>
     <div class="stat-card yellow"><div class="stat-label">سفارش تأییدشده</div><div class="stat-val">${fmtNum(verified.length)}</div></div>
   </div>
   <div class="panel"><div class="panel-head"><h3>گردش مالی ماهانه</h3>
-  ${CAN.exportData()?'<span class="panel-actions"><button class="action-btn" onclick="exportXLSX()">اکسل</button><button class="action-btn" onclick="exportCSV()">CSV</button></span>':''}</div>
+  ${CAN.exportData() ? '<span class="panel-actions"><button class="action-btn" onclick="exportXLSX()">اکسل</button><button class="action-btn" onclick="exportCSV()">CSV</button></span>' : ''}</div>
   <div class="tbl-wrap"><table><thead><tr><th>ماه</th><th>تعداد سفارش</th><th>تعداد واحد</th><th>مبلغ وصول‌شده (ریال)</th></tr></thead><tbody>
-  ${Object.entries(monthly).map(([m,v])=>`<tr><td>${html(m)}</td><td>${fmtNum(v.count)}</td><td>${fmtNum(v.credits)}</td><td>${fmtRial(v.amount)}</td></tr>`).join('')||'<tr><td colspan="4">سفارشی موجود نیست.</td></tr>'}
+  ${Object.entries(monthly).map(([m, v]) => `<tr><td>${html(m)}</td><td>${fmtNum(v.count)}</td><td>${fmtNum(v.credits)}</td><td>${fmtRial(v.amount)}</td></tr>`).join('') || '<tr><td colspan="4">سفارشی موجود نیست.</td></tr>'}
   </tbody></table></div></div>
   <div class="panel"><div class="panel-head"><h3>ریز سفارش‌های تأییدشده</h3></div><div class="tbl-wrap"><table>
   <thead><tr><th>شناسه</th><th>مالک</th><th>تعداد اعتبار</th><th>مبلغ پرداخت</th><th>تاریخ</th></tr></thead><tbody>
-  ${verified.slice(0,100).map(o=>`<tr><td dir="ltr">${html(o.id.slice(0,10))}…</td><td dir="ltr">${html((o.owner_user_id||'').slice(0,10))}…</td><td>${fmtNum(o.credit_units)}</td><td>${fmtRial(o.amount_rial)}</td><td>${fmtDate(o.created_at)}</td></tr>`).join('')||'<tr><td colspan="5">سفارشی موجود نیست.</td></tr>'}
+  ${verified.slice(0, 100).map(o => `<tr><td dir="ltr">${html(o.id.slice(0, 10))}…</td><td dir="ltr">${html((o.owner_user_id || '').slice(0, 10))}…</td><td>${fmtNum(o.credit_units)}</td><td>${fmtRial(o.amount_rial)}</td><td>${fmtDate(o.created_at)}</td></tr>`).join('') || '<tr><td colspan="5">سفارشی موجود نیست.</td></tr>'}
   </tbody></table></div></div>`;
 }
-function exportRows(){
- return(window._reportVerified||[]).map(o=>({
-  'شناسه سفارش':o.id,'شناسه مالک':o.owner_user_id,'تعداد واحد اعتبار':o.credit_units,
-  'مبلغ ثبت‌شده پرداخت (ریال)':o.amount_rial,'تاریخ':new Date(o.created_at).toISOString()
- }));
+function exportRows() {
+    return (window._reportVerified || []).map(o => ({
+        'شناسه سفارش': o.id, 'شناسه مالک': o.owner_user_id, 'تعداد واحد اعتبار': o.credit_units,
+        'مبلغ ثبت‌شده پرداخت (ریال)': o.amount_rial, 'تاریخ': new Date(o.created_at).toISOString()
+    }));
 }
-function exportXLSX(){
- if(!CAN.exportData())return toast('اجازه صدور گزارش ندارید','error');
- const orders=exportRows();
- const monthly=Object.entries(window._reportMonthly||{}).map(([month,v])=>({'ماه':month,'سفارش':v.count,'اعتبار':v.credits,'مبلغ (ریال)':v.amount}));
- try {
-  const blob=SuraReports.makeXlsx([{name:'تراکنش‌ها',rows:orders},{name:'ماهانه',rows:monthly}]);
-  SuraReports.download(blob,`sura-report-${new Date().toISOString().slice(0,10)}.xlsx`);
-  toast('ذخیره گزارش اکسل آماده است','success');
- }catch(err){toast('خطا در آماده‌سازی گزارش اکسل','error');}
+function exportXLSX() {
+    if (!CAN.exportData())
+        return toast('اجازه صدور گزارش ندارید', 'error');
+    const orders = exportRows();
+    const monthly = Object.entries(window._reportMonthly || {}).map(([month, v]) => ({ 'ماه': month, 'سفارش': v.count, 'اعتبار': v.credits, 'مبلغ (ریال)': v.amount }));
+    try {
+        const blob = SuraReports.makeXlsx([{ name: 'تراکنش‌ها', rows: orders }, { name: 'ماهانه', rows: monthly }]);
+        SuraReports.download(blob, `sura-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+        toast('ذخیره گزارش اکسل آماده است', 'success');
+    }
+    catch (err) {
+        toast('خطا در آماده‌سازی گزارش اکسل', 'error');
+    }
 }
-function csvValue(v){
- let t=String(v??'');
- // Spreadsheet formula injection protection for exported text.
- if(/^[=+@-]/.test(t))t="'"+t;
- return '"'+t.replace(/"/g,'""')+'"';
+function csvValue(v) {
+    let t = String(v !== null && v !== void 0 ? v : '');
+    // Spreadsheet formula injection protection for exported text.
+    if (/^[=+@-]/.test(t))
+        t = "'" + t;
+    return '"' + t.replace(/"/g, '""') + '"';
 }
-function exportCSV(){
- if(!CAN.exportData())return toast('اجازه صدور گزارش ندارید','error');
- const head=['شناسه سفارش','شناسه مالک','اعتبار','مبلغ پرداخت (ریال)','تاریخ'];
- const rows=exportRows().map(o=>Object.values(o));
- const csv=[head,...rows].map(row=>row.map(csvValue).join(',')).join('\r\n');
- const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
- SuraReports.download(blob,`sura-report-${new Date().toISOString().slice(0,10)}.csv`);
- toast('درخواست دانلود CSV ثبت شد','success');
+function exportCSV() {
+    if (!CAN.exportData())
+        return toast('اجازه صدور گزارش ندارید', 'error');
+    const head = ['شناسه سفارش', 'شناسه مالک', 'اعتبار', 'مبلغ پرداخت (ریال)', 'تاریخ'];
+    const rows = exportRows().map(o => Object.values(o));
+    const csv = [head, ...rows].map(row => row.map(csvValue).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    SuraReports.download(blob, `sura-report-${new Date().toISOString().slice(0, 10)}.csv`);
+    toast('درخواست دانلود CSV ثبت شد', 'success');
 }
-
-
 // ── Gifts ────────────────────────────────────────────────
 async function renderGifts(c) {
-  const [rdm, uses] = await Promise.all([
-    sbGet('sura_promo_redemptions?select=id,account_id,credits_granted,credits_remaining,redeemed_at&order=redeemed_at.desc&limit=200'),
-    sbGet('sura_promo_invoice_uses?select=id,account_id,invoice_key,used_at&order=used_at.desc&limit=200'),
-  ]);
-
-  const btn = document.getElementById('topbar-action');
-  btn.style.display = CAN.adjustWallet() && currentPage==='gifts' ? 'flex' : 'none';
-  btn.innerHTML = `+ اعطای اعتبار`;
-  btn.className = 'topbar-btn accent';
-  btn.onclick = () => openGiftModal();
-
-  c.innerHTML = `
+    const [rdm, uses] = await Promise.all([
+        sbGet('sura_promo_redemptions?select=id,account_id,credits_granted,credits_remaining,redeemed_at&order=redeemed_at.desc&limit=200'),
+        sbGet('sura_promo_invoice_uses?select=id,account_id,invoice_key,used_at&order=used_at.desc&limit=200'),
+    ]);
+    const btn = document.getElementById('topbar-action');
+    btn.style.display = CAN.adjustWallet() && currentPage === 'gifts' ? 'flex' : 'none';
+    btn.innerHTML = `+ اعطای اعتبار`;
+    btn.className = 'topbar-btn accent';
+    btn.onclick = () => openGiftModal();
+    c.innerHTML = `
   <div class="stat-grid three">
     <div class="stat-card blue"><div class="stat-label">بازخریدهای تبلیغاتی</div><div class="stat-val">${fmtNum(rdm.length)}</div></div>
-    <div class="stat-card green"><div class="stat-label">اعتبار هدیه داده شده</div><div class="stat-val">${fmtNum(rdm.reduce((s,r) => s+(r.credits_granted||0),0))}</div></div>
-    <div class="stat-card yellow"><div class="stat-label">اعتبار هدیه باقی‌مانده</div><div class="stat-val">${fmtNum(rdm.reduce((s,r) => s+(r.credits_remaining||0),0))}</div></div>
+    <div class="stat-card green"><div class="stat-label">اعتبار هدیه داده شده</div><div class="stat-val">${fmtNum(rdm.reduce((s, r) => s + (r.credits_granted || 0), 0))}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">اعتبار هدیه باقی‌مانده</div><div class="stat-val">${fmtNum(rdm.reduce((s, r) => s + (r.credits_remaining || 0), 0))}</div></div>
   </div>
   <div class="panel">
     <div class="panel-head"><h3>بازخریدهای تبلیغاتی (sura_promo_redemptions)</h3><span style="color:var(--fg2)">${rdm.length} رکورد</span></div>
@@ -1309,10 +1425,10 @@ async function renderGifts(c) {
         <tbody>
           ${rdm.length ? rdm.map(r => `<tr>
             <td>${r.id}</td>
-            <td style="font-size:.72rem;direction:ltr">${(r.account_id||'').slice(0,10)}…</td>
+            <td style="font-size:.72rem;direction:ltr">${(r.account_id || '').slice(0, 10)}…</td>
             <td><span class="badge blue">${r.credits_granted}</span></td>
-            <td><span class="badge ${r.credits_remaining>0?'green':'gray'}">${r.credits_remaining}</span></td>
-            <td>${(r.credits_granted||0)-(r.credits_remaining||0)}</td>
+            <td><span class="badge ${r.credits_remaining > 0 ? 'green' : 'gray'}">${r.credits_remaining}</span></td>
+            <td>${(r.credits_granted || 0) - (r.credits_remaining || 0)}</td>
             <td>${fmtDate(r.redeemed_at)}</td>
           </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--fg3);padding:24px">رکوردی یافت نشد</td></tr>'}
         </tbody>
@@ -1325,10 +1441,10 @@ async function renderGifts(c) {
       <table>
         <thead><tr><th>شناسه</th><th>Account</th><th>کلید فاکتور</th><th>تاریخ</th></tr></thead>
         <tbody>
-          ${uses.length ? uses.slice(0,50).map(u => `<tr>
+          ${uses.length ? uses.slice(0, 50).map(u => `<tr>
             <td>${u.id}</td>
-            <td style="font-size:.72rem;direction:ltr">${(u.account_id||'').slice(0,10)}…</td>
-            <td style="font-size:.72rem;direction:ltr">${(u.invoice_key||'').slice(0,16)}…</td>
+            <td style="font-size:.72rem;direction:ltr">${(u.account_id || '').slice(0, 10)}…</td>
+            <td style="font-size:.72rem;direction:ltr">${(u.invoice_key || '').slice(0, 16)}…</td>
             <td>${fmtDate(u.used_at)}</td>
           </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--fg3);padding:24px">رکوردی یافت نشد</td></tr>'}
         </tbody>
@@ -1336,15 +1452,14 @@ async function renderGifts(c) {
     </div>
   </div>`;
 }
-
 // ── Settings ─────────────────────────────────────────────
 async function renderSettings(c) {
-  const pricing = await sbGet('sura_credit_pricing?select=price_per_invoice_rial,currency&limit=1');
-  const currentPrice = pricing[0]?.price_per_invoice_rial ?? 0;
-
-  const roleLabel = ROLE_LABELS[ADMIN_ROLE] || ADMIN_ROLE;
-  const savedEmail = CURRENT_EMAIL;
-  c.innerHTML = `
+    var _a, _b;
+    const pricing = await sbGet('sura_credit_pricing?select=price_per_invoice_rial,currency&limit=1');
+    const currentPrice = (_b = (_a = pricing[0]) === null || _a === void 0 ? void 0 : _a.price_per_invoice_rial) !== null && _b !== void 0 ? _b : 0;
+    const roleLabel = ROLE_LABELS[ADMIN_ROLE] || ADMIN_ROLE;
+    const savedEmail = CURRENT_EMAIL;
+    c.innerHTML = `
   <div class="config-notice">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.5"/></svg>
     <span>ورود مدیر با تأیید نقش در سرور انجام می‌شود. کلید محرمانه سرور داخل پنل قرار ندارد.</span>
@@ -1354,7 +1469,7 @@ async function renderSettings(c) {
       <h4>اتصال جاری</h4>
       <div class="field-row"><label>آدرس پروژه</label><input type="text" value="${html(SB_URL)}" readonly style="opacity:.6;direction:ltr"></div>
       <div class="field-row"><label>ایمیل مدیر</label><input type="text" value="${html(savedEmail)}" readonly style="opacity:.6"></div>
-      <div class="field-row"><label>نقش</label><input type="text" value="${roleLabel}" readonly style="opacity:.6;color:${ROLE_COLORS[ADMIN_ROLE]||'var(--fg)'}"></div>
+      <div class="field-row"><label>نقش</label><input type="text" value="${roleLabel}" readonly style="opacity:.6;color:${ROLE_COLORS[ADMIN_ROLE] || 'var(--fg)'}"></div>
       <div class="field-row"><label>Admin API</label><input type="text" value="${html(ADMIN_API)}" readonly style="opacity:.6;direction:ltr;font-size:.72rem"></div>
       <button class="btn btn-ghost" style="margin-top:8px" onclick="logout()">خروج / تغییر حساب</button>
     </div>
@@ -1389,22 +1504,36 @@ async function renderSettings(c) {
     </div>
   </div>`;
 }
-
 // ── Safe session restore for this tab only ──
-window.addEventListener('DOMContentLoaded',async()=>{
- document.querySelectorAll('.nav-item').forEach(item=>{item.tabIndex=0;item.setAttribute('role','button');item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();item.click();}});});
- try{
-  const old=JSON.parse(sessionStorage.getItem('sura_admin_session_v2')||'null');
-  if(!old||!old.url||!old.anon||!old.token)return;
-  SB_URL=old.url;SB_ANON=old.anon;USER_JWT=old.token;REFRESH_TOKEN=old.refresh||'';
-  JWT_EXP=Number(old.exp)||0;CURRENT_EMAIL=old.email||'';ADMIN_API=`${SB_URL}/functions/v1/sura-admin-api`;
-  if(SB_URL!==document.getElementById('inp-url').value||SB_ANON!==document.getElementById('inp-anon').value){logout();return;}
-  document.getElementById('inp-email').value=CURRENT_EMAIL;
-  await ensureFreshToken();
-  const me=await getMe();restoreUi(me);
- }catch(e){logout();}
+window.addEventListener('DOMContentLoaded', async () => {
+    document.querySelectorAll('.nav-item').forEach(item => { item.tabIndex = 0; item.setAttribute('role', 'button'); item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        item.click();
+    } }); });
+    try {
+        const old = JSON.parse(sessionStorage.getItem('sura_admin_session_v2') || 'null');
+        if (!old || !old.url || !old.anon || !old.token)
+            return;
+        SB_URL = old.url;
+        SB_ANON = old.anon;
+        USER_JWT = old.token;
+        REFRESH_TOKEN = old.refresh || '';
+        JWT_EXP = Number(old.exp) || 0;
+        CURRENT_EMAIL = old.email || '';
+        ADMIN_API = `${SB_URL}/functions/v1/sura-admin-api`;
+        if (SB_URL !== document.getElementById('inp-url').value || SB_ANON !== document.getElementById('inp-anon').value) {
+            logout();
+            return;
+        }
+        document.getElementById('inp-email').value = CURRENT_EMAIL;
+        await ensureFreshToken();
+        const me = await getMe();
+        restoreUi(me);
+    }
+    catch (e) {
+        logout();
+    }
 });
-
 
 </script>
 
