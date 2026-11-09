@@ -87,6 +87,10 @@ internal object MoadianRialSettlementCalculator {
         require(lineVat.all { it >= 0L } && lineCash.all { it >= 0L }) {
             "محاسبه سهم نقدی یا مالیات منفی مجاز نیست."
         }
+        val paidVat = lineVat.fold(0L, Math::addExact)
+        require(Math.addExact(cashBase, paidVat) == shares.cashRial) {
+            "سهم نقدی و مالیات پرداخت‌شده با تجمیع ردیف‌ها سازگار نیست؛ صورتحساب باید بازبینی شود."
+        }
         return MoadianRialSettlement(
             method = method,
             cashBase = cashBase,

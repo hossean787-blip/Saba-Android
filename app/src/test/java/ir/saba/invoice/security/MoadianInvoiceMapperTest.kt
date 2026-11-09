@@ -146,6 +146,17 @@ class MoadianInvoiceMapperTest {
             settlementMode = "MIXED", cashPaidRial = 10L),listOf(shortLine)) }
     }
 
+    @Test fun multiLineRialRoundingCannotInventExtraCashAgainstHeader() {
+        val rows = listOf(
+            lines.single().copy(quantity = 1L, unitPriceRial = 3L, taxRatePercent = 34),
+            lines.single().copy(quantity = 1L, unitPriceRial = 3L, taxRatePercent = 34)
+        )
+        rejected {
+            map(invoice.copy(totalAmountRial = 8L, taxAmountRial = 2L,
+                settlementMode = "MIXED", cashPaidRial = 4L), rows)
+        }
+    }
+
     @Test fun nonCashRequiresExplicitAndAccuratePaidAmount() {
         rejected { map(invoice.copy(settlementMode = "CREDIT", cashPaidRial = null)) }
         rejected { map(invoice.copy(settlementMode = "MIXED", cashPaidRial = 2200L)) }
