@@ -35,6 +35,44 @@ class InvoiceLocalDetailsTest {
         } catch (_: IllegalArgumentException) {}
     }
 
+    @Test fun documentNotesArticleFlagAndFutureSettingsRoundtrip() {
+        val ref = InvoiceDocumentRef(
+            uri = "content://com.example.documents/document/record",
+            name = "مدرک.pdf", mimeType = "application/pdf", sizeBytes = 2048
+        )
+        val local = InvoiceLocalDetails(
+            note1 = "یادداشت اول", note2 = "یادداشت دوم",
+            invoiceDescription = "توضیح تکمیلی", article9Flag = true,
+            sendLaterDate = "۱۴۹۰/۰۱/۰۱", sendLaterTime = "۱۴:۳۰",
+            documents = listOf(ref)
+        )
+        assertEquals(local, InvoiceLocalDetails.fromJson(local.toJson()))
+        local.requireValidSchedule()
+        assertEquals(emptyList<InvoiceDocumentRef>(), InvoiceLocalDetails.fromJson("").documents)
+    }
+
+    @Test fun rejectsUnsafeAttachmentsAndIncompleteOrPastSchedule() {
+        val invalid = InvoiceDocumentRef(
+            uri = "file:///sdcard/private.pdf", name = "private.pdf",
+            mimeType = "application/pdf", sizeBytes = 200
+        )
+        try { InvoiceLocalDetails(documents = listOf(invalid)).toJson(); fail("Unsafe URI") }
+        catch (_: IllegalArgumentException) {}
+        try { InvoiceLocalDetails(sendLaterDate = "۱۴۹۰/۰۱/۰۱").requireValidSchedule(); fail("Incomplete") }
+        catch (_: IllegalArgumentException) {}
+        try {
+            InvoiceLocalDetails(sendLaterDate = "۱۴۰۰/۰۱/۰۱", sendLaterTime = "۱۲:۰۰")
+                .requireValidSchedule()
+            fail("Past schedule")
+        } catch (_: IllegalArgumentException) {}
+        try {
+            InvoiceLocalDetails(documents = List(6) {
+                InvoiceDocumentRef("content://test/id/$it", "a.pdf", "application/pdf", 100)
+            }).toJson()
+            fail("Too many attachments")
+        } catch (_: IllegalArgumentException) {}
+    }
+
     @Test fun itemTitleAndPaymentFieldsSurviveRoomCloseAndReopen() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "invoice-local-details-${System.nanoTime()}.db"

@@ -77,7 +77,8 @@ class InvoiceCreationCoordinator(
         val lines=input.lines.map{it.copy(id=0,invoiceId=0)}
         val totals = InvoiceCalculator.calculate(lines)
         InvoiceSettlement.amounts(input.settlementMode,input.cashPaidRial,totals.totalAmountRial)
-        if(input.localDetailsJson.isNotBlank()) InvoiceLocalDetails.fromJson(input.localDetailsJson)
+        if(input.localDetailsJson.isNotBlank())
+            InvoiceLocalDetails.fromJson(input.localDetailsJson).requireValidSchedule()
         InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, companyId,
             input.customerId, input.subject, input.referenceTaxId, lines)
         val existing=db.invoiceCreationClaimDao().byKey(key) ?: db.invoiceCreationClaimDao().pending(companyId)

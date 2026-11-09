@@ -1,5 +1,6 @@
 package ir.saba.invoice.ui
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,7 +37,9 @@ import ir.saba.invoice.domain.InvoiceSettlement
 import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.moadian.MoadianMeasurementUnits
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -186,6 +189,34 @@ private fun InvoiceScreenContent(
     var duplicateLineIndex by rememberSaveable { mutableIntStateOf(-1) }
     var confirmation by rememberSaveable { mutableStateOf("") }
     var actionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var documentBusy by remember { mutableStateOf(false) }
+    val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
+        if (selected != null) {
+            documentBusy = true
+            scope.launch {
+                try {
+                    val reference = withContext(Dispatchers.IO) {
+                        InvoiceDocumentPicker.inspect(context, selected)
+                    }
+                    val current = InvoiceLocalDetails.fromJson(localDetailsJson)
+                    require(current.documents.size < InvoiceDocumentRef.MAX_FILES) {
+                        "حداکثر پنج سند به هر صورتحساب پیوست می‌شود."
+                    }
+                    require(current.documents.none { it.uri == reference.uri }) {
+                        "این سند قبلاً پیوست شده است."
+                    }
+                    context.contentResolver.takePersistableUriPermission(
+                        selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    localDetailsJson = current.copy(documents = current.documents + reference).toJson()
+                    onNotice("سند به فرم پیوست شد؛ با ذخیره پیش‌نویس ثبت می‌شود.")
+                } catch (e: Exception) {
+                    onNotice(e.message ?: "خواندن سند یا دریافت دسترسی به آن ناموفق بود.")
+                } finally {
+                    documentBusy = false
+                }
+            }
+        }
+    }
 
     var pendingCreation by remember { mutableStateOf<InvoiceCreationClaim?>(null) }
     val creation = remember(db,account,accessToken,activeGateway) {
@@ -266,6 +297,7 @@ private fun InvoiceScreenContent(
         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
                             InvoiceSubject.validate(subject, referenceTaxId.takeIf { it.isNotBlank() })
+                            InvoiceLocalDetails.fromJson(localDetailsJson).requireValidSchedule()
                             val settlementCash = InvoiceSettlement.cashFromUserInput(
                                 settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
                             )
@@ -405,13 +437,35 @@ private fun InvoiceScreenContent(
                             "شماره پیگیری" to local.paymentTrackingNumber,
                             "کد شعبه فروشنده" to local.sellerBranchCode,
                             "کد شعبه خریدار" to local.buyerBranchCode,
-                            "توضیحات صورتحساب" to local.notes
+                            "توضیحات صورتحساب" to local.notes,
+                            "یادداشت ۱" to local.note1,
+                            "یادداشت ۲" to local.note2,
+                            "شرح تکمیلی" to local.invoiceDescription,
+                            "ارسال آتی (فقط ثبت محلی)" to
+                                if (local.sendLaterDate.isBlank()) "" else "${local.sendLaterDate} ${local.sendLaterTime}",
+                            "صورتحساب ماده ۹ (علامت‌گذاری محلی)" to
+                                if (local.article9Flag) "فعال" else ""
                         ).filter { it.second.isNotBlank() }
                         if (extra.isNotEmpty()) {
                             ElevatedCard(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                     Text("جزئیات پرداخت و توضیحات", fontWeight = FontWeight.Bold)
                                     extra.forEach { (title, value) -> Text("${title}: ${value}") }
+                                }
+                            }
+                        }
+                        if (local.documents.isNotEmpty()) {
+                            ElevatedCard(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("اسناد پیوست‌شده (فقط در دستگاه)",
+                                        fontWeight = FontWeight.SemiBold)
+                                    local.documents.forEach { ref ->
+                                        OutlinedButton(onClick = {
+                                            runCatching { InvoiceDocumentPicker.open(context, ref) }
+                                                .onFailure { onNotice("نمایش سند ممکن نیست؛ فایل یا مجوز دسترسی را بررسی کنید.") }
+                                        }) { Text(ref.name) }
+                                    }
                                 }
                             }
                         }
@@ -720,11 +774,77 @@ private fun InvoiceScreenContent(
                         }
                         OutlinedTextField(local.notes, { localDetailsJson = local.copy(notes = it.take(2000)).toJson() },
                             enabled = fieldsEnabled, minLines = 2, maxLines = 4,
-                            label = { Text("توضیحات صورتحساب") }, modifier = Modifier.fillMaxWidth())
-                        Text("جزئیات تکمیلی پرداخت در پیش‌نویس محلی حفظ می‌شوند؛ ارسال رسمی و PDF فعلی الزاماً این فیلدها را منتقل نمی‌کنند.",
+                            label = { Text("توضیحات صورتحساب") },
+                            modifier = Modifier.fillMaxWidth().testTag("invoiceLocalNotes"))
+                        Text("اطلاعات تکمیلی پرداخت محلی‌اند؛ لزوماً به PDF یا پیام رسمی مؤدیان منتقل نمی‌شوند.",
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     }
-                    InvoiceEditorPanel("۵", "ذخیره و پیش‌نمایش فاکتور", "کنترل نهایی پیش از مصرف اعتبار و ثبت") {
+                    InvoiceEditorPanel("۵", "مدارک، یادداشت‌ها و ارسال در آینده",
+                        "پیوست فایل، دو یادداشت و زمان پیشنهادی ارسال") {
+                        val fieldsEnabled = !busy && !editorLocked && !documentBusy
+                        OutlinedTextField(local.note1, {
+                            localDetailsJson = local.copy(note1 = it.take(1200)).toJson()
+                        }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
+                            label = { Text("یادداشت ۱") }, minLines = 2, maxLines = 3)
+                        OutlinedTextField(local.note2, {
+                            localDetailsJson = local.copy(note2 = it.take(1200)).toJson()
+                        }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
+                            label = { Text("یادداشت ۲") }, minLines = 2, maxLines = 3)
+                        OutlinedTextField(local.invoiceDescription, {
+                            localDetailsJson = local.copy(invoiceDescription = it.take(120)).toJson()
+                        }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
+                            label = { Text("شرح تکمیلی صورتحساب") })
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text("علامت‌گذاری صورتحساب ماده ۹ (محلی)",
+                                modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Switch(checked = local.article9Flag,
+                                onCheckedChange = { localDetailsJson = local.copy(article9Flag = it).toJson() },
+                                enabled = fieldsEnabled)
+                        }
+                        Text("پیوست اسناد و مدارک", fontWeight = FontWeight.SemiBold)
+                        Text("حداکثر ۵ فایل، هر فایل ۶ مگابایت؛ فقط مرجع سند در برنامه ذخیره می‌شود.",
+                            style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(
+                            enabled = fieldsEnabled && local.documents.size < InvoiceDocumentRef.MAX_FILES,
+                            onClick = { documentPicker.launch(InvoiceDocumentPicker.acceptedMimeTypes) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(if (documentBusy) "در حال بررسی فایل..." else "انتخاب و پیوست سند از دستگاه") }
+                        local.documents.forEach { ref ->
+                            Row(Modifier.fillMaxWidth(),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(ref.name, modifier = Modifier.weight(1f), maxLines = 2)
+                                TextButton(onClick = {
+                                    runCatching { InvoiceDocumentPicker.open(context, ref) }
+                                        .onFailure { onNotice("سند در دسترس نیست یا برنامه نمایش مناسب نصب نشده است.") }
+                                }) { Text("نمایش") }
+                                TextButton(enabled = fieldsEnabled, onClick = {
+                                    localDetailsJson = local.copy(
+                                        documents = local.documents.filterNot { it.uri == ref.uri }
+                                    ).toJson()
+                                }) { Text("حذف") }
+                            }
+                        }
+                        HorizontalDivider()
+                        Text("تنظیم ارسال در آینده (اختیاری)", fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(local.sendLaterDate, {
+                            localDetailsJson = local.copy(sendLaterDate = it.take(16)).toJson()
+                        }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
+                            label = { Text("تاریخ شمسی ارسال در آینده (مثال: ۱۴۰۵/۰۹/۰۱)") },
+                            singleLine = true)
+                        OutlinedTextField(local.sendLaterTime, {
+                            localDetailsJson = local.copy(sendLaterTime = it.take(8)).toJson()
+                        }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
+                            label = { Text("ساعت ارسال (HH:mm)") }, singleLine = true)
+                        TextButton(enabled = fieldsEnabled && (local.sendLaterDate.isNotBlank() ||
+                            local.sendLaterTime.isNotBlank()), onClick = {
+                            localDetailsJson = local.copy(sendLaterDate = "", sendLaterTime = "").toJson()
+                        }) { Text("پاک‌کردن زمان ارسال") }
+                        Text("تاریخ و ساعت فعلاً فقط در سند ذخیره می‌شوند؛ ارسال خودکار به سامانه مؤدیان فعال نیست.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                    InvoiceEditorPanel("۶", "ذخیره و پیش‌نمایش فاکتور", "کنترل نهایی پیش از مصرف اعتبار و ثبت") {
                         InvoiceLiveOutline(
                             seller = sellerName,
                             buyer = customers.firstOrNull { it.id == customerId }?.name,
@@ -745,8 +865,8 @@ private fun InvoiceScreenContent(
             InvoiceEditorDock(
                 total = if (lines.isEmpty()) null else
                     runCatching { InvoiceCalculator.calculate(lines).totalAmountRial }.getOrNull(),
-                saving = busy,
-                canSave = lines.isNotEmpty(),
+                saving = busy || documentBusy,
+                canSave = lines.isNotEmpty() && !documentBusy,
                 onSave = { saveCurrentInvoice() },
                 onCancel = { confirmation = "leave" },
                 onPreview = { previewDialog = true }
@@ -777,6 +897,12 @@ private fun InvoiceScreenContent(
                     if (localPreview.paymentDate.isNotBlank()) Text("تاریخ پرداخت: ${localPreview.paymentDate}")
                     if (localPreview.paymentTrackingNumber.isNotBlank()) Text("شماره پیگیری: ${localPreview.paymentTrackingNumber}")
                     if (localPreview.notes.isNotBlank()) Text("توضیحات: ${localPreview.notes}")
+                    if (localPreview.note1.isNotBlank()) Text("یادداشت ۱: ${localPreview.note1}")
+                    if (localPreview.note2.isNotBlank()) Text("یادداشت ۲: ${localPreview.note2}")
+                    if (localPreview.documents.isNotEmpty())
+                        Text("تعداد پیوست‌های محلی: ${localPreview.documents.size}")
+                    if (localPreview.sendLaterDate.isNotBlank())
+                        Text("زمان پیشنهادی ارسال: ${localPreview.sendLaterDate} ${localPreview.sendLaterTime} (ارسال خودکار غیرفعال)")
                     Text("این پیش‌نمایش محلی است؛ نه PDF نهایی و نه رسید ارسال سامانه مؤدیان.",
                         color = MaterialTheme.colorScheme.secondary,
                         style = MaterialTheme.typography.labelSmall)

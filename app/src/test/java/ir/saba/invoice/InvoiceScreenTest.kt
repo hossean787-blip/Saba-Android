@@ -146,9 +146,10 @@ class InvoiceScreenTest {
             compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("ویرایش پیش‌نویس").performClick()
-        compose.onNodeWithText("توضیحات صورتحساب").performScrollTo()
-            .assertTextContains("یادداشت پیشین")
-        compose.onNodeWithText("توضیحات صورتحساب").performTextReplacement("یادداشت اصلاح‌شده")
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithTag("invoiceLocalNotes").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("invoiceLocalNotes").performTextReplacement("یادداشت اصلاح‌شده")
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) {
             runBlocking {

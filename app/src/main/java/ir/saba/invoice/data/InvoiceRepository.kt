@@ -34,7 +34,10 @@ class InvoiceRepository(private val db: SabaDatabase) {
         val totals = InvoiceCalculator.calculate(lines)
         InvoiceSettlement.amounts(settlementMode, cashPaidRial, totals.totalAmountRial)
         InvoiceSubject.validate(subject, referenceTaxId)
-        val businessDetails = if (localDetailsJson.isBlank()) "" else InvoiceLocalDetails.fromJson(localDetailsJson).toJson()
+        val businessDetails = if (localDetailsJson.isBlank()) "" else InvoiceLocalDetails.fromJson(localDetailsJson).let {
+            it.requireValidSchedule()
+            it.toJson()
+        }
 
         return db.withTransaction {
             val issuer = db.companyDao().byId(companyId)
