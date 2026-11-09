@@ -1,0 +1,77 @@
+name: SURA Manager standalone APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sura-admin-android/**'
+      - '.github/workflows/sura-manager-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+      - name: Verify existing Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          test -x "$SDK/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Validate Android source and report builder
+        run: |
+          python3 sura-admin-android/tests/static_guard.py
+          node --check sura-admin-android/app/src/main/assets/admin/reports.js
+          node sura-admin-android/tests/report_zip_test.cjs
+      - name: Compile and package separate Android app
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon -p sura-admin-android :app:assembleDebug :app:lintDebug
+      - name: Verify installable APK signature and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=sura-admin-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" > sura-admin-android/app/build/apk-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > sura-admin-android/app/build/apk-badging.txt
+          grep "package: name='ir.sabagostar.suramanager'" sura-admin-android/app/build/apk-badging.txt
+          sha256sum "$APK" > sura-admin-android/app/build/apk-sha256.txt
+      - name: Upload installable Debug APK and verification proof
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SURA-Manager-debug-APK
+          path: |
+            sura-admin-android/app/build/outputs/apk/debug/*.apk
+            sura-admin-android/app/build/apk-signature.txt
+            sura-admin-android/app/build/apk-badging.txt
+            sura-admin-android/app/build/apk-sha256.txt
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload diagnostics if build fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SURA-Manager-failure-reports
+          path: |
+            sura-admin-android/app/build/reports/**
+            sura-admin-android/app/build/outputs/logs/**
+          if-no-files-found: ignore
