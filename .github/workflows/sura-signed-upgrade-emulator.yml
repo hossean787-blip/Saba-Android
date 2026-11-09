@@ -29,12 +29,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p app/build/upgrade/previous app/build/upgrade/current
-          # Compare the historical signed 0.21.0 against the freshly built and
-          # signed 0.25.0 artifact from main@67db91cc, including current invoice fixes.
+          # Compare the known signed 0.29.0 with the tested signed 0.33.0
+          # directly; no uninstall and no ephemeral debug signing key.
           # Never use a debug APK, change signing keys, or uninstall existing data.
-          gh run download 42287778105 -n sura-signed-release-apk \
+          gh run download 42545190530 -n SURA-signed-release-apk-248 \
             -D app/build/upgrade/previous --repo ${{ github.repository }}
-          gh run download 42506587678 -n sura-signed-release-apk \
+          gh run download 42685768067 -n SURA-signed-release-apk-257 \
             -D app/build/upgrade/current --repo ${{ github.repository }}
           test -s app/build/upgrade/previous/app-release.apk
           test -s app/build/upgrade/current/app-release.apk
@@ -60,8 +60,8 @@ jobs:
           NEW_BADGING="$("$AAPT" dump badging "$CURRENT" | head -n 1)"
           echo "$OLD_BADGING"
           echo "$NEW_BADGING"
-          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$OLD_BADGING" == *"versionCode='21'"* ]]
-          [[ "$NEW_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"versionCode='25'"* ]]
+          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$OLD_BADGING" == *"versionCode='29'"* ]]
+          [[ "$NEW_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"versionCode='33'"* ]]
           old_cert="$("$SIGNER" verify --print-certs "$PREVIOUS" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           new_cert="$("$SIGNER" verify --print-certs "$CURRENT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           [[ -n "$old_cert" && "$old_cert" == "$new_cert" ]]
