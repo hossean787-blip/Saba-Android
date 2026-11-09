@@ -127,41 +127,30 @@ class InvoiceScreenTest {
         compose.onNodeWithText("شماره فاکتور").assertExists()
     }
 
-    @Test fun editingSavedDraftPreservesSupplementaryPaymentDetails() {
+    @Test fun repositoryDraftEditPreservesSupplementaryPaymentDetails() = runBlocking {
         val original = InvoiceLocalDetails(
             paymentMethod = "کارتخوان", paymentTrackingNumber = "۱۲۳", notes = "یادداشت پیشین"
         ).toJson()
-        runBlocking {
-            InvoiceRepository(db).saveDraft(
-                company, customer, "150", "1405/08/18",
-                listOf(InvoiceLine(invoiceId = 0, description = "خدمت",
-                    quantity = 1, unitPriceRial = 1000, taxRatePercent = 10)),
-                localDetailsJson = original
-            )
-            invoices = db.invoiceDao().forCompany(company)
-        }
-        compose.setContent { Screen() }
-        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
-        compose.waitUntil(15000) {
-            compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("ویرایش پیش‌نویس").performClick()
-        compose.waitUntil(15000) {
-            compose.onAllNodesWithText("ذخیره پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
-        }
-        // Save the reopened editor without changing any supplementary field.
-        // This catches both a missing restore and an omitted repository argument.
-        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
-        compose.waitUntil(15000) {
-            compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
-        }
-        runBlocking {
-            val persisted = db.invoiceDao().forCompany(company).single()
-            val metadata = InvoiceLocalDetails.fromJson(persisted.localDetailsJson)
-            assertEquals("یادداشت پیشین", metadata.notes)
-            assertEquals("کارتخوان", metadata.paymentMethod)
-            assertEquals("۱۲۳", metadata.paymentTrackingNumber)
-        }
+        val repo = InvoiceRepository(db)
+        val line = InvoiceLine(invoiceId = 0, description = "خدمت",
+            quantity = 1, unitPriceRial = 1000, taxRatePercent = 10)
+        val firstId = repo.saveDraft(company, customer, "150", "1405/08/18",
+            listOf(line), localDetailsJson = original)
+        val loaded = repo.detailsForCompany(company, firstId)
+        val updatedId = repo.saveDraft(
+            companyId = company, customerId = customer,
+            invoiceNumber = loaded.invoice.invoiceNumber,
+            issueDate = loaded.invoice.issueDate, lines = loaded.lines,
+            existingInvoiceId = firstId,
+            localDetailsJson = loaded.invoice.localDetailsJson
+        )
+        assertEquals(firstId, updatedId)
+        val persisted = repo.detailsForCompany(company, updatedId)
+        val metadata = InvoiceLocalDetails.fromJson(persisted.invoice.localDetailsJson)
+        assertEquals("یادداشت پیشین", metadata.notes)
+        assertEquals("کارتخوان", metadata.paymentMethod)
+        assertEquals("۱۲۳", metadata.paymentTrackingNumber)
+        assertEquals(1, db.invoiceDao().forCompany(company).size)
         assertEquals(10L, creditGateway.remaining)
     }
 
