@@ -36,6 +36,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
     var busy by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<OfficialSubmission?>(null) }
+    var localCredentialReady by remember(companyId) { mutableStateOf(false) }
     suspend fun refresh() {
         history = service.history(companyId)
         val company = requireNotNull(db.companyDao().byId(companyId))
@@ -69,6 +70,18 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             Text("پشتیبانی ارسال فعلی: اصلی نوع ۱، الگوی فروش ۱، ریالی و نقدی. واحد سنجش هر ردیف در فرم فاکتور ذخیره می‌شود؛ برای ردیف‌های قدیمی می‌توانید کد واحد مشترک وارد کنید. ارسال مالیاتی اعتبار جدید مصرف نمی‌کند.")
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            OutlinedButton(enabled=!busy,onClick={
+                localCredentialReady = false
+                act {
+                    val credential = service.checkLocalSigningReadiness(companyId)
+                    localCredentialReady = true
+                    onNotice("کلید خصوصی و گواهی این مؤدی به‌صورت محلی بررسی شد؛ هیچ صورتحسابی ارسال نشده است. اعتبار تا ${java.time.Instant.ofEpochMilli(credential.expiresAtEpochMillis)}")
+                }
+            },modifier=Modifier.fillMaxWidth()) { Text("بررسی آمادگی امضای مؤدی (بدون ارسال)") }
+            if(localCredentialReady) Text(
+                "کلید، گواهی و شناسه حافظه در دستگاه تطبیق دارند؛ این نتیجه تأیید سرور مالیاتی یا پذیرش فاکتور نیست.",
+                style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary
+            )
             TextButton(enabled=!busy,onClick={act { }}) { Text("بازخوانی وضعیت محلی") }
         }
         items(availableInvoices,key={"invoice_${it.id}"}) { invoice ->

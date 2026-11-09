@@ -37,6 +37,27 @@ class OfficialSubmissionService(
         require(SubmissionPreparation.sha256Hex(row.payload.toByteArray(Charsets.UTF_8)) == row.payloadHash) { "محتوای محفوظ صورتحساب تغییر کرده یا خراب است؛ ارسال متوقف شد." }
         row
     }
+    /**
+     * Local credential preflight: validates ownership, fiscal memory, private key and
+     * matching unexpired certificate. No HTTP calls and no invoice is submitted.
+     */
+    suspend fun checkLocalSigningReadiness(companyId: Long): TaxpayerCredentialProfile {
+        sessionCheck()
+        owner(companyId)
+        val fiscalId = requireNotNull(db.moadianDetailsDao().byCompany(companyId)).fiscalMemoryId
+        require(fiscalId.matches(Regex("[A-Z0-9]{6}"))) {
+            "شناسه یکتای حافظه مالیاتی باید ۶ کاراکتر معتبر باشد."
+        }
+        val profile = credentials.profile(companyId, clock())
+            ?: throw IllegalStateException(
+                "کلید خصوصی و گواهی معتبر برای این مؤدی ثبت نشده است؛ ابتدا اتصال نسخه ۲ را تکمیل کنید."
+            )
+        require(profile.identity.fiscalMemoryId == fiscalId) {
+            "شناسه حافظه با گواهی امضای مؤدی یکسان نیست."
+        }
+        return profile
+    }
+
     suspend fun history(companyId: Long): List<OfficialSubmission> = db.withTransaction {
         owner(companyId)
         db.officialSubmissionDao().forCompany(companyId).also { require(it.all { r -> r.ownerId == account.ownerId }) }
@@ -104,6 +125,7 @@ class OfficialSubmissionService(
         sessionCheck()
         val initial = row(id)
         require(initial.state == "PREPARED") { "این درخواست ممکن است ارسال شده باشد؛ ابتدا استعلام کنید." }
+        checkLocalSigningReadiness(initial.companyId)
         val keys = keys(initial)
         val encryption = keys.firstOrNull { it.purpose == 1 } ?: error("کلید رمزگذاری معتبر سازمان یافت نشد.")
         val identity = TaxpayerIdentity(account,initial.companyId,initial.fiscalId)

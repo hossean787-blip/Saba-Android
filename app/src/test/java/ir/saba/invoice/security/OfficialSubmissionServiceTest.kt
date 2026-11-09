@@ -88,6 +88,21 @@ class OfficialSubmissionServiceTest {
                 .put("data",JSONObject().put("error",JSONArray().put(JSONObject().put("code","E123"))))).toString()
         }
     }
+    @Test fun signingReadinessIsLocalOnlyAndFailsClosedWithoutCredentials()=runBlocking {
+        val ready=service.checkLocalSigningReadiness(company)
+        assertEquals("A11216", ready.identity.fiscalMemoryId)
+        assertTrue(ready.expiresAtEpochMillis > now)
+        assertEquals(0, api.posts)
+        assertEquals(0, api.gets)
+        val other=OfficialSubmissionService(db, AccountScope.of(
+            "22222222-2222-4222-8222-222222222222"), credentials, api,
+            sessionCheck={}){now}
+        reject { other.checkLocalSigningReadiness(company) }
+        credentials.remove(company)
+        reject { service.checkLocalSigningReadiness(company) }
+        assertEquals(0, api.gets)
+    }
+
     @Test fun acknowledgementIsNotAcceptanceAndSignedInquiryIsBoundToInvoice()=runBlocking {
         val row=prepare();assertEquals("PREPARED",row.state);assertEquals(0,api.posts)
         val sent=service.submit(row.requestId);assertEquals("SUBMITTED",sent.state);assertNull(sent.signedReceipt)
