@@ -284,7 +284,8 @@ private fun InvoiceScreenContent(
                                 creation.finish(claim.requestId).also{pendingCreation=null}
                             } else repository.saveDraft(companyId,selectedCustomer,number,date,lines,invoiceId,
                                 settlementMode=settlementMode,cashPaidRial=settlementCash,
-                                subject=subject,referenceTaxId=referenceTaxId.takeIf { it.isNotBlank() })
+                                subject=subject,referenceTaxId=referenceTaxId.takeIf { it.isNotBlank() },
+                                localDetailsJson=localDetailsJson)
                             // Retain identity before refreshing, so a retry never creates a second draft.
                             invoiceId = savedId
                             operationKey = java.util.UUID.randomUUID().toString()
@@ -444,6 +445,7 @@ private fun InvoiceScreenContent(
                                 settlementMode = invoice.settlementMode
                                 cashPortionInput = invoice.cashPaidRial?.toString().orEmpty()
                                 subject = invoice.subject;referenceTaxId = invoice.referenceTaxId.orEmpty()
+                                localDetailsJson = invoice.localDetailsJson
                                 lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }; error = ""; mode = "edit"
                             }) { Text("ویرایش پیش‌نویس") }
                             Button(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "finalize" }) { Text("نهایی‌سازی صورتحساب") }

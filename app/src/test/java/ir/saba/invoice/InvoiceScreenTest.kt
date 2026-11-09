@@ -127,6 +127,42 @@ class InvoiceScreenTest {
         compose.onNodeWithText("شماره فاکتور").assertExists()
     }
 
+    @Test fun editingSavedDraftPreservesSupplementaryPaymentDetails() {
+        val original = InvoiceLocalDetails(
+            paymentMethod = "کارتخوان", paymentTrackingNumber = "۱۲۳", notes = "یادداشت پیشین"
+        ).toJson()
+        runBlocking {
+            InvoiceRepository(db).saveDraft(
+                company, customer, "150", "1405/08/18",
+                listOf(InvoiceLine(invoiceId = 0, description = "خدمت",
+                    quantity = 1, unitPriceRial = 1000, taxRatePercent = 10)),
+                localDetailsJson = original
+            )
+            invoices = db.invoiceDao().forCompany(company)
+        }
+        compose.setContent { Screen() }
+        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("ویرایش پیش‌نویس").performClick()
+        compose.onNodeWithText("توضیحات صورتحساب").performScrollTo()
+            .assertTextContains("یادداشت پیشین")
+        compose.onNodeWithText("توضیحات صورتحساب").performTextReplacement("یادداشت اصلاح‌شده")
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
+        compose.waitUntil(15000) {
+            runBlocking {
+                db.invoiceDao().forCompany(company).single().let {
+                    val details = InvoiceLocalDetails.fromJson(it.localDetailsJson)
+                    details.notes == "یادداشت اصلاح‌شده" &&
+                        details.paymentMethod == "کارتخوان" &&
+                        details.paymentTrackingNumber == "۱۲۳"
+                }
+            }
+        }
+        assertEquals(10L, creditGateway.remaining)
+    }
+
     @Test fun createsDraftFromPersianInputAndOpensDetails() {
         compose.setContent { Screen() }
         openNew(); addLine()
