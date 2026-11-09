@@ -83,7 +83,7 @@ Deno.serve(async(req)=>{
    return rows.length?out(rows):out({error:"price_not_found"},404);
   }
   if(path==="rpc"){
-   if(user.role==="viewer")return out({error:"insufficient_role"},403);
+   if(user.role!=="admin")return out({error:"insufficient_role"},403);
    const p=body.params;
    if(body.fn!=="sura_transfer_owner_credit"||!p||Array.isArray(p)||typeof p!=="object"||
     Object.keys(p).sort().join(",")!=="p_credits,p_owner,p_request,p_taxpayer"||
