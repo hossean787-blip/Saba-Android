@@ -88,7 +88,17 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -n 1)"
           printf '%s\n' "$BADGING"
           [[ "$BADGING" == *"name='ir.saba.invoice'"* ]]
-          [[ "$BADGING" == *"versionCode='27'"* ]]
+          # Read the configured standard release code instead of a stale fixed value.
+          # The full embedded-catalog variant is built in a separate workflow.
+          EXPECTED_CODE="$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*if \(suraEmbeddedFull\) [0-9]+ else ([0-9]+).*/\1/p' app/build.gradle.kts | head -n 1)"
+          [[ "$EXPECTED_CODE" =~ ^[0-9]+$ ]] && (( EXPECTED_CODE >= 27 )) || {
+            echo "::error::Could not determine the expected release version code from app/build.gradle.kts"
+            exit 1
+          }
+          [[ "$BADGING" == *"versionCode='$EXPECTED_CODE'"* ]] || {
+            echo "::error::APK package version differs from Gradle release configuration"
+            exit 1
+          }
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
           # Public SHA-256 fingerprint of the long-standing SURA release certificate.
           # Enforce it even if optional external settings are absent: wrong keys would
