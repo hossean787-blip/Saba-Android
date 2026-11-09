@@ -427,7 +427,11 @@ class InvoiceScreenTest {
         openNew()
         // The subject chips scroll horizontally; first scroll the outer invoice form vertically.
         compose.onNodeWithText("موضوع صورتحساب").performScrollTo()
-        compose.onNodeWithText("اصلاحی (محلی)").assertIsEnabled().performClick()
+        // The chip sits inside a horizontally scrolled row. In Robolectric, a
+        // physical test tap can land outside the visible clip after outer scrolling.
+        // Dispatch the exact accessible OnClick action and verify resulting state.
+        compose.onNodeWithText("اصلاحی (محلی)").assertIsEnabled()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         compose.waitForIdle()
         compose.onNodeWithText("اصلاحی (محلی)").assertIsSelected()
         val referenceLabel = "شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده"
