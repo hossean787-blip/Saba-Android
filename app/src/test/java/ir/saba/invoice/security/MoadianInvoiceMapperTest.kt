@@ -30,6 +30,21 @@ class MoadianInvoiceMapperTest {
         assertEquals(0,root.getJSONArray("payments").length())
         assertEquals(2200L,b.getLong("cop"));assertEquals(200L,b.getLong("vop"));assertEquals(200L,h.getLong("tvop"))
     }
+    @Test fun v79OptionalNotesAreMappedAndCannotExceedThirtyCharacters() {
+        val valid = invoice.copy(localDetailsJson = InvoiceLocalDetails(
+            note1 = "توضیح کوتاه اول", note2 = "توضیح کوتاه دوم").toJson())
+        val header = JSONObject(map(valid)).getJSONObject("header")
+        assertEquals("توضیح کوتاه اول", header.getString("nti1"))
+        assertEquals("توضیح کوتاه دوم", header.getString("nti2"))
+        val oversized = invoice.copy(localDetailsJson = InvoiceLocalDetails(
+            note1 = "a".repeat(31)).toJson())
+        rejected { map(oversized) }
+        val article9 = invoice.copy(localDetailsJson = InvoiceLocalDetails(article9Flag = true).toJson())
+        rejected { map(article9) }
+        assertFalse(JSONObject(map()).getJSONObject("header").has("nti1"))
+        assertFalse(JSONObject(map()).getJSONObject("header").has("nti2"))
+    }
+
     @Test fun knownJalaliDatesIncludeLeapBoundary() {
         assertTrue(MoadianInvoiceMapper.defaultIssueTime("1404/01/01").startsWith("2025-03-21T12:00"))
         assertTrue(MoadianInvoiceMapper.defaultIssueTime("1403/12/30").startsWith("2025-03-20T12:00"))

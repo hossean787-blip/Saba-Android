@@ -24,6 +24,13 @@ object MoadianInvoiceMapper {
         // The current official mapper encodes setm=1. Never send a noncash invoice as cash.
         InvoiceSettlement.requireSupportedForOfficialCash(invoice)
         InvoiceSubject.requireSupportedForOfficialSubmission(invoice)
+        val local = InvoiceLocalDetails.fromJson(invoice.localDetailsJson)
+        require(!local.article9Flag) {
+            "ارسال رسمی صورتحساب موضوع ماده ۹ در این نسخه اعتبارسنجی نشده است؛ ارسال معمولی ممنوع است."
+        }
+        require(local.note1.length <= 30 && local.note2.length <= 30) {
+            "برای ارسال رسمی، هر یک از یادداشت‌های ۱ و ۲ طبق سند ۷.۹ حداکثر ۳۰ نویسه است."
+        }
         require(!details.inactive && details.companyId == company.id)
         require(buyerProfile == null || (buyerProfile.customerId == customer.id && buyerProfile.companyId == company.id && buyerProfile.active && buyerProfile.isCustomer && buyerProfile.nationality == "IR"))
         require(lines.all { MoadianMeasurementUnits.nameOf(it.unitCode.ifBlank { unit }) != null }) {
@@ -68,6 +75,8 @@ object MoadianInvoiceMapper {
             .put("bid",customer.nationalId).put("tinb",customer.economicId).put("setm",1)
             .put("tprdis",total.grossRial).put("tdis",total.discountRial).put("tadis",total.netRial).put("tvam",total.vatRial)
             .put("todam",0).put("tvop",total.vatRial).put("tbill",total.payableRial).put("cap",total.netRial) // V7.9 table 25: cap = tbill - VAT - other taxes - credit amount.
+        if (local.note1.isNotBlank()) header.put("nti1", local.note1)
+        if (local.note2.isNotBlank()) header.put("nti2", local.note2)
         return JSONObject().put("header",header).put("body",body).put("payments",JSONArray()).toString()
     }
 }

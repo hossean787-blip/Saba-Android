@@ -374,7 +374,7 @@ class InvoiceScreenTest {
     @Test fun correctiveInvoiceIsDisabledWithoutAnAcceptedOriginalReference() {
         compose.setContent { Screen() }
         openNew()
-        compose.onNodeWithText("اصلاحی (ثبت محلی)").performScrollTo()
+        compose.onNodeWithText("اصلاحی (محلی)").performScrollTo()
             .assertExists().assertIsNotEnabled()
         compose.onNodeWithText("اصلی").assertExists()
     }
@@ -425,7 +425,7 @@ class InvoiceScreenTest {
         }
         compose.setContent { Screen() }
         openNew()
-        compose.onNodeWithText("اصلاحی (ثبت محلی)").performScrollTo()
+        compose.onNodeWithText("اصلاحی (محلی)").performScrollTo()
             .assertIsEnabled().performClick()
         compose.onNodeWithText("شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده")
             .performScrollTo().performClick()
