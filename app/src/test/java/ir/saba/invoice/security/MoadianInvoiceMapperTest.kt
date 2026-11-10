@@ -117,7 +117,21 @@ class MoadianInvoiceMapperTest {
         assertEquals(ref, partialReturn.getString("irtaxid"))
         rejected { map(invoice.copy(subject = "ORIGINAL", referenceTaxId = ref)) }
         rejected { map(invoice.copy(subject = "CORRECTION", referenceTaxId = null)) }
-        rejected { map(invoice.copy(subject = "CANCELLATION", referenceTaxId = ref)) }
+        val cancelledPayload = JSONObject(map(invoice.copy(
+            subject = "CANCELLATION", referenceTaxId = ref
+        )))
+        val cancelled = cancelledPayload.getJSONObject("header")
+        assertEquals(3, cancelled.getInt("ins"))
+        assertEquals(ref, cancelled.getString("irtaxid"))
+        assertEquals(0, cancelledPayload.getJSONArray("body").length())
+        assertEquals(0, cancelledPayload.getJSONArray("payments").length())
+        assertFalse(cancelled.has("bid"))
+        assertFalse(cancelled.has("tinb"))
+        assertFalse(cancelled.has("tbill"))
+        assertFalse(cancelled.has("cap"))
+        assertFalse(cancelled.has("setm"))
+        assertEquals(company.economicId, cancelled.getString("tins"))
+        rejected { map(invoice.copy(subject = "CANCELLATION", referenceTaxId = null)) }
     }
 
     @Test fun creditTypeOneHasZeroCashAndNetAmountOnCredit() {

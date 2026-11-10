@@ -152,6 +152,22 @@ class OfficialSubmissionServiceTest {
         assertEquals(0,api.posts)
     }
 
+    @Test fun cancellationCreatesOnlyHeaderAndNeedsExplicitReviewBeforePost()=runBlocking {
+        val parent = acceptedOriginalForReference()
+        val id = createReferredDocument("CANCELLATION","14",2L)
+        val next = OfficialSubmissionService(db,account,credentials,api,
+            sessionCheck={}){now + 86_400_000}
+        val prepared = next.prepare(company,id,"2026-11-04T12:00:00+03:30","164")
+        assertEquals(parent.taxId, JSONObject(prepared.payload)
+            .getJSONObject("header").getString("irtaxid"))
+        assertEquals(3, JSONObject(prepared.payload).getJSONObject("header").getInt("ins"))
+        assertEquals(0, JSONObject(prepared.payload).getJSONArray("body").length())
+        val reviewed = next.reviewPrepared(prepared.requestId)
+        assertEquals("PREPARED", reviewed.state)
+        assertEquals(0, api.posts)
+        assertEquals(0, api.gets)
+    }
+
     @Test fun unacceptedParentCannotCreateOfficialCorrectionOrSend()=runBlocking {
         val parent=prepare()
         val id=createReferredDocument("CORRECTION","13",2L)

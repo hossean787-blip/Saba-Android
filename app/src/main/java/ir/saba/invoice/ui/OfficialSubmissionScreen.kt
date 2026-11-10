@@ -67,7 +67,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         item {
             Text("ارسال رسمی صورتحساب",style=MaterialTheme.typography.titleLarge)
             Text(name)
-            Text("پشتیبانی آزمایشی: نوع ۱، الگوی فروش ۱، ریالی؛ اصلی، اصلاحی و برگشت از فروش جزئی با مرجع پذیرفته‌شده، نقدی/نسیه/ترکیبی. پذیرش واقعی اسناد ارجاعی هنوز آزمون نشده است.")
+            Text("پشتیبانی آزمایشی: نوع ۱، الگوی فروش ۱، ریالی؛ اصلی، اصلاحی، ابطالی بدون بدنه فروش و برگشت از فروش جزئی با مرجع پذیرفته‌شده، نقدی/نسیه/ترکیبی. پذیرش واقعی اسناد ارجاعی هنوز آزمون نشده است.")
             Text("ارسال آینده فقط زمان انتخابی محلی است؛ سامانه به‌صورت خودکار سند مالیاتی ارسال نمی‌کند و پس از موعد نیز تأیید دستی الزامی است.",
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
@@ -102,7 +102,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             }.getOrNull()
             if (schedule != null) Text("موعد انتخابی ارسال دستی: $schedule",
                 style=MaterialTheme.typography.bodySmall)
-            if (invoice.subject in setOf(InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
+            if (invoice.subject in setOf(InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                 OutlinedButton(enabled=!busy,onClick={selected=invoice;issueTime=MoadianInvoiceMapper.defaultIssueTime(invoice.issueDate);unit=""}) {
                     Text("آماده‌سازی فاکتور ${invoice.invoiceNumber}")
                 }
@@ -171,11 +171,14 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         val subjectName = when(header.getInt("ins")) {
             1 -> "اصلی"
             2 -> "اصلاحی"
+            3 -> "ابطالی"
             4 -> "برگشت از فروش"
             else -> "نامعتبر"
         }
         AlertDialog(onDismissRequest={confirmation=null},title={Text("تأیید ارسال واقعی به سامانه مؤدیان")},
-            text={Text("مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nموضوع: $subjectName\nشناسه مرجع: ${header.optString("irtaxid", "—")}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nروش تسویه: ${when(header.getInt("setm")) { 1 -> "نقدی"; 2 -> "نسیه"; else -> "ترکیبی" }}\nسهم نقدی بدون مالیات: ${header.opt("cap")} ریال\nسهم نسیه بدون مالیات: ${header.opt("insp") ?: 0} ریال\nخریدار: ${header.getString("bid")}\nواحدهای هر ردیف: $units\nاطلاعات و سهم پرداخت را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
+            text={Text(if (header.getInt("ins") == 3)
+                "مؤدی: $name\nموضوع: ابطالی\nشماره مالیاتی جدید: ${row.taxId}\nشماره مرجع: ${header.getString("irtaxid")}\nاین سند برای ابطال صورتحساب مرجع است؛ اقلام و مشخصات خریدار از مرجع بازیابی می‌شوند. پذیرش واقعی این مسیر هنوز آزمون نشده است.\nارسال فقط با تأیید شما انجام می‌شود."
+                else "مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nموضوع: $subjectName\nشناسه مرجع: ${header.optString("irtaxid", "—")}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nروش تسویه: ${when(header.getInt("setm")) { 1 -> "نقدی"; 2 -> "نسیه"; else -> "ترکیبی" }}\nسهم نقدی بدون مالیات: ${header.opt("cap")} ریال\nسهم نسیه بدون مالیات: ${header.opt("insp") ?: 0} ریال\nخریدار: ${header.getString("bid")}\nواحدهای هر ردیف: $units\nاطلاعات و سهم پرداخت را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
             confirmButton={TextButton(onClick={confirmation=null;act { service.submit(row.requestId) }}) { Text("تأیید و ارسال واقعی") }},
             dismissButton={TextButton(onClick={confirmation=null}) { Text("انصراف") }})
     }

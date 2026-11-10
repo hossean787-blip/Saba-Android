@@ -79,6 +79,7 @@ object SuraInvoicePdf {
             text(c, when (invoice.subject) {
                 InvoiceSubject.CORRECTION -> "صورتحساب اصلاحی — اعتبار رسمی منوط به رسید سامانه"
                 InvoiceSubject.RETURN -> "برگشت از فروش — اعتبار رسمی منوط به رسید سامانه"
+                InvoiceSubject.CANCELLATION -> "ابطالی — اعتبار رسمی منوط به رسید سامانه"
                 else -> "صورتحساب فروش کالا و خدمات"
             },
                 555f, 60f, 400, 12f, false, Color.WHITE)
@@ -132,7 +133,7 @@ object SuraInvoicePdf {
             if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
             if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
             }
-            if (invoice.subject == InvoiceSubject.CORRECTION || invoice.subject == InvoiceSubject.RETURN) {
+            if (invoice.subject in setOf(InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                 text(c, "مرجع سند ارجاعی: " + invoice.referenceTaxId.orEmpty() +
                     " • صفحه " + (pageIndex + 1) + " از " + pages.size,
                     558f, 781f, 522, 9f, true, navy, maxLines=1, includePad=false)

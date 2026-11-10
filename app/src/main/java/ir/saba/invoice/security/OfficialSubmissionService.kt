@@ -119,8 +119,15 @@ class OfficialSubmissionService(
         return row(id).also {
             require(it.state == "PREPARED")
             val payload=JSONObject(it.payload)
-            require(payload.getJSONObject("header").getString("taxid")==it.taxId)
-            require(payload.getJSONArray("body").length()>0)
+            val header=payload.getJSONObject("header")
+            require(header.getString("taxid")==it.taxId)
+            val body=payload.getJSONArray("body")
+            if (header.getInt("ins")==3) {
+                // Fail closed on cancellation: no buyer, amount or sale lines.
+                require(body.length()==0 && payload.getJSONArray("payments").length()==0)
+                require(header.getString("irtaxid").matches(Regex("[A-Z0-9]{22}")))
+                require(!header.has("bid") && !header.has("tbill") && !header.has("setm"))
+            } else require(body.length()>0)
         }
     }
     suspend fun discardPrepared(id: String) = db.withTransaction {

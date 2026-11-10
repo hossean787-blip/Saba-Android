@@ -25,7 +25,7 @@ object InvoiceSubject {
         else -> "نامعتبر"
     }
 
-    /** Local cancellation is deliberately NOT approved for official transmission. */
+    /** Each referred subject requires an accepted original and a dedicated official payload. */
     fun validate(subject: String, referenceTaxId: String?) {
         when (subject) {
             ORIGINAL -> require(referenceTaxId.isNullOrBlank()) {
@@ -135,12 +135,13 @@ object InvoiceSubject {
     }
 
     /** Subject numbers: 1=original, 2=correction, 3=cancellation, 4=partial return.
-     * Cancellation requires a header-only contract; never map it as a sale. */
+     * Cancellation is header-only; never include copied sale items in JSON. */
     fun officialSubjectCode(invoice: Invoice): Int {
         validate(invoice.subject, invoice.referenceTaxId)
         return when (invoice.subject) {
             ORIGINAL -> 1
             CORRECTION -> 2
+            CANCELLATION -> 3
             RETURN -> 4
             else -> throw IllegalArgumentException("ارسال رسمی این موضوع صورتحساب هنوز فعال نیست.")
         }

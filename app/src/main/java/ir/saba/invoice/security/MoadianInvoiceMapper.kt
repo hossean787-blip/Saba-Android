@@ -42,6 +42,20 @@ object MoadianInvoiceMapper {
         require(issued > 0 && issued <= now) { "زمان صدور نباید در آینده باشد." }
         val serial = InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
         val taxId = TaxIdGenerator.generate(details.fiscalMemoryId,serial,issued)
+        if (officialSubject == 3) {
+            // RC_IITP.IS_V7.9 section 5-3: buyer and item details are resolved
+            // from the accepted reference by the tax system, not resubmitted.
+            require(company.economicId.matches(Regex("(?:[0-9]{11}|[0-9]{14})"))) {
+                "شماره اقتصادی فروشنده برای ابطال معتبر نیست."
+            }
+            val header = JSONObject().put("taxid", taxId).put("indatim", issued)
+                .put("inty", 1).put("inno", serial.toString(16)
+                    .uppercase(java.util.Locale.ROOT).padStart(10, '0'))
+                .put("inp", 1).put("ins", 3).put("tins", company.economicId)
+                .put("irtaxid", requireNotNull(invoice.referenceTaxId))
+            return JSONObject().put("header", header)
+                .put("body", JSONArray()).put("payments", JSONArray()).toString()
+        }
         val contract = TaxInvoiceContract(TaxInvoiceHeader(taxId,details.fiscalMemoryId,company.economicId,customer.economicId,issued),
             lines.map { TaxInvoiceItem(it.itemCode,it.description,
                 InvoiceLineAmounts.effectiveQuantity(it),BigDecimal.valueOf(it.unitPriceRial),

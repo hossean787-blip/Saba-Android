@@ -389,7 +389,7 @@ private fun InvoiceScreenContent(
                             if (loaded.invoice.status != "FINALIZED") {
                                 onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
                             } else if (loaded.invoice.subject !in setOf(
-                                InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
+                                InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                                 onNotice("این موضوع صورتحساب در مسیر ارسال رسمی هنوز فعال نیست.")
                             } else onOpenOfficialSubmission()
                         })
@@ -511,7 +511,7 @@ private fun InvoiceScreenContent(
                         }
                         if (invoice.status == "FINALIZED") {
                             if (invoice.subject in setOf(
-                                    InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
+                                    InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
                                     onClick = onOpenOfficialSubmission) {
                                     Text(if (officialRecord == null)
@@ -648,12 +648,12 @@ private fun InvoiceScreenContent(
                         FilterChip(selected = subject == InvoiceSubject.CANCELLATION,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
                             onClick = { subject = InvoiceSubject.CANCELLATION; referenceTaxId = ""; lines = emptyList() },
-                            label = { Text("ابطالی (فقط محلی)") })
+                            label = { Text("ابطالی (آزمایشی)") })
                     }
                     if (subject in setOf(InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                         Text(when (subject) {
                             InvoiceSubject.RETURN -> "برگشت از فروش: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند؛ ارسال رسمی آزمایشی است."
-                            InvoiceSubject.CANCELLATION -> "ابطالی فعلاً فقط محلی است و قابل ارسال به سامانه مؤدیان نیست. اقلام باید بدون تغییر از مرجع کپی شوند؛ ذخیره یک فاکتور جدید اعتبار مصرف می‌کند."
+                            InvoiceSubject.CANCELLATION -> "ابطالی با شماره مرجع پذیرفته‌شده آماده می‌شود؛ اقلام مرجع را بدون تغییر کپی کنید. ارسال رسمی آزمایشی و نیازمند تأیید شماست؛ ذخیره یک فاکتور جدید اعتبار مصرف می‌کند."
                             else -> "برای اصلاحی، تنها صورتحساب اصلی پذیرفته‌شده همان مؤدی و خریدار قابل ارجاع است؛ ارسال رسمی آزمایشی است."
                         },
                             style = MaterialTheme.typography.bodySmall,
@@ -699,7 +699,7 @@ private fun InvoiceScreenContent(
                                         lines = copied
                                         onNotice(when (subject) {
                                             InvoiceSubject.RETURN -> "اقلام مرجع کپی شد؛ مقدار باقی‌مانده پس از برگشت را کاهش دهید. ثبت محلی است."
-                                            InvoiceSubject.CANCELLATION -> "اقلام مرجع بدون تغییر کپی شد؛ ابطالی فقط محلی و فاقد ارسال رسمی است."
+                                            InvoiceSubject.CANCELLATION -> "اقلام مرجع کپی شد؛ برای ابطال رسمی تنها سرآمد و شماره مرجع ارسال می‌شود و تأیید دستی الزامی است."
                                             else -> "اقلام مرجع بارگذاری شد؛ اکنون مبلغ و مقدار را اصلاح کنید. هنوز فاکتوری ثبت نشده است."
                                         })
                                     }

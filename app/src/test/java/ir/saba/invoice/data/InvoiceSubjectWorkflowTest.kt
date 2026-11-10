@@ -178,7 +178,7 @@ class InvoiceSubjectWorkflowTest {
     }
 
 
-    @Test fun localCancellationRequiresAcceptedOriginalAndNeverPretendsToBeOfficial() = runBlocking {
+    @Test fun localCancellationRequiresAcceptedOriginalAndMapsOnlyDedicatedSubject() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, SabaDatabase::class.java).build()
         try {
@@ -219,8 +219,8 @@ class InvoiceSubjectWorkflowTest {
             assertEquals(InvoiceSubject.CANCELLATION, saved.invoice.subject)
             assertEquals(taxId, saved.invoice.referenceTaxId)
             repository.finalizeDraft(company, cancellationId)
-            expectInvalid { InvoiceSubject.requireSupportedForOfficialSubmission(
-                requireNotNull(db.invoiceDao().byId(cancellationId))) }
+            assertEquals(3, InvoiceSubject.officialSubjectCode(
+                requireNotNull(db.invoiceDao().byId(cancellationId))))
             expectInvalid {
                 repository.saveDraft(company, buyer, "21", "1405/08/14", source,
                     serverPromoConfirmed = true, subject = InvoiceSubject.CORRECTION,
