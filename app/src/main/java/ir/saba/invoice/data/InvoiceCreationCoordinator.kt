@@ -90,7 +90,15 @@ class InvoiceCreationCoordinator(
             require(normalized==original){"درخواست قبلی ناتمام است؛ همان فاکتور را بازیابی و تکمیل کنید."}
             return@withTransaction existing
         }
-        val number=InvoiceInput.digits(input.number).trim().ifBlank { TaxpayerSerialAllocator(db).reserve(companyId) }
+        val entered = InvoiceInput.digits(input.number).trim()
+        val allocator = TaxpayerSerialAllocator(db)
+        val referred = input.subject != InvoiceSubject.ORIGINAL
+        val number = if (entered.isBlank()) allocator.reserve(companyId, reference = referred)
+            else if (db.moadianDetailsDao().byCompany(companyId) != null &&
+                entered == allocator.suggest(companyId, reference = referred)) {
+                // An auto-prefilled number must be reserved durably just like the blank path.
+                allocator.reserve(companyId, reference = referred)
+            } else entered
         require(db.invoiceDao().forCompany(companyId).none{InvoiceInput.number(it.invoiceNumber)==InvoiceInput.number(number)}){"شماره صورتحساب قبلاً ثبت شده است."}
         val normalized=input.copy(number=number,date=InvoiceInput.date(input.date),lines=lines)
         InvoiceCreationClaim(key,account.ownerId,companyId,kind.name,encode(normalized)).also{db.invoiceCreationClaimDao().insert(it)}
