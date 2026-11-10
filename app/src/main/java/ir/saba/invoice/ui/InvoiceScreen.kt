@@ -31,6 +31,7 @@ import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
 import ir.saba.invoice.data.InvoiceLocalDetails
 import ir.saba.invoice.domain.InvoiceInput
+import ir.saba.invoice.domain.JalaliCalendar
 import ir.saba.invoice.domain.InvoiceIdentifierPrefill
 import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.invoice.domain.InvoiceSettlement
@@ -257,7 +258,18 @@ private fun InvoiceScreenContent(
         // Constructing an unsaved invoice must never require credit or perform a debit.
         // Credit is verified when the user explicitly saves a new invoice.
         operationKey=java.util.UUID.randomUUID().toString()
-        invoiceId=null;number="";date="";customerId=customers.firstOrNull()?.id
+        val suggestedNumber = if (db.moadianDetailsDao().byCompany(companyId) != null) {
+            TaxpayerSerialAllocator(db).suggest(companyId)
+        } else {
+            // Local-only taxpayers also receive a convenient editable number.
+            val highest = db.invoiceDao().forCompany(companyId).mapNotNull {
+                InvoiceInput.number(it.invoiceNumber).toLongOrNull()
+            }.maxOrNull() ?: 0L
+            (highest + 1).toString()
+        }
+        invoiceId=null;number=suggestedNumber
+        date=JalaliCalendar.fromGregorian(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tehran")))
+        customerId=customers.firstOrNull()?.id
         settlementMode=InvoiceSettlement.CASH;cashPortionInput=""
         subject=InvoiceSubject.ORIGINAL;referenceTaxId="";localDetailsJson=""
         lines=emptyList();error="";mode="edit"
@@ -571,7 +583,7 @@ private fun InvoiceScreenContent(
                                         textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
                                     OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
                                         label = { Text("شماره فاکتور") }, singleLine = true,
-                                        supportingText = { if (automaticNumber) Text("سریال صورتحساب؛ خالی = خودکار") },
+                                        supportingText = { if (automaticNumber) Text("سریال پیشنهادی قابل ویرایش است؛ یکتایی هنگام ذخیره کنترل می‌شود") },
                                         modifier = Modifier.weight(1f))
                                 }
                             } else {
@@ -582,7 +594,7 @@ private fun InvoiceScreenContent(
                                     textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
                                 OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
                                     label = { Text("شماره فاکتور") },
-                                    supportingText = { if (automaticNumber) Text("سریال صورتحساب؛ برای شماره خودکار خالی بگذارید") },
+                                    supportingText = { if (automaticNumber) Text("سریال پیشنهادی قابل ویرایش است؛ برای شماره خودکار خالی بگذارید") },
                                     singleLine = true, modifier = Modifier.fillMaxWidth())
                                 }
                             }
