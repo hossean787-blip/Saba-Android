@@ -36,6 +36,24 @@ class TaxpayerSerialAllocatorTest {
             assertEquals(1000000008L, db.moadianDetailsDao().byCompany(first)!!.nextInvoiceSerial)
         } finally { db.close() }
     }
+    @Test fun suggestedSerialIsReadOnlyAndReservationAdvancesAfterDeletion() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
+        try {
+            val taxpayer = db.companyDao().insert(Company(purchaserId = "owner", name = "مؤدی", nationalId = "1"))
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId = taxpayer))
+            val allocator = TaxpayerSerialAllocator(db)
+            assertEquals("1000000001", allocator.suggest(taxpayer))
+            assertEquals("1000000001", allocator.suggest(taxpayer))
+            assertNull(db.moadianDetailsDao().byCompany(taxpayer)?.nextInvoiceSerial)
+            assertEquals("1000000001", allocator.reserve(taxpayer))
+            assertEquals("1000000002", allocator.suggest(taxpayer))
+            assertEquals("2000000001", allocator.suggest(taxpayer, reference = true))
+            assertEquals("2000000001", allocator.reserve(taxpayer, reference = true))
+            assertEquals("2000000002", allocator.suggest(taxpayer, reference = true))
+            assertEquals("1000000002", allocator.suggest(taxpayer))
+        } finally { db.close() }
+    }
+
     @Test fun persianReferenceRangeCannotBeReservedByPrimarySequence() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {
