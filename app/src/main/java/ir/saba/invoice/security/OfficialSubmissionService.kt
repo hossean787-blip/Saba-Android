@@ -162,7 +162,9 @@ class OfficialSubmissionService(
     /** Caller must get explicit user confirmation before invoking this real financial document operation. */
     suspend fun submit(id: String): OfficialSubmission {
         sessionCheck()
-        val initial = row(id)
+        // Revalidate the immutable official payload (including cancellation shape)
+        // on the actual send path; the UI review step can be bypassed or become stale.
+        val initial = reviewPrepared(id)
         require(initial.state == "PREPARED") { "این درخواست ممکن است ارسال شده باشد؛ ابتدا استعلام کنید." }
         // Fail closed before any HTTP, signing or outbox transition when a future
         // local send-time was selected. This is not an unattended scheduler.
