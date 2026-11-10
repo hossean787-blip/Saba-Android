@@ -77,8 +77,8 @@ object SuraInvoicePdf {
             rect(c, 21f, 20f, 574f, 84f, navy)
             text(c, if (logo) "SURA | سورا" else "صورتحساب", 557f, 32f, 250, 22f, true, Color.WHITE)
             text(c, when (invoice.subject) {
-                InvoiceSubject.CORRECTION -> "صورتحساب اصلاحی — ثبت محلی، فاقد ارسال رسمی"
-                InvoiceSubject.RETURN -> "برگشت از فروش — ثبت محلی، فاقد ارسال رسمی"
+                InvoiceSubject.CORRECTION -> "صورتحساب اصلاحی — اعتبار رسمی منوط به رسید سامانه"
+                InvoiceSubject.RETURN -> "برگشت از فروش — اعتبار رسمی منوط به رسید سامانه"
                 else -> "صورتحساب فروش کالا و خدمات"
             },
                 555f, 60f, 400, 12f, false, Color.WHITE)

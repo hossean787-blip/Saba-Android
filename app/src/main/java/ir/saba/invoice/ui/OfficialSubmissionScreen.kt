@@ -67,7 +67,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         item {
             Text("ارسال رسمی صورتحساب",style=MaterialTheme.typography.titleLarge)
             Text(name)
-            Text("پشتیبانی ارسال: صورتحساب اصلی نوع ۱، الگوی فروش ۱، ریالی؛ نقدی، نسیه یا ترکیبی با کنترل دقیق سهم مالیات و پرداخت. صورتحساب اصلاحی و برگشت از فروش هنوز در این مسیر قابل ارسال نیستند.")
+            Text("پشتیبانی آزمایشی: نوع ۱، الگوی فروش ۱، ریالی؛ اصلی، اصلاحی و برگشت از فروش جزئی با مرجع پذیرفته‌شده، نقدی/نسیه/ترکیبی. پذیرش واقعی اسناد ارجاعی هنوز آزمون نشده است.")
             Text("ارسال آینده فقط زمان انتخابی محلی است؛ سامانه به‌صورت خودکار سند مالیاتی ارسال نمی‌کند و پس از موعد نیز تأیید دستی الزامی است.",
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
@@ -92,15 +92,13 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             }.getOrNull()
             if (schedule != null) Text("موعد انتخابی ارسال دستی: $schedule",
                 style=MaterialTheme.typography.bodySmall)
-            if (invoice.subject == InvoiceSubject.ORIGINAL) {
+            if (invoice.subject in setOf(InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
                 OutlinedButton(enabled=!busy,onClick={selected=invoice;issueTime=MoadianInvoiceMapper.defaultIssueTime(invoice.issueDate);unit=""}) {
                     Text("آماده‌سازی فاکتور ${invoice.invoiceNumber}")
                 }
             } else {
-                Text(if (invoice.subject != InvoiceSubject.ORIGINAL)
-                    "فاکتور " + invoice.invoiceNumber +
-                        ": موضوع اصلاحی/ارجاعی؛ ارسال رسمی آن در این نسخه فعال نیست."
-                else "فاکتور " + invoice.invoiceNumber + ": روش یا موضوع صورتحساب برای ارسال رسمی پشتیبانی نمی‌شود.",
+                Text("فاکتور " + invoice.invoiceNumber +
+                    ": این نوع یا موضوع صورتحساب هنوز در مسیر ارسال رسمی پشتیبانی نمی‌شود.",
                     style=MaterialTheme.typography.bodySmall)
             }
         }
@@ -160,8 +158,14 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             val code = body.getJSONObject(index).getString("mu")
             "${index + 1}: " + (ir.saba.moadian.MoadianMeasurementUnits.nameOf(code) ?: code)
         }
+        val subjectName = when(header.getInt("ins")) {
+            1 -> "اصلی"
+            2 -> "اصلاحی"
+            4 -> "برگشت از فروش"
+            else -> "نامعتبر"
+        }
         AlertDialog(onDismissRequest={confirmation=null},title={Text("تأیید ارسال واقعی به سامانه مؤدیان")},
-            text={Text("مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nروش تسویه: ${when(header.getInt("setm")) { 1 -> "نقدی"; 2 -> "نسیه"; else -> "ترکیبی" }}\nسهم نقدی بدون مالیات: ${header.opt("cap")} ریال\nسهم نسیه بدون مالیات: ${header.opt("insp") ?: 0} ریال\nخریدار: ${header.getString("bid")}\nواحدهای هر ردیف: $units\nاطلاعات و سهم پرداخت را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
+            text={Text("مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nموضوع: $subjectName\nشناسه مرجع: ${header.optString("irtaxid", "—")}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nروش تسویه: ${when(header.getInt("setm")) { 1 -> "نقدی"; 2 -> "نسیه"; else -> "ترکیبی" }}\nسهم نقدی بدون مالیات: ${header.opt("cap")} ریال\nسهم نسیه بدون مالیات: ${header.opt("insp") ?: 0} ریال\nخریدار: ${header.getString("bid")}\nواحدهای هر ردیف: $units\nاطلاعات و سهم پرداخت را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
             confirmButton={TextButton(onClick={confirmation=null;act { service.submit(row.requestId) }}) { Text("تأیید و ارسال واقعی") }},
             dismissButton={TextButton(onClick={confirmation=null}) { Text("انصراف") }})
     }

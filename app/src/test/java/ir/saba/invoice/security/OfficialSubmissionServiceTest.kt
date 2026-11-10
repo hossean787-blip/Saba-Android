@@ -102,6 +102,67 @@ class OfficialSubmissionServiceTest {
         assertNull(db.invoiceDao().byId(invoice)?.trackingCode)
     }
 
+    private suspend fun acceptedOriginalForReference(): OfficialSubmission {
+        val original=prepare()
+        assertEquals(1,db.officialSubmissionDao().claim(original.requestId))
+        assertEquals(1,db.officialSubmissionDao().resolve(
+            original.requestId, "ACCEPTED", "verified-reference", null, "verified-receipt-fixture"))
+        return original
+    }
+
+    private suspend fun createReferredDocument(
+        subject: String, number: String, quantity: Long
+    ): Long {
+        val old=requireNotNull(db.invoiceDao().byId(invoice))
+        val reference=requireNotNull(db.officialSubmissionDao().forInvoice(invoice))
+        val id=db.invoiceDao().insert(old.copy(id=0L, invoiceNumber=number,
+            issueDate="1405/08/13", subject=subject, referenceTaxId=reference.taxId,
+            totalAmountRial=quantity*1100, taxAmountRial=quantity*100,
+            trackingCode=null))
+        db.invoiceLineDao().insertAll(listOf(InvoiceLine(invoiceId=id,
+            itemCode="2710000138624",description="کالا",quantity=quantity,
+            unitPriceRial=1000,taxRatePercent=10)))
+        return id
+    }
+
+    @Test fun acceptedOriginalUnlocksOfficialCorrectionHeaderAndPreservesParentReference()=runBlocking {
+        val parent=acceptedOriginalForReference()
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,
+            sessionCheck={}){now + 86_400_000}
+        val prepared=next.prepare(company,id,"2026-11-04T12:00:00+03:30","164")
+        val h=JSONObject(prepared.payload).getJSONObject("header")
+        assertEquals(2,h.getInt("ins"))
+        assertEquals(parent.taxId,h.getString("irtaxid"))
+        assertEquals("PREPARED",prepared.state)
+        assertEquals(0,api.posts)
+        assertEquals(0,api.gets)
+    }
+
+    @Test fun acceptedOriginalUnlocksOnlyPartialReturnAndRejectsChangedTaxRate()=runBlocking {
+        val parent=acceptedOriginalForReference()
+        val id=createReferredDocument("RETURN","14",1L)
+        val next=OfficialSubmissionService(db,account,credentials,api,
+            sessionCheck={}){now + 86_400_000}
+        val result=next.prepare(company,id,"2026-11-04T12:00:00+03:30","164")
+        val header=JSONObject(result.payload).getJSONObject("header")
+        assertEquals(4,header.getInt("ins"))
+        assertEquals(parent.taxId,header.getString("irtaxid"))
+        assertEquals(1100L,header.getLong("tbill"))
+        assertEquals(0,api.posts)
+    }
+
+    @Test fun unacceptedParentCannotCreateOfficialCorrectionOrSend()=runBlocking {
+        val parent=prepare()
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,
+            sessionCheck={}){now + 86_400_000}
+        reject{next.prepare(company,id,"2026-11-04T12:00:00+03:30","164")}
+        assertNull(db.officialSubmissionDao().forInvoice(id))
+        assertEquals("PREPARED",db.officialSubmissionDao().byId(parent.requestId)?.state)
+        assertEquals(0,api.posts);assertEquals(0,api.gets)
+    }
+
     @Test fun signingReadinessIsLocalOnlyAndFailsClosedWithoutCredentials()=runBlocking {
         val ready=service.checkLocalSigningReadiness(company)
         assertEquals("A11216", ready.identity.fiscalMemoryId)

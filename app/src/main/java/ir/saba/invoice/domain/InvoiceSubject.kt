@@ -97,10 +97,19 @@ object InvoiceSubject {
         // replace the original goods/services with different identifiers. Changes to
         // the item identity require a separate sale or another legally supported subject.
         if (subject == CORRECTION) {
-            val sourceCodes = db.invoiceLineDao().forInvoice(original.id).map { it.itemCode }.sorted()
-            val correctionCodes = lines.map { it.itemCode }.sorted()
-            require(sourceCodes.isNotEmpty() && correctionCodes == sourceCodes) {
-                "شناسه و تعداد اقلام کالا/خدمت در اصلاحیه باید با صورتحساب مرجع یکسان باشد؛ تغییر کالا یا خدمت با اصلاحیه مجاز نیست."
+            val sourceRows = db.invoiceLineDao().forInvoice(original.id)
+                .sortedWith(compareBy({ it.itemCode }, { it.unitCode }, { it.description }))
+            val editedRows = lines.sortedWith(compareBy({ it.itemCode }, { it.unitCode }, { it.description }))
+            require(sourceRows.isNotEmpty() && sourceRows.size == editedRows.size) {
+                "تعداد اقلام اصلاحیه باید با صورتحساب مرجع برابر باشد."
+            }
+            sourceRows.zip(editedRows).forEach { (previous, edited) ->
+                require(previous.itemCode == edited.itemCode &&
+                    previous.unitCode == edited.unitCode &&
+                    InvoiceLineAmounts.effectiveTaxPercent(previous) ==
+                    InvoiceLineAmounts.effectiveTaxPercent(edited)) {
+                    "شناسه کالا، واحد سنجش و نرخ مالیات اصلاحیه باید با مرجع برابر باشند."
+                }
             }
         }
         // Avoid conflicting pending/local corrections against one accepted reference.
@@ -110,9 +119,20 @@ object InvoiceSubject {
         }) { "برای این صورتحساب مرجع قبلاً سند ارجاعی فعال ثبت شده است؛ همان پیش‌نویس را ویرایش کنید." }
     }
 
-    fun requireSupportedForOfficialSubmission(invoice: Invoice) {
-        require(invoice.subject == ORIGINAL && invoice.referenceTaxId.isNullOrBlank()) {
-            "ارسال رسمی صورتحساب اصلاحی/ارجاعی در این نسخه فعال نیست؛ فقط ثبت محلی انجام شده است."
+    /** Subject numbers from the Iranian Tax Administration v7.9: 1=original,
+     * 2=correction, 4=partial return. Header-only cancellation requires a
+     * distinct contract; do not silently encode it as an ordinary sale. */
+    fun officialSubjectCode(invoice: Invoice): Int {
+        validate(invoice.subject, invoice.referenceTaxId)
+        return when (invoice.subject) {
+            ORIGINAL -> 1
+            CORRECTION -> 2
+            RETURN -> 4
+            else -> throw IllegalArgumentException("ارسال رسمی این موضوع صورتحساب هنوز فعال نیست.")
         }
+    }
+
+    fun requireSupportedForOfficialSubmission(invoice: Invoice) {
+        officialSubjectCode(invoice)
     }
 }

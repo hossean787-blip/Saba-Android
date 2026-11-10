@@ -368,8 +368,9 @@ private fun InvoiceScreenContent(
                         onSend = {
                             if (loaded.invoice.status != "FINALIZED") {
                                 onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
-                            } else if (loaded.invoice.subject != InvoiceSubject.ORIGINAL) {
-                                onNotice("این صورتحساب اصلاحی فقط در دستگاه ثبت شده؛ ارسال رسمی اصلاحیه هنوز فعال نیست.")
+                            } else if (loaded.invoice.subject !in setOf(
+                                InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
+                                onNotice("این موضوع صورتحساب در مسیر ارسال رسمی هنوز فعال نیست.")
                             } else onOpenOfficialSubmission()
                         })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
@@ -479,13 +480,12 @@ private fun InvoiceScreenContent(
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
                         if (invoice.status == "FINALIZED") {
-                            if (invoice.subject == InvoiceSubject.ORIGINAL) {
+                            if (invoice.subject in setOf(
+                                    InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
                                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
                                     onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
                             } else {
-                                Text(if (invoice.subject != InvoiceSubject.ORIGINAL)
-                                    "صورتحساب اصلاحی فقط محلی است؛ ارسال رسمی اصلاحیه در این نسخه فعال نیست."
-                                    else "این نوع صورتحساب در مسیر ارسال رسمی پشتیبانی نمی‌شود.",
+                                Text("این نوع صورتحساب در مسیر ارسال رسمی پشتیبانی نمی‌شود.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.error)
                             }
@@ -606,16 +606,16 @@ private fun InvoiceScreenContent(
                         FilterChip(selected = subject == InvoiceSubject.CORRECTION,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
                             onClick = { subject = InvoiceSubject.CORRECTION;referenceTaxId = "" },
-                            label = { Text("اصلاحی (محلی)") })
+                            label = { Text("اصلاحی (آزمایشی)") })
                         FilterChip(selected = subject == InvoiceSubject.RETURN,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
                             onClick = { subject = InvoiceSubject.RETURN; referenceTaxId = ""; lines = emptyList() },
-                            label = { Text("برگشت از فروش (محلی)") })
+                            label = { Text("برگشت از فروش (آزمایشی)") })
                     }
                     if (subject == InvoiceSubject.CORRECTION || subject == InvoiceSubject.RETURN) {
                         Text(if (subject == InvoiceSubject.RETURN)
-                            "برگشت از فروش محلی: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند. ارسال رسمی آن فعال نیست."
-                            else "برای اصلاحی، تنها صورتحساب اصلی تأییدشده همان مؤدی و خریدار قابل ارجاع است. ارسال رسمی اصلاحیه هنوز پشتیبانی نمی‌شود.",
+                            "برگشت از فروش: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند؛ ارسال رسمی آزمایشی است."
+                            else "برای اصلاحی، تنها صورتحساب اصلی پذیرفته‌شده همان مؤدی و خریدار قابل ارجاع است؛ ارسال رسمی آزمایشی است.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)
                         var expandedReference by remember { mutableStateOf(false) }

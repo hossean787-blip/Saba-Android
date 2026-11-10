@@ -70,10 +70,7 @@ class InvoiceSubjectWorkflowTest {
                     serverPromoConfirmed = true, subject = InvoiceSubject.CORRECTION,
                     referenceTaxId = taxId)
             }
-            try {
-                InvoiceSubject.requireSupportedForOfficialSubmission(db.invoiceDao().byId(id)!!)
-                fail("Corrective payload must not be submitted as an original tax invoice")
-            } catch (_: IllegalArgumentException) {}
+            assertEquals(2, InvoiceSubject.officialSubjectCode(db.invoiceDao().byId(id)!!))
             assertNotNull(db.quotaDao().useForInvoice(id))
         } finally {
             db.close()
@@ -169,11 +166,8 @@ class InvoiceSubjectWorkflowTest {
             assertEquals(InvoiceSubject.RETURN, saved.invoice.subject)
             assertEquals(2, saved.lines.single().quantity)
             repo.finalizeDraft(company, id)
-            try {
-                InvoiceSubject.requireSupportedForOfficialSubmission(
-                    requireNotNull(db.invoiceDao().byId(id)))
-                fail("A local return must never be submitted as original")
-            } catch (_: IllegalArgumentException) {}
+            assertEquals(4, InvoiceSubject.officialSubjectCode(
+                requireNotNull(db.invoiceDao().byId(id))))
             expectInvalid {
                 repo.saveDraft(company, buyer, "103", "1405/08/12",
                     remaining, serverPromoConfirmed = true,

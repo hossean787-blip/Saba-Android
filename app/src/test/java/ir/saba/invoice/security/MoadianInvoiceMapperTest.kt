@@ -103,15 +103,21 @@ class MoadianInvoiceMapperTest {
     }
 
 
-    @Test fun localCorrectionMustNeverBeMisrepresentedAsOfficialOriginalInvoice() {
-        rejected {
-            map(invoice.copy(subject = "CORRECTION",
-                referenceTaxId = "A1121600000000000000"))
-        }
-        rejected {
-            map(invoice.copy(subject = "ORIGINAL",
-                referenceTaxId = "A1121600000000000000"))
-        }
+    @Test fun referredInvoicesCarryExactOfficialSubjectAndReference() {
+        val ref = "A1121600000000000000"
+        val correction = JSONObject(map(invoice.copy(
+            subject = "CORRECTION", referenceTaxId = ref
+        ))).getJSONObject("header")
+        assertEquals(2, correction.getInt("ins"))
+        assertEquals(ref, correction.getString("irtaxid"))
+        val partialReturn = JSONObject(map(invoice.copy(
+            subject = "RETURN", referenceTaxId = ref
+        ))).getJSONObject("header")
+        assertEquals(4, partialReturn.getInt("ins"))
+        assertEquals(ref, partialReturn.getString("irtaxid"))
+        rejected { map(invoice.copy(subject = "ORIGINAL", referenceTaxId = ref)) }
+        rejected { map(invoice.copy(subject = "CORRECTION", referenceTaxId = null)) }
+        rejected { map(invoice.copy(subject = "CANCELLATION", referenceTaxId = ref)) }
     }
 
     @Test fun creditTypeOneHasZeroCashAndNetAmountOnCredit() {

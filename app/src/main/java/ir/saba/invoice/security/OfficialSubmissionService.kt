@@ -67,12 +67,17 @@ class OfficialSubmissionService(
         val invoice = requireNotNull(db.invoiceDao().byId(invoiceId))
         val customer = requireNotNull(db.customerDao().byId(invoice.customerId))
         val details = requireNotNull(db.moadianDetailsDao().byCompany(companyId))
+        val sourceLines = db.invoiceLineDao().forInvoice(invoiceId)
+        // Validate the accepted source again inside the immutable outbox transaction.
+        InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, companyId,
+            customer.id, invoice.subject, invoice.referenceTaxId, sourceLines,
+            invoiceId, invoice.issueDate)
         val existing = db.officialSubmissionDao().forInvoice(invoiceId)
         require(invoice.trackingCode.isNullOrBlank() || (existing != null && existing.referenceNumber == invoice.trackingCode)) {
             "صورتحساب دارای کد پیگیری قدیمی است؛ ساخت درخواست تازه مجاز نیست و سابقه باید بررسی شود."
         }
         val payload = MoadianInvoiceMapper.map(company,customer,db.customerProfileDao().byCustomer(customer.id),details,invoice,
-            db.invoiceLineDao().forInvoice(invoiceId),issueTime,unit,clock())
+            sourceLines,issueTime,unit,clock())
         require(payload.length <= 2_000_000) { "حجم صورتحساب بیش از حد مجاز است." }
         if (existing != null) {
             require(existing.ownerId == account.ownerId && existing.companyId == companyId && existing.payload == payload) { "صورتحساب قبلاً با محتوای ثابت آماده شده است." }

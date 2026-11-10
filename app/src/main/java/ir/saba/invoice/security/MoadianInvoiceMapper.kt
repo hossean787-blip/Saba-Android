@@ -21,8 +21,8 @@ object MoadianInvoiceMapper {
     fun map(company: Company, customer: Customer, buyerProfile: CustomerProfile?, details: MoadianDetails,
             invoice: Invoice, lines: List<InvoiceLine>, issueTime: String, unit: String, now: Long): String {
         require(invoice.status == "FINALIZED" && invoice.companyId == company.id && customer.id == invoice.customerId && customer.companyId == company.id)
-        // Never encode a credit/mixed invoice as cash. Allocations are checked below.
-        InvoiceSubject.requireSupportedForOfficialSubmission(invoice)
+        // Never disguise a referred invoice as a new original invoice.
+        val officialSubject = InvoiceSubject.officialSubjectCode(invoice)
         val local = InvoiceLocalDetails.fromJson(invoice.localDetailsJson)
         require(!local.article9Flag) {
             "ارسال رسمی صورتحساب موضوع ماده ۹ در این نسخه اعتبارسنجی نشده است؛ ارسال معمولی ممنوع است."
@@ -75,11 +75,12 @@ object MoadianInvoiceMapper {
                 .put("tsstam",t.payableRial))
         }
         val header = JSONObject().put("taxid",taxId).put("indatim",issued).put("inty",1).put("inno",serial.toString(16).uppercase(java.util.Locale.ROOT).padStart(10,'0'))
-            .put("inp",1).put("ins",1).put("tins",company.economicId).put("tob",if(legal) 2 else 1)
+            .put("inp",1).put("ins",officialSubject).put("tins",company.economicId).put("tob",if(legal) 2 else 1)
             .put("bid",customer.nationalId).put("tinb",customer.economicId).put("setm",settlement.method)
             .put("tprdis",total.grossRial).put("tdis",total.discountRial).put("tadis",total.netRial).put("tvam",total.vatRial)
             .put("todam",0).put("tvop",settlement.totalPaidVat).put("tbill",total.payableRial)
             .put("cap",settlement.cashBase)
+        if (officialSubject != 1) header.put("irtaxid", requireNotNull(invoice.referenceTaxId))
         if (settlement.method != 1) header.put("insp", settlement.creditBase)
         if (local.note1.isNotBlank()) header.put("nti1", local.note1)
         if (local.note2.isNotBlank()) header.put("nti2", local.note2)

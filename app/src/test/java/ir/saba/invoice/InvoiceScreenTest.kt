@@ -374,7 +374,7 @@ class InvoiceScreenTest {
     @Test fun correctiveInvoiceIsDisabledWithoutAnAcceptedOriginalReference() {
         compose.setContent { Screen() }
         openNew()
-        compose.onNodeWithText("اصلاحی (محلی)").performScrollTo()
+        compose.onNodeWithText("اصلاحی (آزمایشی)").performScrollTo()
             .assertExists().assertIsNotEnabled()
         compose.onNodeWithText("اصلی").assertExists()
     }
@@ -430,7 +430,7 @@ class InvoiceScreenTest {
         // The chip sits inside a horizontally scrolled row. In Robolectric, a
         // physical test tap can land outside the visible clip after outer scrolling.
         // Dispatch the exact accessible OnClick action and verify resulting state.
-        compose.onNodeWithText("اصلاحی (محلی)").assertIsEnabled()
+        compose.onNodeWithText("اصلاحی (آزمایشی)").assertIsEnabled()
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         compose.waitForIdle()
         // The semantic selection flag may not be exposed by the Material chip in Robolectric.
