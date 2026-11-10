@@ -74,8 +74,8 @@ class InvoiceScreenTest {
         }
         compose.onNodeWithText("صدور فاکتور جدید").performClick()
         compose.waitUntil(15000){compose.onAllNodesWithText("شماره فاکتور").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("شماره فاکتور").performTextInput("۱۲")
-        compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextInput("۱۴۰۵/۰۷/۰۲")
+        compose.onNodeWithText("شماره فاکتور").performTextReplacement("۱۲")
+        compose.onNodeWithText("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲").performTextReplacement("۱۴۰۵/۰۷/۰۲")
     }
     private fun addLine() {
         compose.onNodeWithText("افزودن کالا یا خدمت").performScrollTo().performClick()
