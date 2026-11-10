@@ -5,9 +5,23 @@ import ir.saba.invoice.domain.MoadianFieldValidation
 
 /** Reservations survive draft deletion and are serialized with invoice creation by Room. */
 class TaxpayerSerialAllocator(private val db: SabaDatabase) {
+    /** Read-only suggestion for the editor. It does not consume or lock a serial. */
+    suspend fun suggest(companyId: Long, reference: Boolean = false): String = db.withTransaction {
+        nextAvailable(companyId, reference).toString().padStart(10, '0')
+    }
+
+    /** Reserve at persistence time; re-checks conflicts within the same transaction. */
     suspend fun reserve(companyId: Long, reference: Boolean = false): String = db.withTransaction {
+        val next = nextAvailable(companyId, reference)
+        val details = requireNotNull(db.moadianDetailsDao().byCompany(companyId))
+        db.moadianDetailsDao().upsert(if (reference) details.copy(nextReferenceSerial = next + 1)
+            else details.copy(nextInvoiceSerial = next + 1))
+        next.toString().padStart(10, '0')
+    }
+
+    private suspend fun nextAvailable(companyId: Long, reference: Boolean): Long {
         val details = db.moadianDetailsDao().byCompany(companyId)
-            ?: throw IllegalArgumentException("شماره فاکتور الزامی است.")
+            ?: throw IllegalArgumentException("ابتدا مشخصات مؤدی را تکمیل کنید.")
         require(!details.inactive) { "مودی غیرفعال است." }
         require(MoadianFieldValidation.serialPair(details.invoiceSerialStart, details.referenceSerialStart) == null) {
             "سریال اصلی و ارجاعی باید متفاوت باشند."
@@ -34,8 +48,6 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
         val otherStart = MoadianFieldValidation.digits(otherStartText).toLongOrNull() ?: if (reference) 1000000001L else 2000000001L
         val otherNext = (if (reference) details.nextInvoiceSerial else details.nextReferenceSerial) ?: otherStart
         require(next !in otherStart until otherNext) { "سریال با شماره‌گذاری ارجاعی یا اصلی تداخل دارد." }
-        db.moadianDetailsDao().upsert(if (reference) details.copy(nextReferenceSerial = next + 1)
-            else details.copy(nextInvoiceSerial = next + 1))
-        next.toString().padStart(10, '0')
+        return next
     }
 }
