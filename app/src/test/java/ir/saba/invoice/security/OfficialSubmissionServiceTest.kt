@@ -346,6 +346,18 @@ class OfficialSubmissionServiceTest {
         assertEquals(1,api.posts)
     }
 
+    @Test fun missingAppSessionBlocksOutboxHistoryPreparationReviewAndDiscard()=runBlocking {
+        val prepared = prepare()
+        val unbound = OfficialSubmissionService(db, account, credentials, api) { now }
+        reject { unbound.history(company) }
+        reject { unbound.prepare(company, invoice, "2026-11-03T12:00:00+03:30", "164") }
+        reject { unbound.reviewPrepared(prepared.requestId) }
+        reject { unbound.discardPrepared(prepared.requestId) }
+        assertEquals("PREPARED", db.officialSubmissionDao().byId(prepared.requestId)?.state)
+        assertEquals(0, api.gets)
+        assertEquals(0, api.posts)
+    }
+
     @Test fun missingAppSessionNeverStartsOfficialHttp()=runBlocking {
         val row=prepare()
         val unbound=OfficialSubmissionService(db,account,credentials,api){now}

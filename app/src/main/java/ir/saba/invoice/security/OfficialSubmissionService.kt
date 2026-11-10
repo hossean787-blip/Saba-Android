@@ -60,10 +60,12 @@ class OfficialSubmissionService(
     }
 
     suspend fun history(companyId: Long): List<OfficialSubmission> = db.withTransaction {
+        sessionCheck()
         owner(companyId)
         db.officialSubmissionDao().forCompany(companyId).also { require(it.all { r -> r.ownerId == account.ownerId }) }
     }
     suspend fun prepare(companyId: Long, invoiceId: Long, issueTime: String, unit: String): OfficialSubmission = db.withTransaction {
+        sessionCheck()
         val company = owner(companyId)
         val invoice = requireNotNull(db.invoiceDao().byId(invoiceId))
         val customer = requireNotNull(db.customerDao().byId(invoice.customerId))
@@ -92,13 +94,17 @@ class OfficialSubmissionService(
         OfficialSubmission(UUID.randomUUID().toString(),account.ownerId,companyId,invoiceId,details.fiscalMemoryId,taxId,payload,
             SubmissionPreparation.sha256Hex(payload.toByteArray(Charsets.UTF_8)),clock()).also { db.officialSubmissionDao().insert(it) }
     }
-    suspend fun reviewPrepared(id: String): OfficialSubmission = row(id).also {
-        require(it.state == "PREPARED")
-        val payload=JSONObject(it.payload)
-        require(payload.getJSONObject("header").getString("taxid")==it.taxId)
-        require(payload.getJSONArray("body").length()>0)
+    suspend fun reviewPrepared(id: String): OfficialSubmission {
+        sessionCheck()
+        return row(id).also {
+            require(it.state == "PREPARED")
+            val payload=JSONObject(it.payload)
+            require(payload.getJSONObject("header").getString("taxid")==it.taxId)
+            require(payload.getJSONArray("body").length()>0)
+        }
     }
     suspend fun discardPrepared(id: String) = db.withTransaction {
+        sessionCheck()
         val existing=requireNotNull(db.officialSubmissionDao().byId(id))
         require(existing.ownerId==account.ownerId && db.companyDao().byId(existing.companyId)?.purchaserId==account.ownerId)
         // PREPARED has never reached POST; even a changed memory or corrupt preview can be discarded.
