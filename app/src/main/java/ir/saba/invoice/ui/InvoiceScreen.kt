@@ -645,11 +645,17 @@ private fun InvoiceScreenContent(
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
                             onClick = { subject = InvoiceSubject.RETURN; referenceTaxId = ""; lines = emptyList() },
                             label = { Text("برگشت از فروش (آزمایشی)") })
+                        FilterChip(selected = subject == InvoiceSubject.CANCELLATION,
+                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
+                            onClick = { subject = InvoiceSubject.CANCELLATION; referenceTaxId = ""; lines = emptyList() },
+                            label = { Text("ابطالی (فقط محلی)") })
                     }
-                    if (subject == InvoiceSubject.CORRECTION || subject == InvoiceSubject.RETURN) {
-                        Text(if (subject == InvoiceSubject.RETURN)
-                            "برگشت از فروش: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند؛ ارسال رسمی آزمایشی است."
-                            else "برای اصلاحی، تنها صورتحساب اصلی پذیرفته‌شده همان مؤدی و خریدار قابل ارجاع است؛ ارسال رسمی آزمایشی است.",
+                    if (subject in setOf(InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
+                        Text(when (subject) {
+                            InvoiceSubject.RETURN -> "برگشت از فروش: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند؛ ارسال رسمی آزمایشی است."
+                            InvoiceSubject.CANCELLATION -> "ابطالی فعلاً فقط محلی است و قابل ارسال به سامانه مؤدیان نیست. اقلام باید بدون تغییر از مرجع کپی شوند؛ ذخیره یک فاکتور جدید اعتبار مصرف می‌کند."
+                            else -> "برای اصلاحی، تنها صورتحساب اصلی پذیرفته‌شده همان مؤدی و خریدار قابل ارجاع است؛ ارسال رسمی آزمایشی است."
+                        },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)
                         var expandedReference by remember { mutableStateOf(false) }
@@ -691,13 +697,17 @@ private fun InvoiceScreenContent(
                                         val copied = original.lines.map { it.copy(id = 0, invoiceId = 0) }
                                         InvoiceCalculator.calculate(copied)
                                         lines = copied
-                                        onNotice(if (subject == InvoiceSubject.RETURN)
-                                            "اقلام مرجع کپی شد؛ مقدار باقی‌مانده پس از برگشت را کاهش دهید. ثبت محلی است."
-                                            else "اقلام مرجع بارگذاری شد؛ اکنون مبلغ و مقدار را اصلاح کنید. هنوز فاکتوری ثبت نشده است.")
+                                        onNotice(when (subject) {
+                                            InvoiceSubject.RETURN -> "اقلام مرجع کپی شد؛ مقدار باقی‌مانده پس از برگشت را کاهش دهید. ثبت محلی است."
+                                            InvoiceSubject.CANCELLATION -> "اقلام مرجع بدون تغییر کپی شد؛ ابطالی فقط محلی و فاقد ارسال رسمی است."
+                                            else -> "اقلام مرجع بارگذاری شد؛ اکنون مبلغ و مقدار را اصلاح کنید. هنوز فاکتوری ثبت نشده است."
+                                        })
                                     }
-                                }) { Text(if (subject == InvoiceSubject.RETURN)
-                                    "کپی اقلام مرجع برای برگشت از فروش"
-                                    else "کپی اقلام صورتحساب مرجع برای اصلاح") }
+                                }) { Text(when (subject) {
+                                    InvoiceSubject.RETURN -> "کپی اقلام مرجع برای برگشت از فروش"
+                                    InvoiceSubject.CANCELLATION -> "کپی بدون تغییر اقلام مرجع برای ابطال محلی"
+                                    else -> "کپی اقلام صورتحساب مرجع برای اصلاح"
+                                }) }
                         }
                     } else if (acceptedOriginals.isEmpty()) {
                         Text("صورتحساب ارجاعی پس از پذیرش صورتحساب اصلی و ثبت رسید معتبر در دسترس می‌شود.",

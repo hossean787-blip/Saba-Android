@@ -177,6 +177,59 @@ class InvoiceSubjectWorkflowTest {
         } finally { db.close() }
     }
 
+
+    @Test fun localCancellationRequiresAcceptedOriginalAndNeverPretendsToBeOfficial() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, SabaDatabase::class.java).build()
+        try {
+            val company = db.companyDao().insert(Company(
+                purchaserId = account.ownerId, name = "فروشنده", nationalId = "1001"))
+            val buyer = db.customerDao().insert(Customer(companyId = company, name = "خریدار"))
+            val repository = InvoiceRepository(db)
+            val source = lines()
+            expectInvalid {
+                repository.saveDraft(company, buyer, "20", "1405/08/13", source,
+                    serverPromoConfirmed = true, subject = InvoiceSubject.CANCELLATION,
+                    referenceTaxId = taxId)
+            }
+            val originalId = repository.saveDraft(company, buyer, "19", "1405/08/12",
+                source, serverPromoConfirmed = true)
+            repository.finalizeDraft(company, originalId)
+            db.officialSubmissionDao().insert(OfficialSubmission(
+                requestId = UUID.randomUUID().toString(), ownerId = account.ownerId,
+                companyId = company, invoiceId = originalId, fiscalId = "A11216",
+                taxId = taxId, payload = "{}", payloadHash = "hash", preparedAt = 100,
+                state = "ACCEPTED", referenceNumber = "valid-reference", signedReceipt = "receipt"
+            ))
+            expectInvalid {
+                repository.saveDraft(company, buyer, "20", "1405/08/13",
+                    source.map { it.copy(unitPriceRial = 2000) },
+                    serverPromoConfirmed = true, subject = InvoiceSubject.CANCELLATION,
+                    referenceTaxId = taxId)
+            }
+            expectInvalid {
+                repository.saveDraft(company, buyer, "20", "1405/08/11", source,
+                    serverPromoConfirmed = true, subject = InvoiceSubject.CANCELLATION,
+                    referenceTaxId = taxId)
+            }
+            val cancellationId = repository.saveDraft(company, buyer, "20", "1405/08/13",
+                source, serverPromoConfirmed = true, subject = InvoiceSubject.CANCELLATION,
+                referenceTaxId = taxId)
+            val saved = repository.detailsForCompany(company, cancellationId)
+            assertEquals(InvoiceSubject.CANCELLATION, saved.invoice.subject)
+            assertEquals(taxId, saved.invoice.referenceTaxId)
+            repository.finalizeDraft(company, cancellationId)
+            expectInvalid { InvoiceSubject.requireSupportedForOfficialSubmission(
+                requireNotNull(db.invoiceDao().byId(cancellationId))) }
+            expectInvalid {
+                repository.saveDraft(company, buyer, "21", "1405/08/14", source,
+                    serverPromoConfirmed = true, subject = InvoiceSubject.CORRECTION,
+                    referenceTaxId = taxId)
+            }
+            assertEquals(2, db.invoiceDao().forCompany(company).size)
+        } finally { db.close() }
+    }
+
     @Test fun noAcceptedReferenceNeverAuthorizesRemoteCreditConsumption() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, SabaDatabase::class.java).build()

@@ -9,7 +9,7 @@ import ir.saba.invoice.data.SabaDatabase
  * Invoice subject is independent from local draft/finalized state.
  * A locally stored correction is NOT a government-accepted correction.
  *
- * Only original type-one cash sales currently have an audited official mapper.
+ * Official submission requires a separately validated subject-specific mapper.
  */
 object InvoiceSubject {
     const val ORIGINAL = "ORIGINAL"
@@ -25,13 +25,13 @@ object InvoiceSubject {
         else -> "نامعتبر"
     }
 
-    /** Only original, local corrections and local partial returns are implemented. */
+    /** Local cancellation is deliberately NOT approved for official transmission. */
     fun validate(subject: String, referenceTaxId: String?) {
         when (subject) {
             ORIGINAL -> require(referenceTaxId.isNullOrBlank()) {
                 "صورتحساب اصلی نباید شماره مالیاتی مرجع داشته باشد."
             }
-            CORRECTION, RETURN -> require(referenceTaxId != null &&
+            CORRECTION, CANCELLATION, RETURN -> require(referenceTaxId != null &&
                     referenceTaxId.matches(Regex("[A-Z0-9]{22}"))) {
                 "برای صورتحساب ارجاعی، شماره مالیاتی ۲۲ کاراکتری مرجع لازم است."
             }
@@ -65,6 +65,21 @@ object InvoiceSubject {
         }
         if (newIssueDate != null) require(InvoiceInput.date(newIssueDate) > InvoiceInput.date(original.issueDate)) {
             "تاریخ سند ارجاعی باید بعد از تاریخ صورتحساب مرجع باشد."
+        }
+        if (subject == CANCELLATION) {
+            // Cancellation is a referenced local record, never a new sale. Keep
+            // the original items unchanged so the PDF cannot suggest a new amount.
+            // The official cancellation mapper is intentionally not enabled.
+            val originals = db.invoiceLineDao().forInvoice(original.id)
+            require(originals.isNotEmpty() && lines.size == originals.size) {
+                "اقلام سند ابطالی باید دقیقاً از مرجع پذیرفته‌شده کپی شوند."
+            }
+            originals.zip(lines).forEach { (previous, copied) ->
+                require(previous.copy(id = 0, invoiceId = 0) ==
+                    copied.copy(id = 0, invoiceId = 0)) {
+                    "اقلام، نرخ‌ها، مقادیر و تخفیف‌های ابطالی محلی باید عین مرجع باشند."
+                }
+            }
         }
         if (subject == RETURN) {
             val originals = db.invoiceLineDao().forInvoice(original.id)
@@ -114,14 +129,13 @@ object InvoiceSubject {
         }
         // Avoid conflicting pending/local corrections against one accepted reference.
         require(db.invoiceDao().forCompany(companyId).none {
-            it.id != currentInvoiceId && it.subject in setOf(CORRECTION, RETURN) &&
+            it.id != currentInvoiceId && it.subject in setOf(CORRECTION, CANCELLATION, RETURN) &&
                 it.referenceTaxId == referenceTaxId && it.status != "CANCELLED"
         }) { "برای این صورتحساب مرجع قبلاً سند ارجاعی فعال ثبت شده است؛ همان پیش‌نویس را ویرایش کنید." }
     }
 
-    /** Subject numbers from the Iranian Tax Administration v7.9: 1=original,
-     * 2=correction, 4=partial return. Header-only cancellation requires a
-     * distinct contract; do not silently encode it as an ordinary sale. */
+    /** Subject numbers: 1=original, 2=correction, 3=cancellation, 4=partial return.
+     * Cancellation requires a header-only contract; never map it as a sale. */
     fun officialSubjectCode(invoice: Invoice): Int {
         validate(invoice.subject, invoice.referenceTaxId)
         return when (invoice.subject) {
