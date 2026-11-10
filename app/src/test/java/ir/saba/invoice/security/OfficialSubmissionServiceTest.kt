@@ -298,6 +298,27 @@ class OfficialSubmissionServiceTest {
         reject{foreign.submit(row.requestId)};reject{foreign.history(company)}
         assertEquals(0,api.gets);assertEquals(0,api.posts)
     }
+    @Test fun forgedCancellationPayloadCannotBypassReviewViaDirectSubmit()=runBlocking {
+        val prepared = prepare()
+        // Simulate a locally modified, rehashed outbox: a cancellation header
+        // must never be submitted alongside sale items or settlement details.
+        val forged = JSONObject(prepared.payload)
+        forged.getJSONObject("header").put("ins", 3)
+            .put("irtaxid", "A11216" + "0".repeat(16))
+        val payload = forged.toString()
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(payload.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        db.openHelper.writableDatabase.execSQL(
+            "UPDATE official_submissions SET payload=?, payloadHash=? WHERE requestId=?",
+            arrayOf(payload, digest, prepared.requestId)
+        )
+        reject { service.submit(prepared.requestId) }
+        assertEquals("PREPARED", db.officialSubmissionDao().byId(prepared.requestId)?.state)
+        assertEquals(0, api.gets)
+        assertEquals(0, api.posts)
+    }
+
     @Test fun alteredPayloadOrMemoryNeverReachesPost()=runBlocking {
         val row=prepare()
         db.openHelper.writableDatabase.execSQL("UPDATE official_submissions SET payload='{}' WHERE requestId=?",arrayOf(row.requestId))
