@@ -28,6 +28,22 @@ class JalaliCalendarTest {
         assertEquals(LocalDate.of(2026, 11, 3), JalaliCalendar.toGregorian("1405/08/12"))
     }
 
+    @Test fun gregorianToJalaliPrefillAcrossNowruzAndLeapBoundaries() {
+        val dates = listOf(
+            LocalDate.of(2020, 3, 20) to "1399/01/01",
+            LocalDate.of(2021, 3, 20) to "1399/12/30",
+            LocalDate.of(2021, 3, 21) to "1400/01/01",
+            LocalDate.of(2025, 3, 20) to "1403/12/30",
+            LocalDate.of(2026, 3, 20) to "1404/12/29",
+            LocalDate.of(2026, 3, 21) to "1405/01/01",
+            LocalDate.of(2026, 11, 10) to "1405/08/19"
+        )
+        dates.forEach { (gregorian, jalali) ->
+            assertEquals(jalali, JalaliCalendar.fromGregorian(gregorian))
+            assertEquals(gregorian, JalaliCalendar.toGregorian(JalaliCalendar.fromGregorian(gregorian)))
+        }
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun neverRollsInvalidEsfand30IntoNextYear() {
         JalaliCalendar.toGregorian(1404, 12, 30)
