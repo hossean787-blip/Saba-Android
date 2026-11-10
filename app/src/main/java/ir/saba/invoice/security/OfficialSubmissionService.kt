@@ -59,6 +59,26 @@ class OfficialSubmissionService(
         return profile
     }
 
+    /**
+     * Read-only online connectivity preflight. Performs two GET requests and
+     * checks the returned organization encryption key; it never creates a tax
+     * outbox entry or POSTs an invoice. A successful result is NOT tax acceptance.
+     */
+    suspend fun checkOnlineReadiness(companyId: Long) {
+        val profile = checkLocalSigningReadiness(companyId)
+        val nonceJson = JSONObject(transport.request("GET", "nonce?timeToLive=30"))
+        val challenge = TaxpayerNonce(profile.identity,
+            nonceJson.getString("nonce"),
+            Instant.parse(nonceJson.getString("expDate")).toEpochMilli())
+        val authorization = signer.authorization(companyId, challenge, clock())
+        sessionCheck()
+        val keys = MoadianSignedReceipt.keys(
+            transport.request("GET", "server-information", authorization))
+        require(keys.any { it.purpose == 1 }) {
+            "سرور پاسخ داد، اما کلید عمومی معتبر برای رمزگذاری صورتحساب ارائه نشد."
+        }
+    }
+
     suspend fun history(companyId: Long): List<OfficialSubmission> = db.withTransaction {
         sessionCheck()
         owner(companyId)

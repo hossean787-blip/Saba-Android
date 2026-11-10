@@ -84,6 +84,16 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                 "کلید، گواهی و شناسه حافظه در دستگاه تطبیق دارند؛ این نتیجه تأیید سرور مالیاتی یا پذیرش فاکتور نیست.",
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary
             )
+            OutlinedButton(enabled=!busy,onClick={
+                act {
+                    service.checkOnlineReadiness(companyId)
+                    onNotice("سرور مؤدیان پاسخ داد و کلید رمزگذاری معتبر دریافت شد؛ هیچ صورتحسابی ارسال نشده است.")
+                }
+            },modifier=Modifier.fillMaxWidth()) {
+                Text("آزمون اتصال آنلاین سامانه مؤدیان (بدون ارسال)")
+            }
+            Text("موفقیت آزمون اتصال به معنی تأیید مؤدی، پذیرش صورتحساب یا فعال بودن همه الگوها نیست.",
+                style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
             TextButton(enabled=!busy,onClick={act { }}) { Text("بازخوانی وضعیت محلی") }
         }
         items(availableInvoices,key={"invoice_${it.id}"}) { invoice ->

@@ -346,6 +346,28 @@ class OfficialSubmissionServiceTest {
         assertEquals(1,api.posts)
     }
 
+    @Test fun onlineReadinessOnlyReadsNonceAndOrganizationKeyWithoutPosting()=runBlocking {
+        service.checkOnlineReadiness(company)
+        assertEquals(2, api.gets)
+        assertEquals(0, api.posts)
+        assertNull(db.officialSubmissionDao().forInvoice(invoice))
+        assertNull(db.invoiceDao().byId(invoice)?.trackingCode)
+    }
+
+    @Test fun onlineReadinessFailsClosedWithoutValidServerMetadataOrSession()=runBlocking {
+        api.metadataFailure = true
+        try {
+            service.checkOnlineReadiness(company)
+            fail("Expected connectivity failure")
+        } catch (_: java.io.IOException) { }
+        assertEquals(2, api.gets)
+        assertEquals(0, api.posts)
+        val unbound=OfficialSubmissionService(db,account,credentials,api){now}
+        reject { unbound.checkOnlineReadiness(company) }
+        assertEquals(2, api.gets)
+        assertEquals(0, api.posts)
+    }
+
     @Test fun missingAppSessionBlocksOutboxHistoryPreparationReviewAndDiscard()=runBlocking {
         val prepared = prepare()
         val unbound = OfficialSubmissionService(db, account, credentials, api) { now }
