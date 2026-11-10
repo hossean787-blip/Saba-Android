@@ -1,10 +1,7 @@
 package ir.saba.invoice.data
 
-import ir.saba.invoice.domain.InvoiceInput
-import ir.saba.invoice.domain.JalaliCalendar
 import org.json.JSONArray
 import org.json.JSONObject
-import java.time.LocalDateTime
 
 /** Read-only references retained through the Android document picker. No document is sent to a server. */
 data class InvoiceDocumentRef(
@@ -107,25 +104,8 @@ data class InvoiceLocalDetails(
         )
     }
 
-    /** Run only on save, not during text entry, so partial date/time typing cannot crash Compose. */
-    fun requireValidSchedule() {
-        val date = sendLaterDate.trim()
-        val time = InvoiceInput.digits(sendLaterTime.trim())
-        require(date.isBlank() == time.isBlank()) {
-            "برای ارسال آینده باید تاریخ و ساعت هر دو تکمیل شوند."
-        }
-        if (date.isNotBlank()) {
-            val parsedDate = InvoiceInput.date(date)
-            require(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]").matches(time)) {
-                "ساعت را به شکل ۲۴ ساعته HH:mm وارد کنید."
-            }
-            val h = time.substring(0, 2).toInt()
-            val m = time.substring(3, 5).toInt()
-            require(JalaliCalendar.toGregorian(parsedDate).atTime(h, m).isAfter(LocalDateTime.now())) {
-                "تاریخ و ساعت ارسال آینده باید پس از زمان فعلی باشند."
-            }
-        }
-    }
+    /** Save-time validation only; stored schedules remain readable once their date has passed. */
+    fun requireValidSchedule() = InvoiceSendSchedule.requireFutureOnSave(this)
 
     fun toJson(): String {
         val v = validated()

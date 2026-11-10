@@ -68,6 +68,8 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             Text("ارسال رسمی صورتحساب",style=MaterialTheme.typography.titleLarge)
             Text(name)
             Text("پشتیبانی ارسال: صورتحساب اصلی نوع ۱، الگوی فروش ۱، ریالی؛ نقدی، نسیه یا ترکیبی با کنترل دقیق سهم مالیات و پرداخت. صورتحساب اصلاحی و برگشت از فروش هنوز در این مسیر قابل ارسال نیستند.")
+            Text("ارسال آینده فقط زمان انتخابی محلی است؛ سامانه به‌صورت خودکار سند مالیاتی ارسال نمی‌کند و پس از موعد نیز تأیید دستی الزامی است.",
+                style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             OutlinedButton(enabled=!busy,onClick={
@@ -85,6 +87,11 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             TextButton(enabled=!busy,onClick={act { }}) { Text("بازخوانی وضعیت محلی") }
         }
         items(availableInvoices,key={"invoice_${it.id}"}) { invoice ->
+            val schedule = runCatching {
+                InvoiceSendSchedule.label(InvoiceLocalDetails.fromJson(invoice.localDetailsJson))
+            }.getOrNull()
+            if (schedule != null) Text("موعد انتخابی ارسال دستی: $schedule",
+                style=MaterialTheme.typography.bodySmall)
             if (invoice.subject == InvoiceSubject.ORIGINAL) {
                 OutlinedButton(enabled=!busy,onClick={selected=invoice;issueTime=MoadianInvoiceMapper.defaultIssueTime(invoice.issueDate);unit=""}) {
                     Text("آماده‌سازی فاکتور ${invoice.invoiceNumber}")
@@ -121,8 +128,24 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                     row.referenceNumber?.let { Text("شماره پیگیری: $it") }
                     row.lastError?.let { Text(it) }
                     if(row.state=="PREPARED") {
-                        Button(enabled=!busy,onClick={act { confirmation=service.reviewPrepared(row.requestId) }}) { Text("بررسی و ارسال رسمی") }
-                        TextButton(enabled=!busy,onClick={act { service.discardPrepared(row.requestId) }}) { Text("لغو آماده‌سازی؛ هنوز ارسال نشده") }
+                        val related = invoiceRows.firstOrNull { it.id == row.invoiceId }
+                        // Invalid or unavailable metadata must not make the send action appear safe.
+                        val due = runCatching {
+                            related != null && InvoiceSendSchedule.isDue(
+                                InvoiceLocalDetails.fromJson(related.localDetailsJson))
+                        }.getOrDefault(false)
+                        if (!due) {
+                            Text("زمان ارسال هنوز نرسیده یا اطلاعات آن معتبر نیست؛ برای ارسال دستی در موعد، وضعیت را بازخوانی کنید.",
+                                style=MaterialTheme.typography.bodySmall,
+                                color=MaterialTheme.colorScheme.error)
+                        }
+                        Button(enabled=!busy && due,
+                            onClick={act { confirmation=service.reviewPrepared(row.requestId) }}) {
+                            Text("بررسی و ارسال رسمی")
+                        }
+                        TextButton(enabled=!busy,onClick={act { service.discardPrepared(row.requestId) }}) {
+                            Text("لغو آماده‌سازی؛ هنوز ارسال نشده")
+                        }
                     }
                     if(row.state in setOf("SENDING","UNKNOWN","SUBMITTED")) OutlinedButton(enabled=!busy,onClick={act { service.inquire(row.requestId) }}) { Text("استعلام همان درخواست") }
                 }

@@ -125,6 +125,13 @@ class OfficialSubmissionService(
         sessionCheck()
         val initial = row(id)
         require(initial.state == "PREPARED") { "این درخواست ممکن است ارسال شده باشد؛ ابتدا استعلام کنید." }
+        // Fail closed before any HTTP, signing or outbox transition when a future
+        // local send-time was selected. This is not an unattended scheduler.
+        val sourceInvoice = requireNotNull(db.invoiceDao().byId(initial.invoiceId))
+        InvoiceSendSchedule.requireDueForManualSubmission(
+            InvoiceLocalDetails.fromJson(sourceInvoice.localDetailsJson),
+            Instant.ofEpochMilli(clock())
+        )
         checkLocalSigningReadiness(initial.companyId)
         val keys = keys(initial)
         val encryption = keys.firstOrNull { it.purpose == 1 } ?: error("کلید رمزگذاری معتبر سازمان یافت نشد.")

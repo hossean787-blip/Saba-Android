@@ -88,6 +88,20 @@ class OfficialSubmissionServiceTest {
                 .put("data",JSONObject().put("error",JSONArray().put(JSONObject().put("code","E123"))))).toString()
         }
     }
+    @Test fun futureSelectedTimeBlocksSubmissionBeforeAnyTaxNetworkOrQuotaChange()=runBlocking {
+        val original = requireNotNull(db.invoiceDao().byId(invoice))
+        val future = InvoiceLocalDetails(
+            sendLaterDate = "۱۴۰۵/۰۹/۰۱", sendLaterTime = "۱۸:۰۰"
+        ).toJson()
+        db.invoiceDao().update(original.copy(localDetailsJson = future))
+        val prepared = prepare()
+        reject { service.submit(prepared.requestId) }
+        assertEquals("PREPARED", db.officialSubmissionDao().byId(prepared.requestId)?.state)
+        assertEquals(0, api.gets)
+        assertEquals(0, api.posts)
+        assertNull(db.invoiceDao().byId(invoice)?.trackingCode)
+    }
+
     @Test fun signingReadinessIsLocalOnlyAndFailsClosedWithoutCredentials()=runBlocking {
         val ready=service.checkLocalSigningReadiness(company)
         assertEquals("A11216", ready.identity.fiscalMemoryId)
