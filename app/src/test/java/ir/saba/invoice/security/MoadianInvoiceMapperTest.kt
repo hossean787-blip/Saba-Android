@@ -104,7 +104,7 @@ class MoadianInvoiceMapperTest {
 
 
     @Test fun referredInvoicesCarryExactOfficialSubjectAndReference() {
-        val ref = "A1121600000000000000"
+        val ref = "A11216" + "0".repeat(16)
         val correction = JSONObject(map(invoice.copy(
             subject = "CORRECTION", referenceTaxId = ref
         ))).getJSONObject("header")
