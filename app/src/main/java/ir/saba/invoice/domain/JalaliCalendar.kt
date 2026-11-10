@@ -60,6 +60,17 @@ object JalaliCalendar {
             .plusDays(elapsed.toLong())
     }
 
+    /** Gregorian local date to normalized Jalali date, using the same leap-year rules. */
+    fun fromGregorian(date: LocalDate): String {
+        val candidate = date.year - 621
+        val year = if (date.isBefore(toGregorian(candidate, 1, 1))) candidate - 1 else candidate
+        val dayIndex = java.time.temporal.ChronoUnit.DAYS
+            .between(toGregorian(year, 1, 1), date).toInt()
+        val month = if (dayIndex < 186) dayIndex / 31 + 1 else (dayIndex - 186) / 30 + 7
+        val day = if (dayIndex < 186) dayIndex % 31 + 1 else (dayIndex - 186) % 30 + 1
+        return "%04d/%02d/%02d".format(java.util.Locale.ROOT, year, month, day)
+    }
+
     fun toGregorian(jalaliDate: String): LocalDate {
         val parts = InvoiceInput.date(jalaliDate).split('/').map(String::toInt)
         return toGregorian(parts[0], parts[1], parts[2])
