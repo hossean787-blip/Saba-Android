@@ -75,6 +75,19 @@ internal fun invoiceStatus(status: String) = when (status) {
     else -> status
 }
 
+/** Receipt status must never be inferred from a local draft, tracking code alone or a POST response. */
+internal fun invoiceTaxStatus(row: OfficialSubmission?): String = when (row?.state) {
+    null -> "این صورتحساب هنوز به سامانه مؤدیان ارسال نشده است."
+    "PREPARED" -> "درخواست رسمی آماده شده ولی هنوز به سامانه مؤدیان ارسال نشده است."
+    "SENDING", "UNKNOWN" -> "وضعیت ارسال قطعی نیست؛ تنها استعلام کنید و صورتحساب را مجدداً ارسال نکنید."
+    "SUBMITTED" -> "در سامانه ارسال شده؛ پذیرش نهایی هنوز تأیید نشده و استعلام لازم است."
+    "ACCEPTED" -> if (row.signedReceipt.isNullOrBlank())
+        "وضعیت پذیرش نیازمند بررسی رسید سازمان است."
+        else "صورتحساب در سامانه مؤدیان پذیرفته شده و رسید امضاشده بررسی شده است."
+    "REJECTED" -> "صورتحساب در سامانه مؤدیان رد شده است؛ جزئیات خطا را بررسی کنید."
+    else -> "وضعیت رسمی صورتحساب ناشناخته است؛ استعلام لازم است."
+}
+
 @Composable
 fun InvoiceScreen(
     db: SabaDatabase,
@@ -183,6 +196,7 @@ private fun InvoiceScreenContent(
     var busy by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf("") }
     var details by remember { mutableStateOf<InvoiceDetails?>(null) }
+    var officialRecord by remember(companyId) { mutableStateOf<OfficialSubmission?>(null) }
     var lineDialog by rememberSaveable { mutableStateOf(false) }
     var lineEditorZone by rememberSaveable { mutableStateOf("pick") }
     var lineIndex by rememberSaveable { mutableIntStateOf(-1) }
@@ -332,8 +346,14 @@ private fun InvoiceScreenContent(
     LaunchedEffect(mode, invoiceId) {
         if ((mode == "details" || mode == "template") && invoiceId != null) {
             details = null
+            officialRecord = null
             busy = true
-            try { details = repository.detailsForCompany(companyId, invoiceId!!) }
+            try {
+                val id = requireNotNull(invoiceId)
+                details = repository.detailsForCompany(companyId, id)
+                officialRecord = db.officialSubmissionDao().forInvoice(id)
+                    ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
+            }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { error = e.message ?: "جزئیات فاکتور بارگذاری نشد." }
             finally { busy = false }
@@ -478,12 +498,26 @@ private fun InvoiceScreenContent(
                                 mode = "template"
                             }
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
-                        Text("این سند در دستگاه ثبت شده و به سامانه مؤدیان ارسال نشده است.", style = MaterialTheme.typography.bodySmall)
+                        Text(invoiceTaxStatus(officialRecord),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (officialRecord?.state == "ACCEPTED" &&
+                                !officialRecord?.signedReceipt.isNullOrBlank())
+                                MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
+                        officialRecord?.referenceNumber?.let { Text("شماره پیگیری رسمی: $it") }
+                        officialRecord?.lastError?.takeIf { it.isNotBlank() }?.let {
+                            Text(it.take(300), color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
                         if (invoice.status == "FINALIZED") {
                             if (invoice.subject in setOf(
                                     InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.RETURN)) {
                                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
-                                    onClick = onOpenOfficialSubmission) { Text("آماده‌سازی و ارسال رسمی به سامانه مؤدیان") }
+                                    onClick = onOpenOfficialSubmission) {
+                                    Text(if (officialRecord == null)
+                                        "آماده‌سازی و ارسال رسمی به سامانه مؤدیان"
+                                        else "نمایش و پیگیری وضعیت ارسال در سامانه مؤدیان")
+                                }
                             } else {
                                 Text("این نوع صورتحساب در مسیر ارسال رسمی پشتیبانی نمی‌شود.",
                                     style = MaterialTheme.typography.bodySmall,

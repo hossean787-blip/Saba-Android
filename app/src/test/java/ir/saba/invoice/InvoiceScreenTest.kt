@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.data.*
 import ir.saba.invoice.ui.InvoiceScreen
 import ir.saba.invoice.ui.InvoiceCreditGateway
+import ir.saba.invoice.ui.invoiceTaxStatus
 import ir.saba.invoice.data.identifiers.SuraIdentifier
 import ir.saba.invoice.data.identifiers.SuraSavedIdentifierStore
 import ir.saba.invoice.security.AccountScope
@@ -167,6 +168,22 @@ class InvoiceScreenTest {
             check(db.invoiceLineDao().forInvoice(invoices.single().id).single().description == "خدمت آزمایشی")
             check(invoices.single().status == "DRAFT")
         }
+    }
+
+    @Test fun officialStatusAlwaysDistinguishesLocalDraftFromSignedAcceptance() {
+        val row = OfficialSubmission(
+            requestId = "fixture", ownerId = ownerId, companyId = company,
+            invoiceId = 123, fiscalId = "A11216", taxId = "A11216" + "0".repeat(16),
+            payload = "{}", payloadHash = "fixture", preparedAt = 100
+        )
+        check(invoiceTaxStatus(null).contains("ارسال نشده"))
+        check(invoiceTaxStatus(row).contains("ارسال نشده"))
+        check(invoiceTaxStatus(row.copy(state = "UNKNOWN")).contains("استعلام"))
+        check(invoiceTaxStatus(row.copy(state = "SUBMITTED")).contains("پذیرش نهایی هنوز تأیید نشده"))
+        check(!invoiceTaxStatus(row.copy(state = "ACCEPTED")).contains("پذیرفته شده"))
+        check(invoiceTaxStatus(row.copy(state = "ACCEPTED", signedReceipt = "test-receipt"))
+            .contains("پذیرفته شده"))
+        check(invoiceTaxStatus(row.copy(state = "REJECTED")).contains("رد شده"))
     }
 
     @Test fun switchingAccountDiscardsUnsavedInvoiceFields() {
