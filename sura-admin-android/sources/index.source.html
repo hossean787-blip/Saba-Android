@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1117">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://fiiitzfbdjzpmepzjsjw.supabase.co; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
-<title>سورا مدیر | مرکز کنترل</title>
+<title>سورا مدیر | مرکز فرماندهی</title>
 <script src="/assets/admin/reports.js"></script>
+<script src="/assets/admin/manager.js"></script>
 
 
 <style>
@@ -516,6 +517,24 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
   .modal { width:min(94vw,460px); max-height:90dvh; overflow:auto; }
 }
 @media(prefers-reduced-motion:reduce){ *,*:before,*:after{transition-duration:.01ms!important;animation-duration:.01ms!important;scroll-behavior:auto!important} }
+/* Manager premium modules */
+.section-hero{background:linear-gradient(120deg,rgba(53,118,232,.16),rgba(24,187,142,.04));border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden}
+.section-hero:before{content:'';position:absolute;left:-45px;top:-95px;width:220px;height:220px;border:1px solid rgba(85,160,255,.18);border-radius:50%;pointer-events:none}
+.section-hero .eyebrow{color:var(--accent);font-size:.64rem;letter-spacing:.15em;font-weight:700}
+.section-hero h2{font-size:1.32rem;line-height:1.5;margin:6px 0 5px}
+.section-hero p{font-size:.83rem;line-height:1.9;color:var(--fg2);margin:0;max-width:680px}
+.manager-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px}
+.manager-facts>div{display:flex;flex-direction:column;gap:8px;background:var(--bg3);border:1px solid var(--border);padding:14px;border-radius:11px;min-width:0}
+.manager-facts small{color:var(--fg2);font-size:.72rem}.manager-facts strong{overflow-wrap:anywhere;font-size:.94rem}
+.kpi-trail{grid-template-columns:repeat(4,minmax(0,1fr));padding:0;margin-bottom:14px}
+.manager-pagination{justify-content:flex-end;flex-wrap:wrap;padding:12px 16px}
+.manager-pagination span{margin-inline-end:auto;font-size:.74rem;color:var(--fg2)}
+.detail-person{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;padding:12px;border-radius:12px;background:var(--bg3)}
+.detail-person small,.technical-id{display:block;font-size:.69rem;color:var(--fg2);overflow-wrap:anywhere;font-weight:400}
+.detail-person strong{font-size:1.08rem}
+.modal{max-width:min(96vw,650px)}.modal-body h4{margin:18px 0 8px}
+@media(max-width:900px){.kpi-trail{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.section-hero{padding:17px}.section-hero h2{font-size:1.08rem}.manager-facts{padding:10px;gap:7px}.kpi-trail{padding:0}.manager-facts>div{padding:10px}.manager-pagination span{width:100%;margin-bottom:6px}}
 </style>
 </head>
 <body>
@@ -585,6 +604,10 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
           کاربران و مودیان
         </div>
+        <div class="nav-item" data-min-role="staff" onclick="showPage('directory')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="14" height="11" rx="2"/><path d="M6 8h6M6 11h4"/></svg>
+          فهرست حساب‌ها
+        </div>
         <div class="nav-item" onclick="showPage('credits')">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="14" height="11" rx="2"/><path d="M2 8h14"/><path d="M6 12h2"/></svg>
           مدیریت اعتبار
@@ -607,6 +630,18 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
         <div class="nav-item" onclick="showPage('gifts')">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="8" width="14" height="8" rx="1.5"/><path d="M2 8h14M9 8V2M9 2c0 0-3-2-3 1.5S9 6 9 6M9 2c0 0 3-2 3 1.5S9 6 9 6"/></svg>
           اعتبار هدیه
+        </div>
+        <div class="nav-item" data-min-role="admin" onclick="showPage('roles')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M14 3l2 2-2 2"/></svg>
+          نقش‌ها و مدیران
+        </div>
+        <div class="nav-item" data-min-role="admin" onclick="showPage('audit')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 3h10v12H4zM7 6h4M7 9h4M7 12h3"/></svg>
+          دفتر ممیزی
+        </div>
+        <div class="nav-item" onclick="showPage('health')">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><path d="M3 9h3l2-3 2 6 2-3h3"/></svg>
+          وضعیت سامانه
         </div>
         <div class="nav-item" onclick="showPage('settings')">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="2.5"/><path d="M9 2.5v1M9 14.5v1M2.5 9h1M14.5 9h1M4.2 4.2l.7.7M13.1 13.1l.7.7M13.1 4.9l-.7.7M4.9 13.1l-.7.7"/></svg>
@@ -703,7 +738,13 @@ function parseError(err) {
     balance_changed:'موجودی در سرور تغییر کرده است؛ صفحه را به‌روزرسانی کنید.', taxpayer_wallet_not_found:'کیف‌پول این مؤدی وجود ندارد.',
     owner_not_found:'حساب مالک یافت نشد.', invalid_price:'قیمت معتبر نیست.', idempotency_conflict:'شناسه درخواست قبلاً با اطلاعات متفاوت استفاده شده است.',
     not_admin:'تنها مدیر ارشد مجاز به اصلاح موجودی است.', no_change:'موجودی جدید با قبلی برابر است.',
-    read_failed:'خطا در دریافت اطلاعات از پایگاه داده.', database_operation_failed:'عملیات دیتابیس انجام نشد.'};
+    read_failed:'خطا در دریافت اطلاعات از پایگاه داده.', database_operation_failed:'عملیات دیتابیس انجام نشد.',
+    invalid_role_request:'درخواست تغییر نقش معتبر نیست.', role_changed:'نقش کاربر تغییر کرده است؛ صفحه را تازه کنید.',
+    last_admin_denied:'نمی‌توان آخرین مدیر ارشد را حذف کرد.', self_demote_denied:'مدیر نمی‌تواند دسترسی خودش را حذف کند.',
+    unverified_or_missing_user:'این حساب وجود ندارد یا ایمیل آن تأیید نشده است.', email_target_mismatch:'ایمیل واردشده با حساب مقصد تطابق ندارد.',
+    invalid_price_request:'قیمت یا دلیل تغییر معتبر نیست.', price_changed:'قیمت هم‌زمان تغییر کرده است؛ صفحه را تازه کنید.',
+    database_write_failed:'سرور نتوانست تغییر را ثبت کند.', service_error:'اختلال موقت سرویس مدیریت.',
+    insufficient_role:'سطح دسترسی کافی نیست.', user_not_found:'حساب کاربری پیدا نشد.'};
   return codes[err?.message] || err?.message || 'خطای ناشناخته';
 }
 function restoreUi(me) {
@@ -714,6 +755,7 @@ function restoreUi(me) {
   document.getElementById('user-avatar').textContent = (CURRENT_EMAIL || 'م')[0].toUpperCase();
   document.getElementById('sidebar-role-badge').textContent = ROLE_LABELS[ADMIN_ROLE];
   document.getElementById('sidebar-role-badge').style.color = ROLE_COLORS[ADMIN_ROLE];
+  managerRoles();
   showPage('dashboard');
 }
 function persistSession() {
@@ -764,6 +806,7 @@ async function doLogin() {
   finally {btn.disabled=false; btn.textContent='ورود به پنل';}
 }
 function logout() {
+  if(USER_JWT&&SB_URL&&SB_ANON){try{fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SB_ANON,authorization:`Bearer ${USER_JWT}`}}).catch(()=>{});}catch{}}
   closeDrawer();
   try {sessionStorage.removeItem('sura_admin_session_v2');localStorage.removeItem('sura_session');}catch{}
   USER_JWT=''; REFRESH_TOKEN=''; ADMIN_ROLE='viewer';JWT_EXP=0;CURRENT_EMAIL='';
@@ -799,16 +842,20 @@ function showPage(page) {
   closeDrawer();
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const items = document.querySelectorAll('.nav-item');
-  const pageMap = { dashboard:0, users:1, credits:2, packages:3, payments:4, reports:5, gifts:6, settings:7 };
+  const pageMap = { dashboard:0, users:1, directory:2, credits:3, packages:4, payments:5, reports:6, gifts:7, roles:8, audit:9, health:10, settings:11 };
   items[pageMap[page]]?.classList.add('active');
   const titles = {
     dashboard: ['نمای کلی', 'خلاصه وضعیت فروش و اعتبار'],
-    users: ['کاربران و مودیان', 'مدیریت کاربران و موجودی اعتبار'],
+    users: ['کیف‌پول و مؤدیان', 'مدیریت اعتبار کاربران و مؤدیان'],
+    directory: ['حساب‌های کاربری', 'حساب‌های واقعی ثبت‌شده در سامانه'],
     credits: ['مدیریت اعتبار', 'انتقال و سوابق اعتبار'],
     packages: ['بسته‌های فروش', 'قیمت‌گذاری و مدیریت بسته‌ها'],
     payments: ['تراکنش‌های زرین‌پال', 'وضعیت پرداخت و تسویه'],
     reports: ['گزارش فروش', 'مبالغ دریافتی و خروجی قابل رسیدگی'],
     gifts: ['اعتبار هدیه', 'مدیریت کدهای تبلیغاتی و سوابق'],
+    roles: ['مدیریت نقش‌ها', 'تعیین سطح دسترسی با تأیید مدیر ارشد'],
+    audit: ['دفتر ممیزی', 'سوابق تغییرات مالی و مدیریتی'],
+    health: ['وضعیت سامانه', 'تست اتصال سرور و پایگاه داده'],
     settings: ['تنظیمات', 'پیکربندی سیستم و امنیت'],
   };
   const [t, s] = titles[page] || ['', ''];
@@ -875,11 +922,15 @@ async function renderPage(page) {
     const view = document.createElement('div');
     if (page === 'dashboard') await renderDashboard(view);
     else if (page === 'users') await renderUsers(view);
+    else if (page === 'directory') await renderDirectory(view);
     else if (page === 'credits') await renderCredits(view);
     else if (page === 'packages') await renderPackages(view);
-    else if (page === 'payments') await renderPayments(view);
+    else if (page === 'payments') await renderManagerOrders(view);
     else if (page === 'reports') await renderReports(view);
     else if (page === 'gifts') await renderGifts(view);
+    else if (page === 'roles') await renderRoles(view);
+    else if (page === 'audit') await renderAuditLog(view);
+    else if (page === 'health') await renderHealth(view);
     else if (page === 'settings') await renderSettings(view);
     if (request===renderSerial) c.innerHTML=view.innerHTML;
   } catch(e) {
@@ -889,19 +940,21 @@ async function renderPage(page) {
 
 // ── Dashboard ──────────────────────────────────────────
 async function renderDashboard(c) {
-  const [ord,wlt,prm,grt] = await Promise.all([
+  const [ord,wlt,prm,grt,total] = await Promise.all([
     sbGet('sura_payment_orders?select=id,state,amount_rial,credit_units,created_at&order=created_at.desc&limit=1000'),
     sbGet('sura_owner_wallets?select=credits&limit=1000'),
     sbGet('sura_promo_redemptions?select=credits_remaining,credits_granted&limit=1000'),
-    sbGet('sura_credit_grants?select=units,created_at&order=created_at.desc&limit=1000')
+    sbGet('sura_credit_grants?select=units,created_at&order=created_at.desc&limit=1000'),
+    managerFetch('summary',{})
   ]);
 
 
   const verified = ord.filter(o => o.state === 'verified');
-  const totalRev = verified.reduce((s,o) => s + (o.amount_rial||0), 0);
-  const totalCredits = verified.reduce((s,o) => s + (o.credit_units||0), 0);
-  const totalUsers = wlt.length;
-  const promoRemaining = prm.reduce((s,p) => s + (p.credits_remaining||0), 0);
+  const summary=total.summary||{};
+  const totalRev = summary.verified_revenue_rial||'0';
+  const totalCredits = summary.credits_sold||'0';
+  const totalUsers = summary.owner_wallets||0;
+  const promoRemaining = summary.promo_remaining||'0';
 
   // 7-day revenue bars
   const days7 = Array.from({length:7}, (_,i) => {
@@ -920,12 +973,12 @@ async function renderDashboard(c) {
   const stateBadge = { created:'gray', requested:'yellow', verified:'green', failed:'red' };
 
   c.innerHTML = `
-  ${ord.length>=1000||wlt.length>=1000?'<div class="empty-note">آمار بر اساس حداکثر ۱۰۰۰ رکورد اخیر هر جدول محاسبه شده است، نه لزوماً کل تاریخچه.</div>':''}
+  ${managerSummaryCards(summary)}
   <div class="stat-grid">
     <div class="stat-card blue">
       <div class="stat-label">درآمد تأیید شده (ریال)</div>
       <div class="stat-val small">${fmtRial(totalRev)}</div>
-      <div class="stat-delta up">▲ ${verified.length} تراکنش موفق</div>
+      <div class="stat-delta up">▲ ${fmtNum(summary.verified_orders)} تراکنش موفق در کل تاریخچه</div>
     </div>
     <div class="stat-card green">
       <div class="stat-label">اعتبار فروخته شده</div>
@@ -940,7 +993,7 @@ async function renderDashboard(c) {
     <div class="stat-card red">
       <div class="stat-label">اعتبار هدیه باقی‌مانده</div>
       <div class="stat-val">${fmtNum(promoRemaining)}</div>
-      <div class="stat-delta">از ${fmtNum(prm.length)} بازخرید</div>
+      <div class="stat-delta">از ${fmtNum(summary.promo_redemptions)} بازخرید</div>
     </div>
   </div>
 
@@ -987,7 +1040,8 @@ async function renderUsers(c) {
   ]);
   const isAdmin = CAN.adjustWallet(), canTransfer = CAN.transferCredit();
   c.innerHTML = `
-  ${wlt.length>=1000||tax.length>=1000?'<div class="empty-note">فهرست به ۱۰۰۰ رکورد اخیر محدود است؛ برای گزارش جامع از روش گزارش‌گیری سروری استفاده کنید.</div>':''}
+  <div class="empty-note">در این بخش کیف‌پول‌های سروری نمایش داده می‌شود. اطلاعات شناسنامه‌ای کامل مؤدیان هنوز در پایگاه داده محلی اپ مشتری هستند؛ تنها شناسه محلی مؤدی و اعتبار آن در سرور قابل مشاهده است.</div>
+  ${wlt.length>=1000||tax.length>=1000?'<div class="empty-note">نمای این بخش به ۱۰۰۰ کیف‌پول محدود است.</div>':''}
   <div class="panel">
     <div class="panel-head"><h3>کیف‌پول کاربران</h3><span>${fmtNum(wlt.length)} مالک</span>
       ${isAdmin?'<span class="panel-actions"><button class="action-btn" onclick="openGiftModal()">+ اعطای اعتبار</button></span>':''}</div>
@@ -1150,19 +1204,25 @@ async function renderPackages(c){
       <div class="stat-card yellow"><div class="stat-label">آخرین تغییر</div><div class="stat-val small">${fmtDate(p.updated_at)}</div></div>
     </div><div style="padding:12px 16px"><div class="empty-note">یک رکورد قیمت پایه در سرور وجود دارد. مالیات در جدول قیمت‌گذاری تفکیک نشده و نمی‌توان نرخ یا جمع مالیاتی را از روی آن فرض کرد.</div>
     ${CAN.editPackages()?`<button class="btn btn-accent" onclick="openPackageModal(${Number(p.price_per_invoice_rial)})">ویرایش قیمت پایه</button>`:''}</div></div>`;
+  await appendManagerPriceHistory(c);
 }
 function openPackageModal(price){
   if(!CAN.editPackages())return toast('دسترسی مدیر ارشد لازم است.','error');
   openModal('ویرایش قیمت هر اعتبار',`<div class="field-row"><label>قیمت واحد (ریال)</label><input type="number" id="pkg-price" min="1000" max="1000000000" step="1" value="${Number(price)}"></div>
-    <div class="empty-note">تغییر قیمت فقط روی خریدهای جدید تأثیر دارد و از طریق سرور ثبت می‌شود.</div>`,
+    <div class="field-row"><label>دلیل تغییر قیمت (الزامی)</label><textarea id="pkg-reason" maxlength="500" placeholder="برای مثال: تغییر قیمت با مصوبه مدیریت"></textarea></div>
+    <div class="empty-note">هر تغییر با رسید یکتا و ثبت در دفتر ممیزی روی سرور اعمال می‌شود؛ فقط خریدهای جدید متأثر خواهند شد.</div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="savePkg()">ذخیره قیمت</button>`);
+  document.getElementById('modal').dataset.expectedPrice=String(price);
+  document.getElementById('modal').dataset.request=newUUID();
 }
 async function savePkg(){return submitBusy(async()=>{
   const value=Number(document.getElementById('pkg-price').value);
-  if(!Number.isSafeInteger(value)||value<1000||value>1000000000)return toast('قیمت پایه معتبر نیست.','error');
-  if(!confirm('قیمت پایه جدید '+fmtRial(value)+' ثبت شود؟'))return;
-  try{await sbPatch('sura_credit_pricing?id=eq.1',{price_per_invoice_rial:value,currency:'IRR'});
-    toast('قیمت پایه با موفقیت تغییر کرد','success');closeModal();showPage('packages');
+  const expected=Number(document.getElementById('modal').dataset.expectedPrice),reason=document.getElementById('pkg-reason').value.trim();
+  if(!Number.isSafeInteger(value)||value<1000||value>1000000000||value===expected||reason.length<5)
+    return toast('قیمت جدید باید متفاوت و دلیل تغییر معتبر باشد.','error');
+  if(!confirm('تغییر قیمت از '+fmtRial(expected)+' به '+fmtRial(value)+' ثبت شود؟'))return;
+  try{const result=await managerFetch('price-update',{expected,price:value,reason,request:document.getElementById('modal').dataset.request});
+    toast('قیمت جدید با رسید '+result.receipt+' ثبت شد','success');closeModal();showPage('packages');
   }catch(e){toast('قیمت ذخیره نشد: '+parseError(e),'error');}
 });}
 
@@ -1221,10 +1281,13 @@ function applyPaymentFilters(){
 }
 // ── Reports ──────────────────────────────────────────────
 async function renderReports(c){
-  const orders=await sbGet('sura_payment_orders?select=id,amount_rial,credit_units,state,created_at,owner_user_id&order=created_at.desc&limit=1000');
+  const [orders,totals]=await Promise.all([
+    sbGet('sura_payment_orders?select=id,amount_rial,credit_units,state,created_at,owner_user_id&order=created_at.desc&limit=1000'),
+    managerFetch('summary',{})
+  ]);
   const verified=orders.filter(o=>o.state==='verified');
-  const revenue=verified.reduce((s,o)=>s+Number(o.amount_rial||0),0);
-  const credits=verified.reduce((s,o)=>s+Number(o.credit_units||0),0);
+  const revenue=totals.summary.verified_revenue_rial||'0';
+  const credits=totals.summary.credits_sold||'0';
   const monthly={};
   verified.forEach(o=>{
     const key=new Date(o.created_at).toLocaleDateString('fa-IR',{year:'numeric',month:'long'});
@@ -1233,11 +1296,11 @@ async function renderReports(c){
   });
   window._reportVerified=verified;window._reportMonthly=monthly;
   c.innerHTML=`
-  <div class="empty-note">مبالغ زیر «مبلغ ثبت‌شده سفارش‌های تأییدشده» هستند. چون تفکیک مالیات در رکوردهای سفارش ذخیره نشده است، مالیات و فروش خالص محاسبه یا تخمین زده نمی‌شوند.${orders.length>=1000?' هشدار: گزارش محدود به ۱۰۰۰ سفارش اخیر است.':''}</div>
+  <div class="empty-note">جمع‌ها از کل تاریخچه سرور محاسبه می‌شوند. جدول‌های ماهانه و خروجی فایل، حداکثر ۱۰۰۰ سفارش اخیر را پوشش می‌دهند؛ مالیات و مبلغ خالص بدون داده معتبر محاسبه نمی‌شوند.${orders.length>=1000?' برای گزارش جامع دوره‌های بزرگ‌تر از بخش تراکنش‌ها و صفحه‌بندی استفاده کنید.':''}</div>
   <div class="stat-grid three">
     <div class="stat-card blue"><div class="stat-label">جمع مبالغ پرداخت تأییدشده</div><div class="stat-val small">${fmtRial(revenue)}</div></div>
     <div class="stat-card green"><div class="stat-label">اعتبار فروخته‌شده</div><div class="stat-val">${fmtNum(credits)}</div></div>
-    <div class="stat-card yellow"><div class="stat-label">سفارش تأییدشده</div><div class="stat-val">${fmtNum(verified.length)}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">سفارش تأییدشده</div><div class="stat-val">${fmtNum(totals.summary.verified_orders)}</div></div>
   </div>
   <div class="panel"><div class="panel-head"><h3>گردش مالی ماهانه</h3>
   ${CAN.exportData()?'<span class="panel-actions"><button class="action-btn" onclick="exportXLSX()">اکسل</button><button class="action-btn" onclick="exportCSV()">CSV</button></span>':''}</div>

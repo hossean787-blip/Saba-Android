@@ -39,6 +39,9 @@ jobs:
         run: |
           python3 sura-admin-android/tests/static_guard.py
           node --check sura-admin-android/app/src/main/assets/admin/reports.js
+          node --check sura-admin-android/app/src/main/assets/admin/manager.js
+          node --check sura-admin-android/backend/sura-manager-api.compiled.js
+          node sura-admin-android/tests/backend_routes.cjs
           node sura-admin-android/tests/report_zip_test.cjs
       - name: Compile and package separate Android app
         run: |

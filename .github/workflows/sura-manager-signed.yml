@@ -1,0 +1,90 @@
+name: SURA Manager signed release
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sura-admin-android/**'
+      - '.github/workflows/sura-manager-signed.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sura-manager-signed
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SURA_RELEASE_KEYSTORE_BASE64: ${{ secrets.SURA_RELEASE_KEYSTORE_BASE64 }}
+      SURA_RELEASE_STORE_PASSWORD: ${{ secrets.SURA_RELEASE_STORE_PASSWORD }}
+      SURA_RELEASE_KEY_ALIAS: ${{ secrets.SURA_RELEASE_KEY_ALIAS }}
+      SURA_RELEASE_KEY_PASSWORD: ${{ secrets.SURA_RELEASE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify existing signing credentials are available
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SURA_RELEASE_KEYSTORE_BASE64 SURA_RELEASE_STORE_PASSWORD SURA_RELEASE_KEY_ALIAS SURA_RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then echo "::error::Missing required signing credential $name"; exit 2; fi
+          done
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -x "$SDK/cmdline-tools/latest/bin/sdkmanager"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          if [[ ! -f "$SDK/platforms/android-35/android.jar" || ! -f "$SDK/build-tools/35.0.0/apksigner" ]]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
+          fi
+      - name: Decode existing release signing key into temporary protected file
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          file="$RUNNER_TEMP/sura-manager-signing.jks"
+          printf '%s' "$SURA_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$file"
+          test -s "$file"
+          echo "SURA_RELEASE_STORE_FILE=$file" >> "$GITHUB_ENV"
+      - name: Build release APK with persistent signing identity
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon -p sura-admin-android :app:assembleRelease :app:lintRelease
+      - name: Validate signature, package, version and archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="sura-admin-android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > sura-admin-android/app/build/manager-release-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -n 1 | tee sura-admin-android/app/build/manager-release-package.txt
+          grep -q "name='ir.sabagostar.suramanager' versionCode='2' versionName='1.0.0-rc1'" sura-admin-android/app/build/manager-release-package.txt
+          unzip -t "$apk" >/dev/null
+          sha256sum "$apk" > sura-admin-android/app/build/manager-release-sha256.txt
+      - name: Upload signed independent admin APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SURA-Manager-signed-release-APK
+          path: |
+            sura-admin-android/app/build/outputs/apk/release/app-release.apk
+            sura-admin-android/app/build/manager-release-signature.txt
+            sura-admin-android/app/build/manager-release-package.txt
+            sura-admin-android/app/build/manager-release-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/sura-manager-signing.jks"

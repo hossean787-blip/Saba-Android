@@ -29,6 +29,7 @@ def handler(route):
   local=ROOT/'app/src/main/assets/admin'
   if url.endswith('index.html'):route.fulfill(status=200,content_type='text/html',body=(local/'index.html').read_bytes());return
   if url.endswith('reports.js'):route.fulfill(status=200,content_type='application/javascript',body=(local/'reports.js').read_bytes());return
+  if url.endswith('manager.js'):route.fulfill(status=200,content_type='application/javascript',body=(local/'manager.js').read_bytes());return
   route.fulfill(status=403,body='');return
  if 'googleapis' in url or 'gstatic' in url or 'cdnjs' in url:
   route.abort();return
@@ -40,6 +41,22 @@ def handler(route):
  if path.endswith('/me'):
   route.fulfill(headers={'access-control-allow-origin':'*'},json={'role':'admin','email':'admin@test.example','id':actor});return
  body=route.request.post_data_json or {}
+ if '/sura-manager-api/' in path:
+  endpoint=path.split('/')[-1]
+  manager={
+   'summary':{'summary':{'verified_revenue_rial':'200000','verified_orders':1,'requested_orders':2,'failed_orders':0,'credits_sold':'2','owner_wallets':1,'taxpayer_wallets':1,'promo_remaining':'2','promo_redemptions':1,'taxpayer_credit_balance':'3','paid_invoice_uses':1}},
+   'users':{'users':[{'id':owner,'email':'customer@example.com','verified':True,'created_at':'2026-11-08T10:00:00Z','last_sign_in_at':'2026-11-09T10:00:00Z','role':None}], 'page':1,'nextPage':None},
+   'user':{'user':{'id':owner,'email':'customer@example.com','verified':True,'created_at':'2026-11-08T10:00:00Z','role':None},'wallet':{'credits':10},'taxpayers':[{'local_taxpayer_id':2,'credits':3}],'orders':TABLES['sura_payment_orders']},
+   'role-list':{'roles':[{'user_id':actor,'email':'admin@test.example','role':'admin','updated_at':'2026-11-08T10:00:00Z'}],'history':[]},
+   'role-assign':{'status':'applied','receipt':'receipt-role-1'},
+   'orders':{'orders':TABLES['sura_payment_orders'],'page':1,'perPage':40,'total':1},
+   'health':{'status':'ok','database':'ok','role':'admin','server_time':'2026-11-10T00:00:00Z','price':{'price_per_invoice_rial':100000}},
+   'audit':{'rows':TABLES['sura_admin_credit_adjustments'],'total':1,'page':1,'kind':body.get('kind','credit')},
+   'price-history':{'history':[]},
+   'price-update':{'status':'applied','receipt':'receipt-price-1'},
+  }
+  if endpoint in ('role-assign','price-update'): requests.append((endpoint,body))
+  route.fulfill(headers={'access-control-allow-origin':'*'},json=manager.get(endpoint,{'error':'not_found'}),status=200 if endpoint in manager else 404);return
  if path.endswith('/query'):
   route.fulfill(headers={'access-control-allow-origin':'*'},json=TABLES.get(body.get('table'), []));return
  if path.endswith('/wallet'):
@@ -63,8 +80,11 @@ with sync_playwright() as p:
  page.on('dialog', lambda d: d.accept())
  html_text=(ROOT/'app/src/main/assets/admin/index.html').read_text()
  report_js=(ROOT/'app/src/main/assets/admin/reports.js').read_text()
+ manager_js=(ROOT/'app/src/main/assets/admin/manager.js').read_text()
  assert '<script src="/assets/admin/reports.js"></script>' in html_text
+ assert '<script src="/assets/admin/manager.js"></script>' in html_text
  html_text=html_text.replace('<script src="/assets/admin/reports.js"></script>','<script>'+report_js+'</script>')
+ html_text=html_text.replace('<script src="/assets/admin/manager.js"></script>','<script>'+manager_js+'</script>')
  page.set_content(html_text,wait_until='domcontentloaded')
  assert page.locator('#inp-url').count()==1
  assert page.evaluate('typeof SuraReports.makeXlsx') == 'function'
@@ -80,6 +100,27 @@ with sync_playwright() as p:
  assert page.locator('html').get_attribute('data-theme')=='light'
  page.locator('#theme-toggle').click()
  assert page.get_by_text('۲۰۰٬۰۰۰',exact=False).count()>0
+ page.evaluate("showPage('directory')")
+ page.get_by_text('customer@example.com').wait_for()
+ page.get_by_role('button',name='جزئیات حساب').click()
+ page.get_by_text('اعتبار مؤدیان').last.wait_for()
+ page.locator('#modal-overlay').locator('.modal-close').click()
+ page.evaluate("showPage('roles')")
+ page.get_by_text('مدیران و سطح دسترسی').wait_for()
+ page.get_by_role('button',name='تغییر نقش').click()
+ page.locator('#manager-role-email').fill('admin@test.example')
+ page.locator('#manager-role-choice').select_option('editor')
+ page.locator('#manager-role-reason').fill('تغییر سطح مدیریت برای آزمون')
+ page.locator('#modal-submit').click()
+ page.locator('#modal-overlay').wait_for(state='hidden')
+ assert any(x[0]=='role-assign' and x[1].get('role')=='editor' and x[1].get('confirmEmail')=='admin@test.example' for x in requests)
+ page.evaluate("showPage('health')")
+ page.get_by_text('وضعیت سامانه').last.wait_for()
+ page.get_by_text('پایگاه داده',exact=True).wait_for()
+ page.evaluate("showPage('audit')")
+ page.get_by_text('دفتر ممیزی غیرقابل ویرایش').wait_for()
+ page.evaluate("showPage('payments')")
+ page.get_by_text('دفتر پرداخت‌ها').wait_for()
  page.evaluate("showPage('users')")
  page.get_by_text('کیف‌پول کاربران').wait_for()
  page.get_by_role('button',name='اصلاح').first.click()
@@ -98,9 +139,10 @@ with sync_playwright() as p:
  page.evaluate("showPage('packages')")
  page.get_by_role('button',name='ویرایش قیمت پایه').click()
  page.locator('#pkg-price').fill('120000')
+ page.locator('#pkg-reason').fill('به‌روزرسانی قیمت پس از بررسی رسمی')
  page.get_by_role('button',name='ذخیره قیمت').click()
  page.locator('#modal-overlay').wait_for(state='hidden')
- assert any(x[0]=='mutate' and x[1].get('data',{}).get('price_per_invoice_rial')==120000 for x in requests)
+ assert any(x[0]=='price-update' and x[1].get('price')==120000 for x in requests)
  page.evaluate("showPage('credits')")
  page.get_by_text('دفتر ممیزی اصلاحات مدیرکل').wait_for()
  assert page.get_by_text('اعتبار هدیه تست').count()==1
@@ -125,8 +167,13 @@ with sync_playwright() as p:
  page.get_by_text('کیف‌پول کاربران').wait_for()
  assert not page.locator('body').evaluate("el=>el.classList.contains('drawer-open')")
  page.screenshot(path=str(ROOT/'tests/mobile-users.png'),full_page=True)
+ page.evaluate("ADMIN_ROLE='viewer';managerRoles();showPage('users')")
+ page.get_by_text('کیف‌پول کاربران').wait_for()
+ assert page.locator('#owner-table button').count()==0
+ assert page.locator('[data-min-role="admin"]').first.evaluate("el=>el.style.display")=='none'
+ assert page.locator('[data-min-role="staff"]').first.evaluate("el=>el.style.display")=='none'
  assert not errors, errors
- print('PASS: login, mock backend, theme, admin adjust, transfer, pricing, audit, CSV, XLSX, mobile')
+ print('PASS: login, directory, user details, roles, health, audit, paged payments, price audit, wallet, CSV/XLSX, mobile')
  print('Requests:',[(a,b.get('table',b.get('owner'))) for a,b in requests])
  browser.close()
 

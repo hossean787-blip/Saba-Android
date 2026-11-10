@@ -15,4 +15,5 @@ source=source.replace(s,(all,code)=>{count++;return '<script>\n'+transpile(code,
 if(count!==1)throw new Error('Expected exactly one panel inline script, got '+count);
 fs.writeFileSync(path.join(dist,'index.html'),source,'utf8');
 fs.writeFileSync(path.join(dist,'reports.js'),transpile(fs.readFileSync(path.join(src,'reports.source.js'),'utf8'),'reports.js'),'utf8');
+fs.writeFileSync(path.join(dist,'manager.js'),transpile(fs.readFileSync(path.join(src,'manager.source.js'),'utf8'),'manager.js'),'utf8');
 console.log('Transpiled WebView scripts to ES2017 (works with older Android System WebView).');

@@ -88,6 +88,7 @@ public final class AdminActivity extends Activity {
                 String path = uri.getEncodedPath();
                 if ("/assets/admin/index.html".equals(path)) return asset("admin/index.html", "text/html");
                 if ("/assets/admin/reports.js".equals(path)) return asset("admin/reports.js", "application/javascript");
+                if ("/assets/admin/manager.js".equals(path)) return asset("admin/manager.js", "application/javascript");
                 return denied();
             }
             if ("https".equals(uri.getScheme()) && API_HOST.equals(uri.getHost()) && uri.getPort() == -1) {
@@ -102,7 +103,7 @@ public final class AdminActivity extends Activity {
             if (!ENTRY.equals(url)) return;
             // A safe UI health probe for emulator QA; never log account details or tokens.
             if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-                view.evaluateJavascript("(function(){return !!document.getElementById('inp-email') && !!document.getElementById('login-screen') && !!window.SuraReports && typeof SuraReports.makeXlsx==='function';})()",
+                view.evaluateJavascript("(function(){return !!document.getElementById('inp-email') && !!document.getElementById('login-screen') && !!window.SuraReports && typeof SuraReports.makeXlsx==='function' && typeof managerFetch==='function' && typeof renderDirectory==='function';})()",
                     result -> Log.i("SURA_ADMIN_TEST", "login_ready=" + result));
             }
         }
@@ -163,7 +164,7 @@ public final class AdminActivity extends Activity {
     private void alert(String message) { Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }
     @Override public void onBackPressed() {
         if (web == null) { super.onBackPressed(); return; }
-        web.evaluateJavascript("(function(){if(document.body.classList.contains('drawer-open')){closeDrawer();return true;}if(document.getElementById('modal-overlay')?.classList.contains('open')){closeModal();return true;}if(typeof currentPage!=='undefined'&&currentPage!=='dashboard'&&document.getElementById('app').style.display!=='none'){showPage('dashboard');return true;}return false;})()", result -> {
+        web.evaluateJavascript("(function(){if(document.body.classList.contains('drawer-open')){closeDrawer();return true;}if(document.getElementById('modal-overlay') && document.getElementById('modal-overlay').classList.contains('open')){closeModal();return true;}if(typeof currentPage!=='undefined'&&currentPage!=='dashboard'&&document.getElementById('app').style.display!=='none'){showPage('dashboard');return true;}return false;})()", result -> {
             if (!"true".equals(result)) finish();
         });
     }
