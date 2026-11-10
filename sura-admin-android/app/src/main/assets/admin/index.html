@@ -966,8 +966,18 @@ function openModal(title, bodyHtml, footHtml) {
 }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 // ── Format helpers ───────────────────────────────────────
-function fmtRial(n) { return Number(n || 0).toLocaleString('fa-IR') + ' ریال'; }
-function fmtNum(n) { return Number(n || 0).toLocaleString('fa-IR'); }
+function fmtNum(n) {
+    // Preserve exact 64-bit financial totals returned as text by the server.
+    const raw = String(n !== null && n !== void 0 ? n : 0).trim();
+    if (/^-?\d+$/.test(raw)) {
+        const negative = raw[0] === '-', digits = negative ? raw.slice(1) : raw;
+        const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '٬');
+        return (negative ? '−' : '') + grouped.replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    }
+    const value = Number(n || 0);
+    return Number.isFinite(value) ? value.toLocaleString('fa-IR') : '۰';
+}
+function fmtRial(n) { return fmtNum(n) + ' ریال'; }
 function fmtDate(d) {
     if (!d)
         return '—';

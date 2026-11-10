@@ -88,6 +88,7 @@ with sync_playwright() as p:
  page.set_content(html_text,wait_until='domcontentloaded')
  assert page.locator('#inp-url').count()==1
  assert page.evaluate('typeof SuraReports.makeXlsx') == 'function'
+ assert page.evaluate("fmtRial('9007199254740993')")=='۹٬۰۰۷٬۱۹۹٬۲۵۴٬۷۴۰٬۹۹۳ ریال'
  assert page.locator('#inp-anon').input_value().startswith('sb_publishable_')
  page.locator('#inp-email').fill('admin@test.example')
  page.locator('#inp-password').fill('Pass123456!')
