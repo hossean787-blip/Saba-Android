@@ -424,8 +424,10 @@ class OfficialSubmissionServiceTest {
         assertEquals(0,api.gets);assertEquals(0,api.posts)
     }
     @Test fun expiredAppSessionBetweenMetadataAndPostDoesNotClaimOrSend()=runBlocking {
-        val row=prepare();var checks=0
-        val gated=OfficialSubmissionService(db,account,credentials,api,sessionCheck={checks++;require(checks<4)}){now}
+        val row=prepare()
+        // Expire the session immediately after nonce + server metadata reads;
+        // unlike a fixed call count, this remains valid when new preflight checks are added.
+        val gated=OfficialSubmissionService(db,account,credentials,api,sessionCheck={require(api.gets<2)}){now}
         reject{gated.submit(row.requestId)}
         assertEquals("PREPARED",db.officialSubmissionDao().byId(row.requestId)!!.state)
         assertEquals(0,api.posts);assertTrue(api.gets>0)
