@@ -98,6 +98,7 @@ class LegacyMoadianInvoiceGatewayTest {
                                 .put("uid",uid).put("referenceNumber","legacy-ack")))
                         }
                         "INQUIRY_BY_UID" -> {
+                            assertEquals("",envelope.getJSONObject("packet").getString("fiscalId"))
                             assertEquals(uid,envelope.getJSONObject("packet").getJSONArray("data")
                                 .getJSONObject(0).getString("uid"))
                             assertEquals("A11216",envelope.getJSONObject("packet").getJSONArray("data")
