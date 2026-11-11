@@ -13,10 +13,20 @@ import java.util.Date
 object TaxpayerSigningCertificate {
     const val MAX_BYTES = 65536
     fun read(input: InputStream, filename: String): ByteArray {
-        require(filename.substringAfterLast('.',"").lowercase(java.util.Locale.ROOT) in setOf("cer","crt","pem")) {
-            "فایل گواهی باید CER، CRT یا PEM باشد؛ کلید خصوصی را در این قسمت وارد نکنید."
+        // Android document providers sometimes omit the filename suffix.
+        // Validate the actual X.509 bytes, not the provider's display name.
+        val bytes = input.readBytesBounded(MAX_BYTES)
+        require(bytes.isNotEmpty()) { "فایل انتخاب‌شده خالی است." }
+        val header = String(bytes, 0, minOf(bytes.size, 160), Charsets.US_ASCII)
+        require(!header.contains("BEGIN CERTIFICATE REQUEST") &&
+            !header.contains("BEGIN NEW CERTIFICATE REQUEST")) {
+            "این فایل درخواست CSR است، نه گواهی صادرشده؛ فایل گواهی CER / CRT / PEM را انتخاب کنید."
         }
-        return input.readBytesBounded(MAX_BYTES)
+        require(!header.contains("BEGIN PRIVATE KEY") &&
+            !header.contains("BEGIN RSA PRIVATE KEY")) {
+            "فایل کلید خصوصی را نباید در قسمت گواهی وارد کنید."
+        }
+        return bytes
     }
     fun parse(bytes: ByteArray): X509Certificate {
         require(bytes.isNotEmpty() && bytes.size <= MAX_BYTES) { "اندازه فایل گواهی معتبر نیست." }
