@@ -22,7 +22,7 @@ class OfficialSubmissionProtocolMigrationTest {
         val company=db.companyDao().insert(Company(purchaserId=owner,name="test",nationalId="1"))
         val buyer=db.customerDao().insert(Customer(companyId=company,name="buyer"))
         val invoice=db.invoiceDao().insert(Invoice(companyId=company,customerId=buyer,
-            invoiceNumber="123",issueDate="1405/08/20",status="FINALIZED"))
+            invoiceNumber="123",issueDate="1405/08/20",totalAmountRial=110,taxAmountRial=10,status="FINALIZED"))
         val original=OfficialSubmission(UUID.randomUUID().toString(),owner,company,invoice,
             "ABC123","ABC123"+"0".repeat(16),"payload","hash",123456L,
             state="SUBMITTED",referenceNumber="server-reference")
