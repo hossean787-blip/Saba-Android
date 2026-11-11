@@ -403,6 +403,57 @@ class OfficialSubmissionServiceTest {
         assertEquals(1,api.posts)
     }
 
+    @Test fun legacyPrivateKeyOnlyOutboxIsDurableAndNeverRepostsAfterAmbiguousAck()=runBlocking {
+        credentials.stagePrivateKey(company, TestCertificates.pem(customerKey))
+        val local = service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY")
+        assertEquals("LEGACY",local.protocol)
+        assertEquals("PREPARED",local.state)
+        assertEquals(0,api.posts);assertEquals(0,api.gets)
+        var officialPosts=0
+        var inquiries=0
+        service.legacyGateway=object: LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String):LegacyPreparedInvoice {
+                assertEquals(company,companyId)
+                assertEquals("A11216",fiscalId)
+                assertEquals(local.requestId,uid)
+                assertEquals(local.payload,payload)
+                return LegacyPreparedInvoice("{}",mapOf("requestTraceId" to uid))
+            }
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement {
+                officialPosts++
+                assertEquals(local.requestId,expectedUid)
+                assertEquals("SENDING",db.officialSubmissionDao().byId(expectedUid)?.state)
+                return LegacyInvoiceAcknowledgement(expectedUid,"legacy-reference")
+            }
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String):LegacyInvoiceInquiry {
+                inquiries++
+                return LegacyInvoiceInquiry(uid,taxId,"legacy-reference","SUCCESS",emptyList())
+            }
+        }
+        val sent=service.submitLegacy(local.requestId)
+        assertEquals("SUBMITTED",sent.state)
+        assertEquals(1,officialPosts)
+        reject { service.submitLegacy(local.requestId) }
+        assertEquals(1,officialPosts)
+        val accepted=service.inquireLegacy(local.requestId)
+        assertEquals("ACCEPTED",accepted.state)
+        assertNull(accepted.signedReceipt)
+        assertTrue(accepted.lastError.orEmpty().contains("رسید امضاشده"))
+        assertEquals(1,inquiries)
+        assertEquals(0,api.posts);assertEquals(0,api.gets)
+        assertEquals("legacy-reference",db.invoiceDao().byId(invoice)?.trackingCode)
+    }
+
+    @Test fun legacySubmissionNeverDowngradesAnExistingV2Request()=runBlocking {
+        credentials.stagePrivateKey(company,TestCertificates.pem(customerKey))
+        val prepared=prepare()
+        reject { service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY") }
+        reject { service.submitLegacy(prepared.requestId) }
+        assertEquals("V2",db.officialSubmissionDao().byId(prepared.requestId)?.protocol)
+        assertEquals("PREPARED",db.officialSubmissionDao().byId(prepared.requestId)?.state)
+        assertEquals(0,api.posts);assertEquals(0,api.gets)
+    }
+
     @Test fun onlineReadinessOnlyReadsNonceAndOrganizationKeyWithoutPosting()=runBlocking {
         service.checkOnlineReadiness(company)
         assertEquals(2, api.gets)
