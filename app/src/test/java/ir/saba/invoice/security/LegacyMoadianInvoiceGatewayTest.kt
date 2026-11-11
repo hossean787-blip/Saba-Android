@@ -98,8 +98,10 @@ class LegacyMoadianInvoiceGatewayTest {
                                 .put("uid",uid).put("referenceNumber","legacy-ack")))
                         }
                         "INQUIRY_BY_UID" -> {
-                            assertEquals(uid,envelope.getJSONObject("packet").getJSONObject("data")
-                                .getJSONArray("uidList").getString(0))
+                            assertEquals(uid,envelope.getJSONObject("packet").getJSONArray("data")
+                                .getJSONObject(0).getString("uid"))
+                            assertEquals("A11216",envelope.getJSONObject("packet").getJSONArray("data")
+                                .getJSONObject(0).getString("fiscalId"))
                             JSONObject().put("result",JSONObject().put("data",JSONArray().put(
                                 JSONObject().put("uid",uid).put("taxId",taxId)
                                     .put("fiscalId","A11216").put("referenceNumber","legacy-ack")
