@@ -230,7 +230,8 @@ internal class LegacyMoadianInvoiceGateway(
 
     override suspend fun inquire(companyId: Long, fiscalId: String, uid: String, taxId: String): LegacyInvoiceInquiry {
         val response = sync(companyId, fiscalId, "INQUIRY_BY_UID",
-            JSONObject().put("uidList", JSONArray().put(uid)), token(companyId, fiscalId))
+            JSONArray().put(JSONObject().put("uid", uid).put("fiscalId", fiscalId)),
+            token(companyId, fiscalId))
         val raw = result(response)
         val list = (raw as? JSONObject)?.optJSONArray("data") ?: (raw as? JSONArray)
             ?: error("ساختار پاسخ استعلام معتبر نیست.")
