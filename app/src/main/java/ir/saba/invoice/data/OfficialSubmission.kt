@@ -19,7 +19,8 @@ data class OfficialSubmission(
     val state: String = "PREPARED",
     val referenceNumber: String? = null,
     val lastError: String? = null,
-    val signedReceipt: String? = null
+    val signedReceipt: String? = null,
+    val protocol: String = "V2"
 )
 
 @Dao interface OfficialSubmissionDao {
