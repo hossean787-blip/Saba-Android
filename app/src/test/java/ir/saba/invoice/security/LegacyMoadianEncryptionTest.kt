@@ -4,6 +4,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.MGF1ParameterSpec
@@ -14,6 +17,8 @@ import javax.crypto.spec.OAEPParameterSpec
 import javax.crypto.spec.PSource
 import javax.crypto.spec.SecretKeySpec
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk=[28])
 class LegacyMoadianEncryptionTest {
     @Test fun encryptedLegacyInvoiceDecryptsWithOrganizationKeyAndNoCertificate() {
         val keys=KeyPairGenerator.getInstance("RSA").apply {initialize(2048)}.generateKeyPair()
