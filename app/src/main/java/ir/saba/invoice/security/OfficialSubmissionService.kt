@@ -121,6 +121,22 @@ class OfficialSubmissionService(
             val payload=JSONObject(it.payload)
             val header=payload.getJSONObject("header")
             require(header.getString("taxid")==it.taxId)
+            val invoice = requireNotNull(db.invoiceDao().byId(it.invoiceId))
+            val company = owner(it.companyId)
+            val expectedSubject = InvoiceSubject.officialSubjectCode(invoice)
+            require(header.getInt("ins") == expectedSubject) {
+                "موضوع سند محفوظ با موضوع صورتحساب نهایی‌شده یکسان نیست."
+            }
+            require(header.getString("tins") == company.economicId) {
+                "شماره اقتصادی فروشنده در سند محفوظ متفاوت است."
+            }
+            require(header.getInt("inty") == 1 && header.getInt("inp") == 1) {
+                "نوع یا الگوی این سند برای ارسال رسمی پشتیبانی نمی‌شود."
+            }
+            if (expectedSubject == 1) require(!header.has("irtaxid"))
+            else require(header.getString("irtaxid") == invoice.referenceTaxId) {
+                "شناسه مرجع سند محفوظ با سند ارجاعی یکسان نیست."
+            }
             val body=payload.getJSONArray("body")
             if (header.getInt("ins")==3) {
                 // Fail closed on cancellation: no buyer, amount or sale lines.
