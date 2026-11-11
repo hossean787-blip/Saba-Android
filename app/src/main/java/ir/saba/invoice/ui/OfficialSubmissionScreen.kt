@@ -1,6 +1,8 @@
 package ir.saba.invoice.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -128,7 +130,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         item {
             selected?.let { invoice ->
                 Text("فاکتور ${invoice.invoiceNumber} — ${invoice.issueDate} — ${invoice.totalAmountRial} ریال")
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected=selectedProtocol=="LEGACY", enabled=!busy && legacyKeyReady,
                         onClick={selectedProtocol="LEGACY"},label={Text("شناسه یکتا + کلید خصوصی")})
                     FilterChip(selected=selectedProtocol=="V2",enabled=!busy,
