@@ -64,21 +64,34 @@ private fun TaxpayerConnectionContent(
         busy = true; error = ""
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
-                    val filename = context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {
-                        if (it.moveToFirst()) it.getString(0) else ""
-                    }.orEmpty()
-                    val input = context.contentResolver.openInputStream(uri) ?: error("فایل باز نشد.")
+                val imported = withContext(Dispatchers.IO) {
+                    // Some Android file providers do not expose DISPLAY_NAME at all.
+                    val filename = runCatching {
+                        context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {
+                            if (it.moveToFirst()) it.getString(0) else ""
+                        }
+                    }.getOrNull().orEmpty()
+                    val input = context.contentResolver.openInputStream(uri) ?: error("فایل انتخاب‌شده قابل خواندن نیست.")
                     input.use {
                         if (isCertificate) {
                             val bytes = TaxpayerSigningCertificate.read(it,filename)
                             TaxpayerSigningCertificate.parse(bytes)
-                            certificate = bytes
-                        } else privatePem = TaxpayerKeyImport.read(it,filename)
+                            bytes to null
+                        } else null to TaxpayerKeyImport.read(it,filename)
                     }
                 }
+                if (isCertificate) {
+                    certificate = requireNotNull(imported.first)
+                    onNotice("فایل گواهی انتخاب و بررسی شد؛ اکنون «ثبت امن کلید و گواهی» را بزنید.")
+                } else {
+                    privatePem = requireNotNull(imported.second)
+                    onNotice("فایل کلید خصوصی انتخاب شد.")
+                }
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: "ورود فایل انجام نشد." }
+            catch (e: Exception) {
+                error = e.message ?: "ورود فایل انجام نشد."
+                onNotice(error)
+            }
             finally { busy = false }
         }
     }
