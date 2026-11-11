@@ -55,8 +55,17 @@ class TaxpayerCredentialRepository internal constructor(
      * The key itself never leaves device storage or this function. */
     internal suspend fun signPendingConnectionChallenge(
         companyId: Long, fiscalId: String, challenge: ByteArray
+    ): String = signPendingContent(companyId, fiscalId, challenge, 32768)
+
+    /** Fixed-size bound for official self-TSP invoice signatures; private key never leaves the vault. */
+    internal suspend fun signPendingInvoiceContent(
+        companyId: Long, fiscalId: String, content: ByteArray
+    ): String = signPendingContent(companyId, fiscalId, content, 4_000_000)
+
+    private suspend fun signPendingContent(
+        companyId: Long, fiscalId: String, challenge: ByteArray, maxSize: Int
     ): String = db.withTransaction {
-        require(challenge.isNotEmpty() && challenge.size <= 32768)
+        require(challenge.isNotEmpty() && challenge.size <= maxSize)
         val scope = identity(companyId)
         require(scope.fiscalMemoryId == fiscalId)
         val encrypted = preferences.getString("pending_company_$companyId", null)
