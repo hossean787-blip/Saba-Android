@@ -160,7 +160,10 @@ internal class LegacyMoadianInvoiceGateway(
         val value = response.opt("result") ?: error("پاسخ سامانه حاوی نتیجه نیست.")
         require(value != JSONObject.NULL)
         if (value is JSONObject) require(
-            value.optString("errorCode").isBlank() && value.optString("errorDetail").isBlank()
+            listOf("errorCode", "errorDetail").all {
+                !value.has(it) || value.isNull(it) || value.optString(it).isBlank()
+            } && (!response.has("errorCode") || response.isNull("errorCode") ||
+                response.optString("errorCode").isBlank())
         ) { "سامانه مؤدیان درخواست را رد کرد." }
         return value
     }
