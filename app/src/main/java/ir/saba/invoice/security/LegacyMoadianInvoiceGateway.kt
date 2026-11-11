@@ -154,7 +154,7 @@ internal class LegacyMoadianInvoiceGateway(
             .put("fiscalId", fiscal).put("dataSignature", "")
 
     private suspend fun sign(companyId: Long, fiscal: String, content: String): String =
-        credentials.signPendingConnectionChallenge(companyId, fiscal, content.toByteArray(Charsets.UTF_8))
+        credentials.signPendingInvoiceContent(companyId, fiscal, content.toByteArray(Charsets.UTF_8))
 
     private fun result(response: JSONObject): Any {
         val value = response.opt("result") ?: error("پاسخ سامانه حاوی نتیجه نیست.")
