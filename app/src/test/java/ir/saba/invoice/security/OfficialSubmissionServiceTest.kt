@@ -298,6 +298,26 @@ class OfficialSubmissionServiceTest {
         reject{foreign.submit(row.requestId)};reject{foreign.history(company)}
         assertEquals(0,api.gets);assertEquals(0,api.posts)
     }
+    @Test fun tamperedSubjectWithUpdatedHashNeverReachesTaxServer()=runBlocking {
+        val prepared = prepare()
+        val forged = JSONObject(prepared.payload)
+        // A valid-looking cancellation cannot stand in for an original sale.
+        forged.getJSONObject("header").put("ins", 3)
+            .put("irtaxid", "A11216" + "0".repeat(16))
+        forged.put("body", JSONArray())
+        val payload = forged.toString()
+        val digest = ir.saba.moadian.SubmissionPreparation.sha256Hex(
+            payload.toByteArray(Charsets.UTF_8))
+        db.openHelper.writableDatabase.execSQL(
+            "UPDATE official_submissions SET payload=?, payloadHash=? WHERE requestId=?",
+            arrayOf(payload, digest, prepared.requestId)
+        )
+        reject { service.submit(prepared.requestId) }
+        assertEquals("PREPARED", db.officialSubmissionDao().byId(prepared.requestId)?.state)
+        assertEquals(0, api.gets)
+        assertEquals(0, api.posts)
+    }
+
     @Test fun forgedCancellationPayloadCannotBypassReviewViaDirectSubmit()=runBlocking {
         val prepared = prepare()
         // Simulate a locally modified, rehashed outbox: a cancellation header
