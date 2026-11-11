@@ -170,7 +170,7 @@ internal class LegacyMoadianInvoiceGateway(
 
     private suspend fun sync(companyId: Long, fiscal: String, operation: String, data: Any?, token: String? = null): JSONObject {
         val hs = headers(token)
-        val body = packet(operation, data, if (operation == "GET_TOKEN" || operation == "GET_SERVER_INFORMATION") "" else fiscal)
+        val body = packet(operation, data, if (operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INQUIRY_BY_UID")) "" else fiscal)
         val signature = sign(companyId, fiscal, LegacyMoadianCanonical.normalize(body, hs))
         return transport.post(operation, JSONObject().put("time", 1).put("packet", body)
             .put("signature", signature).put("signatureKeyId", JSONObject.NULL), hs)
