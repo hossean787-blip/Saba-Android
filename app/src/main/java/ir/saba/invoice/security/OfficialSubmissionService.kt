@@ -21,6 +21,19 @@ class OfficialSubmissionService(
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val signer = MoadianV2Signer(credentials)
+    /** Injectable only inside this module for deterministic fake-server tests. */
+    internal var legacyGateway: LegacyInvoiceGateway = LegacyMoadianInvoiceGateway(credentials)
+    suspend fun checkLegacySigningReadiness(companyId: Long) {
+        sessionCheck()
+        val company = owner(companyId)
+        require(company.id == companyId)
+        val fiscal = requireNotNull(db.moadianDetailsDao().byCompany(companyId)).fiscalMemoryId
+        require(fiscal.matches(Regex("[A-Z0-9]{6}")))
+        require(credentials.hasPendingPrivateKey(companyId)) {
+            "کلید خصوصی این مؤدی ثبت نشده است؛ از تنظیمات مؤدی، کلید را به‌صورت امن ذخیره کنید."
+        }
+    }
+
     private suspend fun owner(companyId: Long): Company {
         val company = requireNotNull(db.companyDao().byId(companyId))
         require(company.purchaserId == account.ownerId) { "مؤدی متعلق به این حساب نیست." }
@@ -84,13 +97,21 @@ class OfficialSubmissionService(
         owner(companyId)
         db.officialSubmissionDao().forCompany(companyId).also { require(it.all { r -> r.ownerId == account.ownerId }) }
     }
-    suspend fun prepare(companyId: Long, invoiceId: Long, issueTime: String, unit: String): OfficialSubmission = db.withTransaction {
+    suspend fun prepare(companyId: Long, invoiceId: Long, issueTime: String, unit: String, protocol: String = "V2"): OfficialSubmission = db.withTransaction {
+        require(protocol in setOf("V2", "LEGACY")) { "روش ارسال معتبر نیست." }
         sessionCheck()
         val company = owner(companyId)
         val invoice = requireNotNull(db.invoiceDao().byId(invoiceId))
         val customer = requireNotNull(db.customerDao().byId(invoice.customerId))
         val details = requireNotNull(db.moadianDetailsDao().byCompany(companyId))
         val sourceLines = db.invoiceLineDao().forInvoice(invoiceId)
+        if (protocol == "LEGACY") {
+            require(invoice.subject == InvoiceSubject.ORIGINAL) {
+                "ارسال بدون گواهی فعلاً برای صورتحساب اصلی نوع یک، الگوی فروش یک فعال است."
+            }
+            checkLegacySigningReadiness(companyId)
+        }
+
         // Validate the accepted source again inside the immutable outbox transaction.
         InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, companyId,
             customer.id, invoice.subject, invoice.referenceTaxId, sourceLines,
@@ -103,7 +124,7 @@ class OfficialSubmissionService(
             sourceLines,issueTime,unit,clock())
         require(payload.length <= 2_000_000) { "حجم صورتحساب بیش از حد مجاز است." }
         if (existing != null) {
-            require(existing.ownerId == account.ownerId && existing.companyId == companyId && existing.payload == payload) { "صورتحساب قبلاً با محتوای ثابت آماده شده است." }
+            require(existing.ownerId == account.ownerId && existing.companyId == companyId && existing.protocol == protocol && existing.payload == payload) { "صورتحساب قبلاً با محتوای ثابت آماده شده است." }
             return@withTransaction existing
         }
         val taxId = JSONObject(payload).getJSONObject("header").getString("taxid")
@@ -112,12 +133,14 @@ class OfficialSubmissionService(
             ir.saba.moadian.TaxIdGenerator.validate(it.taxId).serialHex.toLong(16) >= serial
         }) { "سریال مالیاتی باید از سریال‌های ثبت‌شده این حافظه بزرگ‌تر باشد؛ تغییر تاریخ یا صفرهای ابتدا مجوز تکرار نمی‌دهد." }
         OfficialSubmission(UUID.randomUUID().toString(),account.ownerId,companyId,invoiceId,details.fiscalMemoryId,taxId,payload,
-            SubmissionPreparation.sha256Hex(payload.toByteArray(Charsets.UTF_8)),clock()).also { db.officialSubmissionDao().insert(it) }
+            SubmissionPreparation.sha256Hex(payload.toByteArray(Charsets.UTF_8)),clock(),protocol=protocol).also { db.officialSubmissionDao().insert(it) }
     }
     suspend fun reviewPrepared(id: String): OfficialSubmission {
         sessionCheck()
         return row(id).also {
             require(it.state == "PREPARED")
+            require(it.protocol in setOf("LEGACY","V2"))
+            if (it.protocol == "LEGACY") require(db.invoiceDao().byId(it.invoiceId)?.subject == InvoiceSubject.ORIGINAL)
             val payload=JSONObject(it.payload)
             val header=payload.getJSONObject("header")
             require(header.getString("taxid")==it.taxId)
@@ -181,6 +204,7 @@ class OfficialSubmissionService(
         // Revalidate the immutable official payload (including cancellation shape)
         // on the actual send path; the UI review step can be bypassed or become stale.
         val initial = reviewPrepared(id)
+        require(initial.protocol == "V2") { "برای این درخواست باید از مسیر ارسال بدون گواهی استفاده شود." }
         require(initial.state == "PREPARED") { "این درخواست ممکن است ارسال شده باشد؛ ابتدا استعلام کنید." }
         // Fail closed before any HTTP, signing or outbox transition when a future
         // local send-time was selected. This is not an unattended scheduler.
@@ -219,9 +243,75 @@ class OfficialSubmissionService(
         }
         return requireNotNull(db.officialSubmissionDao().byId(id))
     }
+    /** Certificate-free self-TSP: preflight completes before claiming the immutable outbox. */
+    suspend fun submitLegacy(id: String): OfficialSubmission {
+        sessionCheck()
+        val initial = reviewPrepared(id)
+        require(initial.protocol == "LEGACY")
+        val invoice = requireNotNull(db.invoiceDao().byId(initial.invoiceId))
+        InvoiceSendSchedule.requireDueForManualSubmission(
+            InvoiceLocalDetails.fromJson(invoice.localDetailsJson), Instant.ofEpochMilli(clock()))
+        checkLegacySigningReadiness(initial.companyId)
+        val prepared = legacyGateway.prepare(initial.companyId, initial.fiscalId, initial.requestId, initial.payload)
+        db.withTransaction {
+            sessionCheck()
+            require(row(id).protocol == "LEGACY")
+            check(db.officialSubmissionDao().claim(id) == 1) {
+                "ارسال این درخواست آغاز شده است؛ ابتدا نتیجه را استعلام کنید."
+            }
+        }
+        try {
+            val ack = legacyGateway.send(prepared, initial.requestId)
+            require(ack.uid == initial.requestId)
+            resolve(id, "SUBMITTED", ack.referenceNumber, null)
+        } catch (failure: Exception) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                resolve(id, "UNKNOWN", null,
+                    "پاسخ قطعی دریافت نشد؛ ارسال مجدد ممنوع است. فقط شناسه همین درخواست را استعلام کنید.")
+            }
+            if (failure is CancellationException) throw failure
+        }
+        return requireNotNull(db.officialSubmissionDao().byId(id))
+    }
+
+    /** Read-only reconciliation; SUCCESS from the legacy API is not a v2 signed receipt. */
+    suspend fun inquireLegacy(id: String): OfficialSubmission {
+        sessionCheck()
+        val initial = row(id)
+        require(initial.protocol == "LEGACY")
+        require(initial.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
+        try {
+            val result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
+            require(result.uid == initial.requestId)
+            require(result.taxId == null || result.taxId == initial.taxId)
+            require(initial.referenceNumber == null || result.referenceNumber == initial.referenceNumber)
+            when (result.status) {
+                "SUCCESS" -> {
+                    // The legacy endpoint reports success over authenticated TLS, but the
+                    // result is not a cryptographically verifiable v2 signed receipt.
+                    require(!result.referenceNumber.isNullOrBlank())
+                    resolve(id, "ACCEPTED", result.referenceNumber,
+                        "پذیرش از مسیر بدون گواهی گزارش شد؛ رسید امضاشده نسخه ۲ موجود نیست.")
+                }
+                "FAILED" -> resolve(id, "REJECTED", result.referenceNumber,
+                    "صورتحساب رد شد. کدهای خطا: " + result.errorCodes.joinToString("، "))
+                "PENDING", "IN_PROGRESS" -> resolve(id, "SUBMITTED", result.referenceNumber,
+                    "صورتحساب در صف اعتبارسنجی سامانه است.")
+                else -> resolve(id, "UNKNOWN", result.referenceNumber, "نتیجه قطعی نیست؛ دوباره استعلام کنید.")
+            }
+        } catch (failure: Exception) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                resolve(id, "UNKNOWN", null, "استعلام معتبر دریافت نشد؛ ارسال مجدد نکنید.")
+            }
+            if (failure is CancellationException) throw failure
+        }
+        return requireNotNull(db.officialSubmissionDao().byId(id))
+    }
+
     suspend fun inquire(id: String): OfficialSubmission {
         sessionCheck()
         val initial = row(id)
+        require(initial.protocol == "V2") { "استعلام این درخواست از مسیر بدون گواهی انجام می‌شود." }
         require(initial.state in setOf("SENDING","UNKNOWN","SUBMITTED")) { "درخواست در وضعیت قابل استعلام نیست." }
         fun encode(s: String) = URLEncoder.encode(s,"UTF-8")
         // Supply the original range explicitly; the official default only searches the last 24 hours.
