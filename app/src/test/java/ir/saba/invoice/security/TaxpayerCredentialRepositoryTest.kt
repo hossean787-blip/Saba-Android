@@ -50,6 +50,28 @@ class TaxpayerCredentialRepositoryTest {
     private suspend fun rejected(block:suspend()->Unit){
         try {block();fail("Expected credential rejection")}catch(_:IllegalArgumentException){}
     }
+    @Test fun certificateImportAcceptsAndroidProviderNamesAndRejectsCsrOrPrivateKey() {
+        val certificate = TestCertificates.certificate(keyA)
+        for (displayName in listOf("", "file", "download.bin", "گواهی")) {
+            val imported = TaxpayerSigningCertificate.read(
+                java.io.ByteArrayInputStream(certificate), displayName)
+            assertArrayEquals(certificate, imported)
+            assertNotNull(TaxpayerSigningCertificate.parse(imported))
+        }
+        for ((bad, expected) in listOf(
+            "-----BEGIN CERTIFICATE REQUEST-----" to "CSR",
+            "-----BEGIN PRIVATE KEY-----" to "کلید خصوصی"
+        )) {
+            try {
+                TaxpayerSigningCertificate.read(
+                    java.io.ByteArrayInputStream(bad.toByteArray()), "download.pem")
+                fail("Expected invalid file rejection")
+            } catch (e: IllegalArgumentException) {
+                assertTrue(e.message.orEmpty().contains(expected))
+            }
+        }
+    }
+
     @Test fun encryptsPrivateKeyAndRestoresOnlyItsScopedProfile()=runBlocking {
         val profile=saveA()
         assertEquals(TaxpayerIdentity(account,first,"A11216"),profile.identity)
