@@ -37,8 +37,13 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
     var error by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<OfficialSubmission?>(null) }
     var localCredentialReady by remember(companyId) { mutableStateOf(false) }
+    var legacyKeyReady by remember(companyId) { mutableStateOf(false) }
+    var selectedProtocol by remember(companyId) { mutableStateOf("V2") }
+    val credentialStore = remember(db, account) { TaxpayerCredentialRepository(context,db,account) }
     suspend fun refresh() {
         history = service.history(companyId)
+        legacyKeyReady = credentialStore.hasPendingPrivateKey(companyId)
+        if (legacyKeyReady && history.isEmpty()) selectedProtocol = "LEGACY"
         val company = requireNotNull(db.companyDao().byId(companyId))
         require(company.purchaserId == account.ownerId)
         name = company.name
@@ -72,6 +77,14 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (legacyKeyReady) {
+                OutlinedButton(enabled=!busy,onClick={
+                    act {
+                        service.checkLegacySigningReadiness(companyId)
+                        onNotice("شناسه یکتا و کلید خصوصی همین مؤدی آماده ارسال بدون گواهی است؛ هنوز هیچ فاکتوری ارسال نشده.")
+                    }
+                },modifier=Modifier.fillMaxWidth()) { Text("بررسی کلید خصوصی و شناسه یکتا (بدون ارسال)") }
+            }
             OutlinedButton(enabled=!busy,onClick={
                 localCredentialReady = false
                 act {
@@ -115,10 +128,20 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         item {
             selected?.let { invoice ->
                 Text("فاکتور ${invoice.invoiceNumber} — ${invoice.issueDate} — ${invoice.totalAmountRial} ریال")
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected=selectedProtocol=="LEGACY", enabled=!busy && legacyKeyReady,
+                        onClick={selectedProtocol="LEGACY"},label={Text("شناسه یکتا + کلید خصوصی")})
+                    FilterChip(selected=selectedProtocol=="V2",enabled=!busy,
+                        onClick={selectedProtocol="V2"},label={Text("اتصال نسخه ۲ با گواهی")})
+                }
+                if(selectedProtocol=="LEGACY") Text(
+                    "بدون نیاز به بارگذاری گواهی؛ ارسال از مسیر مستقیم مؤدی. فقط صورتحساب اصلی نوع ۱، الگوی فروش ۱.",
+                    style=MaterialTheme.typography.bodySmall)
+
                 Text("زمان پیشنهادی ساعت ۱۲ تهران است؛ زمان واقعی صدور را با قالب ISO و منطقه زمانی وارد کنید.")
                 OutlinedTextField(value=issueTime,onValueChange={issueTime=it},enabled=!busy,label={Text("زمان واقعی صدور ISO")},modifier=Modifier.fillMaxWidth())
                 OutlinedTextField(value=unit,onValueChange={unit=ir.saba.invoice.domain.InvoiceInput.digits(it).trim()},enabled=!busy,label={Text("واحد سنجش مشترک فقط برای ردیف‌های قدیمی (اختیاری)")},supportingText={Text("برای ردیف‌های جدید با واحد جداگانه لازم نیست؛ نمونه کد 1627 = عدد")},modifier=Modifier.fillMaxWidth())
-                Button(enabled=!busy,onClick={act { service.prepare(companyId,invoice.id,issueTime,unit);selected=null;onNotice("محتوا ثبت شد؛ هنوز ارسال نشده است.") }}) { Text("اعتبارسنجی و ثبت محتوای ثابت") }
+                Button(enabled=!busy,onClick={act { service.prepare(companyId,invoice.id,issueTime,unit,selectedProtocol);selected=null;onNotice("محتوا ثبت شد؛ هنوز ارسال نشده است.") }}) { Text("اعتبارسنجی و ثبت محتوای ثابت") }
             }
         }
         items(historyRows,key={it.requestId}) { row ->
@@ -126,10 +149,13 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text("فاکتور ${invoiceRows.find { it.id == row.invoiceId }?.invoiceNumber ?: row.invoiceId}")
                     Text("شماره مالیاتی: ${row.taxId}")
+                    Text("روش ارسال: " + if (row.protocol == "LEGACY") "کلید خصوصی و شناسه یکتا" else "نسخه ۲ با گواهی")
                     Text(when(row.state) {
                         "PREPARED" -> "آماده؛ ارسال نشده"
                         "SUBMITTED" -> "در سامانه در انتظار اعتبارسنجی؛ نتیجه نهایی نشده"
-                        "ACCEPTED" -> "پذیرفته‌شده؛ امضای رسید سازمان بررسی شد"
+                        "ACCEPTED" -> if (row.protocol == "LEGACY")
+                            "سامانه مسیر بدون گواهی نتیجه موفق گزارش کرده؛ رسید امضاشده نسخه ۲ موجود نیست"
+                        else "پذیرفته‌شده؛ امضای رسید سازمان بررسی شد"
                         "REJECTED" -> "ردشده در سامانه"
                         else -> "نتیجه نامشخص؛ استعلام لازم است"
                     })
@@ -155,7 +181,12 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                             Text("لغو آماده‌سازی؛ هنوز ارسال نشده")
                         }
                     }
-                    if(row.state in setOf("SENDING","UNKNOWN","SUBMITTED")) OutlinedButton(enabled=!busy,onClick={act { service.inquire(row.requestId) }}) { Text("استعلام همان درخواست") }
+                    if(row.state in setOf("SENDING","UNKNOWN","SUBMITTED")) OutlinedButton(enabled=!busy,onClick={
+                        act {
+                            if (row.protocol == "LEGACY") service.inquireLegacy(row.requestId)
+                            else service.inquire(row.requestId)
+                        }
+                    }) { Text("استعلام همان درخواست") }
                 }
             }
         }
@@ -179,7 +210,13 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             text={Text(if (header.getInt("ins") == 3)
                 "مؤدی: $name\nموضوع: ابطالی\nشماره مالیاتی جدید: ${row.taxId}\nشماره مرجع: ${header.getString("irtaxid")}\nاین سند برای ابطال صورتحساب مرجع است؛ اقلام و مشخصات خریدار از مرجع بازیابی می‌شوند. پذیرش واقعی این مسیر هنوز آزمون نشده است.\nارسال فقط با تأیید شما انجام می‌شود."
                 else "مؤدی: $name\nشماره مالیاتی: ${row.taxId}\nموضوع: $subjectName\nشناسه مرجع: ${header.optString("irtaxid", "—")}\nمبلغ: ${header.get("tbill")} ریال\nمالیات: ${header.get("tvam")} ریال\nروش تسویه: ${when(header.getInt("setm")) { 1 -> "نقدی"; 2 -> "نسیه"; else -> "ترکیبی" }}\nسهم نقدی بدون مالیات: ${header.opt("cap")} ریال\nسهم نسیه بدون مالیات: ${header.opt("insp") ?: 0} ریال\nخریدار: ${header.getString("bid")}\nواحدهای هر ردیف: $units\nاطلاعات و سهم پرداخت را تأیید می‌کنید؟ این اقدام سند مالیاتی واقعی ارسال می‌کند.")},
-            confirmButton={TextButton(onClick={confirmation=null;act { service.submit(row.requestId) }}) { Text("تأیید و ارسال واقعی") }},
+            confirmButton={TextButton(onClick={
+                confirmation=null
+                act {
+                    if (row.protocol == "LEGACY") service.submitLegacy(row.requestId)
+                    else service.submit(row.requestId)
+                }
+            }) { Text("تأیید و ارسال واقعی") }},
             dismissButton={TextButton(onClick={confirmation=null}) { Text("انصراف") }})
     }
 }
