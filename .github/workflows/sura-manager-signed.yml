@@ -72,7 +72,7 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > sura-admin-android/app/build/manager-release-signature.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -n 1 | tee sura-admin-android/app/build/manager-release-package.txt
-          grep -q "name='ir.sabagostar.suramanager' versionCode='3' versionName='1.1.0-rc2'" sura-admin-android/app/build/manager-release-package.txt
+          grep -q "name='ir.sabagostar.suramanager' versionCode='4' versionName='1.1.1-rc3'" sura-admin-android/app/build/manager-release-package.txt
           unzip -t "$apk" >/dev/null
           sha256sum "$apk" > sura-admin-android/app/build/manager-release-sha256.txt
       - name: Upload signed independent admin APK
