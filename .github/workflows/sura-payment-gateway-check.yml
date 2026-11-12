@@ -18,8 +18,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Parse edge code and execute payment guard tests (no real charges)
-        run: |
-          node --experimental-strip-types --check backend/supabase/functions/sura-zarinpal/index.ts
-          node --experimental-strip-types --check backend/supabase/functions/sura-zarinpal/payment_rules.ts
-          node --experimental-strip-types --test tests/sura-zarinpal-rules.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check deployed Edge Function with Deno
+        run: deno check backend/supabase/functions/sura-zarinpal/index.ts
+      - name: Exercise payment guards without real transactions
+        run: node --experimental-strip-types --test tests/sura-zarinpal-rules.test.mjs
