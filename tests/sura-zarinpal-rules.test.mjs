@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   validMerchantId,validAuthority,validOrderId,verifiedGatewayReference,validCreditQuote
 } from "../backend/supabase/functions/sura-zarinpal/payment_rules.ts";
@@ -38,4 +39,13 @@ test("price and ten-percent VAT come from an exact trusted rial quote", () => {
   ])assert.equal(validCreditQuote({...quote,...patch},3),false,JSON.stringify(patch));
   assert.equal(validCreditQuote(quote,0),false);
   assert.equal(validCreditQuote(quote,999999),false);
+});
+
+test("checkout uses active ZarinPal v4 host and explicit rial currency", () => {
+  const source=readFileSync(new URL("../backend/supabase/functions/sura-zarinpal/index.ts",import.meta.url),"utf8");
+  assert.ok(source.includes("https://payment.zarinpal.com/pg/v4/payment/"));
+  assert.ok(!source.includes('gatewayBase = "https://api.zarinpal.com'));
+  assert.ok(source.includes('merchant_id:merchant,amount,currency:"IRR"'));
+  assert.ok(source.includes("gateway_network_unavailable"));
+  assert.ok(source.includes("gateway_http_error"));
 });
