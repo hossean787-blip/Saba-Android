@@ -5,6 +5,7 @@ on:
       - main
     paths:
       - 'app/src/androidTest/**'
+      - 'app/src/main/java/ir/saba/invoice/ui/AppSettingsScreen.kt'
       - 'app/src/main/java/ir/saba/invoice/ui/InvoiceScreen.kt'
       - 'app/src/main/java/ir/saba/invoice/ui/OfficialSubmissionScreen.kt'
       - 'app/src/main/java/ir/saba/invoice/security/**'
