@@ -1,5 +1,6 @@
 /* SURA Manager v1: account directory, role approvals, audit, health, paged orders. */
 const MANAGER_ENDPOINT = 'sura-manager-api';
+const MANAGER_SUPERADMIN_ID = 'eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';
 let directoryPage = 1, auditPage = 1, auditKind = 'credit', orderPage = 1, orderState = '';
 let orderOwner='',orderFrom='',orderTo='';
 let lastAuditRows=[],lastAuditKind='';
@@ -94,12 +95,12 @@ async function renderRoles(c) {
         return;
     }
     const d = await managerFetch('role-list', {});
-    c.innerHTML = `<div class="section-hero"><span class="eyebrow">ACCESS CONTROL</span><h2>مدیران و سطح دسترسی</h2><p>سطح دسترسی فقط در سرور نگهداری می‌شود. هر تغییر با شناسه پیگیری و دلیل ثبت خواهد شد.</p></div>
- <div class="panel"><div class="panel-head"><h3>اعضای تیم مدیریت</h3><button class="action-btn" onclick="openManagerRoleModal('','','')">+ افزودن مدیر یا ناظر</button></div>
+    c.innerHTML = `<div class="section-hero"><span class="eyebrow">ACCESS CONTROL</span><h2>مدیران و سطح دسترسی</h2><p>مدیرکل منحصراً hossean787@gmail.com است. نقش ناظر و ویرایشگر جداگانه مدیریت می‌شوند.</p></div>
+ <div class="panel"><div class="panel-head"><h3>اعضای تیم مدیریت</h3><button class="action-btn" onclick="openManagerRoleModal('','','')">+ افزودن ناظر یا ویرایشگر</button></div>
  <div class="tbl-wrap"><table><thead><tr><th>ایمیل</th><th>سطح</th><th>آخرین به‌روزرسانی</th><th>عملیات</th></tr></thead><tbody>
  ${(d.roles || []).map(r => `<tr><td>${html(r.email || '—')}<small class="technical-id" dir="ltr">${html(r.user_id)}</small></td>
  <td>${managerPill(MANAGER_ROLE_LABEL[r.role], r.role === 'admin' ? 'red' : 'blue')}</td><td>${safeTime(r.updated_at)}</td>
- <td><button class="action-btn" onclick="openManagerRoleModal('${r.user_id}','${r.role}',${safeJSString(r.email || '')})">تغییر نقش</button></td></tr>`).join('') || '<tr><td colspan="4">مدیری تعریف نشده است.</td></tr>'}
+ <td><button class="action-btn" ${r.user_id===MANAGER_SUPERADMIN_ID?'disabled aria-label="مدیرکل ثابت"':''} onclick="openManagerRoleModal('${r.user_id}','${r.role}',${safeJSString(r.email || '')})">تغییر نقش</button></td></tr>`).join('') || '<tr><td colspan="4">مدیری تعریف نشده است.</td></tr>'}
  </tbody></table></div>${d.role_list_truncated ? '<p class="empty-note">فهرست به ۱۰۰ نقش محدود است.</p>' : ''}</div>
  <div class="panel"><div class="panel-head"><h3>آخرین تغییرات نقش</h3></div><div class="tbl-wrap"><table><thead><tr><th>هدف</th><th>از</th><th>به</th><th>دلیل</th><th>زمان</th></tr></thead><tbody>
  ${(d.history || []).slice(0, 20).map(v => `<tr><td>${managerGuid(v.target_id)}</td><td>${html(MANAGER_ROLE_LABEL[v.role_before] || 'بدون نقش')}</td><td>${html(MANAGER_ROLE_LABEL[v.role_after] || 'حذف دسترسی')}</td><td>${html(v.reason)}</td><td>${safeTime(v.created_at)}</td></tr>`).join('') || '<tr><td colspan="5">تغییری ثبت نشده است.</td></tr>'}</tbody></table></div></div>`;
@@ -107,10 +108,11 @@ async function renderRoles(c) {
 function openManagerRoleModal(id = '', expected = '', email = '') {
     if (ADMIN_ROLE !== 'admin')
         return toast('تنها مدیر ارشد دسترسی دارد', 'error');
-    openModal('تغییر دسترسی مدیریتی', `<div class="empty-note">افزودن مدیر یا تغییر نقش تنها با حساب ایمیل تأییدشده مجاز است. نقش مدیر ارشد را فقط به شخص مورد اعتماد واگذار کنید.</div>
+    if(id===MANAGER_SUPERADMIN_ID)return toast('حساب مدیرکل ثابت است','error');
+    openModal('تغییر دسترسی مدیریتی', `<div class="empty-note">مدیرکل ثابت: hossean787@gmail.com. برای سایر حساب‌ها فقط نقش ناظر و ویرایشگر قابل تنظیم است.</div>
  <div class="field-row"><label>شناسه UUID کاربر</label><input dir="ltr" id="manager-role-id" value="${html(id)}" ${id ? 'readonly' : ''}></div>
  <div class="field-row"><label>ایمیل هدف (برای تأیید انسانی)</label><input id="manager-role-email" value="${html(email)}" placeholder="ایمیل حساب مقصد"></div>
- <div class="field-row"><label>نقش جدید</label><select id="manager-role-choice"><option value="viewer">ناظر ـ فقط مشاهده</option><option value="editor">ویرایشگر ـ بدون تغییر موجودی</option><option value="admin">مدیر ارشد ـ دسترسی کامل</option><option value="none">لغو نقش مدیریتی</option></select></div>
+ <div class="field-row"><label>نقش جدید</label><select id="manager-role-choice"><option value="viewer">ناظر ـ فقط مشاهده</option><option value="editor">ویرایشگر ـ بدون تغییر موجودی</option><option value="none">لغو نقش مدیریتی</option></select></div>
  <div class="field-row"><label>دلیل تغییر (حداقل ۵ حرف)</label><textarea id="manager-role-reason" maxlength="500"></textarea></div>`, `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-danger" onclick="submitManagerRole()">ثبت تغییر با ممیزی</button>`);
     document.getElementById('manager-role-choice').value = expected || 'viewer';
     document.getElementById('modal').dataset.expected = expected;
@@ -121,6 +123,7 @@ async function submitManagerRole() {
         const target = document.getElementById('manager-role-id').value.trim(), expected = document.getElementById('modal').dataset.expected || null, role = document.getElementById('manager-role-choice').value, reason = document.getElementById('manager-role-reason').value.trim(), email = document.getElementById('manager-role-email').value.trim();
         if (!validUUID(target) || reason.length < 5 || !email.includes('@'))
             return toast('شناسه، ایمیل و دلیل تغییر را بررسی کنید', 'error');
+        if(target===MANAGER_SUPERADMIN_ID||role==='admin')return toast('نقش مدیرکل فقط برای حساب ثابت است','error');
         if (expected === role || (!expected && role === 'none'))
             return toast('نقش انتخابی تغییری ایجاد نمی‌کند', 'error');
         if (!confirm('تغییر دسترسی کاربر ' + email + ' به «' + (MANAGER_ROLE_LABEL[role] || 'حذف نقش') + '» را تأیید می‌کنید؟'))
