@@ -2,6 +2,7 @@ package ir.saba.invoice
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.security.AccountScope
 import androidx.compose.ui.test.*
@@ -71,6 +72,46 @@ class AccountScreenTest {
         compose.onNodeWithText("بازگشت به حساب کاربری").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, returns) }
     }
+    @Test fun redesignedSettingsUpdateFontAndKeepSecurityActionsFunctional() {
+        var scale by mutableFloatStateOf(1f)
+        var disabled by mutableStateOf(false)
+        var busy by mutableStateOf(false)
+        var commits = 0
+        var resets = 0
+        var disables = 0
+        compose.setContent { MaterialTheme {
+            AppSettingsScreen(
+                scale, busy,
+                onFontScale = { scale = it }, onCommitFontScale = { commits++ },
+                onResetFont = { scale = 1f; resets++ },
+                biometricEnabled = !disabled, onDisableBiometrics = {
+                    disables++
+                    disabled = true
+                },
+                onBackToAccount = {}
+            )
+        } }
+        compose.onNodeWithTag("settingsHero").assertExists()
+        compose.onNodeWithTag("settingsFontPercent").assertTextContains("100٪")
+        compose.onNodeWithTag("settingsFontReset").assertIsNotEnabled()
+        compose.onNodeWithTag("settingsFontSlider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(1.2f) }
+        compose.onNodeWithTag("settingsFontPercent").assertTextContains("120٪")
+        compose.onNodeWithTag("settingsFontReset").performScrollTo().assertIsEnabled().performClick()
+        compose.runOnIdle {
+            assertEquals(1f, scale, 0.001f)
+            assertEquals(1, resets)
+        }
+        compose.onNodeWithTag("settingsFontPercent").assertTextContains("100٪")
+        compose.onNodeWithTag("settingsBiometricDisable").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, disables) }
+        compose.onNodeWithTag("settingsBiometricDisable").assertDoesNotExist()
+        compose.onNodeWithText("ورود بیومتریک غیرفعال است").assertExists()
+        compose.runOnIdle { busy = true }
+        compose.onNodeWithTag("settingsFontSlider").assertIsNotEnabled()
+        compose.onNodeWithTag("settingsBackToAccount").performScrollTo().assertIsNotEnabled()
+    }
+
     @Test fun reusedEmailDoesNotShareLocalContactProfileAcrossOwners() {
         val a=AccountScope.of("11111111-1111-4111-8111-111111111111")
         val b=AccountScope.of("22222222-2222-4222-8222-222222222222")
