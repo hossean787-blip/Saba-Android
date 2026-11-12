@@ -59,6 +59,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var paymentBusy by remember { mutableStateOf(false) }
     var paymentMessage by remember { mutableStateOf("") }
     var pendingOrderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var abandonPendingConfirmation by remember { mutableStateOf(false) }
     var plan by remember { mutableStateOf("single") }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
@@ -216,6 +217,13 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                         Text("استعلام نتیجه آخرین پرداخت")
                     }
                 }
+                if (plan == "single" && pendingOrderId != null) {
+                    Text("ابتدا وضعیت پرداخت قبلی را استعلام کنید؛ ایجاد سفارش هم‌زمان ممکن است به پرداخت تکراری منجر شود.",
+                        color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
+                    TextButton(enabled = !paymentBusy, onClick = { abandonPendingConfirmation = true }) {
+                        Text("پیگیری سفارش قبلی را کنار می‌گذارم")
+                    }
+                }
                 Button(onClick = {
                     val count = selectedQuantity ?: return@Button
                     paymentBusy = true
@@ -230,7 +238,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                             .onFailure { paymentMessage = it.message ?: "درگاه پرداخت در دسترس نیست." }
                         paymentBusy = false
                     }
-                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy,
+                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy && pendingOrderId == null,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)) {
                     Text(if (plan == "single") (if (paymentBusy) "در حال ایجاد سفارش…" else "پرداخت امن زرین‌پال")
@@ -295,6 +303,19 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             color = Color(0xFF5F7391), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
     }
+    if (abandonPendingConfirmation) AlertDialog(
+        onDismissRequest = { abandonPendingConfirmation = false },
+        title = { Text("سفارش قبلی هنوز تعیین تکلیف نشده است") },
+        text = { Text("قبل از ایجاد سفارش جدید، تراکنش قبلی را در زرین‌پال و سورا بررسی کنید. کنار گذاشتن پیگیری فقط در این گوشی انجام می‌شود؛ اگر پرداخت قبلی موفق شده باشد، ممکن است بعداً در سرور ثبت شود. هیچ اعتباری با این کار شارژ یا حذف نمی‌شود.") },
+        confirmButton = { TextButton(onClick = {
+            pendingOrderId = null
+            abandonPendingConfirmation = false
+            paymentMessage = "پیگیری محلی سفارش قبلی کنار گذاشته شد؛ برای وضعیت مالی به سوابق درگاه مراجعه کنید."
+        }) { Text("تأیید و شروع سفارش جدید") } },
+        dismissButton = { TextButton(onClick = { abandonPendingConfirmation = false }) {
+            Text("بازگشت به استعلام")
+        } }
+    )
 }
 
 @Composable
