@@ -103,6 +103,9 @@ function callbackPage(message:string):Response {
 Deno.serve(async (req:Request)=>{
   const url=new URL(req.url),route=url.pathname.split("/").pop();
   if(!base||!anon||!secret)return reply({error:"server_not_configured"},503);
+  // Safe, read-only operational diagnosis; never expose the merchant identifier.
+  if(route==="health" && req.method==="GET")
+    return reply({service:"sura-zarinpal",merchant_configured:ready});
   if(route==="callback"){
     if(req.method!=="GET")return reply({error:"method_not_allowed"},405);
     const authority=url.searchParams.get("Authority");
