@@ -43,6 +43,7 @@ jobs:
           node --check sura-admin-android/backend/sura-manager-api.compiled.js
           node sura-admin-android/tests/backend_routes.cjs
           node sura-admin-android/tests/report_zip_test.cjs
+          node sura-admin-android/tests/manager_filters.cjs
       - name: Compile and package separate Android app
         run: |
           chmod +x gradlew

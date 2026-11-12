@@ -1,6 +1,8 @@
 /* SURA Manager v1: account directory, role approvals, audit, health, paged orders. */
 const MANAGER_ENDPOINT = 'sura-manager-api';
 let directoryPage = 1, auditPage = 1, auditKind = 'credit', orderPage = 1, orderState = '';
+let orderOwner='',orderFrom='',orderTo='';
+let lastAuditRows=[],lastAuditKind='';
 let directoryRows = [];
 const MANAGER_STATE_LABEL = { created: 'ثبت اولیه', requested: 'منتظر پرداخت', verified: 'پرداخت تأییدشده', failed: 'ناموفق' };
 const MANAGER_ROLE_LABEL = { admin: 'مدیر ارشد', editor: 'ویرایشگر', viewer: 'ناظر' };
@@ -146,13 +148,20 @@ async function appendManagerPriceHistory(c) {
     c.appendChild(el);
 }
 async function renderManagerOrders(c) {
-    const payload = await managerFetch('orders', Object.assign({ page: orderPage, perPage: 40 }, (orderState ? { state: orderState } : {})));
-    const orders = payload.orders || [];
+    const filters={page:orderPage,perPage:40};if(orderState)filters.state=orderState;if(orderOwner)filters.owner=orderOwner;if(orderFrom)filters.from=orderFrom;if(orderTo)filters.to=orderTo;
+ const payload=await managerFetch('orders',filters);const orders=payload.orders||[];
     c.innerHTML = `<div class="section-hero"><span class="eyebrow">PAYMENT LEDGER</span><h2>دفتر پرداخت‌ها</h2><p>تراکنش‌ها از سرور با شمارش دقیق و صفحه‌بندی دریافت می‌شوند. هیچ وضعیت پرداختی به‌صورت دستی تغییر نمی‌کند.</p></div>
  <div class="panel"><div class="panel-head"><h3>پرداخت‌های زرین‌پال</h3><span>${payload.total === null ? 'تعداد نامشخص' : fmtNum(payload.total) + ' سفارش'}</span></div>
  <div class="filters"><select id="order-filter" class="filter-select" onchange="setManagerOrderState(this.value)">
  <option value="">تمام وضعیت‌ها</option><option value="verified" ${orderState === 'verified' ? 'selected' : ''}>تأییدشده</option><option value="requested" ${orderState === 'requested' ? 'selected' : ''}>درگاه</option><option value="created" ${orderState === 'created' ? 'selected' : ''}>جدید</option><option value="failed" ${orderState === 'failed' ? 'selected' : ''}>ناموفق</option>
- </select><input id="order-search" class="search-input" placeholder="جست‌وجوی شناسه / مرجع در همین صفحه" oninput="filterManagerOrders(this.value)"></div>
+ </select><input id="order-search" class="search-input" placeholder="جست‌وجو در همین صفحه" oninput="filterManagerOrders(this.value)" aria-label="جست‌وجوی صفحه"></div>
+ <div class="manager-filterbar" role="group" aria-label="فیلتر سروری تراکنش‌ها">
+ <label>شناسه مالک<input id="order-owner" dir="ltr" maxlength="36" autocomplete="off" placeholder="UUID مالک" value="${html(orderOwner)}"></label>
+ <label>از تاریخ میلادی<input type="date" id="order-from" value="${html(orderFrom)}"></label>
+ <label>تا تاریخ میلادی<input type="date" id="order-to" value="${html(orderTo)}"></label>
+ <button class="action-btn manager-filter-primary" type="button" onclick="applyManagerOrderFilters()">اعمال روی همه سفارش‌ها</button>
+ <button class="action-btn" type="button" onclick="clearManagerOrderFilters()">حذف فیلتر</button>
+ </div><p class="manager-filter-note">فیلتر مالک و بازه تاریخ روی کل سوابق سرور اعمال می‌شود؛ جست‌وجوی بالایی مخصوص صفحه جاری است.</p>
  <div class="tbl-wrap"><table id="manager-orders"><thead><tr><th>سفارش</th><th>مالک</th><th>مبلغ (ریال)</th><th>اعتبار</th><th>وضعیت</th><th>مرجع درگاه</th><th>تاریخ</th></tr></thead><tbody>
  ${orders.map(o => `<tr data-q="${html((o.id + ' ' + o.owner_user_id + ' ' + (o.authority || '') + ' ' + (o.ref_id || '')).toLowerCase())}">
  <td>${managerGuid(o.id)}</td><td>${managerGuid(o.owner_user_id)}</td><td>${fmtRial(o.amount_rial)}</td><td>${fmtNum(o.credit_units)}</td>
@@ -162,6 +171,16 @@ async function renderManagerOrders(c) {
 }
 function filterManagerOrders(q) { document.querySelectorAll('#manager-orders tbody tr').forEach(tr => { tr.style.display = (tr.dataset.q || '').includes((q || '').toLowerCase()) ? '' : 'none'; }); }
 function setManagerOrderState(v) { orderPage = 1; orderState = v; showPage('payments'); }
+function applyManagerOrderFilters(){
+ const owner=document.getElementById('order-owner').value.trim();
+ const from=document.getElementById('order-from').value;
+ const to=document.getElementById('order-to').value;
+ if(owner&&!validUUID(owner))return toast('شناسه مالک باید UUID معتبر باشد','error');
+ if((from&&!/^\d{4}-\d{2}-\d{2}$/.test(from))||(to&&!/^\d{4}-\d{2}-\d{2}$/.test(to)))return toast('تاریخ نامعتبر است','error');
+ if(from&&to&&from>to)return toast('تاریخ شروع نباید بعد از پایان باشد','error');
+ orderOwner=owner;orderFrom=from;orderTo=to;orderPage=1;showPage('payments');
+}
+function clearManagerOrderFilters(){orderOwner='';orderFrom='';orderTo='';orderState='';orderPage=1;showPage('payments');}
 function setManagerOrders(v) { orderPage = Math.max(1, v); showPage('payments'); }
 async function renderAuditLog(c) {
     if (ADMIN_ROLE !== 'admin') {
@@ -169,9 +188,10 @@ async function renderAuditLog(c) {
         return;
     }
     const d = await managerFetch('audit', { kind: auditKind, page: auditPage });
-    const labels = { credit: 'اصلاح اعتبار', price: 'تغییر قیمت', role: 'تغییر نقش' };
+    lastAuditRows=Array.isArray(d.rows)?d.rows:[];lastAuditKind=auditKind;
+  const labels = { credit: 'اصلاح اعتبار', price: 'تغییر قیمت', role: 'تغییر نقش' };
     c.innerHTML = `<div class="section-hero"><span class="eyebrow">AUDIT TRAIL</span><h2>دفتر ممیزی غیرقابل ویرایش</h2><p>تمام اصلاحات مدیریتی با شناسه درخواست، زمان، عامل و دلیل در پایگاه داده ثبت می‌شوند.</p></div>
- <div class="panel"><div class="panel-head"><h3>${labels[auditKind]}</h3><span>${d.total === null ? '' : fmtNum(d.total) + ' مورد'}</span></div>
+ <div class="panel"><div class="panel-head"><h3>${labels[auditKind]}</h3><button class="action-btn manager-audit-export" type="button" onclick="exportManagerAuditPage()">خروجی CSV همین صفحه</button><span>${d.total === null ? '' : fmtNum(d.total) + ' مورد'}</span></div>
  <div class="filters"><select class="filter-select" id="audit-kind" onchange="setManagerAudit(this.value)">
  <option value="credit" ${auditKind === 'credit' ? 'selected' : ''}>اصلاح اعتبار</option><option value="price" ${auditKind === 'price' ? 'selected' : ''}>تغییر قیمت</option><option value="role" ${auditKind === 'role' ? 'selected' : ''}>تغییر دسترسی</option></select></div>
  <div class="tbl-wrap"><table><thead><tr><th>زمان</th><th>رسید</th><th>عامل</th><th>شرح تغییر</th><th>دلیل</th></tr></thead><tbody>
@@ -181,6 +201,15 @@ async function renderAuditLog(c) {
  <td>${html(a.reason)}</td></tr>`).join('') || '<tr><td colspan="5">سابقه‌ای موجود نیست.</td></tr>'}</tbody></table></div>
  <div class="pagination manager-pagination"><button class="action-btn" ${auditPage === 1 ? 'disabled' : ''} onclick="setManagerAuditPage(${auditPage - 1})">قبلی</button>
  <strong>${fmtNum(auditPage)}</strong><button class="action-btn" ${(d.total !== null ? auditPage * 50 >= d.total : (d.rows || []).length < 50) ? 'disabled' : ''} onclick="setManagerAuditPage(${auditPage + 1})">بعدی</button></div></div>`;
+}
+function exportManagerAuditPage(){
+ if(ADMIN_ROLE!=='admin'||lastAuditKind!==auditKind)return toast('دسترسی خروجی مجاز نیست','error');
+ if(!lastAuditRows.length)return toast('در این صفحه سابقه‌ای وجود ندارد','error');
+ const rows=lastAuditRows.map(a=>[a.created_at||'',a.request_id||'',a.actor_user_id||a.actor_id||'',auditKind==='credit'?a.owner_id||'':auditKind==='role'?a.target_id||'':'',auditKind==='credit'?a.before_credits+' به '+a.after_credits:auditKind==='price'?a.old_price_rial+' به '+a.new_price_rial:(a.role_before||'none')+' به '+(a.role_after||'none'),a.reason||'']);
+ const head=['زمان','رسید','عامل','هدف','تغییر','دلیل'];
+ const csv=[head,...rows].map(row=>row.map(csvValue).join(',')).join('\r\n');
+ SuraReports.download(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),'sura-report-'+new Date().toISOString().slice(0,10)+'.csv');
+ toast('خروجی '+lastAuditRows.length+' رکورد از همین صفحه آماده شد','success');
 }
 function setManagerAudit(k) { auditKind = k; auditPage = 1; showPage('audit'); }
 function setManagerAuditPage(p) { auditPage = Math.max(1, p); showPage('audit'); }
