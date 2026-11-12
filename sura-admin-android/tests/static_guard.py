@@ -34,5 +34,5 @@ assert 'ACTION_CREATE_DOCUMENT' in java
 assert 'zipFiles' in js and 'makeXlsx' in js
 assert 'renderDirectory' in manager and 'managerFetch' in manager
 assert 'admin/manager.js' in java
-assert 'versionCode = 3' in (ROOT/'app/build.gradle.kts').read_text()
+assert 'versionCode = 4' in (ROOT/'app/build.gradle.kts').read_text()
 print('PASS: isolated application, secure WebView, CSP, no private API key, file export')
