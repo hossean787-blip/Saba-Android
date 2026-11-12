@@ -89,7 +89,12 @@ class HomeMoadianVisualInstrumentedTest {
             }
         } }
         compose.onNodeWithText("تنظیمات نمایش").assertExists()
+        compose.onNodeWithTag("settingsHero").assertExists()
+        compose.onNodeWithTag("settingsFontPercent").assertTextContains("100٪")
         screenshot("app-settings-emulator")
+        compose.onNodeWithTag("settingsBiometricDisable").performScrollTo().assertIsEnabled()
+        compose.onNodeWithText("اتصال سامانه مؤدیان").assertExists()
+        screenshot("app-settings-security-emulator")
     }
 
     @Test fun taxpayerFormAndTableRenderOnAndroid() {
