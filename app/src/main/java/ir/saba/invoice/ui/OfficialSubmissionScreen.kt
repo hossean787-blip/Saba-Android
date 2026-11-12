@@ -41,11 +41,18 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
     var localCredentialReady by remember(companyId) { mutableStateOf(false) }
     var legacyKeyReady by remember(companyId) { mutableStateOf(false) }
     var selectedProtocol by remember(companyId) { mutableStateOf("V2") }
+    var protocolInitialized by remember(companyId) { mutableStateOf(false) }
     val credentialStore = remember(db, account) { TaxpayerCredentialRepository(context,db,account) }
     suspend fun refresh() {
         history = service.history(companyId)
         legacyKeyReady = credentialStore.hasPendingPrivateKey(companyId)
-        if (legacyKeyReady && history.isEmpty()) selectedProtocol = "LEGACY"
+        // Prefer certificate-free sending when this taxpayer already has a staged
+        // private key, even if there are prior invoices. Preserve manual selection
+        // on subsequent refreshes so the user can deliberately choose V2.
+        if (!protocolInitialized) {
+            selectedProtocol = if (legacyKeyReady) "LEGACY" else "V2"
+            protocolInitialized = true
+        }
         val company = requireNotNull(db.companyDao().byId(companyId))
         require(company.purchaserId == account.ownerId)
         name = company.name
