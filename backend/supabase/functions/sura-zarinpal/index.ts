@@ -5,7 +5,8 @@ const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const merchant = Deno.env.get("ZARINPAL_MERCHANT_ID") ?? "";
 const callback = base + "/functions/v1/sura-zarinpal/callback";
-const gatewayBase = "https://api.zarinpal.com/pg/v4/payment/";
+// Current ZarinPal v4 production host. The former api.zarinpal.com host is obsolete.
+const gatewayBase = "https://payment.zarinpal.com/pg/v4/payment/";
 const ready = validMerchantId(merchant);
 const jsonHeaders = {"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 const reply = (value:unknown,status=200) =>
@@ -49,10 +50,22 @@ async function gateway(endpoint:"request.json"|"verify.json",body:unknown):Promi
     method:"POST",headers:{"content-type":"application/json","accept":"application/json"},
     body:JSON.stringify(body),signal:AbortSignal.timeout(15000)
   });
-  if(!response.ok)throw Error("gateway_unavailable");
   const text=await response.text();
   if(text.length>100000)throw Error("gateway_response_too_large");
-  return JSON.parse(text);
+  let payload: any;
+  try { payload = JSON.parse(text); }
+  catch { throw Error("gateway_invalid_response"); }
+  if(!response.ok){
+    // Do not log or disclose the full gateway response, credentials or card data.
+    const rawCode=payload?.errors?.code;
+    const gatewayCode=typeof rawCode==="number" && Number.isSafeInteger(rawCode)
+      ? rawCode : null;
+    console.error("sura_zarinpal_gateway_http",JSON.stringify({
+      endpoint,httpStatus:response.status,gatewayCode
+    }));
+    throw Error("gateway_http_"+response.status);
+  }
+  return payload;
 }
 
 async function getOrderByAuthority(authority:string):Promise<PaymentOrder|null> {
@@ -163,7 +176,7 @@ Deno.serve(async (req:Request)=>{
     const order=orders[0];
     if(!validOrderId(order?.id))throw Error("order_creation_failed");
     const payment=await gateway("request.json",{
-      merchant_id:merchant,amount,callback_url:callback,
+      merchant_id:merchant,amount,currency:"IRR",callback_url:callback,
       description:"SURA invoice credits - "+quantity
     });
     const authority=payment?.data?.authority;
@@ -174,7 +187,15 @@ Deno.serve(async (req:Request)=>{
     });
     return reply({orderId:order.id,amountRial:amount,credits:quantity,
       paymentUrl:"https://www.zarinpal.com/pg/StartPay/"+authority});
-  }catch{
+  }catch(error){
+    const kind=error instanceof Error ? error.message : "";
+    if(kind.startsWith("gateway_http_"))
+      return reply({error:"gateway_http_error",httpStatus:Number(kind.slice(13))||502},502);
+    if(kind==="gateway_unavailable" || kind==="gateway_invalid_response" ||
+       kind==="gateway_response_too_large")
+      return reply({error:"gateway_unavailable"},502);
+    if(kind==="database_unavailable" || kind==="order_creation_failed")
+      return reply({error:"order_service_unavailable"},503);
     return reply({error:"payment_service_unavailable"},503);
   }
 });
