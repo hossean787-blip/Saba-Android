@@ -29,10 +29,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p app/build/upgrade/previous app/build/upgrade/current
-          # Compare the known signed 0.29.0 with the tested signed 0.33.0
+          # Compare tested signed 0.33.0 with verified signed 0.39.0
           # directly; no uninstall and no ephemeral debug signing key.
           # Never use a debug APK, change signing keys, or uninstall existing data.
-          gh run download 42545190530 -n SURA-signed-release-apk-248 \
+          gh run download 43137456907 -n SURA-signed-release-apk-306 \
             -D app/build/upgrade/previous --repo ${{ github.repository }}
           gh run download 42685768067 -n SURA-signed-release-apk-257 \
             -D app/build/upgrade/current --repo ${{ github.repository }}
@@ -60,11 +60,15 @@ jobs:
           NEW_BADGING="$("$AAPT" dump badging "$CURRENT" | head -n 1)"
           echo "$OLD_BADGING"
           echo "$NEW_BADGING"
-          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$OLD_BADGING" == *"versionCode='29'"* ]]
-          [[ "$NEW_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"versionCode='33'"* ]]
+          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$OLD_BADGING" == *"versionCode='33'"* ]]
+          [[ "$NEW_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"versionCode='39'"* ]]
           old_cert="$("$SIGNER" verify --print-certs "$PREVIOUS" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           new_cert="$("$SIGNER" verify --print-certs "$CURRENT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           [[ -n "$old_cert" && "$old_cert" == "$new_cert" ]]
+          [[ "$new_cert" == "55a5c9f677f899630bc792330606161560a8dea94b7fe0eabe11d47a013d7b0b" ]] || {
+            echo "::error::Current APK release signing certificate is not SURA's established identity."
+            exit 1
+          }
           echo "Release certificate continuity verified."
           sha256sum "$PREVIOUS" "$CURRENT" > app/build/upgrade/apk-sha256.txt
 

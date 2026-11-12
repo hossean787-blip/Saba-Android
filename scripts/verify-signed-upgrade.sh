@@ -54,7 +54,7 @@ after="$(adb shell pm list packages -U "$package" | tr -d '\r')"
   exit 1
 }
 echo "After update: $after"
-adb shell dumpsys package "$package" | grep 'versionCode=33' > app/build/upgrade/installed-version.txt
+adb shell dumpsys package "$package" | grep 'versionCode=39' > app/build/upgrade/installed-version.txt
 adb shell pm path "$package" | grep -q 'package:'
 adb logcat -c
 adb shell am force-stop "$package"
@@ -81,8 +81,8 @@ fi
   echo "SURA APK signed upgrade verified in Android emulator, API $sdk_api"
   echo "before_uid=$before"
   echo "after_uid=$after"
-  echo "previous_versionCode=29"
-  echo "current_versionCode=33"
+  echo "previous_versionCode=33"
+  echo "current_versionCode=39"
   echo "installation_mode=adb install -r (without uninstall/pm clear)"
   echo "release_process_running=yes"
   echo "crash_buffer=clear"
