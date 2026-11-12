@@ -52,7 +52,7 @@ class OfficialSubmissionScreenTest {
         try { compose.onNodeWithTag("officialSubmissionList").performScrollToNode(hasText(text)) }
         catch(e:AssertionError){throw AssertionError(compose.onRoot().printToString(),e)}
     }
-    @Test fun existingHistoryDoesNotForceCertificateRouteWhenPrivateKeyIsStored() = runBlocking {
+    @Test fun existingHistoryDoesNotForceCertificateRouteWhenPrivateKeyIsStored(): Unit = runBlocking {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = ctx.getSharedPreferences("sura_tax_credentials_${account.storageKey}", 0)
         prefs.edit().putString("pending_company_$company", "synthetic-staged-key-marker").commit()
