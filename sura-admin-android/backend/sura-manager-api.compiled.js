@@ -1,4 +1,4 @@
-// source-sha256:cb9d3b396f5081fc7e751785e4823c5ba858c03715dc513bd4b44ed0a9e13b39
+// source-sha256:583b067fbb8460cadf764c1a2dc915ded6cf647dd2ed47e38e90bef63bf3115a
 /** SURA Manager API v1. Privileged operations happen ONLY here, never in APK. */
 const BASE = Deno.env.get('SUPABASE_URL') || '';
 const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
@@ -6,6 +6,8 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const ORIGIN = 'https://appassets.androidplatform.net';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLES = ['admin', 'editor', 'viewer'];
+const SUPERADMIN_ID = 'eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';
+const SUPERADMIN_EMAIL = 'hossean787@gmail.com';
 const CORS = { 'access-control-allow-origin': ORIGIN, 'vary': 'Origin', 'access-control-allow-methods': 'POST,OPTIONS', 'access-control-allow-headers': 'authorization,apikey,content-type', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
 const HEADERS = { apikey: SERVICE, authorization: `Bearer ${SERVICE}` };
 const send = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...CORS, 'content-type': 'application/json; charset=utf-8' } });
@@ -33,6 +35,8 @@ async function identity(req) {
         return null;
     const found = (await jsonFrom(roles))?.[0]?.role;
     if (!ROLES.includes(found))
+        return null;
+    if (found === 'admin' && (u.id !== SUPERADMIN_ID || String(u.email || '').trim().toLowerCase() !== SUPERADMIN_EMAIL))
         return null;
     return { id: u.id, email: String(u.email || ''), role: found };
 }
@@ -201,6 +205,10 @@ async function handler(req) {
         if (!validId(target) || !validId(nonce) || !['admin', 'editor', 'viewer', 'none'].includes(String(role)) ||
             (expected !== null && !ROLES.includes(String(expected))) || !reasonValid(reason))
             return send({ error: 'invalid_role_request' }, 400);
+        if (role === 'admin' && target !== SUPERADMIN_ID)
+            return send({ error: 'reserved_superadmin' }, 403);
+        if (target === SUPERADMIN_ID && role !== 'admin')
+            return send({ error: 'immutable_superadmin' }, 403);
         const auth = safeUser(await authUser(target));
         if (!auth || !auth.verified)
             return send({ error: 'unverified_or_missing_user' }, 404);

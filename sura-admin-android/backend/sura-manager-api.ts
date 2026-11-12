@@ -5,6 +5,8 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const ORIGIN = 'https://appassets.androidplatform.net';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLES = ['admin', 'editor', 'viewer'];
+const SUPERADMIN_ID = 'eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';
+const SUPERADMIN_EMAIL = 'hossean787@gmail.com';
 const CORS = { 'access-control-allow-origin':ORIGIN, 'vary':'Origin', 'access-control-allow-methods':'POST,OPTIONS', 'access-control-allow-headers':'authorization,apikey,content-type', 'cache-control':'no-store','x-content-type-options':'nosniff' };
 const HEADERS = { apikey:SERVICE, authorization:`Bearer ${SERVICE}` };
 const send = (value:unknown,status=200) => new Response(JSON.stringify(value),{status,headers:{...CORS,'content-type':'application/json; charset=utf-8'}});
@@ -28,6 +30,7 @@ async function identity(req:Request){
  if(!roles?.ok)return null;
  const found=(await jsonFrom(roles))?.[0]?.role;
  if(!ROLES.includes(found))return null;
+ if(found==='admin'&&(u.id!==SUPERADMIN_ID||String(u.email||'').trim().toLowerCase()!==SUPERADMIN_EMAIL))return null;
  return {id:u.id as string,email:String(u.email||''),role:found as string};
 }
 async function rest(table:string,filters:Record<string,string|number>,count=false){
@@ -152,6 +155,8 @@ async function handler(req:Request){
   const target=body.target,role=body.role,expected=body.expected??null,reason=body.reason,nonce=body.request;
   if(!validId(target)||!validId(nonce)||!['admin','editor','viewer','none'].includes(String(role))||
      (expected!==null&&!ROLES.includes(String(expected)))||!reasonValid(reason))return send({error:'invalid_role_request'},400);
+  if(role==='admin'&&target!==SUPERADMIN_ID)return send({error:'reserved_superadmin'},403);
+  if(target===SUPERADMIN_ID&&role!=='admin')return send({error:'immutable_superadmin'},403);
   const auth=safeUser(await authUser(target));
   if(!auth||!auth.verified)return send({error:'unverified_or_missing_user'},404);
   if(typeof body.confirmEmail!=='string'||body.confirmEmail.trim().toLowerCase()!==auth.email.trim().toLowerCase())return send({error:'email_target_mismatch'},409);

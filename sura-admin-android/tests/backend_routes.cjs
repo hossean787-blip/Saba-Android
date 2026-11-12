@@ -4,11 +4,11 @@ const source=fs.readFileSync(require('node:path').resolve(__dirname,'../backend/
 const compiled=fs.readFileSync(require('node:path').resolve(__dirname,'../backend/sura-manager-api.compiled.js'),'utf8');
 const digest=crypto.createHash('sha256').update(source).digest('hex');
 assert(compiled.startsWith('// source-sha256:'+digest+'\n'),'backend TS & compiled JS are out of sync');
-let handler;let actor='bb668800-e29b-41d4-a716-446655440111';let uid='550e8400-e29b-41d4-a716-446655440000';let role='admin';let upstream=[];
+let handler;let actor='eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';let actorEmail='hossean787@gmail.com';let uid='550e8400-e29b-41d4-a716-446655440000';let role='admin';let upstream=[];
 const ok=(value,headers={})=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json',...headers}});
 async function fetchMock(url,opts={}){
  const u=new URL(url);upstream.push({path:u.pathname,method:opts.method||'GET',query:u.searchParams,body:opts.body&&JSON.parse(opts.body)});
- if(u.pathname==='/auth/v1/user')return ok({id:actor,email:'admin@test.test',email_confirmed_at:'2026-11-09T08:00:00Z'});
+ if(u.pathname==='/auth/v1/user')return ok({id:actor,email:actorEmail,email_confirmed_at:'2026-11-09T08:00:00Z'});
  if(u.pathname==='/auth/v1/admin/users')return ok({users:[{id:uid,email:'client@example.com',email_confirmed_at:'2026-11-09T00:00:00Z',created_at:'2026-11-09T00:00:00Z'}]});
  if(u.pathname==='/auth/v1/admin/users/'+uid)return ok({id:uid,email:'client@example.com',email_confirmed_at:'2026-11-09T00:00:00Z'});
  if(u.pathname==='/rest/v1/sura_admin_roles'){
@@ -34,6 +34,12 @@ async function call(path,data={},token='valid'){
 (async()=>{
  assert.equal((await call('summary',{},null)).status,401);
  assert.equal((await call('summary',{})).payload.summary.verified_orders,1);
+ actorEmail='unapproved@example.com';
+ assert.equal((await call('summary',{})).status,401,'another email must not act as superadmin');
+ actorEmail='hossean787@gmail.com';
+ actor='550e8400-e29b-41d4-a716-446655440111';
+ assert.equal((await call('summary',{})).status,401,'fake account id with same email must not act as superadmin');
+ actor='eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';
  assert.equal((await call('users',{page:0})).status,400);
  assert.equal((await call('users',{page:1,perPage:30})).payload.users[0].email,'client@example.com');
  assert.equal((await call('user',{id:uid})).payload.user.id,uid);
@@ -41,7 +47,8 @@ async function call(path,data={},token='valid'){
  assert.equal((await call('orders',{state:'DROP TABLE'})).status,400);
  assert.equal((await call('orders',{from:'INVALID'})).status,400);
  assert.equal((await call('health',{})).payload.status,'ok');
- assert.equal((await call('role-assign',{target:uid,role:'admin',expected:null,reason:'Test role assignment',request:uid,confirmEmail:'wrong@example.com'})).status,409);
+ assert.equal((await call('role-assign',{target:uid,role:'admin',expected:null,reason:'Test role assignment',request:uid,confirmEmail:'wrong@example.com'})).status,403);
+ assert.equal((await call('role-assign',{target:actor,role:'viewer',expected:'admin',reason:'Test role assignment',request:uid,confirmEmail:'hossean787@gmail.com'})).status,403);
  assert.equal((await call('role-assign',{target:uid,role:'viewer',expected:null,reason:'Test role assignment',request:uid,confirmEmail:'client@example.com'})).payload.status,'applied');
  assert.equal((await call('price-update',{price:120000,expected:100000,reason:'Pricing adjustment QA',request:uid})).payload.status,'applied');
  assert.equal((await call('audit',{kind:'role'})).payload.kind,'role');
