@@ -52,6 +52,44 @@ class OfficialSubmissionScreenTest {
         try { compose.onNodeWithTag("officialSubmissionList").performScrollToNode(hasText(text)) }
         catch(e:AssertionError){throw AssertionError(compose.onRoot().printToString(),e)}
     }
+    @Test fun existingHistoryDoesNotForceCertificateRouteWhenPrivateKeyIsStored() = runBlocking {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val prefs = ctx.getSharedPreferences("sura_tax_credentials_${account.storageKey}", 0)
+        prefs.edit().putString("pending_company_$company", "synthetic-staged-key-marker").commit()
+        try {
+            // An existing V2 submission must not make the next invoice default to V2.
+            val service = OfficialSubmissionService(db, account,
+                TaxpayerCredentialRepository(ctx, db, account),
+                sessionCheck={AccountSession.requireOwner(testSessionToken, account)})
+            service.prepare(company, invoice, "2025-03-21T12:00:00+03:30", "1627")
+            val next = db.invoiceDao().insert(Invoice(companyId=company,
+                customerId=requireNotNull(db.invoiceDao().byId(invoice)).customerId,
+                invoiceNumber="13", issueDate="1404/01/02", totalAmountRial=110,
+                taxAmountRial=10, status="FINALIZED"))
+            db.invoiceLineDao().insertAll(listOf(InvoiceLine(invoiceId=next,
+                itemCode="2710000138624", description="کالا", quantity=1,
+                unitPriceRial=100, taxRatePercent=10)))
+
+            compose.setContent {MaterialTheme {
+                OfficialSubmissionScreen(db,account,company,{},accessToken=testSessionToken)
+            }}
+            waitForReady()
+            scrollTo("آماده‌سازی فاکتور 13")
+            compose.onNodeWithText("آماده‌سازی فاکتور 13").performClick()
+            scrollTo("شناسه یکتا + کلید خصوصی")
+            compose.onNodeWithText("شناسه یکتا + کلید خصوصی").assertIsSelected()
+            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").performClick()
+            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").assertIsSelected()
+            // A subsequent user-triggered refresh must preserve the explicit selection.
+            scrollTo("بازخوانی وضعیت محلی")
+            compose.onNodeWithText("بازخوانی وضعیت محلی").performClick()
+            waitForReady()
+            scrollTo("اتصال نسخه ۲ با گواهی")
+            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").assertIsSelected()
+        } finally {
+            prefs.edit().remove("pending_company_$company").commit()
+        }
+    }
     @Test fun preparingNeverSendsAndRealSubmissionNeedsExplicitConfirmation() {
         compose.setContent {MaterialTheme {OfficialSubmissionScreen(db,account,company,{},accessToken=testSessionToken)}}
         waitForReady()
