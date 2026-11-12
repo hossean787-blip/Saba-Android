@@ -1,0 +1,25 @@
+name: SURA ZarinPal payment guards
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/supabase/functions/sura-zarinpal/**'
+      - 'tests/sura-zarinpal-rules.test.mjs'
+      - '.github/workflows/sura-payment-gateway-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse edge code and execute payment guard tests (no real charges)
+        run: |
+          node --experimental-strip-types --check backend/supabase/functions/sura-zarinpal/index.ts
+          node --experimental-strip-types --check backend/supabase/functions/sura-zarinpal/payment_rules.ts
+          node --experimental-strip-types --test tests/sura-zarinpal-rules.test.mjs
