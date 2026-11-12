@@ -46,10 +46,16 @@ async function verifiedUser(req:Request):Promise<{id:string}|null> {
 
 async function gateway(endpoint:"request.json"|"verify.json",body:unknown):Promise<any> {
   if(!ready)throw Error("merchant_not_configured");
-  const response=await fetch(gatewayBase+endpoint,{
-    method:"POST",headers:{"content-type":"application/json","accept":"application/json"},
-    body:JSON.stringify(body),signal:AbortSignal.timeout(15000)
-  });
+  let response: Response;
+  try {
+    response=await fetch(gatewayBase+endpoint,{
+      method:"POST",headers:{"content-type":"application/json","accept":"application/json"},
+      body:JSON.stringify(body),signal:AbortSignal.timeout(15000)
+    });
+  }catch(error){
+    console.error("sura_zarinpal_gateway_network",error instanceof Error ? error.name : "unknown");
+    throw Error("gateway_network_unavailable");
+  }
   const text=await response.text();
   if(text.length>100000)throw Error("gateway_response_too_large");
   let payload: any;
@@ -191,6 +197,8 @@ Deno.serve(async (req:Request)=>{
     const kind=error instanceof Error ? error.message : "";
     if(kind.startsWith("gateway_http_"))
       return reply({error:"gateway_http_error",httpStatus:Number(kind.slice(13))||502},502);
+    if(kind==="gateway_network_unavailable")
+      return reply({error:"gateway_network_unavailable"},503);
     if(kind==="gateway_unavailable" || kind==="gateway_invalid_response" ||
        kind==="gateway_response_too_large")
       return reply({error:"gateway_unavailable"},502);
