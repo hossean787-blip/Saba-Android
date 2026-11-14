@@ -21,6 +21,12 @@ Deno.serve(async(req)=>{
   });
   if(!response.ok)return json({error:"price_unavailable"},503);
   const quote=await response.json();
-  return json({...quote,payment_enabled:/^[0-9a-f-]{36}$/i.test(Deno.env.get("ZARINPAL_MERCHANT_ID")??"")});
+  const merchant=Deno.env.get("ZARINPAL_MERCHANT_ID")??"";
+  const egressUrl=Deno.env.get("SURA_PAYMENT_EGRESS_URL")??"";
+  const egressKey=Deno.env.get("SURA_PAYMENT_EGRESS_SECRET")??"";
+  const enabled=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(merchant) &&
+    egressUrl.startsWith("https://") && egressKey.length>=32 &&
+    Deno.env.get("SURA_PAYMENTS_LIVE_ENABLED")==="true";
+  return json({...quote,payment_enabled:enabled});
  }catch{return json({error:"service_unavailable"},503);}
 });

@@ -87,3 +87,15 @@ test("payment recovery route is authorized and account-scoped", () => {
   assert.ok(source.includes('"&owner_user_id=eq."+encodeURIComponent(userId)'));
   assert.ok(source.includes('"&state=eq.requested&authority=not.is.null"'));
 });
+
+test("public sales use a server-side activation gate and static egress", () => {
+  const payment=readFileSync(new URL("../backend/supabase/functions/sura-zarinpal/index.ts",import.meta.url),"utf8");
+  const quote=readFileSync(new URL("../backend/supabase/functions/sura-credit-quote/index.ts",import.meta.url),"utf8");
+  for (const source of [payment,quote]) {
+    assert.ok(source.includes('SURA_PAYMENTS_LIVE_ENABLED'));
+    assert.ok(source.includes('SURA_PAYMENT_EGRESS_URL'));
+    assert.ok(source.includes('SURA_PAYMENT_EGRESS_SECRET'));
+  }
+  assert.ok(payment.includes('if(!checkoutReady)return reply({error:"checkout_not_enabled"},503);'));
+  assert.ok(quote.includes("payment_enabled:enabled"));
+});

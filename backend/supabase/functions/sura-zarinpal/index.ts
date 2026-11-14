@@ -30,6 +30,9 @@ async function proxyHeaders(kind:"request"|"verify",body:string):Promise<Record<
   return {"x-sura-time":time,"x-sura-nonce":nonce,"x-sura-signature":digest};
 }
 const ready = validMerchantId(merchant);
+const staticEgressReady = !!egressUrl && egressSecret.length >= 32;
+const checkoutReady = ready && staticEgressReady &&
+  Deno.env.get("SURA_PAYMENTS_LIVE_ENABLED") === "true";
 const jsonHeaders = {"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 const reply = (value:unknown,status=200) =>
   new Response(JSON.stringify(value),{status,headers:jsonHeaders});
@@ -171,7 +174,7 @@ Deno.serve(async (req:Request)=>{
   // Safe, read-only operational diagnosis; never expose the merchant identifier.
   if(route==="health" && req.method==="GET")
     return reply({service:"sura-zarinpal",merchant_configured:ready,
-      static_egress_configured:!!egressUrl&&egressSecret.length>=32});
+      static_egress_configured:staticEgressReady,checkout_enabled:checkoutReady});
   if(route==="callback"){
     if(req.method!=="GET")return reply({error:"method_not_allowed"},405);
     const authority=url.searchParams.get("Authority");
@@ -219,7 +222,7 @@ Deno.serve(async (req:Request)=>{
       }):reply({error:"not_found"},404);
     }
     if(route!=="create")return reply({error:"not_found"},404);
-    if(!ready)return reply({error:"merchant_not_configured"},503);
+    if(!checkoutReady)return reply({error:"checkout_not_enabled"},503);
     const quantity=payload?.quantity;
     if(!Number.isSafeInteger(quantity)||quantity<1||quantity>999999)
       return reply({error:"invalid_quantity"},400);

@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'backend/supabase/functions/sura-zarinpal/**'
+      - 'backend/supabase/functions/sura-credit-quote/**'
       - 'tests/sura-zarinpal-rules.test.mjs'
       - 'payment-egress/**'
       - '.github/workflows/sura-payment-gateway-check.yml'
@@ -23,7 +24,9 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check deployed Edge Function with Deno
-        run: deno check backend/supabase/functions/sura-zarinpal/index.ts
+        run: |
+          deno check backend/supabase/functions/sura-zarinpal/index.ts
+          deno check backend/supabase/functions/sura-credit-quote/index.ts
       - name: Exercise payment guards without real transactions
         run: |
           node --experimental-strip-types --test tests/sura-zarinpal-rules.test.mjs
