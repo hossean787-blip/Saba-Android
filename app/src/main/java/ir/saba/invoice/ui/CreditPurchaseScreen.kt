@@ -23,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
-import ir.saba.invoice.domain.IranDivisions
 
 private val deepBlue = Color(0xFF073B66)
 private val sky = Color(0xFFDAEEFF)
@@ -46,20 +45,28 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var promoMessage by remember { mutableStateOf("") }
     var promoGranted by remember { mutableStateOf(false) }
     var quantity by remember { mutableStateOf("1") }
-    var officialInvoice by remember { mutableStateOf(false) }
-    var fullName by remember { mutableStateOf("") }
-    var economicId by remember { mutableStateOf("") }
-    var nationalId by remember { mutableStateOf("") }
-    var registration by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var province by remember { mutableStateOf("") }
-    var county by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
 
     var paymentBusy by remember { mutableStateOf(false) }
     var paymentMessage by remember { mutableStateOf("") }
     var pendingOrderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingRecoveryBusy by remember { mutableStateOf(true) }
+    var pendingRecoveryError by remember { mutableStateOf(false) }
+    var recoveryAttempt by remember { mutableIntStateOf(0) }
     var abandonPendingConfirmation by remember { mutableStateOf(false) }
+    LaunchedEffect(accessToken, recoveryAttempt) {
+        pendingRecoveryBusy = true
+        pendingRecoveryError = false
+        try {
+            val restored = ZarinPalPurchaseClient.pending(accessToken)
+            if (restored != null) pendingOrderId = restored
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            pendingRecoveryError = true
+        } finally {
+            pendingRecoveryBusy = false
+        }
+    }
     var plan by remember { mutableStateOf("single") }
     val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
     var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
@@ -102,10 +109,11 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
                 Triple("single", "اعتبار تکی", "هر صورتحساب یک اعتبار"),
-                Triple("monthly", "اشتراک ماهانه", "تا ۲۰ فاکتور در ۳۰ روز")
+                Triple("monthly", "اشتراک ماهانه", "در نسخه فعلی غیرفعال")
             ).forEach { (id, title, subtitle) ->
                 val selected = plan == id
-                Card(onClick = { plan = id }, modifier = Modifier.weight(1f).height(168.dp),
+                Card(onClick = { plan = id }, enabled = id == "single",
+                    modifier = Modifier.weight(1f).height(168.dp),
                     shape = cardShape,
                     border = androidx.compose.foundation.BorderStroke(
                         if (selected) 2.dp else 1.dp,
@@ -121,7 +129,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                             style = MaterialTheme.typography.titleMedium)
                         Text(subtitle, color = if (id == "monthly") violet else Color(0xFF526D8F),
                             style = MaterialTheme.typography.bodySmall)
-                        Text(if (id == "single") "بدون تعهد ماهانه" else "سقف ۲۰ فاکتور",
+                        Text(if (id == "single") "بدون تعهد ماهانه" else "به‌زودی؛ بدون امکان خرید",
                             color = deepBlue, style = MaterialTheme.typography.labelSmall)
                     }
                 }
@@ -159,39 +167,18 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                         color = deepBlue, fontWeight = FontWeight.Bold)
                 }
                 HorizontalDivider()
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Switch(checked = officialInvoice, onCheckedChange = { officialInvoice = it })
-                    Spacer(Modifier.width(10.dp))
-                    Text("فاکتور رسمی می‌خواهم", color = deepBlue, fontWeight = FontWeight.Bold)
+                Text("صورتحساب رسمی خرید اعتبار هنوز به سامانه فروش متصل نیست؛ اطلاعات خریدار در این نسخه جمع‌آوری نمی‌شود.",
+                    color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
+                if (pendingRecoveryBusy && plan == "single") {
+                    Text("در حال بازیابی سفارش پرداخت قبلی…", color = deepBlue,
+                        style = MaterialTheme.typography.bodySmall)
                 }
-                if (officialInvoice) {
-                    Card(shape = RoundedCornerShape(17.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F2FF))) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                            Text("اطلاعات فاکتور رسمی", fontWeight = FontWeight.Bold, color = violet)
-                            @Composable fun Field(label: String, value: String, change: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(value, change, modifier = modifier,
-                                    placeholder = { Text(label, maxLines = 1) }, singleLine = true,
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color.White, focusedContainerColor = Color.White))
-                            }
-                            Field("نام و نام خانوادگی / نام شرکت", fullName, { fullName = it })
-                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Field("کد اقتصادی", economicId, { economicId = it }, Modifier.weight(1f))
-                                Field("شناسه ملی", nationalId, { nationalId = it }, Modifier.weight(1f))
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Field("شماره ثبت", registration, { registration = it }, Modifier.weight(1f))
-                                Field("شماره تماس", phone, { phone = it }, Modifier.weight(1f))
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                ProvincePicker(province, IranDivisions.counties.keys.toList(),
-                                    { province = it; county = "" }, Modifier.weight(1f), "استان")
-                                ProvincePicker(county, IranDivisions.counties[province].orEmpty(),
-                                    { county = it }, Modifier.weight(1f), "شهرستان")
-                            }
-                            Field("آدرس کامل", address, { address = it })
-                        }
+                if (pendingRecoveryError && plan == "single") {
+                    Text("بررسی سفارش قبلی ممکن نشد. برای جلوگیری از پرداخت تکراری، خرید جدید موقتاً متوقف است.",
+                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = { recoveryAttempt++ }, enabled = !paymentBusy,
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("تلاش دوباره برای بازیابی سفارش")
                     }
                 }
                 if (quoteError && plan == "single") Text("استعلام قیمت از سرور انجام نشد؛ اتصال اینترنت را بررسی کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -238,16 +225,15 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                             .onFailure { paymentMessage = it.message ?: "درگاه پرداخت در دسترس نیست." }
                         paymentBusy = false
                     }
-                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy && pendingOrderId == null,
+                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy && !pendingRecoveryBusy && !pendingRecoveryError && pendingOrderId == null,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)) {
-                    Text(if (plan == "single") (if (paymentBusy) "در حال ایجاد سفارش…" else "پرداخت امن زرین‌پال")
-                         else "خرید اشتراک — در انتظار تعیین تعرفه اشتراک")
+                    Text(if (paymentBusy) "در حال ایجاد سفارش…" else "پرداخت امن زرین‌پال")
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Card(onClick = { plan = "free" }, modifier = Modifier.weight(1f),
+            Card(onClick = { plan = "free" }, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     if (plan == "free") 2.dp else 1.dp, Color(0xFF359985)),
@@ -256,13 +242,6 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                     Text("صورتحساب رایگان", color = deepBlue, fontWeight = FontWeight.Bold)
                     Text("۳ اعتبار هدیه", color = Color(0xFF168366))
                     Text("یک‌بار برای هر حساب و دستگاه", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-            Card(Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEBEFF6))) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("پلن چهارم", color = deepBlue, fontWeight = FontWeight.Bold)
-                    Text("به‌زودی", color = Color(0xFF74859A))
                 }
             }
         }
@@ -299,7 +278,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 }
             }
         }
-        Text("مبالغ به ریال نمایش داده می‌شوند. پرداخت پس از اتصال و تأیید درگاه زرین‌پال فعال می‌شود.",
+        Text("مبالغ به ریال هستند؛ اعتبار فقط پس از تأیید سرور شارژ می‌شود. تا روشن‌شدن نتیجه، خرید جدید انجام ندهید.",
             color = Color(0xFF5F7391), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
     }
@@ -318,19 +297,3 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     )
 }
 
-@Composable
-private fun ProvincePicker(value: String, options: List<String>, onSelect: (String) -> Unit, modifier: Modifier, title: String) {
-    var expanded by remember { mutableStateOf(false) }
-    Box(modifier) {
-        OutlinedButton(onClick = { expanded = true }, enabled = options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-            Text(value.ifEmpty { title }, maxLines = 1)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            Column(Modifier.heightIn(max = 290.dp).verticalScroll(rememberScrollState())) {
-                options.forEach {
-                    DropdownMenuItem(text = { Text(it) }, onClick = { onSelect(it); expanded = false })
-                }
-            }
-        }
-    }
-}

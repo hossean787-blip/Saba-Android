@@ -2,6 +2,8 @@ package ir.saba.invoice.ui
 
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -33,4 +35,16 @@ class ZarinPalPurchaseClientTest {
         assertTrue(ZarinPalPurchaseClient.createFailureMessage(
             503, JSONObject("""{"error":"price_unavailable"}""")).contains("قیمت اعتبار"))
     }
+    @Test fun pendingRecoveryRejectsMalformedOrSpoofedOrderIds() {
+        val id = "11111111-1111-4111-8111-111111111111"
+        assertEquals(id,ZarinPalPurchaseClient.parsePendingOrder(JSONObject().put("orderId",id)))
+        assertNull(ZarinPalPurchaseClient.parsePendingOrder(JSONObject().put("orderId",JSONObject.NULL)))
+        assertNull(ZarinPalPurchaseClient.parsePendingOrder(JSONObject("{}")))
+        for(bad in listOf("", "../invalid", "not-a-uuid", 123)) {
+            assertTrue(runCatching {
+                ZarinPalPurchaseClient.parsePendingOrder(JSONObject().put("orderId",bad))
+            }.isFailure)
+        }
+    }
+
 }

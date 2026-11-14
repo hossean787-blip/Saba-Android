@@ -6,6 +6,34 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 internal object ZarinPalPurchaseClient {
+    internal fun parsePendingOrder(response: JSONObject): String? {
+        val value = response.opt("orderId")
+        if (value == null || value == JSONObject.NULL) return null
+        require(value is String && value.matches(
+            Regex("[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+        )) { "شناسه سفارش بازیابی‌شده معتبر نیست." }
+        return value
+    }
+
+    suspend fun pending(token: String): String? = withContext(Dispatchers.IO) {
+        require(token.isNotBlank())
+        val conn = URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-zarinpal/pending")
+            .openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.instanceFollowRedirects = false
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write("{}".toByteArray(Charsets.UTF_8)) }
+            if (conn.responseCode !in 200..299) error("بازیابی سفارش پرداخت از سرور انجام نشد.")
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            parsePendingOrder(JSONObject(body))
+        } finally { conn.disconnect() }
+    }
+
     /** Only the server's error category is shown, never its raw gateway response. */
     internal fun createFailureMessage(status: Int, response: JSONObject): String =
         when (response.optString("error")) {
