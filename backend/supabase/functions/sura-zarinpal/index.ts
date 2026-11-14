@@ -7,6 +7,28 @@ const merchant = Deno.env.get("ZARINPAL_MERCHANT_ID") ?? "";
 const callback = base + "/functions/v1/sura-zarinpal/callback";
 // Current ZarinPal v4 production host. The former api.zarinpal.com host is obsolete.
 const gatewayBase = "https://payment.zarinpal.com/pg/v4/payment/";
+const egressUrl = Deno.env.get("SURA_PAYMENT_EGRESS_URL") ?? "";
+const egressSecret = Deno.env.get("SURA_PAYMENT_EGRESS_SECRET") ?? "";
+
+function proxyBase():string|null {
+  if (!egressUrl && !egressSecret) return null;
+  if (!egressUrl || egressSecret.length < 32) throw Error("payment_egress_not_configured");
+  const parsed=new URL(egressUrl);
+  if (parsed.protocol!=="https:" || parsed.username || parsed.password ||
+      parsed.search || parsed.hash || parsed.pathname!=="/")
+    throw Error("payment_egress_not_configured");
+  return parsed.origin;
+}
+
+async function proxyHeaders(kind:"request"|"verify",body:string):Promise<Record<string,string>> {
+  const time=Date.now().toString(),nonce=crypto.randomUUID();
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(egressSecret),
+    {name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const bytes=new Uint8Array(await crypto.subtle.sign("HMAC",key,
+    new TextEncoder().encode(time+"."+nonce+"."+kind+"."+body)));
+  const digest=Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+  return {"x-sura-time":time,"x-sura-nonce":nonce,"x-sura-signature":digest};
+}
 const ready = validMerchantId(merchant);
 const jsonHeaders = {"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 const reply = (value:unknown,status=200) =>
@@ -59,9 +81,14 @@ async function gateway(endpoint:"request.json"|"verify.json",body:unknown):Promi
   if(!ready)throw Error("merchant_not_configured");
   let response: Response;
   try {
-    response=await fetch(gatewayBase+endpoint,{
-      method:"POST",headers:{"content-type":"application/json","accept":"application/json"},
-      body:JSON.stringify(body),signal:AbortSignal.timeout(15000)
+    const kind=endpoint==="request.json"?"request":"verify";
+    const serialized=JSON.stringify(body);
+    const egress=proxyBase();
+    const headers:Record<string,string>={"content-type":"application/json","accept":"application/json"};
+    if (egress) Object.assign(headers,await proxyHeaders(kind,serialized));
+    response=await fetch(egress ? egress+"/gateway/"+kind : gatewayBase+endpoint,{
+      method:"POST",redirect:"error",headers,
+      body:serialized,signal:AbortSignal.timeout(15000)
     });
   }catch(error){
     console.error("sura_zarinpal_gateway_network",error instanceof Error ? error.name : "unknown");
@@ -143,7 +170,8 @@ Deno.serve(async (req:Request)=>{
   if(!base||!anon||!secret)return reply({error:"server_not_configured"},503);
   // Safe, read-only operational diagnosis; never expose the merchant identifier.
   if(route==="health" && req.method==="GET")
-    return reply({service:"sura-zarinpal",merchant_configured:ready});
+    return reply({service:"sura-zarinpal",merchant_configured:ready,
+      static_egress_configured:!!egressUrl&&egressSecret.length>=32});
   if(route==="callback"){
     if(req.method!=="GET")return reply({error:"method_not_allowed"},405);
     const authority=url.searchParams.get("Authority");

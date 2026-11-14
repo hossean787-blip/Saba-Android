@@ -5,6 +5,7 @@ on:
     paths:
       - 'backend/supabase/functions/sura-zarinpal/**'
       - 'tests/sura-zarinpal-rules.test.mjs'
+      - 'payment-egress/**'
       - '.github/workflows/sura-payment-gateway-check.yml'
   workflow_dispatch:
 permissions:
@@ -24,4 +25,6 @@ jobs:
       - name: Type-check deployed Edge Function with Deno
         run: deno check backend/supabase/functions/sura-zarinpal/index.ts
       - name: Exercise payment guards without real transactions
-        run: node --experimental-strip-types --test tests/sura-zarinpal-rules.test.mjs
+        run: |
+          node --experimental-strip-types --test tests/sura-zarinpal-rules.test.mjs
+          node --test payment-egress/gateway_proxy.test.mjs
