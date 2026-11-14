@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  validMerchantId,validAuthority,validOrderId,verifiedGatewayReference,validCreditQuote
+  validMerchantId,validAuthority,validOrderId,verifiedGatewayReference,validCreditQuote,acceptedGatewayAuthority
 } from "../backend/supabase/functions/sura-zarinpal/payment_rules.ts";
 
 test("merchant ID, authority and order ID are strongly validated", () => {
@@ -48,4 +48,23 @@ test("checkout uses active ZarinPal v4 host and explicit rial currency", () => {
   assert.ok(source.includes('merchant_id:merchant,amount,currency:"IRR"'));
   assert.ok(source.includes("gateway_network_unavailable"));
   assert.ok(source.includes("gateway_http_error"));
+});
+
+test("checkout never accepts a non-success gateway authority or spoofed authority", () => {
+  const authority="A000000000000000000000000000000000";
+  assert.equal(acceptedGatewayAuthority({data:{code:100,authority}}),authority);
+  for(const payload of [
+    null,{}, {data:null}, {data:{code:101,authority}},
+    {data:{code:100,authority:"bad/../../../"}},
+    {data:{code:100,authority:999}}, {data:{code:0,authority}},
+    {errors:{code:100},data:{authority}},
+  ]) assert.equal(acceptedGatewayAuthority(payload),null);
+});
+
+test("gateway errors and malformed checkout responses close unissued orders", () => {
+  const source=readFileSync(new URL("../backend/supabase/functions/sura-zarinpal/index.ts",import.meta.url),"utf8");
+  assert.ok(source.includes("async function failCreatedOrder("));
+  assert.ok(source.includes("&state=eq.created&authority=is.null"));
+  assert.ok(source.includes('state:"failed"'));
+  assert.equal(source.split("await failCreatedOrder(order.id);").length-1,2);
 });

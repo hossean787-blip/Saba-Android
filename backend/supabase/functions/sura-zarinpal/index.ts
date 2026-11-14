@@ -1,4 +1,4 @@
-import { validAuthority, validCreditQuote, validMerchantId, validOrderId, verifiedGatewayReference } from "./payment_rules.ts";
+import { acceptedGatewayAuthority, validAuthority, validCreditQuote, validMerchantId, validOrderId, verifiedGatewayReference } from "./payment_rules.ts";
 
 const base = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -30,6 +30,17 @@ async function db(path:string,method="GET",body?:unknown):Promise<any> {
   const data = await response.text();
   if(data.length>1000000)throw Error("database_response_too_large");
   return JSON.parse(data);
+}
+
+/** Never leave an unissued checkout order indefinitely in "created" after gateway failure. */
+async function failCreatedOrder(orderId:string):Promise<void> {
+  try {
+    await db("sura_payment_orders?id=eq."+encodeURIComponent(orderId)+
+      "&state=eq.created&authority=is.null","PATCH",{state:"failed"});
+  } catch {
+    // Keep the original payment error; do not claim cleanup succeeded.
+    console.error("sura_zarinpal_created_order_cleanup_failed");
+  }
 }
 
 async function verifiedUser(req:Request):Promise<{id:string}|null> {
@@ -181,13 +192,21 @@ Deno.serve(async (req:Request)=>{
     });
     const order=orders[0];
     if(!validOrderId(order?.id))throw Error("order_creation_failed");
-    const payment=await gateway("request.json",{
-      merchant_id:merchant,amount,currency:"IRR",callback_url:callback,
-      description:"SURA invoice credits - "+quantity
-    });
-    const authority=payment?.data?.authority;
-    if(payment?.data?.code!==100||!validAuthority(authority))
+    let payment:any;
+    try {
+      payment=await gateway("request.json",{
+        merchant_id:merchant,amount,currency:"IRR",callback_url:callback,
+        description:"SURA invoice credits - "+quantity
+      });
+    } catch(error) {
+      await failCreatedOrder(order.id);
+      throw error;
+    }
+    const authority=acceptedGatewayAuthority(payment);
+    if(authority===null) {
+      await failCreatedOrder(order.id);
       return reply({error:"gateway_unavailable",orderId:order.id},502);
+    }
     await db("sura_payment_orders?id=eq."+encodeURIComponent(order.id),"PATCH",{
       authority,state:"requested"
     });

@@ -14,6 +14,12 @@ export function validAuthority(value: unknown): value is string {
   return typeof value === "string" && /^[A-Za-z0-9_-]{20,64}$/.test(value);
 }
 
+/** Accept only an issued checkout authority from ZarinPal, never a malformed response. */
+export function acceptedGatewayAuthority(payload: unknown): string | null {
+  const data = object(object(payload)?.data);
+  return data?.code === 100 && validAuthority(data.authority) ? data.authority : null;
+}
+
 export function validOrderId(value: unknown): value is string {
   return typeof value === "string" &&
     /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
