@@ -20,6 +20,13 @@ export function acceptedGatewayAuthority(payload: unknown): string | null {
   return data?.code === 100 && validAuthority(data.authority) ? data.authority : null;
 }
 
+/** A recoverable payment must have been issued by the gateway and remain unsettled. */
+export function recoverableOrderId(value: unknown): string | null {
+  const row = object(value);
+  return row?.state === "requested" && validOrderId(row.id) &&
+    validAuthority(row.authority) ? row.id : null;
+}
+
 export function validOrderId(value: unknown): value is string {
   return typeof value === "string" &&
     /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);

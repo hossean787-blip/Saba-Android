@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  validMerchantId,validAuthority,validOrderId,verifiedGatewayReference,validCreditQuote,acceptedGatewayAuthority
+  validMerchantId,validAuthority,validOrderId,verifiedGatewayReference,validCreditQuote,acceptedGatewayAuthority,recoverableOrderId
 } from "../backend/supabase/functions/sura-zarinpal/payment_rules.ts";
 
 test("merchant ID, authority and order ID are strongly validated", () => {
@@ -67,4 +67,23 @@ test("gateway errors and malformed checkout responses close unissued orders", ()
   assert.ok(source.includes("&state=eq.created&authority=is.null"));
   assert.ok(source.includes('state:"failed"'));
   assert.equal(source.split("await failCreatedOrder(order.id);").length-1,2);
+});
+
+test("payment recovery returns only an issued unsettled order ID", () => {
+  const id="11111111-1111-4111-8111-111111111111";
+  const authority="A000000000000000000000000000000000";
+  assert.equal(recoverableOrderId({id,state:"requested",authority}),id);
+  for(const row of [
+    null,{}, {id,state:"created",authority}, {id,state:"failed",authority},
+    {id,state:"verified",authority}, {id,state:"requested",authority:null},
+    {id,state:"requested",authority:"bad"}, {id:"../bad",state:"requested",authority}
+  ]) assert.equal(recoverableOrderId(row),null);
+});
+
+test("payment recovery route is authorized and account-scoped", () => {
+  const source=readFileSync(new URL("../backend/supabase/functions/sura-zarinpal/index.ts",import.meta.url),"utf8");
+  assert.ok(source.includes('if(route==="pending")'));
+  assert.ok(source.includes('getLatestRecoverableOrder(user.id)'));
+  assert.ok(source.includes('"&owner_user_id=eq."+encodeURIComponent(userId)'));
+  assert.ok(source.includes('"&state=eq.requested&authority=not.is.null"'));
 });

@@ -1,4 +1,4 @@
-import { acceptedGatewayAuthority, validAuthority, validCreditQuote, validMerchantId, validOrderId, verifiedGatewayReference } from "./payment_rules.ts";
+import { acceptedGatewayAuthority, recoverableOrderId, validAuthority, validCreditQuote, validMerchantId, validOrderId, verifiedGatewayReference } from "./payment_rules.ts";
 
 const base = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -101,6 +101,14 @@ async function getOwnerOrder(userId:string,orderId:string):Promise<PaymentOrder|
  * Code 101 means the gateway already verified this same authority: this is
  * essential to recover if code 100 succeeded but DB settlement was interrupted.
  * The DB transaction enforces unique authority/ref_id and one grant per order. */
+async function getLatestRecoverableOrder(userId:string):Promise<string|null> {
+  const rows=await db("sura_payment_orders?select=id,state,authority"+
+    "&owner_user_id=eq."+encodeURIComponent(userId)+
+    "&state=eq.requested&authority=not.is.null"+
+    "&order=created_at.desc&limit=1");
+  return recoverableOrderId(rows[0]);
+}
+
 async function reconcile(order:PaymentOrder):Promise<boolean> {
   if(order.state==="verified")return true;
   if(order.state!=="requested"||!validAuthority(order.authority)||
@@ -163,6 +171,9 @@ Deno.serve(async (req:Request)=>{
     if(Number(req.headers.get("content-length")??0)>8192)
       return reply({error:"request_too_large"},413);
     const payload=await req.json();
+    if(route==="pending") {
+      return reply({orderId:await getLatestRecoverableOrder(user.id)});
+    }
     if(route==="status"){
       const id=payload?.orderId;
       if(!validOrderId(id))return reply({error:"invalid_order"},400);
