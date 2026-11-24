@@ -2,7 +2,7 @@ package ir.saba.invoice.domain
 
 import ir.saba.invoice.data.Invoice
 import ir.saba.invoice.data.InvoiceLine
-import ir.saba.invoice.data.OfficialSubmission
+import ir.saba.invoice.data.OfficialReferenceEvidence
 import ir.saba.invoice.data.SabaDatabase
 
 /**
@@ -53,8 +53,7 @@ object InvoiceSubject {
             .firstOrNull { it.taxId == referenceTaxId }
             ?: throw IllegalArgumentException("صورتحساب مرجع در پرونده همین مؤدی پیدا نشد.")
         require(reference.ownerId == ownerId && reference.companyId == companyId &&
-            reference.state == "ACCEPTED" && !reference.signedReceipt.isNullOrBlank() &&
-            !reference.referenceNumber.isNullOrBlank()) {
+            OfficialReferenceEvidence.eligible(reference)) {
             "فقط صورتحساب اصلی پذیرفته‌شده در سامانه، با رسید معتبر، قابل ارجاع است."
         }
         val original = db.invoiceDao().byId(reference.invoiceId)
@@ -146,6 +145,10 @@ object InvoiceSubject {
             else -> throw IllegalArgumentException("ارسال رسمی این موضوع صورتحساب هنوز فعال نیست.")
         }
     }
+
+    /** Legacy protocol pilot is restricted to original, correction and cancellation. */
+    fun supportsLegacy(subject: String): Boolean =
+        subject in setOf(ORIGINAL, CORRECTION, CANCELLATION)
 
     fun requireSupportedForOfficialSubmission(invoice: Invoice) {
         officialSubjectCode(invoice)

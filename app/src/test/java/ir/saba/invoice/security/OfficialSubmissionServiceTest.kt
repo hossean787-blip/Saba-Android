@@ -459,6 +459,61 @@ class OfficialSubmissionServiceTest {
         assertEquals("legacy-reference",db.invoiceDao().byId(invoice)?.trackingCode)
     }
 
+    private suspend fun legacyReferralParent(explicitFiscal: Boolean): OfficialSubmission {
+        credentials.stagePrivateKey(company, TestCertificates.pem(customerKey))
+        val parent=service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY")
+        service.legacyGateway=object: LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String):LegacyPreparedInvoice {
+                return LegacyPreparedInvoice("{}",mapOf("requestTraceId" to uid))
+            }
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement =
+                LegacyInvoiceAcknowledgement(expectedUid,"legacy-reference")
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String):LegacyInvoiceInquiry =
+                LegacyInvoiceInquiry(uid,taxId,"legacy-reference","SUCCESS",emptyList(),
+                    if (explicitFiscal) fiscalId else null)
+        }
+        service.submitLegacy(parent.requestId)
+        return service.inquireLegacy(parent.requestId)
+    }
+
+    @Test fun legacyBoundReferenceEnablesCertificateFreeCorrection()=runBlocking {
+        val parent=legacyReferralParent(true)
+        assertTrue(OfficialReferenceEvidence.eligible(parent))
+        assertNull(parent.signedReceipt)
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+86_400_000}
+        val row=next.prepare(company,id,"2026-11-04T12:00:00+03:30","164","LEGACY")
+        assertEquals(2,JSONObject(row.payload).getJSONObject("header").getInt("ins"))
+        assertEquals(parent.taxId,JSONObject(row.payload).getJSONObject("header").getString("irtaxid"))
+        assertEquals("LEGACY",next.reviewPrepared(row.requestId).protocol)
+        assertEquals(0,api.posts)
+    }
+
+    @Test fun legacyBoundReferenceEnablesHeaderOnlyCancellation()=runBlocking {
+        val parent=legacyReferralParent(true)
+        assertTrue(OfficialReferenceEvidence.eligible(parent))
+        val id=createReferredDocument("CANCELLATION","14",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+86_400_000}
+        val row=next.prepare(company,id,"2026-11-04T12:00:00+03:30","","LEGACY")
+        val payload=JSONObject(row.payload)
+        assertEquals(3,payload.getJSONObject("header").getInt("ins"))
+        assertEquals(0,payload.getJSONArray("body").length())
+        assertEquals("LEGACY",next.reviewPrepared(row.requestId).protocol)
+        assertEquals(0,api.posts)
+    }
+
+    @Test fun legacyMissingFiscalEvidenceCannotUnlockReferredInvoice()=runBlocking {
+        val parent=legacyReferralParent(false)
+        assertEquals("ACCEPTED",parent.state)
+        assertFalse(OfficialReferenceEvidence.eligible(parent))
+        reject { service.verifyLegacyReference(parent.requestId) }
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+86_400_000}
+        reject { next.prepare(company,id,"2026-11-04T12:00:00+03:30","164","LEGACY") }
+        assertNull(db.officialSubmissionDao().forInvoice(id))
+        assertEquals(0,api.posts)
+    }
+
     @Test fun legacySubmissionNeverDowngradesAnExistingV2Request()=runBlocking {
         credentials.stagePrivateKey(company,TestCertificates.pem(customerKey))
         val prepared=prepare()

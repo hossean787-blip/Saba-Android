@@ -281,8 +281,7 @@ private fun InvoiceScreenContent(
         if (mode == "edit") {
             acceptedOriginals = runCatching {
                 db.officialSubmissionDao().forCompany(companyId)
-                    .filter { it.ownerId == ownerId && it.state == "ACCEPTED" &&
-                        !it.signedReceipt.isNullOrBlank() && !it.referenceNumber.isNullOrBlank() }
+                    .filter { it.ownerId == ownerId && OfficialReferenceEvidence.eligible(it) }
                     .mapNotNull { row ->
                         val original = db.invoiceDao().byId(row.invoiceId)
                         if (original?.companyId == companyId &&
@@ -695,8 +694,7 @@ private fun InvoiceScreenContent(
                                     perform {
                                         val reference = db.officialSubmissionDao().forCompany(companyId)
                                             .firstOrNull {
-                                                it.taxId == referenceTaxId && it.state == "ACCEPTED" &&
-                                                    !it.signedReceipt.isNullOrBlank() && !it.referenceNumber.isNullOrBlank()
+                                                it.taxId == referenceTaxId && OfficialReferenceEvidence.eligible(it)
                                             } ?: throw IllegalArgumentException("صورتحساب مرجع پذیرفته‌شده پیدا نشد.")
                                         require(reference.ownerId == account.ownerId) {
                                             "مرجع متعلق به حساب فعلی نیست."

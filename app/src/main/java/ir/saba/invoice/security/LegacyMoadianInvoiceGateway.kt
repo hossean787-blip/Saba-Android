@@ -21,7 +21,7 @@ class LegacyPreparedInvoice(val envelope: String, val headers: Map<String, Strin
     override fun toString() = "LegacyPreparedInvoice([redacted])"
 }
 data class LegacyInvoiceAcknowledgement(val uid: String, val referenceNumber: String?)
-data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>)
+data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>, val fiscalId: String? = null)
 
 /** Injection seam: preflight finishes before the durable SENDING claim and HTTP invoice POST. */
 interface LegacyInvoiceGateway {
@@ -191,10 +191,18 @@ internal class LegacyMoadianInvoiceGateway(
         require(UUID.fromString(uid).toString() == uid)
         val invoice = JSONObject(payload)
         val header = invoice.getJSONObject("header")
-        require(header.getInt("inty") == 1 && header.getInt("inp") == 1 && header.getInt("ins") == 1) {
-            "ارسال بدون گواهی فعلاً فقط صورتحساب اصلی نوع یک، الگوی فروش یک را پوشش می‌دهد."
+        val subject = header.getInt("ins")
+        require(header.getInt("inty") == 1 && header.getInt("inp") == 1 && subject in setOf(1, 2, 3)) {
+            "ارسال بدون گواهی برای اصلی، اصلاحی و ابطالی نوع یک، الگوی فروش یک فعال است."
         }
-        require(invoice.getJSONArray("body").length() > 0 && invoice.getJSONArray("payments").length() == 0)
+        require(invoice.getJSONArray("payments").length() == 0)
+        if (subject == 1) require(!header.has("irtaxid"))
+        else require(header.getString("irtaxid").matches(Regex("[A-Z0-9]{22}")) &&
+            header.getString("irtaxid") != header.getString("taxid"))
+        if (subject == 3) {
+            require(invoice.getJSONArray("body").length() == 0 &&
+                !header.has("bid") && !header.has("tbill") && !header.has("setm"))
+        } else require(invoice.getJSONArray("body").length() > 0)
         require(!invoice.has("__suraProtocol"))
         val auth = token(companyId, fiscalId)
         val meta = result(sync(companyId, fiscalId, "GET_SERVER_INFORMATION", null)) as? JSONObject
@@ -237,7 +245,8 @@ internal class LegacyMoadianInvoiceGateway(
             ?: error("ساختار پاسخ استعلام معتبر نیست.")
         require(list.length() == 1)
         val row = list.getJSONObject(0)
-        require(row.getString("uid") == uid && row.optString("fiscalId", fiscalId) == fiscalId)
+        val returnedFiscalId = row.optString("fiscalId").takeIf { it.isNotBlank() && it != "null" }
+        require(row.getString("uid") == uid && (returnedFiscalId == null || returnedFiscalId == fiscalId))
         val returnedTaxId = row.optString("taxId").takeIf { it.isNotBlank() && it != "null" }
         require(returnedTaxId == null || returnedTaxId == taxId)
         val ref = row.optString("referenceNumber").takeIf { it.isNotBlank() && it != "null" }
@@ -245,6 +254,6 @@ internal class LegacyMoadianInvoiceGateway(
         val codes = row.optJSONObject("data")?.optJSONArray("error")
         val errors = if (codes == null) emptyList() else (0 until minOf(codes.length(), 20))
             .mapNotNull { codes.optJSONObject(it)?.optString("code")?.takeIf { c -> c.matches(Regex("[A-Za-z0-9_-]{1,40}")) } }
-        return LegacyInvoiceInquiry(uid, returnedTaxId, ref, row.getString("status"), errors)
+        return LegacyInvoiceInquiry(uid, returnedTaxId, ref, row.getString("status"), errors, returnedFiscalId)
     }
 }

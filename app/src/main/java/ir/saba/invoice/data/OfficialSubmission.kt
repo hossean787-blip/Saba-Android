@@ -23,12 +23,32 @@ data class OfficialSubmission(
     @ColumnInfo(defaultValue = "'V2'") val protocol: String = "V2"
 )
 
+/**
+ * Reference provenance is stored in the existing status message for legacy
+ * receipts, not the signedReceipt column. Old or incomplete TLS responses are
+ * never promoted to signed evidence and cannot unlock a referred invoice.
+ */
+object OfficialReferenceEvidence {
+    const val LEGACY_BOUND = "پذیرش مسیر بدون گواهی با تطبیق شناسه درخواست، حافظه، شماره مالیاتی و پیگیری؛ رسید امضاشده نسخه ۲ موجود نیست."
+    const val LEGACY_UNBOUND = "پذیرش از مسیر بدون گواهی گزارش شد؛ رسید امضاشده نسخه ۲ موجود نیست."
+
+    fun eligible(row: OfficialSubmission): Boolean =
+        row.state == "ACCEPTED" && !row.referenceNumber.isNullOrBlank() &&
+            when (row.protocol) {
+                "V2" -> !row.signedReceipt.isNullOrBlank()
+                "LEGACY" -> row.signedReceipt.isNullOrBlank() && row.lastError == LEGACY_BOUND
+                else -> false
+            }
+}
+
 @Dao interface OfficialSubmissionDao {
     @Insert suspend fun insert(row: OfficialSubmission)
     @Query("SELECT * FROM official_submissions WHERE requestId=:id") suspend fun byId(id: String): OfficialSubmission?
     @Query("SELECT * FROM official_submissions WHERE invoiceId=:id") suspend fun forInvoice(id: Long): OfficialSubmission?
     @Query("SELECT * FROM official_submissions WHERE fiscalId=:id") suspend fun forFiscalMemory(id: String): List<OfficialSubmission>
     @Query("SELECT * FROM official_submissions WHERE companyId=:id ORDER BY preparedAt DESC") suspend fun forCompany(id: Long): List<OfficialSubmission>
+    @Query("UPDATE official_submissions SET lastError=:evidence WHERE requestId=:id AND protocol='LEGACY' AND state='ACCEPTED' AND referenceNumber=:reference AND signedReceipt IS NULL")
+    suspend fun confirmLegacyReference(id: String, reference: String, evidence: String): Int
     @Query("DELETE FROM official_submissions WHERE requestId=:id AND state='PREPARED'") suspend fun discardPrepared(id: String): Int
     @Query("UPDATE official_submissions SET state='SENDING', lastError=NULL WHERE requestId=:id AND state='PREPARED'")
     suspend fun claim(id: String): Int

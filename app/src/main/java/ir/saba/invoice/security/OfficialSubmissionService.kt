@@ -106,8 +106,7 @@ class OfficialSubmissionService(
             .firstOrNull { it.taxId == invoice.referenceTaxId }
             ?: throw IllegalArgumentException("سند مرجع در دفتر ارسال پیدا نشد.")
         require(source.ownerId == account.ownerId && source.companyId == invoice.companyId &&
-            source.state == "ACCEPTED" && !source.signedReceipt.isNullOrBlank() &&
-            !source.referenceNumber.isNullOrBlank()) { "پذیرش مرجع باید معتبر و قطعی باشد." }
+            OfficialReferenceEvidence.eligible(source)) { "پذیرش مرجع باید معتبر و قطعی باشد." }
         require(SubmissionPreparation.sha256Hex(source.payload.toByteArray(Charsets.UTF_8)) == source.payloadHash) {
             "محتوای محفوظ سند مرجع تغییر کرده است."
         }
@@ -137,8 +136,8 @@ class OfficialSubmissionService(
         val details = requireNotNull(db.moadianDetailsDao().byCompany(companyId))
         val sourceLines = db.invoiceLineDao().forInvoice(invoiceId)
         if (protocol == "LEGACY") {
-            require(invoice.subject == InvoiceSubject.ORIGINAL) {
-                "ارسال بدون گواهی فعلاً برای صورتحساب اصلی نوع یک، الگوی فروش یک فعال است."
+            require(InvoiceSubject.supportsLegacy(invoice.subject)) {
+                "مسیر بدون گواهی فعلاً برای اصلی، اصلاحی و ابطالی نوع یک، الگوی فروش یک فعال است."
             }
             checkLegacySigningReadiness(companyId)
         }
@@ -172,7 +171,8 @@ class OfficialSubmissionService(
         return row(id).also {
             require(it.state == "PREPARED")
             require(it.protocol in setOf("LEGACY","V2"))
-            if (it.protocol == "LEGACY") require(db.invoiceDao().byId(it.invoiceId)?.subject == InvoiceSubject.ORIGINAL)
+            if (it.protocol == "LEGACY") require(
+                InvoiceSubject.supportsLegacy(requireNotNull(db.invoiceDao().byId(it.invoiceId)).subject))
             val payload=JSONObject(it.payload)
             val header=payload.getJSONObject("header")
             require(header.getString("taxid")==it.taxId)
@@ -328,8 +328,9 @@ class OfficialSubmissionService(
                     // The legacy endpoint reports success over authenticated TLS, but the
                     // result is not a cryptographically verifiable v2 signed receipt.
                     require(!result.referenceNumber.isNullOrBlank())
-                    resolve(id, "ACCEPTED", result.referenceNumber,
-                        "پذیرش از مسیر بدون گواهی گزارش شد؛ رسید امضاشده نسخه ۲ موجود نیست.")
+                    val evidence = if (legacyIdentityBound(initial, result))
+                        OfficialReferenceEvidence.LEGACY_BOUND else OfficialReferenceEvidence.LEGACY_UNBOUND
+                    resolve(id, "ACCEPTED", result.referenceNumber, evidence)
                 }
                 "FAILED" -> resolve(id, "REJECTED", result.referenceNumber,
                     "صورتحساب رد شد. کدهای خطا: " + result.errorCodes.joinToString("، "))
@@ -344,6 +345,31 @@ class OfficialSubmissionService(
             if (failure is CancellationException) throw failure
         }
         return requireNotNull(db.officialSubmissionDao().byId(id))
+    }
+
+    private fun legacyIdentityBound(row: OfficialSubmission, result: LegacyInvoiceInquiry): Boolean =
+        result.status == "SUCCESS" && result.uid == row.requestId &&
+            result.fiscalId == row.fiscalId && result.taxId == row.taxId &&
+            !result.referenceNumber.isNullOrBlank() &&
+            (row.referenceNumber == null || row.referenceNumber == result.referenceNumber)
+
+    /** Read-only recheck for older accepted legacy records; no new invoice POST.
+     * A missing identifier is not replaced with the request's identifier. */
+    suspend fun verifyLegacyReference(id: String): OfficialSubmission {
+        sessionCheck()
+        val initial = row(id)
+        require(initial.protocol == "LEGACY" && initial.state == "ACCEPTED")
+        val result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
+        require(legacyIdentityBound(initial, result)) {
+            "پاسخ استعلام شماره مالیاتی، حافظه و پیگیری مرجع را صریحاً تأیید نکرد؛ صدور سند ارجاعی مجاز نیست."
+        }
+        db.withTransaction {
+            sessionCheck()
+            row(id)
+            check(db.officialSubmissionDao().confirmLegacyReference(id,
+                requireNotNull(result.referenceNumber), OfficialReferenceEvidence.LEGACY_BOUND) == 1)
+        }
+        return row(id)
     }
 
     suspend fun inquire(id: String): OfficialSubmission {
