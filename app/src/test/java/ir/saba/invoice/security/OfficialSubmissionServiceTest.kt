@@ -139,6 +139,21 @@ class OfficialSubmissionServiceTest {
         assertEquals(0,api.gets)
     }
 
+    @Test fun sameDayCorrectionRequiresLaterActualIssueTime()=runBlocking {
+        val parent=acceptedOriginalForReference()
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val local=requireNotNull(db.invoiceDao().byId(id))
+        db.invoiceDao().update(local.copy(issueDate="1405/08/12"))
+        reject { service.prepare(company,id,"2026-11-03T11:00:00+03:30","164") }
+        reject { service.prepare(company,id,"2026-11-03T12:00:00+03:30","164") }
+        assertNull(db.officialSubmissionDao().forInvoice(id))
+        val row=service.prepare(company,id,"2026-11-03T13:00:00+03:30","164")
+        assertEquals(parent.taxId,JSONObject(row.payload).getJSONObject("header").getString("irtaxid"))
+        assertEquals("PREPARED",service.reviewPrepared(row.requestId).state)
+        assertEquals(0,api.gets)
+        assertEquals(0,api.posts)
+    }
+
     @Test fun acceptedOriginalUnlocksOnlyPartialReturnAndRejectsChangedTaxRate()=runBlocking {
         val parent=acceptedOriginalForReference()
         val id=createReferredDocument("RETURN","14",1L)
@@ -157,7 +172,7 @@ class OfficialSubmissionServiceTest {
         val id = createReferredDocument("CANCELLATION","14",2L)
         val next = OfficialSubmissionService(db,account,credentials,api,
             sessionCheck={}){now + 86_400_000}
-        val prepared = next.prepare(company,id,"2026-11-04T12:00:00+03:30","164")
+        val prepared = next.prepare(company,id,"2026-11-04T12:00:00+03:30","")
         assertEquals(parent.taxId, JSONObject(prepared.payload)
             .getJSONObject("header").getString("irtaxid"))
         assertEquals(3, JSONObject(prepared.payload).getJSONObject("header").getInt("ins"))

@@ -138,11 +138,14 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             selected?.let { invoice ->
                 Text("فاکتور ${invoice.invoiceNumber} — ${invoice.issueDate} — ${invoice.totalAmountRial} ریال")
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected=selectedProtocol=="LEGACY", enabled=!busy && legacyKeyReady,
+                    FilterChip(selected=selectedProtocol=="LEGACY", enabled=!busy && legacyKeyReady && invoice.subject == InvoiceSubject.ORIGINAL,
                         onClick={selectedProtocol="LEGACY"},label={Text("شناسه یکتا + کلید خصوصی")})
                     FilterChip(selected=selectedProtocol=="V2",enabled=!busy,
                         onClick={selectedProtocol="V2"},label={Text("اتصال نسخه ۲ با گواهی")})
                 }
+                if (invoice.subject != InvoiceSubject.ORIGINAL && selectedProtocol == "LEGACY") Text(
+                    "برای سند ارجاعی، مسیر نسخه ۲ با گواهی را انتخاب کنید؛ مسیر بدون گواهی هنوز برای این موضوع تأیید نشده است.",
+                    color=MaterialTheme.colorScheme.error, style=MaterialTheme.typography.bodySmall)
                 if(selectedProtocol=="LEGACY") Text(
                     "بدون نیاز به بارگذاری گواهی؛ ارسال از مسیر مستقیم مؤدی. فقط صورتحساب اصلی نوع ۱، الگوی فروش ۱.",
                     style=MaterialTheme.typography.bodySmall)
@@ -150,7 +153,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                 Text("زمان پیشنهادی ساعت ۱۲ تهران است؛ زمان واقعی صدور را با قالب ISO و منطقه زمانی وارد کنید.")
                 OutlinedTextField(value=issueTime,onValueChange={issueTime=it},enabled=!busy,label={Text("زمان واقعی صدور ISO")},modifier=Modifier.fillMaxWidth())
                 OutlinedTextField(value=unit,onValueChange={unit=ir.saba.invoice.domain.InvoiceInput.digits(it).trim()},enabled=!busy,label={Text("واحد سنجش مشترک فقط برای ردیف‌های قدیمی (اختیاری)")},supportingText={Text("برای ردیف‌های جدید با واحد جداگانه لازم نیست؛ نمونه کد 1627 = عدد")},modifier=Modifier.fillMaxWidth())
-                Button(enabled=!busy,onClick={act { service.prepare(companyId,invoice.id,issueTime,unit,selectedProtocol);selected=null;onNotice("محتوا ثبت شد؛ هنوز ارسال نشده است.") }}) { Text("اعتبارسنجی و ثبت محتوای ثابت") }
+                Button(enabled=!busy && (selectedProtocol == "V2" || invoice.subject == InvoiceSubject.ORIGINAL),onClick={act { service.prepare(companyId,invoice.id,issueTime,unit,selectedProtocol);selected=null;onNotice("محتوا ثبت شد؛ هنوز ارسال نشده است.") }}) { Text("اعتبارسنجی و ثبت محتوای ثابت") }
             }
         }
         items(historyRows,key={it.requestId}) { row ->

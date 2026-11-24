@@ -651,7 +651,7 @@ private fun InvoiceScreenContent(
                             label = { Text("اصلی") })
                         FilterChip(selected = subject == InvoiceSubject.CORRECTION,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
-                            onClick = { subject = InvoiceSubject.CORRECTION;referenceTaxId = "" },
+                            onClick = { subject = InvoiceSubject.CORRECTION;referenceTaxId = "";lines = emptyList() },
                             label = { Text("اصلاحی (آزمایشی)") })
                         FilterChip(selected = subject == InvoiceSubject.RETURN,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
@@ -681,6 +681,7 @@ private fun InvoiceScreenContent(
                             DropdownMenu(expandedReference, { expandedReference = false }) {
                                 matches.forEach { (taxId, _) ->
                                     DropdownMenuItem(text = { Text(taxId) }, onClick = {
+                                        if (referenceTaxId != taxId) lines = emptyList()
                                         referenceTaxId = taxId;expandedReference = false
                                     })
                                 }
@@ -727,7 +728,7 @@ private fun InvoiceScreenContent(
                     }
                     }
                     InvoiceEditorPanel("۲", "انتخاب کالا/خدمت", "شناسه را انتخاب کرده و مشخصات قلم را وارد کنید") {
-                        Button(enabled = !busy && !editorLocked && lines.size < 500,
+                        Button(enabled = !busy && !editorLocked && subject != InvoiceSubject.CANCELLATION && lines.size < 500,
                             modifier = Modifier.fillMaxWidth(),
                             onClick = { lineIndex = -1; duplicateLineIndex = -1; lineEditorZone = "pick"; lineDialog = true }) {
                             Text("افزودن کالا یا خدمت")
@@ -746,7 +747,7 @@ private fun InvoiceScreenContent(
                     }
                     InvoiceEditorPanel("۳", "جدول فاکتور", "ثبت ردیف‌ها، اصلاح، حذف و جمع ستون‌ها") {
                         InvoiceEditorItemsTable(
-                            lines = lines, enabled = !busy && !editorLocked,
+                            lines = lines, enabled = !busy && !editorLocked && subject != InvoiceSubject.CANCELLATION,
                             onEdit = { index ->
                                 lineIndex = index; duplicateLineIndex = -1
                                 lineEditorZone = "pick"; lineDialog = true

@@ -97,6 +97,37 @@ class OfficialSubmissionService(
         owner(companyId)
         db.officialSubmissionDao().forCompany(companyId).also { require(it.all { r -> r.ownerId == account.ownerId }) }
     }
+    /** Recheck immutable source evidence at preparation and again before sending.
+     *  Same-day referrals are allowed only when their actual issue time is later.
+     *  A mutable customer profile must not silently change the original buyer. */
+    private suspend fun requireOfficialReference(invoice: Invoice, header: JSONObject) {
+        if (invoice.subject == InvoiceSubject.ORIGINAL) return
+        val source = db.officialSubmissionDao().forCompany(invoice.companyId)
+            .firstOrNull { it.taxId == invoice.referenceTaxId }
+            ?: throw IllegalArgumentException("سند مرجع در دفتر ارسال پیدا نشد.")
+        require(source.ownerId == account.ownerId && source.companyId == invoice.companyId &&
+            source.state == "ACCEPTED" && !source.signedReceipt.isNullOrBlank() &&
+            !source.referenceNumber.isNullOrBlank()) { "پذیرش مرجع باید معتبر و قطعی باشد." }
+        require(SubmissionPreparation.sha256Hex(source.payload.toByteArray(Charsets.UTF_8)) == source.payloadHash) {
+            "محتوای محفوظ سند مرجع تغییر کرده است."
+        }
+        val previous = JSONObject(source.payload).getJSONObject("header")
+        require(previous.getString("taxid") == source.taxId &&
+            previous.getInt("inty") == header.getInt("inty") &&
+            previous.getInt("inp") == header.getInt("inp") &&
+            previous.getString("tins") == header.getString("tins")) {
+            "نوع، الگو یا فروشنده با سند مرجع مطابقت ندارد."
+        }
+        require(header.getLong("indatim") > previous.getLong("indatim")) {
+            "زمان صدور سند ارجاعی باید بعد از زمان واقعی صدور مرجع باشد."
+        }
+        if (invoice.subject != InvoiceSubject.CANCELLATION) {
+            require(listOf("tob", "bid", "tinb").all { previous.getString(it) == header.getString(it) }) {
+                "اطلاعات هویتی خریدار در اصلاحیه یا برگشت نباید تغییر کند؛ مسیر ابطال را بررسی کنید."
+            }
+        }
+    }
+
     suspend fun prepare(companyId: Long, invoiceId: Long, issueTime: String, unit: String, protocol: String = "V2"): OfficialSubmission = db.withTransaction {
         require(protocol in setOf("V2", "LEGACY")) { "روش ارسال معتبر نیست." }
         sessionCheck()
@@ -122,6 +153,7 @@ class OfficialSubmissionService(
         }
         val payload = MoadianInvoiceMapper.map(company,customer,db.customerProfileDao().byCustomer(customer.id),details,invoice,
             sourceLines,issueTime,unit,clock())
+        requireOfficialReference(invoice, JSONObject(payload).getJSONObject("header"))
         require(payload.length <= 2_000_000) { "حجم صورتحساب بیش از حد مجاز است." }
         if (existing != null) {
             require(existing.ownerId == account.ownerId && existing.companyId == companyId && existing.protocol == protocol && existing.payload == payload) { "صورتحساب قبلاً با محتوای ثابت آماده شده است." }
@@ -159,6 +191,12 @@ class OfficialSubmissionService(
             if (expectedSubject == 1) require(!header.has("irtaxid"))
             else require(header.getString("irtaxid") == invoice.referenceTaxId) {
                 "شناسه مرجع سند محفوظ با سند ارجاعی یکسان نیست."
+            }
+            if (expectedSubject != 1) {
+                InvoiceSubject.requireLocalAcceptedReference(db, account.ownerId, it.companyId,
+                    invoice.customerId, invoice.subject, invoice.referenceTaxId,
+                    db.invoiceLineDao().forInvoice(invoice.id), invoice.id, invoice.issueDate)
+                requireOfficialReference(invoice, header)
             }
             val body=payload.getJSONArray("body")
             if (header.getInt("ins")==3) {

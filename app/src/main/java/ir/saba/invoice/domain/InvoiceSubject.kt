@@ -63,13 +63,13 @@ object InvoiceSubject {
             original.customerId == customerId && original.subject == ORIGINAL) {
             "موضوع، مشتری یا مؤدی صورتحساب مرجع معتبر نیست."
         }
-        if (newIssueDate != null) require(InvoiceInput.date(newIssueDate) > InvoiceInput.date(original.issueDate)) {
-            "تاریخ سند ارجاعی باید بعد از تاریخ صورتحساب مرجع باشد."
+        if (newIssueDate != null) require(InvoiceInput.date(newIssueDate) >= InvoiceInput.date(original.issueDate)) {
+            "تاریخ سند ارجاعی نباید قبل از تاریخ صورتحساب مرجع باشد."
         }
         if (subject == CANCELLATION) {
             // Cancellation is a referenced local record, never a new sale. Keep
             // the original items unchanged so the PDF cannot suggest a new amount.
-            // The official cancellation mapper is intentionally not enabled.
+            // The official mapper sends only the cancellation header.
             val originals = db.invoiceLineDao().forInvoice(original.id)
             require(originals.isNotEmpty() && lines.size == originals.size) {
                 "اقلام سند ابطالی باید دقیقاً از مرجع پذیرفته‌شده کپی شوند."

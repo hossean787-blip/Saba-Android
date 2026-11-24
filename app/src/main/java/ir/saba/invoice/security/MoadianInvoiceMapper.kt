@@ -32,9 +32,6 @@ object MoadianInvoiceMapper {
         }
         require(!details.inactive && details.companyId == company.id)
         require(buyerProfile == null || (buyerProfile.customerId == customer.id && buyerProfile.companyId == company.id && buyerProfile.active && buyerProfile.isCustomer && buyerProfile.nationality == "IR"))
-        require(lines.all { MoadianMeasurementUnits.nameOf(it.unitCode.ifBlank { unit }) != null }) {
-            "برای هر ردیف واحد سنجش معتبر انتخاب کنید؛ برای فاکتورهای قدیمی می‌توان واحد مشترک وارد کرد."
-        }
         require(lines.all { it.invoiceId == invoice.id })
         val issued = OffsetDateTime.parse(issueTime).toInstant().toEpochMilli()
         val expectedDay = OffsetDateTime.parse(defaultIssueTime(invoice.issueDate)).atZoneSameInstant(ZoneId.of("Asia/Tehran")).toLocalDate()
@@ -55,6 +52,9 @@ object MoadianInvoiceMapper {
                 .put("irtaxid", requireNotNull(invoice.referenceTaxId))
             return JSONObject().put("header", header)
                 .put("body", JSONArray()).put("payments", JSONArray()).toString()
+        }
+        require(lines.all { MoadianMeasurementUnits.nameOf(it.unitCode.ifBlank { unit }) != null }) {
+            "برای هر ردیف واحد سنجش معتبر انتخاب کنید؛ برای فاکتورهای قدیمی می‌توان واحد مشترک وارد کرد."
         }
         val contract = TaxInvoiceContract(TaxInvoiceHeader(taxId,details.fiscalMemoryId,company.economicId,customer.economicId,issued),
             lines.map { TaxInvoiceItem(it.itemCode,it.description,
