@@ -38,6 +38,8 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
     var busy by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<OfficialSubmission?>(null) }
+    var sendOutcome by remember { mutableStateOf<OfficialSubmission?>(null) }
+    var sendStage by remember { mutableStateOf("") }
     var localCredentialReady by remember(companyId) { mutableStateOf(false) }
     var legacyKeyReady by remember(companyId) { mutableStateOf(false) }
     var selectedProtocol by remember(companyId) { mutableStateOf("V2") }
@@ -65,7 +67,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             try { block(); refresh() }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { error = if (e is IllegalArgumentException || e is IllegalStateException) e.message.orEmpty().take(300) else "عملیات انجام نشد؛ اتصال و اطلاعات مؤدی را بررسی کنید." }
-            finally { busy = false }
+            finally { busy = false; sendStage = "" }
         }
     }
     LaunchedEffect(companyId,account) {
@@ -85,7 +87,10 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             Text("ارسال آینده فقط زمان انتخابی محلی است؛ سامانه به‌صورت خودکار سند مالیاتی ارسال نمی‌کند و پس از موعد نیز تأیید دستی الزامی است.",
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
             if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (busy) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (sendStage.isNotBlank()) Text(sendStage, style=MaterialTheme.typography.bodyMedium)
+            }
             if (legacyKeyReady) {
                 OutlinedButton(enabled=!busy,onClick={
                     act {
@@ -187,7 +192,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                         }
                         Button(enabled=!busy && due,
                             onClick={act { confirmation=service.reviewPrepared(row.requestId) }}) {
-                            Text("بررسی و ارسال رسمی")
+                            Text("بررسی، ارسال و استعلام")
                         }
                         TextButton(enabled=!busy,onClick={act { service.discardPrepared(row.requestId) }}) {
                             Text("لغو آماده‌سازی؛ هنوز ارسال نشده")
@@ -212,6 +217,27 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             }
         }
     }
+    sendOutcome?.let { result ->
+        val terminal = result.state in setOf("ACCEPTED", "REJECTED")
+        AlertDialog(
+            onDismissRequest = { sendOutcome = null },
+            title = { Text(when (result.state) {
+                "ACCEPTED" -> "نتیجه پذیرش ثبت شد"
+                "REJECTED" -> "صورتحساب رد شد"
+                else -> "نتیجه نهایی هنوز دریافت نشده"
+            }) },
+            text = {
+                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text(invoiceTaxStatus(result))
+                    Text("شماره مالیاتی: " + result.taxId)
+                    result.referenceNumber?.let { Text("شماره پیگیری: " + it) }
+                    result.lastError?.let { Text(it) }
+                    if (!terminal) Text("استعلام خودکار این مرحله پایان یافت؛ از سوابق همان درخواست را دوباره استعلام کنید. ارسال مجدد ممنوع است.")
+                }
+            },
+            confirmButton = { TextButton(onClick = { sendOutcome = null }) { Text("مشاهده سوابق") } }
+        )
+    }
     confirmation?.let { row ->
         val content = org.json.JSONObject(row.payload)
         val header = content.getJSONObject("header")
@@ -234,10 +260,15 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             confirmButton={TextButton(onClick={
                 confirmation=null
                 act {
-                    if (row.protocol == "LEGACY") service.submitLegacy(row.requestId)
-                    else service.submit(row.requestId)
+                    sendStage = "در حال ارسال صورتحساب…"
+                    sendOutcome = service.submitAndInquire(row.requestId) { updated ->
+                        history = history.map { if (it.requestId == updated.requestId) updated else it }
+                        sendStage = if (updated.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
+                            "در حال استعلام نتیجه همان صورتحساب…"
+                        else "نتیجه در سوابق صورتحساب ثبت شد."
+                    }
                 }
-            }) { Text("تأیید و ارسال واقعی") }},
+            }) { Text("تأیید، ارسال و استعلام") }},
             dismissButton={TextButton(onClick={confirmation=null}) { Text("انصراف") }})
     }
 }

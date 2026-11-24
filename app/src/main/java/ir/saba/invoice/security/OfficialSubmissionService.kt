@@ -5,6 +5,8 @@ import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -235,6 +237,50 @@ class OfficialSubmissionService(
     }
     private suspend fun keys(row: OfficialSubmission): List<OrganizationKey> = MoadianSignedReceipt.keys(
         transport.request("GET","server-information",authorization(row)))
+
+    /**
+     * User-confirmed foreground operation: one POST at most, then immediate
+     * inquiry of the same durable request. A pending or ambiguous response
+     * never generates another invoice, UUID, or debit. The existing inquiry
+     * paths persist each result atomically with the invoice tracking code.
+     */
+    suspend fun submitAndInquire(
+        id: String, onUpdate: (OfficialSubmission) -> Unit = {}
+    ): OfficialSubmission {
+        sessionCheck()
+        val initial = row(id)
+        require(initial.state == "PREPARED") {
+            "درخواست قبلاً آغاز شده است؛ فقط استعلام همان درخواست مجاز است."
+        }
+        val sent = when (initial.protocol) {
+            "LEGACY" -> submitLegacy(id)
+            "V2" -> submit(id)
+            else -> error("روش ارسال معتبر نیست.")
+        }
+        onUpdate(sent)
+        val awaiting = setOf("SENDING", "UNKNOWN", "SUBMITTED")
+        if (sent.state !in awaiting) return sent
+
+        // The timeout is for the foreground inquiry budget, not the invoice POST.
+        // Network cancellation retains the durable ambiguous state. No WorkManager,
+        // background polling, or automatic resubmission is started.
+        withTimeoutOrNull(30_000L) {
+            repeat(3) { attempt ->
+                if (attempt > 0) delay(if (attempt == 1) 1_500L else 3_000L)
+                sessionCheck()
+                val current = row(id)
+                if (current.state !in awaiting) return@withTimeoutOrNull
+                val result = when (current.protocol) {
+                    "LEGACY" -> inquireLegacy(id)
+                    "V2" -> inquire(id)
+                    else -> error("روش استعلام معتبر نیست.")
+                }
+                onUpdate(result)
+                if (result.state !in awaiting) return@withTimeoutOrNull
+            }
+        }
+        return row(id)
+    }
 
     /** Caller must get explicit user confirmation before invoking this real financial document operation. */
     suspend fun submit(id: String): OfficialSubmission {

@@ -58,7 +58,8 @@ class OfficialSubmissionServiceTest {
     private suspend fun reject(action:suspend()->Unit){try{action();fail("Expected rejection")}catch(_:IllegalArgumentException){}catch(_:IllegalStateException){}}
     private inner class FakeApi:OfficialTaxTransport {
         lateinit var row:OfficialSubmission
-        var posts=0;var gets=0;var nonces=0
+        var posts=0;var gets=0;var nonces=0;var inquiries=0
+        val inquiryStatuses=mutableListOf<String>()
         var lost=false;var status="SUCCESS";var corrupt=false;var wrongUid=false;var wrongTax=false;var metadataFailure=false
         var body=""
         var postGate:CompletableDeferred<Unit>?=null
@@ -77,6 +78,7 @@ class OfficialSubmissionServiceTest {
                 if(metadataFailure) throw java.io.IOException("offline")
                 return JSONObject().put("serverTime",now).put("publicKeys",JSONArray().put(JSONObject().put("algorithm","RSA").put("purpose",1).put("id","organization-key").put("key",Base64.getEncoder().encodeToString(organizationKey.public.encoded)))).toString()
             }
+            inquiries++
             assertTrue(path.startsWith("inquiry-by-uid?"));assertTrue(path.contains("start="));assertTrue(path.contains("uidList=${row.requestId}"))
             val signedPayload=JSONObject().put("referenceNumber","official-reference").put("clientId",row.fiscalId).put("taxId",if(wrongTax) "OTHER" else row.taxId).put("receivedDate",Instant.ofEpochMilli(now-1000).toString())
             val encoder=Base64.getUrlEncoder().withoutPadding()
@@ -84,10 +86,87 @@ class OfficialSubmissionServiceTest {
             val input=encoder.encodeToString(header.toString().toByteArray())+"."+encoder.encodeToString(signedPayload.toString().toByteArray())
             val signature=Signature.getInstance("SHA256withRSA").run{initSign(if(corrupt) customerKey.private else organizationKey.private);update(input.toByteArray());sign()}
             val signed=input+"."+encoder.encodeToString(signature)
-            return JSONArray().put(JSONObject().put("uid",if(wrongUid) "other" else row.requestId).put("fiscalId",row.fiscalId).put("referenceNumber","official-reference").put("status",status).put("sign",signed)
+            return JSONArray().put(JSONObject().put("uid",if(wrongUid) "other" else row.requestId).put("fiscalId",row.fiscalId).put("referenceNumber","official-reference").put("status",if(inquiryStatuses.isEmpty()) status else inquiryStatuses.removeAt(0)).put("sign",signed)
                 .put("data",JSONObject().put("error",JSONArray().put(JSONObject().put("code","E123"))))).toString()
         }
     }
+    @Test fun oneClickSendImmediatelyInquiresAndPersistsSignedAcceptance()=runBlocking {
+        val prepared=prepare()
+        val states=mutableListOf<String>()
+        val result=service.submitAndInquire(prepared.requestId) { states.add(it.state) }
+        assertEquals(listOf("SUBMITTED","ACCEPTED"),states)
+        assertEquals("ACCEPTED",result.state)
+        assertNotNull(result.signedReceipt)
+        assertEquals(1,api.posts)
+        assertEquals(1,api.inquiries)
+        assertEquals(result,db.officialSubmissionDao().byId(prepared.requestId))
+        assertEquals("official-reference",db.invoiceDao().byId(invoice)?.trackingCode)
+        reject { service.submitAndInquire(prepared.requestId) }
+        assertEquals(1,api.posts)
+    }
+
+    @Test fun oneClickSendPersistsRejectionAndStopsInquiry()=runBlocking {
+        val prepared=prepare()
+        api.status="FAILED"
+        val result=service.submitAndInquire(prepared.requestId)
+        assertEquals("REJECTED",result.state)
+        assertTrue(result.lastError.orEmpty().contains("E123"))
+        assertEquals(1,api.posts)
+        assertEquals(1,api.inquiries)
+        assertEquals(result,db.officialSubmissionDao().byId(prepared.requestId))
+    }
+
+    @Test fun oneClickSendReconcilesLostAcknowledgementWithoutAnotherPost()=runBlocking {
+        val prepared=prepare()
+        api.lost=true
+        val states=mutableListOf<String>()
+        val result=service.submitAndInquire(prepared.requestId) { states.add(it.state) }
+        assertEquals(listOf("UNKNOWN","ACCEPTED"),states)
+        assertEquals("ACCEPTED",result.state)
+        assertEquals(1,api.posts)
+        assertEquals(1,api.inquiries)
+    }
+
+    @Test fun oneClickSendInquiresOnlyThreeTimesWhenServerRemainsPending()=runBlocking {
+        val prepared=prepare()
+        api.status="IN_PROGRESS"
+        val result=service.submitAndInquire(prepared.requestId)
+        assertEquals("SUBMITTED",result.state)
+        assertNull(result.signedReceipt)
+        assertEquals(1,api.posts)
+        assertEquals(3,api.inquiries)
+        assertEquals(result,db.officialSubmissionDao().byId(prepared.requestId))
+        reject { service.submitAndInquire(prepared.requestId) }
+        assertEquals(1,api.posts)
+    }
+
+    @Test fun oneClickLegacySendImmediatelyRegistersBoundReferenceWithoutForgedSignedReceipt()=runBlocking {
+        credentials.stagePrivateKey(company,TestCertificates.pem(customerKey))
+        val prepared=service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY")
+        var sends=0
+        var queries=0
+        service.legacyGateway=object:LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String) =
+                LegacyPreparedInvoice("{}",mapOf("requestTraceId" to uid))
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement {
+                sends++
+                return LegacyInvoiceAcknowledgement(expectedUid,"legacy-one-click")
+            }
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String):LegacyInvoiceInquiry {
+                queries++
+                return LegacyInvoiceInquiry(uid,taxId,"legacy-one-click","SUCCESS",emptyList(),fiscalId)
+            }
+        }
+        val result=service.submitAndInquire(prepared.requestId)
+        assertEquals("ACCEPTED",result.state)
+        assertTrue(OfficialReferenceEvidence.eligible(result))
+        assertNull(result.signedReceipt)
+        assertEquals(1,sends)
+        assertEquals(1,queries)
+        assertEquals("legacy-one-click",db.invoiceDao().byId(invoice)?.trackingCode)
+        assertEquals(result,db.officialSubmissionDao().byId(prepared.requestId))
+    }
+
     @Test fun futureSelectedTimeBlocksSubmissionBeforeAnyTaxNetworkOrQuotaChange()=runBlocking {
         val original = requireNotNull(db.invoiceDao().byId(invoice))
         val future = InvoiceLocalDetails(
