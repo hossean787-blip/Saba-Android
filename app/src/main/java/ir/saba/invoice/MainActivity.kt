@@ -776,14 +776,16 @@ class MainActivity : ComponentActivity() {
                                 onExcelAction = { action, target -> handleExcelAction(action, target) }
                             )
                             }
-                            Page.BACKUP, Page.RESTORE -> AccountBackupScreen(
-                                db = db, account = account, accessToken = accessToken,
-                                restore = page == Page.RESTORE, onBusy = { busy = it },
-                                onChanged = { refresh() }, onNotice = ::notify,
-                                onLegacyRecovery = { page = Page.LEGACY_RECOVERY }
-                            )
-                            Page.SUPPORT -> SuraServiceScreen("support", onBack = { page = Page.DASHBOARD })
-                            Page.CONTACT -> SuraServiceScreen("contact", onBack = { page = Page.DASHBOARD })
+                            Page.BACKUP, Page.RESTORE -> key(page) {
+                                AccountBackupScreen(
+                                    db = db, account = account, accessToken = accessToken,
+                                    restore = page == Page.RESTORE, onBusy = { busy = it },
+                                    onChanged = { refresh() }, onNotice = ::notify,
+                                    onLegacyRecovery = { page = Page.LEGACY_RECOVERY }
+                                )
+                            }
+                            Page.SUPPORT -> SuraSupportScreen(account,accessToken,onBusy={busy=it},onBack={page=Page.DASHBOARD})
+                            Page.CONTACT -> SuraServiceScreen("contact", onBack = { page = Page.DASHBOARD }, onSupport={page=Page.SUPPORT})
                             Page.PRIVACY -> SuraServiceScreen("privacy", onBack = { page = Page.DASHBOARD })
                             Page.TERMS -> SuraServiceScreen("terms", onBack = { page = Page.DASHBOARD })
                             Page.ABOUT -> SuraServiceScreen("about", onBack = { page = Page.DASHBOARD })

@@ -208,6 +208,11 @@ internal class AccountArchive(
                     check(sql.insert(table,SQLiteDatabase.CONFLICT_ABORT,values)!=-1L)
                 }
             }
+            // Even old taxpayer rows without supplemental details must remain inactive.
+            for(id in ids) {
+                if(db.moadianDetailsDao().byCompany(id)==null)
+                    db.moadianDetailsDao().upsert(MoadianDetails(companyId=id,inactive=true))
+            }
             sql.query("PRAGMA foreign_key_check").use { check(!it.moveToFirst()) }
             checkSession()
             // Direct SQL inserts use Room's transaction/invalidation tracker; no network calls.
