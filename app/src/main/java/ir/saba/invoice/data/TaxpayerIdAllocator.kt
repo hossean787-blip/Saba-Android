@@ -36,5 +36,10 @@ class TaxpayerIdAllocator(context: Context) : SQLiteOpenHelper(context.applicati
             return next
         } finally { db.endTransaction() }
     }
+    /** Reserve the imported high-water mark before restoring explicit IDs. */
+    fun advancePast(id: Long) {
+        require(id in 0..MAX_ID)
+        writableDatabase.execSQL("UPDATE taxpayer_sequence SET next_id=MAX(next_id,?) WHERE id=1", arrayOf(id+1))
+    }
     companion object { private const val MAX_ID = 9_007_199_254_740_991L }
 }

@@ -31,6 +31,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,7 +61,7 @@ import ir.saba.moadian.SubmissionPreparation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private enum class Page { DASHBOARD, IDENTIFIERS, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, OFFICIAL_SUBMISSION, LEGACY_RECOVERY, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS }
+private enum class Page { DASHBOARD, IDENTIFIERS, EVENTS, COMPANIES, TAX_KEYS, TAX_CONNECTION, OFFICIAL_SUBMISSION, LEGACY_RECOVERY, CUSTOMERS, INVOICES, QUOTA, CREDIT_PURCHASE, SIMULATION, SETTINGS, APP_SETTINGS, BACKUP, RESTORE, SUPPORT, CONTACT, PRIVACY, TERMS, ABOUT }
 private data class CompanyData(
     val companyId: Long,
     val customers: List<Customer>,
@@ -522,32 +529,44 @@ class MainActivity : ComponentActivity() {
                                     drawerContentColor = Color.White
                                 ) {
                                     Column(
-                                        Modifier.fillMaxHeight().padding(horizontal = 18.dp, vertical = 20.dp),
-                                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                                        Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Text("سورا | SURA", color = Color(0xFFE8CE91),
                                             style = MaterialTheme.typography.headlineSmall,
                                             fontWeight = FontWeight.Bold)
                                         Text("صبا گستر اراک", color = Color(0xFFB8D0DD))
                                         HorizontalDivider(color = Color(0xFF345069))
-                                        NavigationDrawerItem(
-                                            label = { Text("تنظیمات برنامه") },
-                                            selected = page == Page.APP_SETTINGS,
-                                            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                            onClick = {
-                                                scope.launch { drawerState.close() }
-                                                page = Page.APP_SETTINGS
-                                            },
-                                            colors = NavigationDrawerItemDefaults.colors(
-                                                unselectedContainerColor = Color.Transparent,
-                                                unselectedTextColor = Color.White,
-                                                unselectedIconColor = Color(0xFFE8CE91),
-                                                selectedContainerColor = Color(0xFF15526B),
-                                                selectedTextColor = Color.White,
-                                                selectedIconColor = Color(0xFFE8CE91)
+                                        listOf(
+                                            Triple(Page.APP_SETTINGS, "تنظیمات برنامه", Icons.Default.Settings),
+                                            Triple(Page.BACKUP, "پشتیبان‌گیری", Icons.Default.Share),
+                                            Triple(Page.RESTORE, "بازیابی اطلاعات", Icons.Default.Refresh),
+                                            Triple(Page.SUPPORT, "پشتیبانی", Icons.Default.Email),
+                                            Triple(Page.CONTACT, "ارتباط با ما", Icons.Default.Call),
+                                            Triple(Page.PRIVACY, "حریم خصوصی", Icons.Default.Lock),
+                                            Triple(Page.TERMS, "قوانین و شرایط استفاده", Icons.Default.CheckCircle),
+                                            Triple(Page.ABOUT, "درباره ما", Icons.Default.Info)
+                                        ).forEach { (destination, title, image) ->
+                                            NavigationDrawerItem(
+                                                label = { Text(title) },
+                                                selected = page == destination,
+                                                icon = { Icon(image, contentDescription = null) },
+                                                onClick = {
+                                                    if (!busy && !editing) {
+                                                        scope.launch { drawerState.close() }
+                                                        page = destination
+                                                    }
+                                                },
+                                                colors = NavigationDrawerItemDefaults.colors(
+                                                    unselectedContainerColor = Color.Transparent,
+                                                    unselectedTextColor = Color.White,
+                                                    unselectedIconColor = Color(0xFFE8CE91),
+                                                    selectedContainerColor = Color(0xFF15526B),
+                                                    selectedTextColor = Color.White,
+                                                    selectedIconColor = Color(0xFFE8CE91)
+                                                )
                                             )
-                                        )
-                                        Spacer(Modifier.weight(1f))
+                                        }
                                         HorizontalDivider(color = Color(0xFF345069))
                                         Text("سورا | صبا گستر اراک", color = Color(0xFFB8D0DD),
                                             style = MaterialTheme.typography.labelMedium)
@@ -579,6 +598,13 @@ class MainActivity : ComponentActivity() {
                                             Page.CREDIT_PURCHASE -> "خرید اعتبار"
                                             Page.SETTINGS -> "حساب کاربری"
                                             Page.APP_SETTINGS -> "تنظیمات برنامه"
+                                            Page.BACKUP -> "پشتیبان‌گیری امن"
+                                            Page.RESTORE -> "بازیابی اطلاعات"
+                                            Page.SUPPORT -> "پشتیبانی سورا"
+                                            Page.CONTACT -> "ارتباط با ما"
+                                            Page.PRIVACY -> "حریم خصوصی"
+                                            Page.TERMS -> "قوانین و شرایط استفاده"
+                                            Page.ABOUT -> "درباره ما"
                                             else -> "سامانه صورتحساب سورا"
                                         }, compact = true
                                     )
@@ -750,6 +776,17 @@ class MainActivity : ComponentActivity() {
                                 onExcelAction = { action, target -> handleExcelAction(action, target) }
                             )
                             }
+                            Page.BACKUP, Page.RESTORE -> AccountBackupScreen(
+                                db = db, account = account, accessToken = accessToken,
+                                restore = page == Page.RESTORE, onBusy = { busy = it },
+                                onChanged = { refresh() }, onNotice = ::notify,
+                                onLegacyRecovery = { page = Page.LEGACY_RECOVERY }
+                            )
+                            Page.SUPPORT -> SuraServiceScreen("support", onBack = { page = Page.DASHBOARD })
+                            Page.CONTACT -> SuraServiceScreen("contact", onBack = { page = Page.DASHBOARD })
+                            Page.PRIVACY -> SuraServiceScreen("privacy", onBack = { page = Page.DASHBOARD })
+                            Page.TERMS -> SuraServiceScreen("terms", onBack = { page = Page.DASHBOARD })
+                            Page.ABOUT -> SuraServiceScreen("about", onBack = { page = Page.DASHBOARD })
                             Page.APP_SETTINGS -> AppSettingsScreen(
                                 fontScale = fontScale,
                                 busy = busy,

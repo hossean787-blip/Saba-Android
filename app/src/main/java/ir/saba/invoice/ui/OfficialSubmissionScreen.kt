@@ -175,6 +175,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                             "سامانه مسیر بدون گواهی نتیجه موفق گزارش کرده؛ رسید امضاشده نسخه ۲ موجود نیست"
                         else "پذیرفته‌شده؛ امضای رسید سازمان بررسی شد"
                         "REJECTED" -> "ردشده در سامانه"
+                        "RESTORED" -> "سابقه بازیابی‌شده؛ بدون امکان ارسال مجدد"
                         else -> "نتیجه نامشخص؛ استعلام لازم است"
                     })
                     row.referenceNumber?.let { Text("شماره پیگیری: $it") }
