@@ -83,6 +83,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         item {
             Text("ارسال رسمی صورتحساب",style=MaterialTheme.typography.titleLarge)
             Text(name)
+            Text("پس از تأیید ارسال، نتیجه همان صورتحساب خودکار استعلام و در سوابق ثبت می‌شود؛ نیازی به استعلام دستی اولیه نیست.", style=MaterialTheme.typography.bodyMedium)
             Text("پشتیبانی آزمایشی: نوع ۱، الگوی فروش ۱، ریالی؛ اصلی، اصلاحی، ابطالی بدون بدنه فروش و برگشت از فروش جزئی با مرجع پذیرفته‌شده، نقدی/نسیه/ترکیبی. پذیرش واقعی اسناد ارجاعی هنوز آزمون نشده است.")
             Text("ارسال آینده فقط زمان انتخابی محلی است؛ سامانه به‌صورت خودکار سند مالیاتی ارسال نمی‌کند و پس از موعد نیز تأیید دستی الزامی است.",
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.secondary)
@@ -192,7 +193,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                         }
                         Button(enabled=!busy && due,
                             onClick={act { confirmation=service.reviewPrepared(row.requestId) }}) {
-                            Text("بررسی، ارسال و استعلام")
+                            Text("بررسی و ارسال رسمی")
                         }
                         TextButton(enabled=!busy,onClick={act { service.discardPrepared(row.requestId) }}) {
                             Text("لغو آماده‌سازی؛ هنوز ارسال نشده")
@@ -228,7 +229,9 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
             }) },
             text = {
                 Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Text(invoiceTaxStatus(result))
+                    Text(if (result.state == "ACCEPTED" && result.protocol == "LEGACY")
+                        "سامانه در مسیر بدون گواهی نتیجه موفق گزارش کرده است؛ رسید امضاشده نسخه ۲ موجود نیست."
+                    else invoiceTaxStatus(result))
                     Text("شماره مالیاتی: " + result.taxId)
                     result.referenceNumber?.let { Text("شماره پیگیری: " + it) }
                     result.lastError?.let { Text(it) }
@@ -268,7 +271,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                         else "نتیجه در سوابق صورتحساب ثبت شد."
                     }
                 }
-            }) { Text("تأیید، ارسال و استعلام") }},
+            }) { Text("تأیید و ارسال واقعی") }},
             dismissButton={TextButton(onClick={confirmation=null}) { Text("انصراف") }})
     }
 }
