@@ -114,7 +114,9 @@ internal fun isLegacyEvidenceMessage(row: OfficialSubmission): Boolean =
         row.lastError in setOf(OfficialReferenceEvidence.LEGACY_BOUND, OfficialReferenceEvidence.LEGACY_TRACKING_BOUND, OfficialReferenceEvidence.LEGACY_UNBOUND)
 
 /** Compact status for the list, details and PDF; never infer acceptance from a tax ID. */
-internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): String = when (row?.state) {
+internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): String = when {
+    invoice.status=="CANCELLED" && (row==null || row.state=="RESERVED") -> "لغوشده محلی؛ ارسال نشده"
+    else -> when (row?.state) {
     null -> if (!invoice.trackingCode.isNullOrBlank() || invoice.status == "RESTORED")
         "سابقه نیازمند استعلام" else if (invoice.status == "DRAFT") "پیش‌نویس؛ ارسال نشده" else "ارسال نشده"
     "RESERVED" -> "شماره مالیاتی محفوظ؛ ارسال نشده"
@@ -127,6 +129,7 @@ internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): St
     "REJECTED" -> "رد شده در سامانه"
     "RESTORED" -> "سابقه نیازمند استعلام"
     else -> "وضعیت نامشخص؛ نیازمند استعلام"
+    }
 }
 
 /** Receipt status must never be inferred from a local draft, tracking code alone or a POST response. */
@@ -292,6 +295,7 @@ private fun InvoiceScreenContent(
             sessionCheck = { AccountSession.requireOwner(accessToken, account) }, directOnly = true)
     }
     var sendConfirm by rememberSaveable { mutableStateOf(false) }
+    var managementOpen by rememberSaveable(companyId, ownerId) { mutableStateOf(false) }
     var issueClock by rememberSaveable { mutableStateOf("") }
     var sendProgress by remember { mutableStateOf("") }
     val tehran = remember { ZoneId.of("Asia/Tehran") }
@@ -479,12 +483,16 @@ private fun InvoiceScreenContent(
         onChanged()
     }
 
-    fun startCorrection(originalId: Long) {
+    fun startCorrection(originalId: Long, targetSubject:String=InvoiceSubject.CORRECTION) {
         perform {
             val original=repository.detailsForCompany(companyId,originalId)
             val parent=requireNotNull(db.officialSubmissionDao().forInvoice(original.invoice.id))
+            require(targetSubject in setOf(InvoiceSubject.CORRECTION,InvoiceSubject.CANCELLATION))
             require(parent.ownerId==ownerId && canStartCorrection(original.invoice,parent)) {
-                "فقط فاکتور اصلی پذیرفته‌شده همین مؤدی قابل اصلاح است."
+                "فقط فاکتور اصلی پذیرفته‌شده همین مؤدی قابل ارجاع است."
+            }
+            if(targetSubject==InvoiceSubject.CANCELLATION) require(canDraftOriginalCancellation(original.invoice,parent,db.invoiceDao().forCompany(companyId))) {
+                "مرجع ابطال باید معتبر و بدون سند ارجاعی فعال باشد."
             }
             require(creation.pending(companyId)==null) { "ابتدا صدور ناتمام قبلی را تکمیل کنید." }
             val existing=db.invoiceDao().forCompany(companyId).firstOrNull {
@@ -507,19 +515,19 @@ private fun InvoiceScreenContent(
             // Recheck reference and conflicts before opening the unsaved form; persistence rechecks again.
             val issueDate=JalaliCalendar.fromGregorian(java.time.LocalDate.now(tehran))
             InvoiceSubject.requireLocalAcceptedReference(db,ownerId,companyId,original.invoice.customerId,
-                InvoiceSubject.CORRECTION,verified.taxId,copied,newIssueDate=issueDate)
+                targetSubject,verified.taxId,copied,newIssueDate=issueDate)
             val suggested=TaxpayerSerialAllocator(db).suggest(companyId,reference=true)
             beginInvoice()
             if(pendingCreation!=null) return@perform
             invoiceId=null;number=suggested;date=issueDate
-            subject=InvoiceSubject.CORRECTION;referenceTaxId=verified.taxId
+            subject=targetSubject;referenceTaxId=verified.taxId
             customerId=original.invoice.customerId;lines=copied
             settlementMode=original.invoice.settlementMode
             cashPortionInput=if(settlementMode==InvoiceSettlement.MIXED) original.invoice.cashPaidRial?.toString().orEmpty() else ""
             localDetailsJson=InvoiceLocalDetails.fromJson(original.invoice.localDetailsJson)
                 .copy(documents=emptyList(),sendLaterDate="",sendLaterTime="",paymentTrackingNumber="",paymentDate="")
                 .toJson(preserveInput=true)
-            onNotice("اصلاحیه آماده ویرایش است؛ اصل فاکتور بدون تغییر باقی ماند. اعتبار فقط هنگام ذخیره سند جدید مصرف می‌شود.")
+            onNotice(if(targetSubject==InvoiceSubject.CANCELLATION) "پیش‌نویس ابطالی آماده شد؛ هنوز هیچ سندی ارسال نشده است." else "اصلاحیه آماده ویرایش است؛ اصل فاکتور بدون تغییر باقی ماند. اعتبار فقط هنگام ذخیره سند جدید مصرف می‌شود.")
         }
     }
 
@@ -810,13 +818,14 @@ private fun InvoiceScreenContent(
                         onCorrection = if(canStartCorrection(loaded.invoice,officialRecord) &&
                             correctionLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded.invoice.id) } } else null,
                         correction = correctionLink(loaded.invoice,invoices,officialByInvoice),
-                        onOpenCorrection = { id -> invoiceId=id;mode="event_open" })
+                        onOpenCorrection = { id -> invoiceId=id;mode="event_open" },
+                        onManage = { managementOpen=true })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
                 val needle = InvoiceInput.digits(search.trim())
                 val filtered = invoices.filter { invoice ->
-                    (status == "ALL" || invoice.status == status) &&
+                    (status == "ALL" || if(status=="MANAGEMENT") needsSubmissionManagement(invoice,officialByInvoice[invoice.id]) else invoice.status == status) &&
                         (needle.isEmpty() || InvoiceInput.digits(invoice.invoiceNumber).contains(needle, true) ||
                             customers.firstOrNull { it.id == invoice.customerId }?.name?.contains(search.trim(), true) == true)
                 }
@@ -879,6 +888,11 @@ private fun InvoiceScreenContent(
                                             containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
                                 }
                             }
+                            FilterChip(selected=status=="MANAGEMENT",onClick={status="MANAGEMENT"},
+                                modifier=Modifier.fillMaxWidth().testTag("needsSubmissionManagement"),
+                                label={Text("نیازمند تعیین تکلیف · "+invoices.count{needsSubmissionManagement(it,officialByInvoice[it.id])})},
+                                colors=FilterChipDefaults.filterChipColors(selectedContainerColor=navy,selectedLabelColor=Color.White,
+                                    containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
                         }
                     }
                     if(filtered.isEmpty()) item(key="emptyInvoices") {
@@ -1525,6 +1539,23 @@ private fun InvoiceScreenContent(
             },
             confirmButton = { TextButton(onClick = { correctionPicker = false }) { Text("بستن") } }
         )
+    }
+
+    if(managementOpen && mode=="template" && details!=null) {
+        val loaded=requireNotNull(details)
+        SubmissionManagementDialog(loaded.invoice,officialRecord,db,ownerId,invoices,busy,
+            onDismiss={managementOpen=false},
+            onInquiry={requestOfficialSend(loaded)},
+            onCancel={
+                managementOpen=false
+                perform {
+                    repository.cancelNeverSent(companyId,loaded.invoice.id,ownerId)
+                    reloadOfficial(loaded.invoice.id)
+                    onNotice("سند ارسال‌نشده لغو شد؛ شماره مالیاتی و مصرف اعتبار محفوظ است.")
+                }
+            },
+            onEdit={managementOpen=false;editExisting(loaded)},
+            onCancellation={managementOpen=false;startCorrection(loaded.invoice.id,InvoiceSubject.CANCELLATION)})
     }
 
     if (sendConfirm && details != null) {

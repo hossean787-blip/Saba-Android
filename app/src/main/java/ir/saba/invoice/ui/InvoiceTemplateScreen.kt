@@ -240,7 +240,8 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           db: SabaDatabase? = null, directPreview: Boolean = false,
                           busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
                           onCorrection:(() -> Unit)? = null, correction:CorrectionLink? = null,
-                          onOpenCorrection:(Long)->Unit = {}, localPreview:Boolean = false) {
+                          onOpenCorrection:(Long)->Unit = {}, localPreview:Boolean = false,
+                          onManage:(()->Unit)?=null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -332,6 +333,12 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         val action=invoicePreviewAction(invoice,official)
         if(action!=null) OutlinedButton(enabled=!busy,onClick=onSend,modifier=Modifier.fillMaxWidth().testTag("invoiceDirectSend")) { Text(action) }
+        if(onManage!=null) Button(enabled=!busy,onClick=onManage,
+            modifier=Modifier.fillMaxWidth().testTag("openSubmissionManagement"),
+            shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            colors=ButtonDefaults.buttonColors(containerColor=androidx.compose.ui.graphics.Color(0xFF174B80))) {
+            Text("مدیریت و تعیین تکلیف ارسال")
+        }
         if(onEdit!=null && canEditInvoicePreview(invoice,official)) {
             OutlinedButton(enabled=!busy,onClick=onEdit,modifier=Modifier.fillMaxWidth()) {
                 Text(if(official?.state=="REJECTED") "اصلاح و ویرایش همین فاکتور" else "ویرایش فاکتور")
