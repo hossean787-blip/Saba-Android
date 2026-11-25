@@ -77,20 +77,16 @@ class OfficialSubmissionScreenTest {
             scrollTo("آماده‌سازی فاکتور 13")
             compose.onNodeWithText("آماده‌سازی فاکتور 13").performClick()
             scrollTo("شناسه یکتا + کلید خصوصی")
-            compose.onNodeWithText("شناسه یکتا + کلید خصوصی").assertIsSelected()
-            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").performClick()
-            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").assertIsSelected()
-            // A subsequent user-triggered refresh must preserve the explicit selection.
-            scrollTo("بازخوانی وضعیت محلی")
-            compose.onNodeWithText("بازخوانی وضعیت محلی").performClick()
-            waitForReady()
-            scrollTo("اتصال نسخه ۲ با گواهی")
-            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").assertIsSelected()
+            compose.onNodeWithText("شناسه یکتا + کلید خصوصی").assertExists()
+            compose.onNodeWithText("اتصال نسخه ۲ با گواهی").assertDoesNotExist()
         } finally {
             prefs.edit().remove("pending_company_$company").commit()
         }
     }
     @Test fun preparingNeverSendsAndRealSubmissionNeedsExplicitConfirmation() {
+        val prefs = ApplicationProvider.getApplicationContext<android.content.Context>().getSharedPreferences("sura_tax_credentials_${account.storageKey}", 0)
+        prefs.edit().putString("pending_company_$company", "synthetic-staged-key-marker").commit()
+        try {
         compose.setContent {MaterialTheme {OfficialSubmissionScreen(db,account,company,{},accessToken=testSessionToken)}}
         waitForReady()
         scrollTo("آماده‌سازی فاکتور 12")
@@ -105,6 +101,7 @@ class OfficialSubmissionScreenTest {
         compose.onNodeWithText("تأیید ارسال واقعی به سامانه مؤدیان").assertExists()
         compose.onNodeWithText("انصراف").performClick()
         runBlocking {assertEquals("PREPARED",db.officialSubmissionDao().forInvoice(invoice)!!.state)}
+        } finally { prefs.edit().remove("pending_company_$company").commit() }
     }
     @Test fun unknownRequestShowsInquiryAndNoSubmitButton()=runBlocking {
         val service=OfficialSubmissionService(db,account,
@@ -123,7 +120,9 @@ class OfficialSubmissionScreenTest {
         val service=OfficialSubmissionService(db,account,
             TaxpayerCredentialRepository(ApplicationProvider.getApplicationContext(),db,account),
             sessionCheck={AccountSession.requireOwner(testSessionToken,account)})
-        val row=service.prepare(company,invoice,"2025-03-21T12:00:00+03:30","1627")
+        val prefs = ApplicationProvider.getApplicationContext<android.content.Context>().getSharedPreferences("sura_tax_credentials_${account.storageKey}", 0)
+        prefs.edit().putString("pending_company_$company", "synthetic-staged-key-marker").commit()
+        val row=try { service.prepare(company,invoice,"2025-03-21T12:00:00+03:30","1627","LEGACY") } finally { prefs.edit().remove("pending_company_$company").commit() }
         db.openHelper.writableDatabase.execSQL("UPDATE official_submissions SET payload='{' WHERE requestId=?",arrayOf(row.requestId))
         compose.setContent {MaterialTheme {OfficialSubmissionScreen(db,account,company,{},accessToken=testSessionToken)}}
         waitForReady();scrollTo("بررسی و ارسال رسمی")

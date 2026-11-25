@@ -408,7 +408,6 @@ fun MoadianScreen(
             Text("لوگو")
             OutlinedButton(onClick = { importLogo.launch("image/*") }, enabled = !busy && !pending) { Text(if (logoPath.isBlank()) "انتخاب لوگو" else "تغییر لوگوی انتخاب‌شده") }
             logoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            MoadianInput("تاریخ انقضای گواهی (اختیاری)", certificateExpiry, { certificateExpiry = it }, !busy && !pending, fieldErrors["certificateExpiry"], "پرکردن این تاریخ برای ثبت مؤدی الزامی نیست.", Modifier.fillMaxWidth())
             ElevatedCard(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE7F5FA))) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("دریافت شناسه یکتای حافظه مالیاتی", fontWeight = FontWeight.Bold, color = Color(0xFF16384E))
@@ -467,7 +466,7 @@ fun MoadianScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("تنظیمات پیشرفته گواهی و اتصال نسخه ۲")
+                    Text("بررسی و مدیریت اتصال مستقیم")
                 }
             }
             Text("صدور شناسه یکتا توسط سازمان امور مالیاتی انجام می‌شود؛ تولید کلید به‌تنهایی شناسه صادر نمی‌کند.", style = MaterialTheme.typography.bodySmall)

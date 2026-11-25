@@ -20,7 +20,8 @@ class OfficialSubmissionService(
     private val credentials: TaxpayerCredentialRepository,
     private val transport: OfficialTaxTransport = OfficialMoadianTransport(),
     private val sessionCheck: () -> Unit = { error("نشست معتبر حساب برای این عملیات لازم است.") },
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val directOnly: Boolean = false
 ) {
     private val signer = MoadianV2Signer(credentials)
     /** Injectable only inside this module for deterministic fake-server tests. */
@@ -131,6 +132,7 @@ class OfficialSubmissionService(
 
     suspend fun prepare(companyId: Long, invoiceId: Long, issueTime: String, unit: String, protocol: String = "V2"): OfficialSubmission = db.withTransaction {
         require(protocol in setOf("V2", "LEGACY")) { "روش ارسال معتبر نیست." }
+        require(!directOnly || protocol == "LEGACY") { "فقط اتصال مستقیم با شناسه یکتا و کلید خصوصی مجاز است." }
         sessionCheck()
         val company = owner(companyId)
         val invoice = requireNotNull(db.invoiceDao().byId(invoiceId))
@@ -285,6 +287,7 @@ class OfficialSubmissionService(
     /** Caller must get explicit user confirmation before invoking this real financial document operation. */
     suspend fun submit(id: String): OfficialSubmission {
         sessionCheck()
+        require(!directOnly) { "ارسال جدید فقط با اتصال مستقیم مجاز است." }
         // Revalidate the immutable official payload (including cancellation shape)
         // on the actual send path; the UI review step can be bypassed or become stale.
         val initial = reviewPrepared(id)

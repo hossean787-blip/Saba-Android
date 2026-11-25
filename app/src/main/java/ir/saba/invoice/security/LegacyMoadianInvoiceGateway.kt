@@ -206,6 +206,21 @@ internal class LegacyMoadianInvoiceGateway(
         return value
     }
 
+    /** Read-only preflight exercises the same authentication and key endpoint as invoice preparation. */
+    suspend fun checkReadiness(companyId: Long, fiscalId: String) {
+        require(fiscalId.matches(Regex("[A-Z0-9]{6}")))
+        legacyStage("دریافت توکن مؤدی (GET_TOKEN)") { token(companyId, fiscalId) }
+        encryptionKey(companyId, fiscalId)
+    }
+
+    private suspend fun encryptionKey(companyId: Long, fiscalId: String): OrganizationKey =
+        legacyStage("دریافت کلید سازمان (GET_SERVER_INFORMATION)") {
+            val meta = result(sync(companyId, fiscalId, "GET_SERVER_INFORMATION", null)) as? JSONObject
+                ?: error("اطلاعات کلید سازمان معتبر نیست.")
+            val keys = MoadianSignedReceipt.keys(meta.getJSONObject("data").toString())
+            keys.firstOrNull { it.purpose == 1 } ?: error("کلید رمزگذاری سازمان دریافت نشد.")
+        }
+
     override suspend fun prepare(companyId: Long, fiscalId: String, uid: String, payload: String): LegacyPreparedInvoice {
         require(fiscalId.matches(Regex("[A-Z0-9]{6}")))
         require(UUID.fromString(uid).toString() == uid)
@@ -225,12 +240,7 @@ internal class LegacyMoadianInvoiceGateway(
         } else require(invoice.getJSONArray("body").length() > 0)
         require(!invoice.has("__suraProtocol"))
         val auth = legacyStage("دریافت توکن مؤدی (GET_TOKEN)") { token(companyId, fiscalId) }
-        val key = legacyStage("دریافت کلید سازمان (GET_SERVER_INFORMATION)") {
-            val meta = result(sync(companyId, fiscalId, "GET_SERVER_INFORMATION", null)) as? JSONObject
-                ?: error("اطلاعات کلید سازمان معتبر نیست.")
-            val keys = MoadianSignedReceipt.keys(meta.getJSONObject("data").toString())
-            keys.firstOrNull { it.purpose == 1 } ?: error("کلید رمزگذاری سازمان دریافت نشد.")
-        }
+        val key = encryptionKey(companyId, fiscalId)
         return legacyStage("امضا و رمزگذاری صورتحساب") {
         val cipher = LegacyMoadianEncryption.wrap(invoice, key, rng)
         val row = packet("INVOICE.V01", cipher.first, fiscalId, uid)

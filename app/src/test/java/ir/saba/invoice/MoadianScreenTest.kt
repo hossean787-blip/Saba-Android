@@ -84,7 +84,7 @@ class MoadianScreenTest {
         compose.onNodeWithText("مودی کلید").performClick()
         compose.onNodeWithText("ویرایش").performClick()
         compose.onNodeWithText("کلید خصوصی مؤدی").assertExists()
-        compose.onNodeWithText("تنظیمات پیشرفته گواهی و اتصال نسخه ۲").performScrollTo().performClick()
+        compose.onNodeWithText("بررسی و مدیریت اتصال مستقیم").performScrollTo().performClick()
         assertEquals(id.toInt(), opened.get())
     }
 

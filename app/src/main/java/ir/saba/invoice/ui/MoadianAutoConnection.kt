@@ -2,6 +2,7 @@ package ir.saba.invoice.ui
 
 import ir.saba.invoice.data.SabaDatabase
 import ir.saba.invoice.security.MoadianLegacyConnectionProbe
+import ir.saba.invoice.security.LegacyMoadianInvoiceGateway
 import ir.saba.invoice.security.TaxpayerCredentialRepository
 import kotlinx.coroutines.CancellationException
 
@@ -12,6 +13,7 @@ internal class MoadianAutoConnection(
     private val credentials: TaxpayerCredentialRepository,
     private val checkConnection: suspend (Long, String) -> Unit = { id, memory ->
         MoadianLegacyConnectionProbe(credentials).check(id, memory)
+        LegacyMoadianInvoiceGateway(credentials).checkReadiness(id, memory)
     }
 ) {
     data class Result(val status: String, val message: String)

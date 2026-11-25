@@ -241,7 +241,7 @@ private fun InvoiceScreenContent(
     val credentials = remember(db, account) { TaxpayerCredentialRepository(context, db, account) }
     val officialService = remember(db, account, accessToken) {
         OfficialSubmissionService(db, account, credentials,
-            sessionCheck = { AccountSession.requireOwner(accessToken, account) })
+            sessionCheck = { AccountSession.requireOwner(accessToken, account) }, directOnly = true)
     }
     var sendConfirm by rememberSaveable { mutableStateOf(false) }
     var issueClock by rememberSaveable { mutableStateOf("") }
@@ -396,6 +396,11 @@ private fun InvoiceScreenContent(
             }
             return
         }
+        if (record?.state == "PREPARED" && record.protocol != "LEGACY") {
+            onNotice("این درخواست قدیمی ارسال نشده است؛ از سوابق، آماده‌سازی را لغو و با اتصال مستقیم دوباره آماده کنید.")
+            onOpenOfficialSubmission()
+            return
+        }
         if (record != null && record.state != "PREPARED") {
             onNotice(invoiceTaxStatus(record))
             return
@@ -404,6 +409,10 @@ private fun InvoiceScreenContent(
             invoice.subject !in setOf(InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION,
                 InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
             onNotice("ارسال این صورتحساب از وضعیت فعلی مجاز نیست.")
+            return
+        }
+        if (!InvoiceSubject.supportsLegacy(invoice.subject)) {
+            onNotice("ارسال مستقیم این موضوع هنوز پشتیبانی نمی‌شود؛ صورتحساب محفوظ است.")
             return
         }
         // Legacy finalized rows without per-line units require the existing recovery tools.
@@ -449,10 +458,11 @@ private fun InvoiceScreenContent(
                         require(!issued.toInstant().isAfter(now.toInstant())) {
                             "تاریخ و ساعت صدور نباید در آینده باشد."
                         }
-                        val protocol = if (credentials.hasPendingPrivateKey(companyId) &&
-                            InvoiceSubject.supportsLegacy(invoice.subject)) "LEGACY" else "V2"
-                        if (protocol == "LEGACY") officialService.checkLegacySigningReadiness(companyId)
-                        else officialService.checkLocalSigningReadiness(companyId)
+                        require(InvoiceSubject.supportsLegacy(invoice.subject)) {
+                            "ارسال مستقیم این موضوع هنوز پشتیبانی نمی‌شود."
+                        }
+                        val protocol = "LEGACY"
+                        officialService.checkLegacySigningReadiness(companyId)
                         repository.finalizeDraft(companyId, id)
                         val row = officialService.prepare(companyId, id, issued.toString(), "", protocol)
                         officialService.reviewPrepared(row.requestId)
