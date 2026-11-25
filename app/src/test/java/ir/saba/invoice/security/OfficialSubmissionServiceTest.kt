@@ -577,7 +577,13 @@ class OfficialSubmissionServiceTest {
                     if (explicitFiscal) fiscalId else null)
         }
         service.submitLegacy(parent.requestId)
-        return service.inquireLegacy(parent.requestId)
+        val accepted=service.inquireLegacy(parent.requestId)
+        // Simulate a record persisted by older versions before the relaxed echo handling.
+        if(!explicitFiscal) {
+            assertEquals(1,db.officialSubmissionDao().confirmLegacyReference(parent.requestId,
+                "legacy-reference",OfficialReferenceEvidence.LEGACY_UNBOUND))
+        }
+        return requireNotNull(db.officialSubmissionDao().byId(accepted.requestId))
     }
 
     @Test fun legacyBoundReferenceEnablesCertificateFreeCorrection()=runBlocking {
@@ -609,8 +615,7 @@ class OfficialSubmissionServiceTest {
     @Test fun documentedLegacySuccessWithoutTaxIdCanBindExistingReference()=runBlocking {
         val parent=legacyReferralParent(false)
         assertFalse(OfficialReferenceEvidence.eligible(parent))
-        var response=LegacyInvoiceInquiry(parent.requestId,null,"legacy-reference","SUCCESS",emptyList(),parent.fiscalId,
-            confirmationReferenceId="confirmation-id")
+        var response=LegacyInvoiceInquiry(parent.requestId,null,"legacy-reference","SUCCESS",emptyList())
         var inquiries=0
         service.legacyGateway=object:LegacyInvoiceGateway {
             override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String):LegacyPreparedInvoice = error("unexpected prepare")
@@ -620,8 +625,8 @@ class OfficialSubmissionServiceTest {
             }
         }
         val valid=response
-        for (invalid in listOf(valid.copy(confirmationReferenceId=null),valid.copy(referenceNumber="other"),
-            valid.copy(uid="other"),valid.copy(fiscalId=null),valid.copy(taxId="wrong"),valid.copy(status="PENDING"))) {
+        for (invalid in listOf(valid.copy(referenceNumber=null),valid.copy(referenceNumber="other"),
+            valid.copy(uid="other"),valid.copy(fiscalId="WRONG1"),valid.copy(taxId="wrong"),valid.copy(status="PENDING"))) {
             response=invalid
             reject { service.verifyLegacyReference(parent.requestId) }
             assertFalse(OfficialReferenceEvidence.eligible(db.officialSubmissionDao().byId(parent.requestId)!!))
@@ -631,6 +636,7 @@ class OfficialSubmissionServiceTest {
         assertTrue(OfficialReferenceEvidence.eligible(verified))
         assertNull(verified.signedReceipt)
         assertEquals(parent.taxId,verified.taxId)
+        assertEquals(OfficialReferenceEvidence.LEGACY_TRACKING_BOUND,verified.lastError)
         assertEquals(7,inquiries)
         assertEquals(0,api.posts)
         val id=createReferredDocument("CORRECTION","13",2L)
@@ -639,11 +645,10 @@ class OfficialSubmissionServiceTest {
         assertEquals(parent.taxId,JSONObject(prepared.payload).getJSONObject("header").getString("irtaxid"))
     }
 
-    @Test fun legacyMissingFiscalEvidenceCannotUnlockReferredInvoice()=runBlocking {
+    @Test fun legacyUnverifiedStoredAcceptanceCannotUnlockUntilFreshInquiry()=runBlocking {
         val parent=legacyReferralParent(false)
         assertEquals("ACCEPTED",parent.state)
         assertFalse(OfficialReferenceEvidence.eligible(parent))
-        reject { service.verifyLegacyReference(parent.requestId) }
         val id=createReferredDocument("CORRECTION","13",2L)
         val next=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+86_400_000}
         reject { next.prepare(company,id,"2026-11-04T12:00:00+03:30","164","LEGACY") }

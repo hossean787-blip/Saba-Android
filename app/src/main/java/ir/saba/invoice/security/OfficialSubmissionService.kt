@@ -403,8 +403,7 @@ class OfficialSubmissionService(
                     // The legacy endpoint reports success over authenticated TLS, but the
                     // result is not a cryptographically verifiable v2 signed receipt.
                     require(!result.referenceNumber.isNullOrBlank())
-                    val evidence = if (legacyIdentityBound(initial, result))
-                        OfficialReferenceEvidence.LEGACY_BOUND else OfficialReferenceEvidence.LEGACY_UNBOUND
+                    val evidence = legacyReferenceEvidence(initial, result) ?: OfficialReferenceEvidence.LEGACY_UNBOUND
                     resolve(id, "ACCEPTED", result.referenceNumber, evidence)
                 }
                 "FAILED" -> resolve(id, "REJECTED", result.referenceNumber,
@@ -422,34 +421,49 @@ class OfficialSubmissionService(
         return requireNotNull(db.officialSubmissionDao().byId(id))
     }
 
-    private fun legacyIdentityBound(row: OfficialSubmission, result: LegacyInvoiceInquiry): Boolean {
+    /** Authenticated, signed inquiry scoped to the original fiscal memory. A
+     * SUCCESS with the same durable UID and server-issued reference is sufficient
+     * to bind an existing request even if optional echoed identifiers are absent.
+     * Explicitly contradictory identifiers never qualify. No signed v2 receipt is invented. */
+    private fun legacyReferenceEvidence(row: OfficialSubmission, result: LegacyInvoiceInquiry): String? {
         if (result.status != "SUCCESS" || result.uid != row.requestId ||
-            result.fiscalId != row.fiscalId || result.referenceNumber.isNullOrBlank() ||
-            (row.referenceNumber != null && row.referenceNumber != result.referenceNumber)) return false
-        if (result.taxId != null) return result.taxId == row.taxId
-        // The documented self-TSP SUCCESS receipt can omit taxId. Bind it to the
-        // original durable request using its existing tracking reference, explicit
-        // fiscal memory, UID, confirmation ID and the unchanged original payload.
-        if (row.referenceNumber.isNullOrBlank() || result.confirmationReferenceId.isNullOrBlank()) return false
-        return SubmissionPreparation.sha256Hex(row.payload.toByteArray(Charsets.UTF_8)) == row.payloadHash &&
-            runCatching { JSONObject(row.payload).getJSONObject("header").getString("taxid") == row.taxId }.getOrDefault(false)
+            result.referenceNumber.isNullOrBlank() ||
+            (result.fiscalId != null && result.fiscalId != row.fiscalId) ||
+            (result.taxId != null && result.taxId != row.taxId) ||
+            (row.referenceNumber != null && row.referenceNumber != result.referenceNumber)) return null
+        if (SubmissionPreparation.sha256Hex(row.payload.toByteArray(Charsets.UTF_8)) != row.payloadHash ||
+            !runCatching { JSONObject(row.payload).getJSONObject("header").getString("taxid") == row.taxId }.getOrDefault(false)) return null
+        if (result.fiscalId == row.fiscalId && result.taxId == row.taxId)
+            return OfficialReferenceEvidence.LEGACY_BOUND
+        if (row.referenceNumber.isNullOrBlank() || row.referenceNumber != result.referenceNumber) return null
+        return OfficialReferenceEvidence.LEGACY_TRACKING_BOUND
     }
 
-    /** Read-only recheck for older accepted legacy records; no new invoice POST.
-     * A missing taxId is not invented; independently bind documented receipt fields to the immutable request. */
+    /** Read-only recheck for older accepted legacy records; no invoice enqueue. */
     suspend fun verifyLegacyReference(id: String): OfficialSubmission {
         sessionCheck()
         val initial = row(id)
         require(initial.protocol == "LEGACY" && initial.state == "ACCEPTED")
         val result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
-        require(legacyIdentityBound(initial, result)) {
-            "تطبیق رسید مرجع ممکن نشد؛ شناسه درخواست، حافظه، پیگیری و شواهد پذیرش باید معتبر باشند. فاکتور اصلی را مجدداً ارسال نکنید."
+        val evidence = legacyReferenceEvidence(initial, result)
+        require(evidence != null) {
+            val reason = when {
+                result.status != "SUCCESS" -> "پذیرش نهایی مرجع در استعلام تأیید نشد [REF-STATUS]"
+                result.uid != initial.requestId -> "شناسه درخواست با مرجع مغایرت دارد [REF-UID]"
+                result.fiscalId != null && result.fiscalId != initial.fiscalId -> "حافظه مالیاتی با مرجع مغایرت دارد [REF-MEMORY]"
+                result.taxId != null && result.taxId != initial.taxId -> "شماره مالیاتی با مرجع مغایرت دارد [REF-TAXID]"
+                result.referenceNumber.isNullOrBlank() -> "شماره پیگیری در پاسخ استعلام موجود نیست [REF-MISSING]"
+                initial.referenceNumber != result.referenceNumber -> "شماره پیگیری با مرجع مغایرت دارد [REF-TRACKING]"
+                else -> "اطلاعات محفوظ مرجع قابل تأیید نیست [REF-LOCAL]"
+            }
+            reason + "؛ فاکتور اصلی را مجدداً ارسال نکنید."
         }
         db.withTransaction {
             sessionCheck()
-            row(id)
+            val current = row(id)
+            check(current == initial) { "وضعیت مرجع تغییر کرده است؛ دوباره استعلام کنید." }
             check(db.officialSubmissionDao().confirmLegacyReference(id,
-                requireNotNull(result.referenceNumber), OfficialReferenceEvidence.LEGACY_BOUND) == 1)
+                requireNotNull(result.referenceNumber), requireNotNull(evidence)) == 1)
         }
         return row(id)
     }

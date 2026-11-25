@@ -280,9 +280,10 @@ internal class LegacyMoadianInvoiceGateway(
         require(list.length() == 1)
         val row = list.getJSONObject(0)
         val returnedFiscalId = row.optString("fiscalId").takeIf { it.isNotBlank() && it != "null" }
-        require(row.getString("uid") == uid && (returnedFiscalId == null || returnedFiscalId == fiscalId))
+        require(row.getString("uid") == uid) { "شناسه درخواست استعلام مغایرت دارد [REF-UID]" }
+        require(returnedFiscalId == null || returnedFiscalId == fiscalId) { "حافظه مالیاتی استعلام مغایرت دارد [REF-MEMORY]" }
         val returnedTaxId = row.optString("taxId").takeIf { it.isNotBlank() && it != "null" }
-        require(returnedTaxId == null || returnedTaxId == taxId)
+        require(returnedTaxId == null || returnedTaxId == taxId) { "شماره مالیاتی استعلام مغایرت دارد [REF-TAXID]" }
         val ref = row.optString("referenceNumber").takeIf { it.isNotBlank() && it != "null" }
         require(ref == null || ref.length <= 200 && ref.none(Char::isISOControl))
         val codes = row.optJSONObject("data")?.optJSONArray("error")

@@ -111,7 +111,7 @@ internal fun needsLegacyReferenceCheck(row: OfficialSubmission?): Boolean =
 
 internal fun isLegacyEvidenceMessage(row: OfficialSubmission): Boolean =
     row.protocol == "LEGACY" && row.state == "ACCEPTED" &&
-        row.lastError in setOf(OfficialReferenceEvidence.LEGACY_BOUND, OfficialReferenceEvidence.LEGACY_UNBOUND)
+        row.lastError in setOf(OfficialReferenceEvidence.LEGACY_BOUND, OfficialReferenceEvidence.LEGACY_TRACKING_BOUND, OfficialReferenceEvidence.LEGACY_UNBOUND)
 
 /** Compact status for the list, details and PDF; never infer acceptance from a tax ID. */
 internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): String = when (row?.state) {

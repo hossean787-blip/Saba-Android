@@ -104,8 +104,7 @@ class LegacyMoadianInvoiceGatewayTest {
                             assertEquals("A11216",envelope.getJSONObject("packet").getJSONArray("data")
                                 .getJSONObject(0).getString("fiscalId"))
                             JSONObject().put("result",JSONObject().put("data",JSONArray().put(
-                                JSONObject().put("uid",uid).put("taxId",taxId)
-                                    .put("fiscalId","A11216").put("referenceNumber","legacy-ack")
+                                JSONObject().put("uid",uid).put("referenceNumber","legacy-ack")
                                     .put("status","SUCCESS"))))
                         }
                         else -> error("Unexpected operation")
@@ -120,6 +119,10 @@ class LegacyMoadianInvoiceGatewayTest {
             assertEquals("legacy-ack",receipt.referenceNumber)
             val result=gateway.inquire(company,"A11216",uid,taxId)
             assertEquals("SUCCESS",result.status)
+            assertNull(result.taxId)
+            assertNull(result.fiscalId)
+            assertNull(result.confirmationReferenceId)
+            assertEquals("legacy-ack",result.referenceNumber)
             assertEquals(listOf("GET_TOKEN","GET_SERVER_INFORMATION","INVOICE.V01",
                 "GET_TOKEN","INQUIRY_BY_UID"),calls)
         } finally { db.close() }

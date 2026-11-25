@@ -30,13 +30,14 @@ data class OfficialSubmission(
  */
 object OfficialReferenceEvidence {
     const val LEGACY_BOUND = "پذیرش مسیر بدون گواهی با تطبیق شناسه درخواست، حافظه، شماره مالیاتی و پیگیری؛ رسید امضاشده نسخه ۲ موجود نیست."
+    const val LEGACY_TRACKING_BOUND = "پذیرش مستقیم با استعلام موفق شناسه درخواست و شماره پیگیری محفوظ همان حافظه؛ رسید امضاشده نسخه ۲ موجود نیست."
     const val LEGACY_UNBOUND = "پذیرش از مسیر بدون گواهی گزارش شد؛ رسید امضاشده نسخه ۲ موجود نیست."
 
     fun eligible(row: OfficialSubmission): Boolean =
         row.state == "ACCEPTED" && !row.referenceNumber.isNullOrBlank() &&
             when (row.protocol) {
                 "V2" -> !row.signedReceipt.isNullOrBlank()
-                "LEGACY" -> row.signedReceipt.isNullOrBlank() && row.lastError == LEGACY_BOUND
+                "LEGACY" -> row.signedReceipt.isNullOrBlank() && row.lastError in setOf(LEGACY_BOUND, LEGACY_TRACKING_BOUND)
                 else -> false
             }
 }
