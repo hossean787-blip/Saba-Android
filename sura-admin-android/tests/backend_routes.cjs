@@ -34,6 +34,9 @@ async function call(path,data={},token='valid'){
 (async()=>{
  assert.equal((await call('summary',{},null)).status,401);
  assert.equal((await call('summary',{})).payload.summary.verified_orders,1);
+ actor='eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';actorEmail='hossean787@gmail.com';
+ assert.equal((await call('summary',{})).status,401,'former owner must not be superadmin even if a stale role is returned');
+ actor='b652c55e-27e3-4110-87d5-995f265d7d78';
  actorEmail='unapproved@example.com';
  assert.equal((await call('summary',{})).status,401,'another email must not act as superadmin');
  actorEmail='hossean787+suramanager@gmail.com';
