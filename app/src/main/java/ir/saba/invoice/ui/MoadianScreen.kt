@@ -387,8 +387,8 @@ fun MoadianScreen(
             }
             MoadianInput("شماره ثبت", registrationNumber, { registrationNumber = it }, !busy && !pending, fieldErrors["registrationNumber"], "", Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MoadianInput("شروع سریال صورتحساب", invoiceSerialStart, { invoiceSerialStart = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["invoiceSerialStart"], "سریال داخلی صورتحساب؛ در صورت ورود باید ۱۰ رقم باشد.", Modifier.weight(1f))
-            MoadianInput("سریال ارجاعی قدیمی", referenceSerialStart, {}, false, null, "از این پس همه موضوعات از شمارنده مشترک استفاده می‌کنند.", Modifier.weight(1f))
+            MoadianInput("شروع سریال صورتحساب", invoiceSerialStart, { invoiceSerialStart = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["invoiceSerialStart"], "شماره نمایشی اصلی؛ در صورت ورود باید ۱۰ رقم باشد.", Modifier.weight(1f))
+            MoadianInput("شروع سریال ارجاعی", referenceSerialStart, { referenceSerialStart = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["referenceSerialStart"], "شمارنده مستقل اصلاحی و ابطالی.", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MoadianInput("تلفن", phone, { phone = MoadianFieldValidation.digits(it) }, !busy && !pending, fieldErrors["phone"], "", Modifier.weight(1f))

@@ -49,7 +49,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
             require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
             val normalizedNumber = if (requestedNumber.isNotEmpty()) requestedNumber
                 else if (existingInvoiceId != null) db.invoiceDao().byId(existingInvoiceId)?.invoiceNumber.orEmpty()
-                else TaxpayerSerialAllocator(db).reserve(companyId)
+                else TaxpayerSerialAllocator(db).reserve(companyId,reference=subject!=InvoiceSubject.ORIGINAL)
             require(normalizedNumber.isNotEmpty()) { "شماره فاکتور الزامی است." }
             require(db.rejectedSubmissionHistoryDao().forCompany(companyId).none { InvoiceInput.number(it.invoiceNumber)==InvoiceInput.number(normalizedNumber) }) { "این شماره در سابقه ارسال ناموفق استفاده شده؛ شماره جدید را حفظ کنید." }
             val customer = db.customerDao().byId(customerId) ?: throw IllegalArgumentException("مشتری پیدا نشد.")
@@ -144,23 +144,6 @@ class InvoiceRepository(private val db: SabaDatabase) {
         }
     }
 
-    /** Repair only a never-prepared invoice before confirmation; no new invoice or credit use. */
-    suspend fun repairUnsentFiscalSerial(companyId:Long,invoiceId:Long,ownerId:String):String?=db.withTransaction {
-        require(db.companyDao().byId(companyId)?.purchaserId==ownerId)
-        val invoice=requireNotNull(db.invoiceDao().byId(invoiceId))
-        require(invoice.companyId==companyId && invoice.status in setOf("DRAFT","FINALIZED") &&
-            invoice.trackingCode.isNullOrBlank()){"فقط سند ارسال‌نشده قابل اصلاح شماره است."}
-        require(db.officialSubmissionDao().forInvoice(invoiceId)==null){"شماره مالیاتی این سند قبلاً محفوظ شده است."}
-        require(db.moadianSimulationDao().latestForInvoice(invoiceId)==null){"سند دارای سابقه آزمایشی باید بررسی شود."}
-        val allocator=TaxpayerSerialAllocator(db)
-        val minimum=allocator.minimumOfficialSerial(companyId)
-        val current=InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
-        if(current>=minimum) return@withTransaction null
-        val next=allocator.reserve(companyId,invoice.subject!=InvoiceSubject.ORIGINAL,minimum)
-        db.invoiceDao().update(invoice.copy(invoiceNumber=next))
-        next
-    }
-
     /** Reopen only an explicitly rejected invoice, atomically retaining its immutable attempt.
      * Same local invoice ID and quota use; a fresh fiscal serial prevents reuse on resubmission. */
     suspend fun reopenRejectedForEdit(companyId:Long, invoiceId:Long, ownerId:String) = db.withTransaction {
@@ -178,10 +161,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
             "سابقه اعتبار این سند باید بررسی شود."
         }
         require(invoice.trackingCode.isNullOrBlank() || invoice.trackingCode==row.referenceNumber)
-        val allTaxIds=db.officialSubmissionDao().forFiscalMemory(row.fiscalId).map{it.taxId}+
-            db.rejectedSubmissionHistoryDao().forFiscalMemory(row.fiscalId).map{it.taxId}
-        val minSerial=allTaxIds.maxOf{ir.saba.moadian.TaxIdGenerator.validate(it).serialHex.toLong(16)}+1
-        val nextNumber=TaxpayerSerialAllocator(db).reserve(companyId,invoice.subject!=InvoiceSubject.ORIGINAL,minSerial)
+        val nextNumber=TaxpayerSerialAllocator(db).reserve(companyId,invoice.subject!=InvoiceSubject.ORIGINAL)
         db.rejectedSubmissionHistoryDao().insert(RejectedSubmissionHistory(row.requestId,ownerId,companyId,invoiceId,
             row.fiscalId,row.taxId,invoice.invoiceNumber,row.payload,row.payloadHash,row.preparedAt,row.referenceNumber,
             row.lastError,row.signedReceipt,row.protocol,System.currentTimeMillis()))

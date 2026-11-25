@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class TaxpayerSerialAllocatorTest {
-    @Test fun automaticNumbersShareSequenceAndAreNotReusedAfterDeletion() = runBlocking {
+    @Test fun automaticNumbersRemainSeparateAndAreNotReusedAfterDeletion() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {
             val first = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
@@ -30,10 +30,10 @@ class TaxpayerSerialAllocatorTest {
             assertEquals("1000000002", db.invoiceDao().byId(nextInvoice)!!.invoiceNumber)
             val allocator = TaxpayerSerialAllocator(db)
             assertEquals("1000000001", allocator.reserve(second))
-            assertEquals("1000000003", allocator.reserve(first, reference = true))
+            assertEquals("2000000001", allocator.reserve(first, reference = true))
             val numbers = (1..5).map { async(Dispatchers.IO) { allocator.reserve(first) } }.awaitAll()
             assertEquals(5, numbers.toSet().size)
-            assertEquals(1000000009L, db.moadianDetailsDao().byCompany(first)!!.nextInvoiceSerial)
+            assertEquals(1000000008L, db.moadianDetailsDao().byCompany(first)!!.nextInvoiceSerial)
         } finally { db.close() }
     }
     @Test fun suggestedSerialIsReadOnlyAndReservationAdvancesAfterDeletion() = runBlocking {
@@ -47,37 +47,26 @@ class TaxpayerSerialAllocatorTest {
             assertNull(db.moadianDetailsDao().byCompany(taxpayer)?.nextInvoiceSerial)
             assertEquals("1000000001", allocator.reserve(taxpayer))
             assertEquals("1000000002", allocator.suggest(taxpayer))
-            assertEquals("1000000002", allocator.suggest(taxpayer, reference = true))
-            assertEquals("1000000002", allocator.reserve(taxpayer, reference = true))
-            assertEquals("1000000003", allocator.suggest(taxpayer, reference = true))
-            assertEquals("1000000003", allocator.suggest(taxpayer))
+            assertEquals("2000000001", allocator.suggest(taxpayer, reference = true))
+            assertEquals("2000000001", allocator.reserve(taxpayer, reference = true))
+            assertEquals("2000000002", allocator.suggest(taxpayer, reference = true))
+            assertEquals("1000000002", allocator.suggest(taxpayer))
         } finally { db.close() }
     }
 
-    @Test fun legacyReferenceReservationBecomesSharedFloor() = runBlocking {
-        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
+    @Test fun sharedCounterUpgradeRestoresSeparateRanges()=runBlocking {
+        val db=Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(),SabaDatabase::class.java).build()
         try {
-            val id = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
-            db.moadianDetailsDao().upsert(MoadianDetails(companyId = id,
-                invoiceSerialStart = "1000000001", referenceSerialStart = "۱۰۰۰۰۰۰۰۰۰",
-                nextReferenceSerial = 1000000003L))
-            assertEquals("1000000003",TaxpayerSerialAllocator(db).reserve(id))
-            assertEquals(1000000004L,db.moadianDetailsDao().byCompany(id)!!.nextInvoiceSerial)
+            val id=db.companyDao().insert(Company(purchaserId="owner",name="اول",nationalId="1"))
+            val buyer=db.customerDao().insert(Customer(companyId=id,name="buyer"))
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId=id,nextInvoiceSerial=2000000002L,nextReferenceSerial=2000000002L))
+            db.invoiceDao().insert(Invoice(companyId=id,customerId=buyer,invoiceNumber="1000000001",issueDate="1405/08/08",totalAmountRial=100,taxAmountRial=0,status="FINALIZED"))
+            val allocator=TaxpayerSerialAllocator(db)
+            assertEquals("1000000002",allocator.reserve(id))
+            assertEquals("2000000002",allocator.reserve(id,true))
+            assertEquals("1000000003",allocator.suggest(id))
         } finally { db.close() }
     }
-
-    @Test fun unusedLegacyReferenceStartDoesNotSplitSequence() = runBlocking {
-        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
-        try {
-            val id = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
-            db.moadianDetailsDao().upsert(MoadianDetails(companyId = id, referenceSerialStart = "1000000001"))
-            assertEquals("1000000001",TaxpayerSerialAllocator(db).reserve(id))
-            val details = db.moadianDetailsDao().byCompany(id)!!
-            assertEquals(1000000002L,details.nextInvoiceSerial)
-            assertEquals(details.nextInvoiceSerial,details.nextReferenceSerial)
-        } finally { db.close() }
-    }
-
     @Test fun invalidCustomerRollsBackAutomaticReservation() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {
