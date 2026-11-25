@@ -112,6 +112,39 @@ class AccountScreenTest {
         compose.onNodeWithTag("settingsBackToAccount").performScrollTo().assertIsNotEnabled()
     }
 
+    @Test fun settingsDeviceControlsNavigateAndRespectBusyState() {
+        var protected by mutableStateOf(false)
+        var intro by mutableStateOf(true)
+        var busy by mutableStateOf(false)
+        var destination:ir.saba.invoice.ui.SettingsDestination?=null
+        var diagnostics=0
+        var resets=0
+        compose.setContent { MaterialTheme {
+            AppSettingsScreen(1f,busy,{},{},{},false,{},{},
+                controls=ir.saba.invoice.ui.SettingsControls(
+                    protectScreen=protected,playIntro=intro,biometricAvailable=true,
+                    onProtectScreen={protected=it},onPlayIntro={intro=it},onBiometricSetup={},
+                    onNavigate={destination=it},onSystemSettings={},
+                    diagnosticResult="هنوز بررسی نشده",onDiagnostic={diagnostics++},
+                    onResetAppearance={resets++;intro=true},onLogout={}
+                ))
+        } }
+        compose.onNodeWithTag("settingsIntro").performScrollTo().assertIsOn().performClick().assertIsOff()
+        compose.onNodeWithTag("settingsProtectScreen").performScrollTo().assertIsOff().performClick().assertIsOn()
+        compose.onNodeWithTag("settingsDiagnostic").performScrollTo().performClick()
+        compose.onNodeWithText("پشتیبان‌گیری",substring=false).performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(1,diagnostics)
+            assertEquals(ir.saba.invoice.ui.SettingsDestination.BACKUP,destination)
+            assertTrue(protected);assertFalse(intro)
+        }
+        compose.onNodeWithTag("settingsResetAppearance").performScrollTo().performClick()
+        compose.onNodeWithText("بازنشانی",substring=false).performClick()
+        compose.runOnIdle {assertEquals(1,resets);assertTrue(intro);assertTrue(protected);busy=true}
+        compose.onNodeWithTag("settingsIntro").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("settingsProtectScreen").performScrollTo().assertIsNotEnabled()
+    }
+
     @Test fun reusedEmailDoesNotShareLocalContactProfileAcrossOwners() {
         val a=AccountScope.of("11111111-1111-4111-8111-111111111111")
         val b=AccountScope.of("22222222-2222-4222-8222-222222222222")
