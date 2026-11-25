@@ -73,7 +73,7 @@ object SuraInvoicePdf {
     }
     fun generate(company: Company, customer: Customer, invoice: Invoice,
                  lines: List<InvoiceLine>, template: String, logo: Boolean,
-                 stamp: Boolean, qr: Boolean, official: OfficialSubmission? = null,
+                 stamp: Boolean, showLegacyTracking: Boolean, official: OfficialSubmission? = null,
                  sellerProfile: MoadianDetails? = null, buyerProfile: CustomerProfile? = null,
                  brandLogo: Bitmap? = null): ByteArray {
         require(invoice.companyId == company.id && customer.companyId == company.id &&
@@ -176,7 +176,7 @@ object SuraInvoicePdf {
                 cell("توضیحات: "+show(notes),left,signature+38,right,signature+62,8.5f)
             }
             val tracking=official?.referenceNumber?.let{"شماره پیگیری رسمی: $it"}
-                ?: if(qr && invoice.trackingCode!=null)"کد پیگیری سابقه: ${invoice.trackingCode}" else "شماره پیگیری: دریافت نشده"
+                ?: if(showLegacyTracking && invoice.trackingCode!=null)"کد پیگیری سابقه: ${invoice.trackingCode}" else "شماره پیگیری: دریافت نشده"
             text(c,tracking,822f,geometry.footerTop,590,8f,false,p.muted,1,false)
             text(c,"صفحه ${pageIndex+1} از ${pages.size}",220f,geometry.footerTop,200,8f,false,p.muted,1,false)
             if(invoice.referenceTaxId!=null)text(c,"مرجع: "+invoice.referenceTaxId,822f,geometry.footerTop+11,600,8f,false,p.muted,1,false)
@@ -222,10 +222,9 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
     var template by remember { mutableStateOf("پیش‌فرض") }
     var logo by remember { mutableStateOf(true) }
     var stamp by remember { mutableStateOf(true) }
-    var qr by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, qr, official, profiles, brandLogo) {
-        profiles?.let { profile -> runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, qr, official, profile.first, profile.second, brandLogo) }
+    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, official, profiles, brandLogo) {
+        profiles?.let { profile -> runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, true, official, profile.first, profile.second, brandLogo) }
             .onFailure { error = it.message }.getOrNull() }
     }
     var previewPage by remember(invoice.id) { mutableIntStateOf(0) }
@@ -255,7 +254,6 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("لوگو"); Switch(logo, { logo = it })
             Text("مهر"); Switch(stamp, { stamp = it })
-            Text("رهگیری"); Switch(qr, { qr = it })
         }
         Button(enabled = bytes != null, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("ذخیره PDF") }
