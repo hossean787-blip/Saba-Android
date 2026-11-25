@@ -2,6 +2,10 @@ name: SURA signed APK (manual)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/release/BUILD_REQUEST.md'
 permissions:
   contents: read
 

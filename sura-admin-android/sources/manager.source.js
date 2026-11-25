@@ -65,6 +65,7 @@ async function openManagerUser(id){
   <span>${managerPill(role,u.role==='admin'?'red':'blue')} ${managerPill(u.verified?'ایمیل تأییدشده':'ایمیل تأییدنشده',u.verified?'green':'yellow')}</span></div>
   <div class="manager-facts"><div><small>ثبت‌نام</small><strong>${safeTime(u.created_at)}</strong></div><div><small>آخرین ورود</small><strong>${safeTime(u.last_sign_in_at)}</strong></div>
   <div><small>اعتبار مالک</small><strong>${fmtNum(d.wallet?.credits||0)} واحد</strong></div><div><small>مودیان دارای اعتبار</small><strong>${fmtNum((d.taxpayers||[]).length)}</strong></div></div>
+${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openSelectedGift(\''+html(u.id)+'\')">اعطای اعتبار رایگان</button>':''}
 ${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openManagerConsent(\''+html(u.id)+'\')">سابقه پذیرش قوانین</button>':''}
   <h4>اعتبار مؤدیان</h4><div class="tbl-wrap"><table><thead><tr><th>شناسه محلی مؤدی</th><th>موجودی</th></tr></thead><tbody>
   ${(d.taxpayers||[]).map(t=>`<tr><td>${fmtNum(t.local_taxpayer_id)}</td><td>${fmtNum(t.credits)}</td></tr>`).join('')||'<tr><td colspan="2">مودی دارای موجودی ثبت نشده است.</td></tr>'}</tbody></table></div>
@@ -401,4 +402,33 @@ async function saveMonthlyPrice(){return submitBusy(async()=>{
  if(!confirm('قیمت پایه '+fmtRial(price)+' و مبلغ نهایی '+fmtRial(price+Math.floor((price*10+50)/100))+' ثبت شود؟'))return;
  try{await cardFetch('admin-monthly-save',{request:m.dataset.monthlyRequest,expected:Number(m.dataset.monthlyRevision),price,reason});toast('قیمت اشتراک ثبت شد','success');closeModal();showPage('packages');}
  catch(e){toast('ذخیره تأیید نشد؛ قیمت فعلی را دوباره استعلام کنید.','error');}
+});}
+
+
+/* Direct gift entry from selected account. Freeze the confirmed request across transport retries. */
+let selectedGift=null;
+function openSelectedGift(owner){
+ if(ADMIN_ROLE!=='admin'||!CAN.adjustWallet()||!validUUID(owner))return toast('دسترسی مدیرکل لازم است','error');
+ selectedGift=null;
+ openModal('هدیه اعتبار به کاربر','<div class="empty-note">اعتبار رایگان به کیف‌پول مالک اضافه می‌شود؛ هیچ سفارش پرداختی ساخته نمی‌شود.</div><p dir="ltr">'+html(owner)+'</p><div class="field-row"><label>تعداد اعتبار هدیه</label><input type="number" id="selected-gift-units" min="1" max="1000000000" step="1"></div><div class="field-row"><label>دلیل هدیه</label><textarea id="selected-gift-reason" maxlength="490"></textarea></div>','<button class="btn btn-ghost" onclick="closeModal()">بستن</button><button class="btn btn-accent" id="modal-submit" onclick="saveSelectedGift(\''+html(owner)+'\')">ثبت هدیه</button>');
+}
+async function saveSelectedGift(owner){return submitBusy(async()=>{
+ if(ADMIN_ROLE!=='admin'||!CAN.adjustWallet()||!validUUID(owner))return;
+ try{
+  if(!selectedGift){
+   const units=Number(document.getElementById('selected-gift-units').value),reason=document.getElementById('selected-gift-reason').value.trim();
+   if(!Number.isSafeInteger(units)||units<1||units>1000000000||reason.length<5||reason.length>490)return toast('تعداد یا دلیل هدیه معتبر نیست','error');
+   const w=await adminFetch('wallet',{owner}),expected=Number(w.credits),balance=expected+units;
+   if(!Number.isSafeInteger(expected)||expected<0||!Number.isSafeInteger(balance)||balance>1000000000)throw Error('invalid_balance');
+   if(!confirm('اعطای '+fmtNum(units)+' اعتبار رایگان؛ موجودی جدید '+fmtNum(balance)+' واحد. تأیید می‌کنید؟'))return;
+   selectedGift={owner,taxpayer:null,expected,balance,reason:'هدیه: '+reason,request:newUUID()};
+   document.getElementById('selected-gift-units').disabled=true;
+   document.getElementById('selected-gift-reason').disabled=true;
+   document.getElementById('modal-submit').textContent='بررسی همان درخواست';
+  }
+  if(selectedGift.owner!==owner)throw Error('owner_changed');
+  const r=await adminFetch('adjust',selectedGift);
+  if(r.error||!r.receipt)throw Error(r.error||'missing_receipt');
+  selectedGift=null;toast('اعتبار هدیه ثبت شد: '+r.receipt,'success');openManagerUser(owner);
+ }catch(e){toast('نتیجه تأیید نشد؛ همان درخواست را بررسی کنید. '+parseError(e),'error');}
 });}

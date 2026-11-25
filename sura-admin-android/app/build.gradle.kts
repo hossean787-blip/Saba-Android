@@ -6,8 +6,8 @@ android {
         applicationId = "ir.sabagostar.suramanager"
         minSdk = 23
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.1.1-rc3"
+        versionCode = 5
+        versionName = "1.1.2-rc4"
     }
     // Optional production signing: only through existing trusted CI secrets, never in source or APK.
     val storePath = System.getenv("SURA_RELEASE_STORE_FILE")

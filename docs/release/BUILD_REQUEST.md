@@ -1,0 +1,2 @@
+# Authorized test APK build — 2026-11-25
+User requested both APKs and direct admin gift entry. Existing signing credentials only. Standard app 0.47.0 / 47, manager 1.1.2-rc4 / 5. Build artifacts only; no store publication. No actual credit grant or payment during implementation. Existing audited admin adjust API reused. Main CI previous failure due to Robolectric dependency fetch. Do not claim delivery until signed APK artifacts exist.
