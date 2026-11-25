@@ -111,7 +111,7 @@ class AuthGatewayClient(
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             if (status !in 200..299) {
-                throw AuthGatewayException(status, isRegistration = path == "/v1/auth/registration/start")
+                throw AuthGatewayException(status, isRegistration = path == "/v1/auth/registration/start", code = ir.saba.invoice.ui.SuraErrors.readCode(connection))
             }
             val text = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
             JSONObject(text)
@@ -121,12 +121,13 @@ class AuthGatewayClient(
     }
 }
 
-class AuthGatewayException(val httpStatus: Int, val isRegistration: Boolean = false) : Exception(
+class AuthGatewayException(val httpStatus: Int, val isRegistration: Boolean = false, val code: String? = null) : Exception(
     when {
+        code in setOf("weak_password","email_not_confirmed","user_already_exists","legal_consent_required") -> ir.saba.invoice.ui.SuraErrors.message(httpStatus,code)
         isRegistration && httpStatus == 400 ->
             "سرور ثبت‌نام را نپذیرفت. اگر قبلاً حساب ساخته‌اید، از صفحه ورود استفاده کنید؛ در غیر این صورت ایمیل و شرایط رمز عبور را بررسی کنید. این خطا به‌معنای متفاوت بودن دو رمز نیست."
         isRegistration && httpStatus == 409 ->
-            "این حساب ممکن است قبلاً ثبت شده باشد. ورود یا بازیابی حساب را بررسی کنید."
+            "این ایمیل قبلاً ثبت شده است؛ وارد حساب قبلی شوید. [user_already_exists]"
         isRegistration && httpStatus == 422 ->
             "پذیرش نسخه جاری قوانین و حریم خصوصی الزامی است؛ نسخه برنامه و تیک پذیرش را بررسی کنید."
         httpStatus == 400 -> "اطلاعات واردشده معتبر نیست."

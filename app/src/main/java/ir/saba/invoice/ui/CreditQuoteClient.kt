@@ -21,9 +21,10 @@ internal object CreditQuoteClient {
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.setRequestProperty("Authorization", "Bearer $accessToken")
                 connection.outputStream.use { it.write(JSONObject().put("quantity", quantity).toString().toByteArray(Charsets.UTF_8)) }
-                if (connection.responseCode !in 200..299) error("price_unavailable")
+                val status=connection.responseCode
+                if(status !in 200..299)throw SuraServiceException(status,SuraErrors.readCode(connection))
                 val response = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-                check(response.optString("currency") == "IRR" && response.optLong("unit_price_rial") > 0) { "invalid_price" }
+                check(response.optString("currency") == "IRR" && response.optLong("unit_price_rial") > 0) { "قیمت یا واحد پول پاسخ سرور معتبر نیست. [PRICE-FORMAT]" }
                 response
             } finally {
                 connection.disconnect()

@@ -34,14 +34,8 @@ private object CardTransferApi {
             val code=c.responseCode
             val stream=if(code in 200..299)c.inputStream else c.errorStream
             val raw=stream?.use{input->val out=ByteArrayOutputStream();val buf=ByteArray(4096);while(true){val n=input.read(buf);if(n<0)break;require(out.size()+n<=131072);out.write(buf,0,n)};out.toString("UTF-8")}.orEmpty()
-            val obj=JSONObject(raw)
-            if(code !in 200..299 || obj.has("error")) error(when(obj.optString("error")){
-                "monthly_not_enabled"->"فروش اشتراک ماهانه هنوز فعال نیست."
-                "card_not_enabled"->"کارت مقصد هنوز تنظیم نشده است."
-                "price_changed"->"قیمت تغییر کرده است؛ مجدد استعلام بگیرید."
-                "invalid_receipt","invalid_image"->"تصویر یا مشخصات رسید معتبر نیست."
-                else->"عملیات کارت‌به‌کارت تأیید نشد."
-            })
+            val obj=try{JSONObject(raw)}catch(e:org.json.JSONException){throw SuraServiceException(code,"invalid_response")}
+            if(code !in 200..299 || obj.has("error"))throw SuraServiceException(code,obj.optString("error"))
             obj
         } finally {c.disconnect()}
     }
@@ -83,7 +77,7 @@ internal fun CardTransferPanel(token:String){
         active=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
         loaded=true
     }
-    fun run(action:suspend ()->Unit){if(busy)return;busy=true;message="";scope.launch{try{action()}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(e:Exception){message=e.message?:"خطای ارتباط"}finally{busy=false}}}
+    fun run(action:suspend ()->Unit){if(busy)return;busy=true;message="";scope.launch{try{action()}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(e:Exception){message=SuraErrors.describe(e,"عملیات کارت‌به‌کارت تأیید نشد؛ وضعیت درخواست را بررسی کنید. [CARD-UNKNOWN]")}finally{busy=false}}}
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->if(uri!=null)run{receipt=cardReceipt(context,uri);message="تصویر رسید آماده ارسال است."}}
     LaunchedEffect(token){run{refresh()}}
     Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){

@@ -115,7 +115,7 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
             try { action() }
             catch (e: CancellationException) { throw e }
             catch (e: AuthGatewayException) { message = e.message }
-            catch (e: Exception) { message = "ارتباط برقرار نشد؛ اتصال اینترنت را بررسی و دوباره تلاش کنید." }
+            catch (e: Exception) { message = ir.saba.invoice.ui.SuraErrors.describe(e,"عملیات احراز هویت تأیید نشد؛ دوباره تلاش کنید. [AUTH-UNKNOWN]") }
             finally { busy = false }
         }
     }

@@ -8,7 +8,7 @@ import java.net.URL
 
 internal enum class CreditEndpoint(val function: String) { PAID("sura-credit-transfer"), GIFT("sura-free-credit") }
 
-internal class CreditHttpException(val status: Int) : IllegalArgumentException("اعتبار از سرور تأیید نشد (کد $status).")
+internal class CreditHttpException(val status: Int, val code: String? = null) : IllegalArgumentException(SuraErrors.message(status,code))
 
 /** Fixed authenticated origin, no redirects/cache or transparent streaming POST replay. */
 internal class CreditHttpTransport(
@@ -33,7 +33,7 @@ internal class CreditHttpTransport(
             connection.setFixedLengthStreamingMode(bytes.size)
             connection.outputStream.use { it.write(bytes) }
             val status = connection.responseCode
-            if (status !in 200..299) throw CreditHttpException(status)
+            if (status !in 200..299) throw CreditHttpException(status,SuraErrors.readCode(connection))
             val raw = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(4096)
@@ -45,7 +45,7 @@ internal class CreditHttpTransport(
                 }
                 output.toString("UTF-8")
             }
-            JSONObject(raw).also { require(!it.has("error")) { "سرور عملیات اعتبار را تأیید نکرد." } }
+            JSONObject(raw).also { if(it.has("error"))throw CreditHttpException(status,it.optString("error")) }
         } finally { connection.disconnect() }
     }
 }

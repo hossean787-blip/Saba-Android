@@ -16,7 +16,15 @@ Deno.serve(async(req)=>{
    const password=String(body.password??"");
    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||password.length<8) return respond({error:"invalid_input"},400);
    const upstream=await fetch(root+"/auth/v1/signup",{method:"POST",headers:{"apikey":anon,"content-type":"application/json"},body:JSON.stringify({email,password,data:{first_name:String(body.firstName??"").slice(0,100),last_name:String(body.lastName??"").slice(0,100),sura_legal_accepted:true,sura_legal_version:"2026-11-25.1"}})});
-   if(!upstream.ok) return respond({error:"registration_failed"},upstream.status===429?429:400);
+   if(!upstream.ok){
+     const err=await upstream.json().catch(()=>({}));
+     const code=err.error_code??err.code;
+     if(upstream.status===429)return respond({error:"rate_limited"},429);
+     if(code==="user_already_exists"||code==="email_exists")return respond({error:"user_already_exists"},409);
+     if(code==="weak_password")return respond({error:"weak_password"},400);
+     if(upstream.status>=500)return respond({error:"service_unavailable"},503);
+     return respond({error:"registration_failed"},400);
+   }
    const data=await upstream.json();
    if(!data.access_token) return respond({status:"email_confirmation_required"},202);
    return respond({accessToken:data.access_token,refreshToken:data.refresh_token});
@@ -25,7 +33,13 @@ Deno.serve(async(req)=>{
    const identifier=String(body.identifier??"").trim();
    if(!identifier.includes("@")) return respond({error:"email_required_for_password_login"},400);
    const upstream=await fetch(root+"/auth/v1/"+endpoint,{method:"POST",headers:{"apikey":anon,"content-type":"application/json"},body:JSON.stringify({email:identifier,password:String(body.password??"")})});
-   if(!upstream.ok) return respond({error:"invalid_credentials"},401);
+   if(!upstream.ok){
+     const err=await upstream.json().catch(()=>({}));
+     if(upstream.status===429)return respond({error:"rate_limited"},429);
+     if(upstream.status>=500)return respond({error:"service_unavailable"},503);
+     if((err.error_code??err.code)==="email_not_confirmed")return respond({error:"email_not_confirmed"},401);
+     return respond({error:"invalid_credentials"},401);
+   }
    const data=await upstream.json();
    return respond({accessToken:data.access_token,refreshToken:data.refresh_token});
  }
