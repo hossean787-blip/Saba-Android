@@ -18,6 +18,7 @@ class InvoiceEventStatusTest {
         assertEquals(InvoiceEventStatus.PENDING,invoiceEventStatus(invoice,receipt.copy(state="SUBMITTED")))
         assertEquals(InvoiceEventStatus.CHECK,invoiceEventStatus(invoice,receipt.copy(state="UNKNOWN")))
         assertEquals(InvoiceEventStatus.UNSENT,invoiceEventStatus(invoice,null))
+        assertEquals(InvoiceEventStatus.UNSENT,invoiceEventStatus(invoice,receipt.copy(state="PREPARED",lastError="preflight failed")))
         assertEquals(InvoiceEventStatus.DRAFT,invoiceEventStatus(invoice.copy(status="DRAFT"),null))
         assertEquals(InvoiceEventStatus.UNSENT,invoiceEventStatus(invoice,receipt.copy(companyId=99,state="REJECTED")))
     }

@@ -660,14 +660,15 @@ private fun InvoiceScreenContent(
                 val customer = loaded?.invoice?.let { inv -> customers.firstOrNull { it.id == inv.customerId } }
                 val company = templateCompany
                 if (loaded != null && customer != null && company != null) {
+                    val directPreview = fromEvents && invoiceEventOpensPreview(invoiceEventStatus(loaded.invoice, officialRecord))
                     InvoiceTemplateScreen(company, customer, loaded.invoice, loaded.lines,
                         onExport = { bytes ->
                             exportBytes = bytes
                             pdfExport.launch("SURA-${loaded.invoice.invoiceNumber}.pdf")
                         },
-                        onBack = { if (fromEvents) backFromInvoice() else mode = "details" },
+                        onBack = { if (directPreview) backFromInvoice() else mode = "details" },
                         onSend = { requestOfficialSend(loaded) },
-                        official = officialRecord, db = db, directPreview = fromEvents)
+                        official = officialRecord, db = db, directPreview = directPreview)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -807,7 +808,7 @@ private fun InvoiceScreenContent(
                                 invoice.status == "FINALIZED" && (officialRecord == null || officialRecord?.state == "PREPARED"))
                         if (canEditUnsent) {
                             Button(enabled = !busy, onClick = { editExistingOrCopy(loaded) },
-                                modifier = Modifier.fillMaxWidth()) { Text("ویرایش فاکتور") }
+                                modifier = Modifier.fillMaxWidth()) { Text(if (invoice.status == "DRAFT") "ویرایش پیش‌نویس" else "ویرایش فاکتور") }
                             if(invoice.status == "DRAFT") TextButton(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "delete" }) {
                                 Text("حذف پیش‌نویس", color = MaterialTheme.colorScheme.error)
                             }

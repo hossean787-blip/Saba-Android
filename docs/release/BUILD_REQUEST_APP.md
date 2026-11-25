@@ -21,3 +21,5 @@ Version 0.59.0: match approved landscape invoice sample, use bundled Vazirmatn a
 0.61.0: invoice events show customer names, invoice number and date in subtitle, and latest scoped official result. Distinguish SUCCESS from buyer approval and reference eligibility; remove obsolete local-only notice. Request rebuild.
 
 0.63.0: card opens its own invoice; success/pending/unknown direct PDF preview; rejected or unsent/draft details with edit. Rejected original immutable, explicit new invoice only on user save; finalized unsent reopened transactionally without new debit, PREPARED may be discarded only before claim. Add routing and credit-preservation regression tests. Request signed build.
+
+Preserve existing draft edit label for accessibility/regression; preflight failure is unsent, not an ambiguous inquiry. Successful event preview is read-only with PDF output; normal manual preview retains prior controls.
