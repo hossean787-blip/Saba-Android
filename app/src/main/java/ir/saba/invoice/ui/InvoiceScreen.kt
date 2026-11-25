@@ -1313,19 +1313,7 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
             OutlinedTextField(description, { description = it },
                 label = { Text("شرح کالا یا خدمت") },
                 modifier = Modifier.fillMaxWidth())
-            Text("واحد اندازه‌گیری", style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.SemiBold)
-            OutlinedTextField(unit, { unit = InvoiceInput.digits(it).trim() },
-                label = { Text("کد واحد اندازه‌گیری") }, singleLine = true,
-                supportingText = { Text("برای ارسال رسمی، کد واحد معتبر هر قلم ضروری است.") },
-                modifier = Modifier.fillMaxWidth())
-            Row(Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                listOf("1627" to "عدد", "164" to "کیلوگرم", "165" to "متر",
-                    "1637" to "لیتر", "16103" to "ساعت", "1653" to "واحد").forEach { (key, title) ->
-                    FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(title) })
-                }
-            }
+            InvoiceMeasurementUnitPicker(unit) { unit = it; error = "" }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 if (maxWidth >= 380.dp) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1398,6 +1386,60 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
             }
         }
     }
+}
+
+/** Select an official code; never infer a unit from the item description. */
+@Composable
+private fun InvoiceMeasurementUnitPicker(unit: String, onSelect: (String) -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val name = MoadianMeasurementUnits.nameOf(unit)
+    Text("واحد اندازه‌گیری", style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.SemiBold)
+    OutlinedButton(
+        onClick = { query = ""; open = true },
+        modifier = Modifier.fillMaxWidth().testTag("invoiceUnitPicker")
+    ) {
+        Text(if (name != null) "$name ($unit)" else "انتخاب واحد اندازه‌گیری")
+    }
+    if (name == null && unit.isNotBlank()) Text("کد قدیمی معتبر نیست؛ واحد صحیح را انتخاب کنید.",
+        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    Text("برای ارسال رسمی، انتخاب واحد معتبر هر قلم ضروری است.",
+        style = MaterialTheme.typography.bodySmall)
+    Row(Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        listOf("1627", "164", "165", "1637", "16103", "1653").forEach { code ->
+            FilterChip(selected = unit == code, onClick = { onSelect(code) },
+                label = { Text(requireNotNull(MoadianMeasurementUnits.nameOf(code))) })
+        }
+    }
+    if (open) AlertDialog(
+        onDismissRequest = { open = false },
+        title = { Text("انتخاب واحد اندازه‌گیری") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it }, singleLine = true,
+                    label = { Text("جستجوی نام یا کد واحد") },
+                    modifier = Modifier.fillMaxWidth().testTag("invoiceUnitSearch"))
+                val matches = remember(query) { MoadianMeasurementUnits.search(query) }
+                Text("${matches.size} واحد سنجش", style = MaterialTheme.typography.bodySmall)
+                if (matches.isEmpty()) Text("واحدی یافت نشد.")
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 300.dp)
+                    .testTag("invoiceUnitResults")) {
+                    items(matches, key = { it.code }) { option ->
+                        TextButton(onClick = { onSelect(option.code); open = false },
+                            modifier = Modifier.fillMaxWidth().testTag("invoiceUnit_${option.code}")) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(option.name)
+                                Text(option.code, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { open = false }) { Text("بستن") } }
+    )
 }
 
 @Composable

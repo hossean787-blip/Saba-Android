@@ -24,7 +24,7 @@ object MoadianMeasurementUnits {
         "1661" to "دوجین",
         "1668" to "(رینگ)حلقه",
         "1673" to "قراص",
-        "1694" to "قراصه ()bundle",
+        "1694" to "قراصه (bundle)",
         "1637" to "لیتر",
         "1650" to "ساشه",
         "1683" to "کپسول",
@@ -46,13 +46,13 @@ object MoadianMeasurementUnits {
         "1617" to "جلد",
         "162" to "تیوب",
         "165" to "متر",
-        "1610" to "کالف",
+        "1610" to "کلاف",
         "1615" to "کیسه",
         "1680" to "طغرا",
         "1639" to "بشكه",
         "1614" to "گالن",
         "1687" to "فاقد بسته بندی",
-        "1693" to "کارتن ()master case",
+        "1693" to "کارتن (master case)",
         "166" to "صفحه",
         "1666" to "مخزن",
         "1626" to "تانكر",
@@ -100,13 +100,35 @@ object MoadianMeasurementUnits {
         "16126" to "میلي آمپر",
         "16127" to "مثقال",
         "16128" to "سیر",
-        "16129" to "دفعه)(time",
+        "16129" to "دفعه (time)",
         "16130" to "مگا یونیت",
         "16131" to "کادر",
         "16132" to "پرس",
         "16133" to "بلوک",
         "16134" to "نفر-ماه"
     )
+    data class UnitOption(val code: String, val name: String)
+
+    private val options = names.map { (code, name) -> UnitOption(code, name) }
     val size: Int get() = names.size
+
+    private fun normalize(value: String): String = buildString {
+        value.forEach { char ->
+            append(when (char) {
+                in '۰'..'۹' -> '0' + (char - '۰')
+                in '٠'..'٩' -> '0' + (char - '٠')
+                'ي', 'ى' -> 'ی'
+                'ك' -> 'ک'
+                else -> char
+            })
+        }
+    }.replace(Regex("[\\s\\u200c\\u200d-]+"), "").lowercase(java.util.Locale.ROOT)
+
+    /** Official document order, with Persian/Arabic digit and letter normalization. */
+    fun search(query: String = ""): List<UnitOption> {
+        val term = normalize(query)
+        return options.filter { term.isBlank() || normalize(it.code).contains(term) ||
+            normalize(it.name).contains(term) }
+    }
     fun nameOf(code: String): String? = names[code]
 }
