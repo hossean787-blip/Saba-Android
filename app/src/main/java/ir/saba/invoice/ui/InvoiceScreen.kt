@@ -2,6 +2,13 @@ package ir.saba.invoice.ui
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.room.withTransaction
+import ir.saba.invoice.security.AccountSession
+import ir.saba.invoice.security.OfficialSubmissionService
+import ir.saba.invoice.security.TaxpayerCredentialRepository
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -83,7 +90,9 @@ internal fun invoiceTaxStatus(row: OfficialSubmission?): String = when (row?.sta
     "PREPARED" -> "درخواست رسمی آماده شده ولی هنوز به سامانه مؤدیان ارسال نشده است."
     "SENDING", "UNKNOWN" -> "وضعیت ارسال قطعی نیست؛ تنها استعلام کنید و صورتحساب را مجدداً ارسال نکنید."
     "SUBMITTED" -> "در سامانه ارسال شده؛ پذیرش نهایی هنوز تأیید نشده و استعلام لازم است."
-    "ACCEPTED" -> if (row.signedReceipt.isNullOrBlank())
+    "ACCEPTED" -> if (row.protocol == "LEGACY")
+        "سامانه در مسیر بدون گواهی نتیجه موفق گزارش کرده است؛ رسید امضاشده نسخه ۲ موجود نیست."
+        else if (row.signedReceipt.isNullOrBlank())
         "وضعیت پذیرش نیازمند بررسی رسید سازمان است."
         else "صورتحساب در سامانه مؤدیان پذیرفته شده و رسید امضاشده بررسی شده است."
     "REJECTED" -> "صورتحساب در سامانه مؤدیان رد شده است؛ جزئیات خطا را بررسی کنید."
@@ -206,6 +215,15 @@ private fun InvoiceScreenContent(
     var error by rememberSaveable { mutableStateOf("") }
     var details by remember { mutableStateOf<InvoiceDetails?>(null) }
     var officialRecord by remember(companyId) { mutableStateOf<OfficialSubmission?>(null) }
+    val credentials = remember(db, account) { TaxpayerCredentialRepository(context, db, account) }
+    val officialService = remember(db, account, accessToken) {
+        OfficialSubmissionService(db, account, credentials,
+            sessionCheck = { AccountSession.requireOwner(accessToken, account) })
+    }
+    var sendConfirm by rememberSaveable { mutableStateOf(false) }
+    var issueClock by rememberSaveable { mutableStateOf("") }
+    var sendProgress by remember { mutableStateOf("") }
+    val tehran = remember { ZoneId.of("Asia/Tehran") }
     var lineDialog by rememberSaveable { mutableStateOf(false) }
     var lineEditorZone by rememberSaveable { mutableStateOf("pick") }
     var lineIndex by rememberSaveable { mutableIntStateOf(-1) }
@@ -328,6 +346,109 @@ private fun InvoiceScreenContent(
         }
     }
 
+    suspend fun reloadOfficial(id: Long) {
+        details = repository.detailsForCompany(companyId, id)
+        officialRecord = db.officialSubmissionDao().forInvoice(id)
+            ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
+        onChanged()
+    }
+
+    fun requestOfficialSend(loaded: InvoiceDetails) {
+        if (busy) return
+        val invoice = loaded.invoice
+        val record = officialRecord
+        if (record?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED")) {
+            perform {
+                try {
+                    sendProgress = "در حال استعلام وضعیت صورتحساب…"
+                    val row = requireNotNull(record)
+                    if (row.protocol == "LEGACY") officialService.inquireLegacy(row.requestId)
+                    else officialService.inquire(row.requestId)
+                } finally {
+                    sendProgress = ""
+                    reloadOfficial(invoice.id)
+                    mode = "details"
+                }
+            }
+            return
+        }
+        if (record != null && record.state != "PREPARED") {
+            onNotice(invoiceTaxStatus(record))
+            return
+        }
+        if (invoice.status !in setOf("DRAFT", "FINALIZED") ||
+            invoice.subject !in setOf(InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION,
+                InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
+            onNotice("ارسال این صورتحساب از وضعیت فعلی مجاز نیست.")
+            return
+        }
+        // Legacy finalized rows without per-line units require the existing recovery tools.
+        if (record == null && invoice.subject != InvoiceSubject.CANCELLATION &&
+            loaded.lines.any { MoadianMeasurementUnits.nameOf(it.unitCode) == null }) {
+            if (invoice.status == "FINALIZED") onOpenOfficialSubmission()
+            else onNotice("واحد سنجش هر ردیف را در ویرایش پیش‌نویس انتخاب کنید.")
+            return
+        }
+        issueClock = ""
+        sendConfirm = true
+    }
+
+    fun sendConfirmed(id: Long, declaredClock: String) {
+        perform {
+            try {
+                sendProgress = "در حال بررسی و ارسال صورتحساب…"
+                // Freeze the draft and create its immutable outbox entry together.
+                // Any local validation failure rolls back finalization, retaining an editable draft.
+                val prepared = db.withTransaction {
+                    AccountSession.requireOwner(accessToken, account)
+                    val invoice = repository.detailsForCompany(companyId, id).invoice
+                    InvoiceSendSchedule.requireDueForManualSubmission(
+                        InvoiceLocalDetails.fromJson(invoice.localDetailsJson))
+                    val prior = db.officialSubmissionDao().forInvoice(id)
+                    if (prior != null) {
+                        require(prior.ownerId == ownerId && prior.companyId == companyId)
+                        require(prior.state == "PREPARED") {
+                            "ارسال قبلاً آغاز شده است؛ فقط استعلام همان درخواست مجاز است."
+                        }
+                        officialService.reviewPrepared(prior.requestId)
+                    } else {
+                        val issuedDay = JalaliCalendar.toGregorian(invoice.issueDate)
+                        val now = Instant.now().atZone(tehran)
+                        val issued = if (issuedDay == now.toLocalDate()) now.toOffsetDateTime()
+                        else {
+                            val time = InvoiceInput.digits(declaredClock.trim())
+                            require(time.matches(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]"))) {
+                                "ساعت واقعی صدور فاکتور را به صورت ساعت و دقیقه وارد کنید."
+                            }
+                            issuedDay.atTime(LocalTime.parse(time)).atZone(tehran).toOffsetDateTime()
+                        }
+                        require(!issued.toInstant().isAfter(now.toInstant())) {
+                            "تاریخ و ساعت صدور نباید در آینده باشد."
+                        }
+                        val protocol = if (credentials.hasPendingPrivateKey(companyId) &&
+                            InvoiceSubject.supportsLegacy(invoice.subject)) "LEGACY" else "V2"
+                        if (protocol == "LEGACY") officialService.checkLegacySigningReadiness(companyId)
+                        else officialService.checkLocalSigningReadiness(companyId)
+                        repository.finalizeDraft(companyId, id)
+                        val row = officialService.prepare(companyId, id, issued.toString(), "", protocol)
+                        officialService.reviewPrepared(row.requestId)
+                    }
+                }
+                // A real POST is possible only after the user confirmed this exact invoice.
+                officialRecord = officialService.submitAndInquire(prepared.requestId) { updated ->
+                    officialRecord = updated
+                    sendProgress = if (updated.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
+                        "در حال استعلام نتیجه همان صورتحساب…" else "نتیجه ثبت شد."
+                }
+                onNotice(invoiceTaxStatus(officialRecord))
+            } finally {
+                sendProgress = ""
+                reloadOfficial(id)
+                mode = "details"
+            }
+        }
+    }
+
     // Preserve the existing credit-idempotent persistence path; only the UI entry moved.
     fun saveCurrentInvoice() {
         perform {
@@ -361,7 +482,7 @@ private fun InvoiceScreenContent(
                             onChanged()
                             runCatching { refreshPaidBalance() }
                             mode = "details"
-                            onNotice("فاکتور جدید ثبت شد؛ شارژ هنگام ایجاد اولیه مصرف می‌شود، نه هنگام ارسال.")
+                            onNotice("پیش‌نویس ذخیره شد.")
 
         }
     }
@@ -395,7 +516,10 @@ private fun InvoiceScreenContent(
                 Text(error, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (sendProgress.isNotBlank()) Text(sendProgress)
+        }
         when (mode) {
             "template" -> {
                 val loaded = details
@@ -408,14 +532,7 @@ private fun InvoiceScreenContent(
                             pdfExport.launch("SURA-${loaded.invoice.invoiceNumber}.pdf")
                         },
                         onBack = { mode = "details" },
-                        onSend = {
-                            if (loaded.invoice.status != "FINALIZED") {
-                                onNotice("ابتدا صورتحساب را نهایی‌سازی کنید؛ پیش‌نویس قابل ارسال رسمی نیست.")
-                            } else if (loaded.invoice.subject !in setOf(
-                                InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
-                                onNotice("این موضوع صورتحساب در مسیر ارسال رسمی هنوز فعال نیست.")
-                            } else onOpenOfficialSubmission()
-                        })
+                        onSend = { requestOfficialSend(loaded) })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -532,21 +649,6 @@ private fun InvoiceScreenContent(
                             Text(it.take(300), color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                        if (invoice.status == "FINALIZED") {
-                            if (invoice.subject in setOf(
-                                    InvoiceSubject.ORIGINAL, InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
-                                OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(),
-                                    onClick = onOpenOfficialSubmission) {
-                                    Text(if (officialRecord == null)
-                                        "آماده‌سازی و ارسال رسمی به سامانه مؤدیان"
-                                        else "نمایش و پیگیری وضعیت ارسال در سامانه مؤدیان")
-                                }
-                            } else {
-                                Text("این نوع صورتحساب در مسیر ارسال رسمی پشتیبانی نمی‌شود.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error)
-                            }
-                        }
                         if (invoice.status == "DRAFT") {
                             Button(enabled = !busy, onClick = {
                                 number = invoice.invoiceNumber; date = invoice.issueDate; customerId = invoice.customerId
@@ -556,7 +658,6 @@ private fun InvoiceScreenContent(
                                 localDetailsJson = invoice.localDetailsJson
                                 lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }; error = ""; mode = "edit"
                             }) { Text("ویرایش پیش‌نویس") }
-                            Button(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "finalize" }) { Text("نهایی‌سازی صورتحساب") }
                             TextButton(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "delete" }) { Text("حذف پیش‌نویس", color = MaterialTheme.colorScheme.error) }
                         } else Text("سند نهایی‌شده قابل ویرایش یا حذف نیست.")
                     } else if (!busy) OutlinedButton(onClick = { mode = "list" }) { Text("بازگشت و تلاش مجدد") }
@@ -943,6 +1044,18 @@ private fun InvoiceScreenContent(
                 }
             }
         }
+        if (mode == "details" && details != null) {
+            val loaded = requireNotNull(details)
+            val row = officialRecord
+            if (loaded.invoice.status in setOf("DRAFT", "FINALIZED") &&
+                (row == null || row.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED"))) {
+                Button(enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("invoiceDirectSend"),
+                    onClick = { requestOfficialSend(loaded) }) {
+                    Text(if (row?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
+                        "استعلام وضعیت ارسال" else "ارسال به سامانه مؤدیان")
+                }
+            }
+        }
         if (mode == "edit") {
             InvoiceEditorDock(
                 total = if (lines.isEmpty()) null else
@@ -994,12 +1107,47 @@ private fun InvoiceScreenContent(
         )
     }
 
+    if (sendConfirm && details != null) {
+        val loaded = requireNotNull(details)
+        val invoice = loaded.invoice
+        val today = Instant.now().atZone(tehran).toLocalDate()
+        val historical = runCatching { JalaliCalendar.toGregorian(invoice.issueDate) != today }.getOrDefault(true)
+        val needsTime = historical && officialRecord == null
+        AlertDialog(
+            onDismissRequest = { if (!busy) sendConfirm = false },
+            title = { Text("ارسال به سامانه مؤدیان") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("فاکتور ${invoice.invoiceNumber} | ${InvoiceSubject.label(invoice.subject)}")
+                    Text("مؤدی: $sellerName")
+                    Text("خریدار: ${customers.firstOrNull { it.id == invoice.customerId }?.name ?: invoice.customerId}")
+                    Text("تاریخ: ${invoice.issueDate}")
+                    Text("مبلغ: ${rial(invoice.totalAmountRial)}")
+                    Text("مالیات: ${rial(invoice.taxAmountRial)}")
+                    Text("تسویه: ${InvoiceSettlement.label(invoice.settlementMode)}")
+                    if (needsTime) OutlinedTextField(issueClock, { issueClock = it },
+                        label = { Text("ساعت واقعی صدور (مثلاً ۱۴:۳۰)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    else if (officialRecord == null) Text("زمان صدور: زمان تأیید، به وقت تهران.")
+                    Text("با تأیید، صورتحساب رسمی ارسال و امکان ویرایش آن محدود می‌شود.")
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !busy && (!needsTime || issueClock.isNotBlank()), onClick = {
+                    sendConfirm = false
+                    sendConfirmed(invoice.id, issueClock)
+                }) { Text("تأیید و ارسال") }
+            },
+            dismissButton = { TextButton(onClick = { sendConfirm = false }) { Text("انصراف") } }
+        )
+    }
+
     if (confirmation.isNotEmpty()) AlertDialog(
         onDismissRequest = { if (!busy) confirmation = "" },
-        title = { Text(when (confirmation) { "delete" -> "حذف پیش‌نویس؟"; "finalize" -> "نهایی‌سازی فاکتور؟"; else -> "خروج از ویرایش؟" }) },
+        title = { Text(if (confirmation == "delete") "حذف پیش‌نویس؟" else "خروج از ویرایش؟") },
         text = { Text(when (confirmation) {
             "delete" -> "پیش‌نویس لغو می‌شود؛ سوابق و مصرف اعتبار آن باقی می‌ماند."
-            "finalize" -> "اعتبار هنگام ایجاد اولیه مصرف شده است؛ نهایی‌سازی اعتبار دیگری مصرف نمی‌کند. سند دیگر قابل ویرایش نخواهد بود و ارسال رسمی انجام نمی‌شود."
             else -> if(editorLocked) "درخواست ناتمام محفوظ می‌ماند و با همان اطلاعات قابل ادامه است." else "تغییرات ذخیره‌نشده کنار گذاشته می‌شوند."
         }) },
         confirmButton = { TextButton(enabled = !busy, onClick = {
@@ -1007,13 +1155,12 @@ private fun InvoiceScreenContent(
             if (requested == "leave") { confirmation = ""; mode = if (invoiceId == null) "list" else "details"; error = "" }
             else perform {
                 val id = actionId ?: throw IllegalArgumentException("فاکتور را دوباره انتخاب کنید.")
-                if (requested == "delete") repository.deleteDraft(companyId, id)
-                else { repository.detailsForCompany(companyId, id); repository.finalizeDraft(companyId, id) }
+                require(requested == "delete")
+                repository.deleteDraft(companyId, id)
                 confirmation = ""
-                if (requested == "delete") { details = null; mode = "list" }
-                else details = repository.detailsForCompany(companyId, id)
+                details = null; mode = "list"
                 onChanged()
-                onNotice(if (requested == "delete") "پیش‌نویس لغو شد؛ شارژ مصرف‌شده بازگردانده نمی‌شود." else "فاکتور محلی نهایی شد؛ شارژ هنگام ایجاد فاکتور مصرف شده است و ارسال واقعی انجام نشد.")
+                onNotice("پیش‌نویس لغو شد؛ شارژ مصرف‌شده بازگردانده نمی‌شود.")
             }
         }) { Text("تأیید") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { confirmation = "" }) { Text("بازگشت") } }

@@ -170,6 +170,29 @@ class InvoiceScreenTest {
         }
     }
 
+    @Test fun savedDraftWithUnitOpensSingleSendConfirmationAndCancelKeepsDraft() {
+        runBlocking {
+            InvoiceRepository(db).saveDraft(company, customer, "16", "1405/07/02",
+                listOf(InvoiceLine(invoiceId = 0, itemCode = "1234567890123",
+                    description = "کالا", quantity = 1, unitPriceRial = 1000,
+                    taxRatePercent = 10, unitCode = "1627")))
+            invoices = db.invoiceDao().forCompany(company)
+        }
+        compose.setContent { Screen() }
+        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithTag("invoiceDirectSend").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("invoiceDirectSend").performClick()
+        compose.onNodeWithText("تأیید و ارسال").assertExists()
+        compose.onNodeWithText("انصراف").performClick()
+        compose.onNodeWithText("نهایی‌سازی صورتحساب").assertDoesNotExist()
+        runBlocking {
+            assertEquals("DRAFT", db.invoiceDao().forCompany(company).single().status)
+            assertEquals(0, db.officialSubmissionDao().forCompany(company).size)
+        }
+    }
+
     @Test fun officialStatusAlwaysDistinguishesLocalDraftFromSignedAcceptance() {
         val row = OfficialSubmission(
             requestId = "fixture", ownerId = ownerId, companyId = company,
@@ -336,7 +359,7 @@ class InvoiceScreenTest {
     }
 
 
-    @Test fun finalizedInvoiceCanNavigateToOfficialSubmissionOnlyAfterLocalFinalization() {
+    @Test fun legacyFinalizedInvoiceWithMissingUnitCanNavigateToRecoveryTools() {
         runBlocking {
             val id = InvoiceRepository(db).saveDraft(
                 company, customer, "15", "1405/07/02",
@@ -359,11 +382,10 @@ class InvoiceScreenTest {
         } }
         compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
         compose.waitUntil(15000) {
-            compose.onAllNodesWithText("آماده‌سازی و ارسال رسمی به سامانه مؤدیان")
+            compose.onAllNodesWithText("ارسال به سامانه مؤدیان")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("آماده‌سازی و ارسال رسمی به سامانه مؤدیان")
-            .performScrollTo().performClick()
+        compose.onNodeWithTag("invoiceDirectSend").performClick()
         compose.runOnIdle { assertEquals(1, navigations) }
     }
 
