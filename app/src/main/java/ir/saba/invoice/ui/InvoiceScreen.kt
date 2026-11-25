@@ -591,30 +591,8 @@ private fun InvoiceScreenContent(
             else onNotice("واحد سنجش هر ردیف را در ویرایش پیش‌نویس انتخاب کنید.")
             return
         }
-        // Before asking for permission to POST, repair stale numbers on the same never-prepared document.
-        // Show the new number in preview and require a fresh explicit send confirmation.
-        if(record==null && invoice.trackingCode.isNullOrBlank()) {
-            perform {
-                val profile=db.moadianDetailsDao().byCompany(companyId)
-                val current=InvoiceInput.number(invoice.invoiceNumber).toLongOrNull()
-                val needsRepair=profile?.fiscalMemoryId?.matches(Regex("[A-Z0-9]{6}"))==true &&
-                    current!=null && current<TaxpayerSerialAllocator(db).minimumOfficialSerial(companyId)
-                val repaired=if(needsRepair) {
-                    AccountSession.requireOwner(accessToken,account)
-                    InvoiceRepository(db).repairUnsentFiscalSerial(companyId,invoice.id,ownerId)
-                } else null
-                if(repaired!=null) {
-                    reloadOfficial(invoice.id)
-                    onNotice("شماره همین صورتحساب به $repaired اصلاح شد؛ اعتبار جدید مصرف نشد. شماره را بررسی و دوباره ارسال را انتخاب کنید.")
-                } else {
-                    issueClock=""
-                    sendConfirm=true
-                }
-            }
-        } else {
-            issueClock = ""
-            sendConfirm = true
-        }
+        issueClock = ""
+        sendConfirm = true
     }
 
     fun sendConfirmed(id: Long, declaredClock: String) {

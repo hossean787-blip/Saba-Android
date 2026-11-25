@@ -19,7 +19,7 @@ object MoadianInvoiceMapper {
             .atZone(ZoneId.of("Asia/Tehran")).toOffsetDateTime().toString()
 
     fun map(company: Company, customer: Customer, buyerProfile: CustomerProfile?, details: MoadianDetails,
-            invoice: Invoice, lines: List<InvoiceLine>, issueTime: String, unit: String, now: Long): String {
+            invoice: Invoice, lines: List<InvoiceLine>, issueTime: String, unit: String, now: Long, fiscalSerial:Long?=null): String {
         require(invoice.status == "FINALIZED" && invoice.companyId == company.id && customer.id == invoice.customerId && customer.companyId == company.id)
         // Never disguise a referred invoice as a new original invoice.
         val officialSubject = InvoiceSubject.officialSubjectCode(invoice)
@@ -37,7 +37,7 @@ object MoadianInvoiceMapper {
         val expectedDay = OffsetDateTime.parse(defaultIssueTime(invoice.issueDate)).atZoneSameInstant(ZoneId.of("Asia/Tehran")).toLocalDate()
         require(Instant.ofEpochMilli(issued).atZone(ZoneId.of("Asia/Tehran")).toLocalDate() == expectedDay) { "زمان صدور باید در تاریخ شمسی فاکتور باشد." }
         require(issued > 0 && issued <= now) { "زمان صدور نباید در آینده باشد." }
-        val serial = InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
+        val serial = fiscalSerial ?: InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
         val taxId = TaxIdGenerator.generate(details.fiscalMemoryId,serial,issued)
         if (officialSubject == 3) {
             // RC_IITP.IS_V7.9 section 5-3: buyer and item details are resolved

@@ -164,8 +164,20 @@ class OfficialSubmissionService(
             require(SubmissionPreparation.sha256Hex(it.payload.toByteArray(Charsets.UTF_8))==it.payloadHash)
             Instant.ofEpochMilli(JSONObject(it.payload).getJSONObject("header").getLong("indatim")).toString()
         }
+        // Local document numbering and the authority's monotonic fiscal serial are distinct.
+        // Existing immutable identities always win, including RESERVED retries.
+        val fiscalSerial=if(existing!=null) {
+            ir.saba.moadian.TaxIdGenerator.validate(existing.taxId).serialHex.toLong(16)
+        } else {
+            val visible=ir.saba.invoice.domain.InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
+            require(visible>0)
+            require(db.invoiceDao().forCompany(companyId).none {
+                it.id!=invoiceId && ir.saba.invoice.domain.InvoiceInput.number(it.invoiceNumber)==ir.saba.invoice.domain.InvoiceInput.number(invoice.invoiceNumber)
+            }) { "شماره نمایشی فاکتور تکراری است." }
+            maxOf(visible,TaxpayerSerialAllocator(db).minimumOfficialSerial(companyId))
+        }
         val payload = MoadianInvoiceMapper.map(company,customer,db.customerProfileDao().byCustomer(customer.id),details,invoice,
-            sourceLines,reservedTime ?: issueTime,unit,clock())
+            sourceLines,reservedTime ?: issueTime,unit,clock(),fiscalSerial)
         requireOfficialReference(invoice, JSONObject(payload).getJSONObject("header"))
         require(payload.length <= 2_000_000) { "حجم صورتحساب بیش از حد مجاز است." }
         if (existing != null) {
