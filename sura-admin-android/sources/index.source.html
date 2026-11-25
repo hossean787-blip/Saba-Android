@@ -548,6 +548,7 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
 @media(max-width:950px){.manager-filterbar{grid-template-columns:repeat(2,minmax(0,1fr))}.manager-filterbar label:first-child{grid-column:span 2}}
 @media(max-width:540px){.manager-filterbar{grid-template-columns:1fr}.manager-filterbar label:first-child{grid-column:auto}.manager-filterbar button{width:100%}.manager-audit-export{margin-inline-start:0}}
 
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -581,7 +582,14 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
       <label>رمز عبور</label>
       <input type="password" id="inp-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
+    <div id="vault-options" hidden style="margin:12px 0;text-align:right">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.85rem"><input type="checkbox" id="remember-email"> ذخیره نام کاربری در این گوشی</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;margin-top:10px"><input type="checkbox" id="remember-bio"> ذخیره امن رمز و فعال‌سازی اثر انگشت</label>
+      <div id="bio-hint" style="font-size:.75rem;line-height:1.7;color:var(--fg2)"></div>
+    </div>
     <button class="btn-primary" onclick="doLogin()">ورود به پنل</button>
+    <button type="button" id="bio-login" class="btn btn-ghost" hidden onclick="startBiometricLogin()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px">ورود با اثر انگشت</button>
+    <button type="button" id="forget-login" class="btn btn-ghost" hidden onclick="forgetSavedLogin()" style="width:100%;margin-top:8px">حذف اطلاعات ورود ذخیره‌شده</button>
     <div class="login-error" id="login-error"></div>
     <p class="login-note">ورود با Supabase Auth — کلید service_role هرگز به مرورگر نمی‌رسد.<br>فقط مدیرانی که در <code style="background:rgba(0,0,0,.2);padding:1px 5px;border-radius:4px">sura_admin_roles</code> ثبت شده‌اند می‌توانند وارد شوند.</p>
   </div>
@@ -773,7 +781,7 @@ function restoreUi(me) {
   ADMIN_ROLE = me.role; CURRENT_EMAIL = me.email || CURRENT_EMAIL;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
-  document.getElementById('user-name').textContent = CURRENT_EMAIL;
+  document.getElementById('user-name').textContent = CURRENT_EMAIL===MANAGER_AUTH_EMAIL?MANAGER_DISPLAY_EMAIL:CURRENT_EMAIL;
   document.getElementById('user-avatar').textContent = (CURRENT_EMAIL || 'م')[0].toUpperCase();
   document.getElementById('sidebar-role-badge').textContent = ROLE_LABELS[ADMIN_ROLE];
   document.getElementById('sidebar-role-badge').style.color = ROLE_COLORS[ADMIN_ROLE];
@@ -781,6 +789,7 @@ function restoreUi(me) {
   showPage('dashboard');
 }
 function persistSession() {
+    if(nativeVault()){try{sessionStorage.removeItem('sura_admin_session_v2');}catch(e){}return;}
   try { sessionStorage.setItem('sura_admin_session_v2',JSON.stringify({url:SB_URL,anon:SB_ANON,token:USER_JWT,refresh:REFRESH_TOKEN,exp:JWT_EXP,email:CURRENT_EMAIL})); } catch {}
 }
 function setSession(resp) {
@@ -806,26 +815,68 @@ async function getMe() {
   if (!['admin','editor','viewer'].includes(me.role)) throw new Error('نقش مدیریتی معتبر نیست.');
   return me;
 }
+
+// Native encrypted login: passwords and tokens never persist in WebView storage.
+const MANAGER_DISPLAY_EMAIL='hossean787@gmail.com';
+const MANAGER_AUTH_EMAIL='hossean787+suramanager@gmail.com';
+function managerAuthEmail(value){const email=String(value||'').trim().toLowerCase();return email===MANAGER_DISPLAY_EMAIL?MANAGER_AUTH_EMAIL:email;}
+let vaultSaved=false,vaultAvailable=false,bioLogin=false,loginBusy=false;
+function nativeVault(){return typeof window.SuraNative!=='undefined' && typeof window.SuraNative.loginState==='function';}
+function vaultRefresh(){if(nativeVault())window.SuraNative.loginState();}
+window.suraVaultState=function(email,saved,available){
+ vaultSaved=!!saved;vaultAvailable=!!available;
+ const field=document.getElementById('inp-email');
+ if(email===MANAGER_AUTH_EMAIL&&!field.value)field.value=MANAGER_DISPLAY_EMAIL;
+ document.getElementById('remember-email').checked=!!email;
+ document.getElementById('remember-bio').checked=vaultSaved;
+ document.getElementById('remember-bio').disabled=!vaultAvailable;
+ document.getElementById('bio-login').hidden=!vaultAvailable||!vaultSaved;
+ document.getElementById('forget-login').hidden=!email&&!vaultSaved;
+ document.getElementById('bio-hint').textContent=vaultSaved?'رمز در حافظه امن دستگاه ذخیره شده است.':vaultAvailable?'برای فعال‌سازی، یک بار با رمز وارد شوید.':'زیست‌سنجی امن فعال نیست؛ از رمز استفاده کنید.';
+};
+window.suraVaultNotice=function(message){document.getElementById('bio-hint').textContent=String(message||'');};
+window.suraVaultUnlocked=function(email,password){
+ if(loginBusy||document.getElementById('login-screen').style.display==='none')return;
+ if(email!==MANAGER_AUTH_EMAIL||typeof password!=='string'||!password)return;
+ document.getElementById('inp-email').value=MANAGER_DISPLAY_EMAIL;
+ document.getElementById('inp-password').value=password;
+ bioLogin=true;doLogin();
+};
+function startBiometricLogin(){if(!loginBusy&&nativeVault()&&vaultSaved&&vaultAvailable)window.SuraNative.unlockLogin();}
+function forgetSavedLogin(){if(loginBusy||!nativeVault())return;document.getElementById('inp-email').value='';document.getElementById('inp-password').value='';window.SuraNative.forgetLogin();}
+function saveVerifiedLogin(email,password,me,fromBio,rememberEmail,rememberBio){
+ if(!nativeVault()||me.role!=='admin'||String(me.email||'').toLowerCase()!==MANAGER_AUTH_EMAIL||email!==MANAGER_AUTH_EMAIL||fromBio)return;
+ if(rememberBio&&vaultAvailable)window.SuraNative.enrollLogin(email,password);
+ else if(rememberEmail){window.SuraNative.forgetPassword();window.SuraNative.rememberEmail(email);}
+ else window.SuraNative.forgetLogin();
+}
+
 async function doLogin() {
+    if(loginBusy)return;
+    const fromBio=bioLogin;bioLogin=false;
+    const rememberEmail=document.getElementById('remember-email').checked;
+    const rememberBio=document.getElementById('remember-bio').checked;
   const url = document.getElementById('inp-url').value.trim().replace(/\/+$/,'');
   const anon = document.getElementById('inp-anon').value.trim();
-  const email = document.getElementById('inp-email').value.trim();
+  const email = managerAuthEmail(document.getElementById('inp-email').value);
   const pass = document.getElementById('inp-password').value;
   document.getElementById('login-error').style.display='none';
   if (url!=='https://fiiitzfbdjzpmepzjsjw.supabase.co') return fail('آدرس رسمی سرور تطابق ندارد.');
   if (!(anon.startsWith('eyJ') || anon.startsWith('sb_publishable_'))) return fail('کلید عمومی (Anon/Publishable) را وارد کنید.');
   if (!email || !pass) return fail('ایمیل و رمز عبور الزامی است.');
-  const btn = document.querySelector('#login-screen .btn-primary');
+  loginBusy=true;
+    const btn = document.querySelector('#login-screen .btn-primary');
   btn.disabled=true; btn.textContent='در حال ورود...';
   try {
     const resp = await fetch(`${url}/auth/v1/token?grant_type=password`, {method:'POST',headers:{apikey:anon,'content-type':'application/json'},body:JSON.stringify({email,password:pass})});
-    if (!resp.ok) throw new Error('ورود ناموفق بود؛ ایمیل، رمز یا وضعیت حساب را بررسی کنید.');
+    if(!resp.ok){if(fromBio&&[400,401,403].includes(resp.status)&&nativeVault())window.SuraNative.forgetPassword();throw new Error('manager_login_rejected');}
     SB_URL=url; SB_ANON=anon; ADMIN_API=`${url}/functions/v1/sura-admin-api`; CURRENT_EMAIL=email;
     setSession(await resp.json());
-    const me=await getMe(); restoreUi(me);
+    const me = await getMe();
+    saveVerifiedLogin(email,pass,me,fromBio,rememberEmail,rememberBio); restoreUi(me);
     document.getElementById('inp-password').value='';
-  } catch(e){ USER_JWT='';REFRESH_TOKEN='';try{sessionStorage.removeItem('sura_admin_session_v2')}catch{} fail(parseError(e)); }
-  finally {btn.disabled=false; btn.textContent='ورود به پنل';}
+  } catch(e){ USER_JWT='';REFRESH_TOKEN='';try{sessionStorage.removeItem('sura_admin_session_v2')}catch{} fail(e && e.message==='manager_login_rejected'?'ورود تأیید نشد؛ رمز حساب مستقل مدیر را بررسی کنید. [AUTH-LOGIN]':parseError(e)); }
+  finally {loginBusy=false;document.getElementById('inp-password').value='';btn.disabled=false; btn.textContent='ورود به پنل';}
 }
 function logout() {
   if(USER_JWT&&SB_URL&&SB_ANON){try{fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SB_ANON,authorization:`Bearer ${USER_JWT}`}}).catch(()=>{});}catch{}}
@@ -1458,7 +1509,7 @@ async function renderSettings(c) {
       <div class="field-row"><label>ایمیل مدیر</label><input type="text" value="${html(savedEmail)}" readonly style="opacity:.6"></div>
       <div class="field-row"><label>نقش</label><input type="text" value="${roleLabel}" readonly style="opacity:.6;color:${ROLE_COLORS[ADMIN_ROLE]||'var(--fg)'}"></div>
       <div class="field-row"><label>Admin API</label><input type="text" value="${html(ADMIN_API)}" readonly style="opacity:.6;direction:ltr;font-size:.72rem"></div>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="logout()">خروج / تغییر حساب</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="logout()">خروج / تغییر حساب</button><button class="btn btn-ghost" style="margin-top:8px" onclick="if(nativeVault())window.SuraNative.forgetLogin()">حذف ورود ذخیره‌شده</button>
     </div>
     <div class="setting-card">
       <h4>قیمت فعلی</h4>
@@ -1494,7 +1545,13 @@ async function renderSettings(c) {
 
 // ── Safe session restore for this tab only ──
 window.addEventListener('DOMContentLoaded',async()=>{
+    if(nativeVault()){
+        document.getElementById('vault-options').hidden=false;
+        try{sessionStorage.removeItem('sura_admin_session_v2');localStorage.removeItem('sura_session');}catch(e){}
+        vaultRefresh();
+    }
  document.querySelectorAll('.nav-item').forEach(item=>{item.tabIndex=0;item.setAttribute('role','button');item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();item.click();}});});
+    if(nativeVault())return;
  try{
   const old=JSON.parse(sessionStorage.getItem('sura_admin_session_v2')||'null');
   if(!old||!old.url||!old.anon||!old.token)return;

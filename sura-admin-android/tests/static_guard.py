@@ -6,8 +6,7 @@ android='{http://schemas.android.com/apk/res/android}'
 app=manifest.find('application')
 assert app.get(android+'allowBackup')=='false'
 assert app.get(android+'usesCleartextTraffic')=='false'
-assert len(manifest.findall('uses-permission'))==1
-assert manifest.findall('uses-permission')[0].get(android+'name')=='android.permission.INTERNET'
+assert {p.get(android+'name') for p in manifest.findall('uses-permission')}=={'android.permission.INTERNET','android.permission.USE_BIOMETRIC'}
 assert (ROOT/'app/src/main/assets/admin/index.html').exists()
 html=(ROOT/'app/src/main/assets/admin/index.html').read_text(encoding='utf8')
 java=(ROOT/'app/src/main/java/ir/sabagostar/suramanager/AdminActivity.java').read_text(encoding='utf8')
@@ -34,6 +33,15 @@ assert 'ACTION_CREATE_DOCUMENT' in java
 assert 'zipFiles' in js and 'makeXlsx' in js
 assert 'renderDirectory' in manager and 'managerFetch' in manager
 assert 'admin/manager.js' in java
-assert 'versionCode = 5' in (ROOT/'app/build.gradle.kts').read_text()
+assert 'versionCode = 6' in (ROOT/'app/build.gradle.kts').read_text()
 assert 'openSelectedGift' in manager and 'saveSelectedGift' in manager
 print('PASS: isolated application, secure WebView, CSP, no private API key, file export')
+
+vault=(ROOT/'app/src/main/java/ir/sabagostar/suramanager/ManagerLoginVault.java').read_text(encoding='utf8')
+assert 'AndroidKeyStore' in vault and 'AES/GCM/NoPadding' in vault and 'setUserAuthenticationRequired(true)' in vault
+assert 'setUserAuthenticationParameters(0,KeyProperties.AUTH_BIOMETRIC_STRONG)' in vault and 'BiometricPrompt.CryptoObject' in vault
+assert 'setInvalidatedByBiometricEnrollment(true)' in vault
+assert 'saveVerifiedLogin(email,pass,me,fromBio,rememberEmail,rememberBio)' in html
+assert 'if(nativeVault())return;' in html and 'setSavePassword(false)' in java
+assert 'id="bio-login"' in html and 'id="forget-login"' in html
+print('PASS: biometric vault source guards and native session restore isolation')
