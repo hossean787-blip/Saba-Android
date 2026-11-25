@@ -298,6 +298,15 @@ private fun ArchiveHistoryBrowser(db:SabaDatabase,account:AccountScope,enabled:B
                 Text("${l.description} | تعداد: ${l.quantityExact.ifBlank { l.quantity.toString() }} | قیمت واحد: ${l.unitPriceRial} ریال",
                     style=MaterialTheme.typography.bodySmall)
             }
+            if(selectedInvoice==inv.id) {
+                val ctx=LocalContext.current
+                val documents=runCatching { InvoiceLocalDetails.fromJson(inv.localDetailsJson).documents }.getOrDefault(emptyList())
+                documents.forEach { document ->
+                    OutlinedButton(onClick={
+                        runCatching { InvoiceDocumentPicker.open(ctx,document) }.onFailure {error="نمایش فایل پیوست انجام نشد."}
+                    },modifier=Modifier.fillMaxWidth()){Text("مشاهده پیوست: "+document.name)}
+                }
+            }
         }
         if(invoices.size>20) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             TextButton(onClick={page--;selectedInvoice=null},enabled=page>0){Text("قبلی")}
@@ -337,6 +346,17 @@ private fun ArchiveHistoryBrowser(db:SabaDatabase,account:AccountScope,enabled:B
             "legacy_import_receipts" to "سوابق بازیابی","legacy_quota_exemptions" to "معافیت‌های قدیمی",
             "moadian_simulations" to "آزمون محلی")
         Text("سوابق تاریخی؛ موجودی قابل مصرف نیست",fontWeight=FontWeight.Bold)
+        root.optJSONObject("creditSnapshot")?.let { snapshot ->
+            val targets=snapshot.optJSONObject("taxpayers")?:org.json.JSONObject()
+            ServicePanel("اعتبار هنگام پشتیبان‌گیری","مالک: ${snapshot.optLong("owner")} | هدیه: ${snapshot.optLong("gift")}\n"+
+                targets.keys().asSequence().joinToString("\n"){id->"مودی $id: ${targets.optLong(id)}"})
+        }
+        val historical=root.optJSONObject("invoiceStatus")?:org.json.JSONObject()
+        if(historical.length()>0) ServicePanel("وضعیت اصلی فاکتورها هنگام ذخیره",historical.keys().asSequence().take(100)
+            .joinToString("\n"){id->"$id: ${invoiceStatus(historical.getString(id))}"})
+        val evidence=root.optJSONObject("submissionEvidence")?:org.json.JSONObject()
+        if(evidence.length()>0) ServicePanel("وضعیت درخواست‌های رسمی هنگام ذخیره",evidence.keys().asSequence().take(50)
+            .joinToString("\n"){id->"$id: ${evidence.getJSONObject(id).optString("state")}"})
         names.forEach { (k,v)->FilterChip(selected=table==k,onClick={table=k;page=0},label={Text(v)})}
         val rows=journals.optJSONArray(table)
         if(rows!=null){

@@ -86,7 +86,7 @@ internal data class ArchiveRestoreResult(val added:ArchiveCounts,val credit:Arch
 
 /** Non-destructive merge for the same account. Existing rows and live credit always win.
  * Newly recovered invoice rows are historical; imported taxpayers require fiscal reconciliation.
- * Credentials, request claims, local balance caches and attachment binaries are excluded. */
+ * Portable media and fiscal credentials are encrypted in the archive; financial journals are evidence only. */
 internal class AccountArchive(
     private val db:SabaDatabase, private val account:AccountScope,
     private val checkSession:()->Unit,
@@ -184,7 +184,8 @@ internal class AccountArchive(
                     }
                     journals.put(table,rows)
                 }
-                root.put("portable",portable.captureAccount(ids,assets,journals))
+                root.put("portable",portable.captureAccount(ids,assets,journals)
+                    .put("creditSnapshot",credit?.toJson() ?: JSONObject.NULL))
             }
             root.toString().toByteArray(Charsets.UTF_8)
         }

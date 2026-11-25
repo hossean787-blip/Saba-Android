@@ -123,7 +123,15 @@ internal class AccountArchivePortable(private val context:Context,private val ac
         }
         val local=JSONObject()
         for(k in listOf("name","mobile")) profile.getString("${k}_${account.storageKey}",null)?.let {local.put(k,it)}
-        return a.put("identifiers",rows).put("journals",journals).put("profile",local)
+        val prior=JSONArray()
+        var priorBytes=0L
+        history().forEach { file ->
+            require(file.length()<=AccountArchiveCrypto.LIMIT)
+            priorBytes+=file.length()
+            require(priorBytes<=AccountArchiveCrypto.LIMIT/2) {"حجم سوابق تاریخی بیش از سقف پشتیبان است."}
+            prior.put(JSONObject(file.readText(Charsets.UTF_8)))
+        }
+        return a.put("identifiers",rows).put("journals",journals).put("profile",local).put("priorHistory",prior)
             .put("fontScale",SabaPreferences(context).fontScale.first().toDouble())
             .put("selectedTaxpayer",display.getLong("active_taxpayer_${account.storageKey}",-1))
     }
@@ -151,7 +159,8 @@ internal class AccountArchivePortable(private val context:Context,private val ac
             val b=getAsset(a,logos.getString(id),5*1024*1024)
             val opts=android.graphics.BitmapFactory.Options().apply {inJustDecodeBounds=true}
             android.graphics.BitmapFactory.decodeByteArray(b,0,b.size,opts)
-            require(opts.outWidth in 1..8192 && opts.outHeight in 1..8192)
+            require(opts.outWidth in 1..4096 && opts.outHeight in 1..4096 &&
+                opts.outMimeType in setOf("image/png","image/jpeg","image/webp"))
         }
         val documents=a.optJSONObject("documents")?:JSONObject()
         for(id in documents.keys()) {
@@ -184,7 +193,8 @@ internal class AccountArchivePortable(private val context:Context,private val ac
             require(refs.length()==d.documents.size)
             val documents=(0 until refs.length()).map { i ->
                 val ref=refs.getJSONObject(i);val hash=ref.getString("hash")
-                val file=writeFile(File(context.filesDir,"archive-assets/${account.storageKey}"),hash,getAsset(a,hash,InvoiceDocumentRef.MAX_BYTES.toInt()))
+                val file=writeFile(File(context.filesDir,"archive-assets/${account.storageKey}"),
+                    "${row.getLong("id")}-$i-$hash",getAsset(a,hash,InvoiceDocumentRef.MAX_BYTES.toInt()))
                 val uri=FileProvider.getUriForFile(context,context.packageName+".archivefiles",file)
                 InvoiceDocumentRef(uri.toString(),ref.getString("name"),ref.getString("mime"),ref.getLong("size")).validated()
             }
@@ -230,8 +240,16 @@ internal class AccountArchivePortable(private val context:Context,private val ac
             .put("invoiceStatus",a.optJSONObject("invoiceStatus")?:JSONObject())
             .put("submissionEvidence",a.optJSONObject("submissionEvidence")?:JSONObject())
             .put("fontScale",a.optDouble("fontScale",1.0)).put("selectedTaxpayer",a.optLong("selectedTaxpayer",-1))
+        audit.put("creditSnapshot",a.opt("creditSnapshot")?:JSONObject.NULL)
         val b=audit.toString().toByteArray(Charsets.UTF_8)
-        writeFile(File(context.filesDir,"archive-history/${account.storageKey}"),sha(b)+".json",b)
+        val folder=File(context.filesDir,"archive-history/${account.storageKey}")
+        writeFile(folder,sha(b)+".json",b)
+        val prior=a.optJSONArray("priorHistory")?:JSONArray()
+        require(prior.length()<=100_000)
+        for(i in 0 until prior.length()) {
+            val bytes=prior.getJSONObject(i).toString().toByteArray(Charsets.UTF_8)
+            writeFile(folder,sha(bytes)+".json",bytes)
+        }
     }
     fun history():List<File> = File(context.filesDir,"archive-history/${account.storageKey}")
         .listFiles { f -> f.isFile && f.name.matches(Regex("[0-9a-f]{64}\\.json")) }
