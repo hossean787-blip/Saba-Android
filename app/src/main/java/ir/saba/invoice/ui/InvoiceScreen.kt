@@ -193,6 +193,10 @@ private fun InvoiceScreenContent(
     var previewDialog by rememberSaveable { mutableStateOf(false) }
     var acceptedOriginals by remember(companyId) { mutableStateOf(emptyList<Pair<String, Long>>()) }
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var inactiveBuyers by remember(companyId) { mutableStateOf<Set<Long>>(emptySet()) }
+    LaunchedEffect(companyId, customers, mode) {
+        inactiveBuyers=db.customerProfileDao().forCompany(companyId).filter{!it.active}.map{it.customerId}.toSet()
+    }
     var lines by rememberSaveable(stateSaver = LinesSaver) { mutableStateOf(emptyList<InvoiceLine>()) }
     var search by rememberSaveable { mutableStateOf("") }
     var status by rememberSaveable { mutableStateOf("ALL") }
@@ -271,7 +275,8 @@ private fun InvoiceScreenContent(
         }
         invoiceId=null;number=suggestedNumber
         date=JalaliCalendar.fromGregorian(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tehran")))
-        customerId=customers.firstOrNull()?.id
+        inactiveBuyers=db.customerProfileDao().forCompany(companyId).filter{!it.active}.map{it.customerId}.toSet()
+        customerId=customers.firstOrNull{it.id !in inactiveBuyers}?.id
         settlementMode=InvoiceSettlement.CASH;cashPortionInput=""
         subject=InvoiceSubject.ORIGINAL;referenceTaxId="";localDetailsJson=""
         lines=emptyList();error="";mode="edit"
@@ -331,6 +336,7 @@ private fun InvoiceScreenContent(
                                 settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
                             )
                             val savedId = if(invoiceId==null) {
+                                if(pendingCreation==null)require(db.customerProfileDao().byCustomer(selectedCustomer)?.active!=false) { "مشتری غیرفعال است؛ مشتری دیگری انتخاب کنید." }
                                 val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)} ?: run {
                                     val verifiedPaid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
                                     val verifiedGift = runCatching { activeGateway.giftBalance(accessToken) }.getOrDefault(0)
@@ -618,7 +624,7 @@ private fun InvoiceScreenContent(
                                 Text("مشتری: " + (customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب کنید"))
                             }
                             DropdownMenu(expandedBuyer, onDismissRequest = { expandedBuyer = false }) {
-                                customers.forEach { customer ->
+                                customers.filter{it.id !in inactiveBuyers || (invoiceId!=null && it.id==customerId)}.forEach { customer ->
                                     DropdownMenuItem(text = { Text(customer.name) }, onClick = {
                                         customerId = customer.id
                                         referenceTaxId = ""
