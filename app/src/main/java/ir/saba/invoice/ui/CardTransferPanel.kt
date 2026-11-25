@@ -20,7 +20,7 @@ import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-private object CardTransferApi {
+internal object CardTransferApi {
     suspend fun call(token:String,route:String,body:JSONObject=JSONObject()):JSONObject=withContext(Dispatchers.IO){
         require(route in setOf("quote","reserve","mine","submit") && token.isNotBlank())
         val c=URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-card-transfer/$route").openConnection() as HttpURLConnection
@@ -57,68 +57,66 @@ private suspend fun cardReceipt(context:android.content.Context,uri:Uri):String=
         error("حجم تصویر زیاد است.")
     }finally{bitmap.recycle()}
 }
+internal suspend fun cardPurchaseQuote(token:String,kind:String,units:Long):PurchaseQuote {
+    val q=CardTransferApi.call(token,"quote",JSONObject().put("kind",kind).put("units",units))
+    require(q.optString("kind")==kind && q.optLong("quantity",-1)==units &&
+        q.optString("currency")=="IRR" && q.optLong("vat_rate_percent")==10L && q.opt("enabled") is Boolean)
+    val quote=PurchaseQuote.validate(kind,units,q.getLong("subtotal_rial"),q.getLong("vat_rial"),q.getLong("total_rial"),q.getBoolean("enabled"))
+    require(kind!="single" || q.optLong("unit_price_rial")==quote.subtotal/units)
+    return quote
+}
+
+internal suspend fun cardPurchaseHistory(token:String):List<JSONObject>{
+    val rows=CardTransferApi.call(token,"mine").getJSONArray("requests")
+    return (0 until rows.length()).map{rows.getJSONObject(it)}
+}
+
+/** Receipt step only: plan and quantity are selected once, on the purchase screen. */
 @Composable
-internal fun CardTransferPanel(token:String){
+internal fun CardTransferPanel(token:String,order:JSONObject,onRefresh:suspend ()->Unit,onBack:()->Unit){
     val context=LocalContext.current;val scope=rememberCoroutineScope()
-    var kind by remember{mutableStateOf("single")}
-    var quantity by remember{mutableStateOf("1")}
-    var quote by remember{mutableStateOf<JSONObject?>(null)}
-    var active by remember{mutableStateOf<JSONObject?>(null)}
-    var history by remember{mutableStateOf<List<JSONObject>>(emptyList())}
-    var busy by remember{mutableStateOf(false)}
-    var loaded by remember{mutableStateOf(false)}
-    var message by remember{mutableStateOf("")}
-    var tracking by remember{mutableStateOf("")}
-    var date by remember{mutableStateOf("")}
-    var receipt by remember{mutableStateOf<String?>(null)}
-    suspend fun refresh(){
-        val a=CardTransferApi.call(token,"mine").getJSONArray("requests")
-        history=(0 until a.length()).map{a.getJSONObject(it)}
-        active=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
-        loaded=true
-    }
-    fun run(action:suspend ()->Unit){if(busy)return;busy=true;message="";scope.launch{try{action()}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(e:Exception){message=SuraErrors.describe(e,"عملیات کارت‌به‌کارت تأیید نشد؛ وضعیت درخواست را بررسی کنید. [CARD-UNKNOWN]")}finally{busy=false}}}
+    val orderId=order.getString("id")
+    var busy by remember(orderId){mutableStateOf(false)}
+    var message by remember(orderId){mutableStateOf("")}
+    var tracking by remember(orderId){mutableStateOf("")}
+    var date by remember(orderId){mutableStateOf("")}
+    var receipt by remember(orderId){mutableStateOf<String?>(null)}
+    fun run(action:suspend ()->Unit){if(busy)return;busy=true;message="";scope.launch{try{action()}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(e:Exception){message=SuraErrors.describe(e,"عملیات تأیید نشد؛ وضعیت همین سفارش را استعلام کنید. [CARD-UNKNOWN]")}finally{busy=false}}}
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->if(uri!=null)run{receipt=cardReceipt(context,uri);message="تصویر رسید آماده ارسال است."}}
-    LaunchedEffect(token){run{refresh()}}
-    Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+    Card(Modifier.fillMaxWidth(),shape=androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+        colors=CardDefaults.cardColors(containerColor=androidx.compose.ui.graphics.Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+      Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
         Text("پرداخت کارت‌به‌کارت",style=MaterialTheme.typography.titleLarge)
-        Text("اعتبار فقط پس از تطبیق واریز با گردش حساب بانکی توسط مدیرکل شارژ می‌شود.")
-        OutlinedButton(onClick={run{refresh()}},enabled=!busy){Text("به‌روزرسانی وضعیت")}
-        val order=active
-        if(loaded&&order==null){
-            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                FilterChip(selected=kind=="single",onClick={kind="single";quote=null},label={Text("اعتبار تکی")},enabled=!busy)
-                FilterChip(selected=kind=="monthly",onClick={kind="monthly";quote=null},label={Text("اشتراک ۳۰ روزه")},enabled=!busy)
+        Text(if(order.optString("kind")=="monthly")"اشتراک ماهانه" else "${order.optLong("units")} اعتبار تکی")
+        Text("مبلغ سفارش: "+java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(order.getLong("amount_rial"))+" ریال",fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
+        when(order.optString("state")){
+          "draft"->{
+            Text("شماره کارت مقصد")
+            val card=order.getString("destination_card")
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr){
+                Text(card.chunked(4).joinToString("-"),style=MaterialTheme.typography.titleLarge.copy(textDirection=androidx.compose.ui.text.style.TextDirection.Ltr))
             }
-            if(kind=="single")OutlinedTextField(quantity,{quantity=it.filter{c->c in '0'..'9'}.take(6);quote=null},label={Text("تعداد اعتبار")},singleLine=true,enabled=!busy)
-            else Text("۲۰ صورتحساب در ۳۰ روز؛ تمدید دستی")
-            val units=if(kind=="monthly")20L else quantity.toLongOrNull()?.takeIf{it in 1L..999999L}
-            OutlinedButton(enabled=!busy&&units!=null,onClick={val n=units?:return@OutlinedButton;run{quote=CardTransferApi.call(token,"quote",JSONObject().put("kind",kind).put("units",n))}}){Text("استعلام مبلغ")}
-            quote?.let{q->
-                Text("مبلغ نهایی: "+q.optLong("total_rial")+" ریال")
-                if(!q.optBoolean("enabled"))Text("فروش کارت‌به‌کارت هنوز فعال نیست.")
-                Button(enabled=!busy&&q.optBoolean("enabled")&&units!=null,onClick={val n=units?:return@Button;run{CardTransferApi.call(token,"reserve",JSONObject().put("kind",kind).put("units",n).put("total",q.getLong("total_rial")));refresh()}}){Text("دریافت شماره کارت و ثبت سفارش")}
-            }
+            val clipboard=androidx.compose.ui.platform.LocalClipboardManager.current
+            OutlinedButton(onClick={clipboard.setText(androidx.compose.ui.text.AnnotatedString(card));message="شماره کارت کپی شد."},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("کپی شماره کارت")}
+            Text("صاحب کارت: "+order.getString("holder"))
+            Text("فقط مبلغ دقیق همین سفارش را واریز کنید. اعتبار پس از تأیید واریز واقعی توسط مدیرکل شارژ می‌شود.")
+            OutlinedTextField(tracking,{tracking=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{c->c in '0'..'9'}.take(32)},label={Text("شماره پیگیری")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(date,{date=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{c->c in '0'..'9'||c=='/'}.take(10)},label={Text("تاریخ واریز (سال/ماه/روز)")},placeholder={Text("۱۴۰۵/۰۹/۰۴")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth())
+            OutlinedButton(onClick={picker.launch("image/*")},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(receipt==null)"انتخاب تصویر رسید" else "تغییر تصویر رسید")}
+            Button(enabled=!busy&&receipt!=null&&tracking.length>=4&&date.matches(Regex("[0-9]{4}/[0-9]{2}/[0-9]{2}")),modifier=Modifier.fillMaxWidth(),onClick={val image=receipt?:return@Button;run{
+                CardTransferApi.call(token,"submit",JSONObject().put("id",orderId).put("tracking",tracking).put("date",date).put("receipt",image))
+                receipt=null;onRefresh();message="رسید برای بررسی ثبت شد."
+            }}){Text("ارسال رسید")}
+          }
+          "pending"->Text("رسید در انتظار بررسی مدیرکل است؛ دوباره واریز نکنید.")
+          "approved"->Text("پرداخت تأیید شده است.")
+          "rejected"->Text("درخواست رد شده است: "+order.optString("review_reason"))
+          else->Text("وضعیت سفارش قابل تأیید نیست؛ دوباره استعلام کنید.")
         }
-        if(order!=null){
-            Text("سفارش: "+order.getString("id"))
-            Text("مبلغ: "+order.getLong("amount_rial")+" ریال")
-            if(order.optString("state")=="draft"){
-                Text("شماره کارت مقصد:")
-                CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                    Text(order.getString("destination_card").chunked(4).joinToString("-"),
-                        style=MaterialTheme.typography.titleMedium.copy(textDirection=androidx.compose.ui.text.style.TextDirection.Ltr))
-                }
-                Text("صاحب کارت: "+order.getString("holder"))
-                Text("فقط مبلغ دقیق همین سفارش را واریز کنید. اطلاعات محرمانه کارت را در رسید ارسال نکنید.")
-                OutlinedTextField(tracking,{tracking=it.filter{c->c in '0'..'9'}.take(32)},label={Text("شماره پیگیری")},singleLine=true,enabled=!busy)
-                OutlinedTextField(date,{date=it.filter{c->c in '0'..'9'||c=='/'}.take(10)},label={Text("تاریخ واریز ۱۴۰۵/۰۹/۰۴ (اعداد انگلیسی)")},singleLine=true,enabled=!busy)
-                OutlinedButton(onClick={picker.launch("image/*")},enabled=!busy){Text(if(receipt==null)"انتخاب تصویر رسید" else "تغییر تصویر رسید")}
-                Button(enabled=!busy&&receipt!=null&&tracking.length>=4&&date.matches(Regex("[0-9]{4}/[0-9]{2}/[0-9]{2}")),onClick={val image=receipt?:return@Button;run{CardTransferApi.call(token,"submit",JSONObject().put("id",order.getString("id")).put("tracking",tracking).put("date",date).put("receipt",image));receipt=null;refresh();message="رسید برای بررسی ثبت شد."}}){Text("ارسال رسید")}
-            }else Text("در انتظار بررسی مدیرکل؛ دوباره واریز نکنید.")
-        }
-        history.filter{it.optString("state") in setOf("approved","rejected")}.take(5).forEach{r->Text((if(r.optString("state")=="approved")"تأیید شده" else "رد شده")+" | "+r.optLong("amount_rial")+" ریال | "+r.optString("review_reason"))}
+        OutlinedButton(onClick={run{onRefresh()}},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("به‌روزرسانی وضعیت")}
+        TextButton(onClick=onBack,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("بازگشت به خرید اعتبار")}
         if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
         if(message.isNotBlank())Text(message)
-    }}
+      }
+    }
 }

@@ -46,196 +46,166 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var promoGranted by remember { mutableStateOf(false) }
     var quantity by remember { mutableStateOf("1") }
 
-    var paymentBusy by remember { mutableStateOf(false) }
+    var plan by rememberSaveable { mutableStateOf("single") }
+    val selectedQuantity=if(plan=="monthly")20L else quantity.toLongOrNull()?.takeIf{it in 1L..999999L}
+    var quote by remember { mutableStateOf<PurchaseQuote?>(null) }
+    var quoteError by remember { mutableStateOf("") }
+    var quoteBusy by remember { mutableStateOf(false) }
+    var quoteAttempt by remember { mutableIntStateOf(0) }
+    var checkout by rememberSaveable { mutableStateOf(false) }
+    var orderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var history by remember { mutableStateOf<List<org.json.JSONObject>>(emptyList()) }
+    var historyReady by remember { mutableStateOf(false) }
+    var checkoutBusy by remember { mutableStateOf(false) }
     var paymentMessage by remember { mutableStateOf("") }
-    var pendingOrderId by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingRecoveryBusy by remember { mutableStateOf(true) }
-    var pendingRecoveryError by remember { mutableStateOf(false) }
-    var recoveryAttempt by remember { mutableIntStateOf(0) }
-    var abandonPendingConfirmation by remember { mutableStateOf(false) }
-    LaunchedEffect(accessToken, recoveryAttempt) {
-        pendingRecoveryBusy = true
-        pendingRecoveryError = false
-        try {
-            val restored = ZarinPalPurchaseClient.pending(accessToken)
-            if (restored != null) pendingOrderId = restored
-        } catch (cancelled: kotlinx.coroutines.CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            pendingRecoveryError = true
-        } finally {
-            pendingRecoveryBusy = false
+    var pendingOnlineId by remember { mutableStateOf<String?>(null) }
+    var onlineReady by remember { mutableStateOf(false) }
+    val active=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
+    val displayedOrder=history.firstOrNull{it.optString("id")==orderId}
+    fun money(value:Long?)=value?.let{java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it)} ?: "—"
+    suspend fun refreshHistory(){
+        history=cardPurchaseHistory(accessToken)
+        historyReady=true
+    }
+    suspend fun refreshOrders(){
+        historyReady=false;onlineReady=false
+        refreshHistory()
+        pendingOnlineId=ZarinPalPurchaseClient.pending(accessToken)
+        onlineReady=true
+    }
+    fun payAction(action:suspend ()->Unit){
+        if(checkoutBusy)return
+        checkoutBusy=true;paymentMessage=""
+        scope.launch{
+            try{action()}catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(e:Exception){paymentMessage=SuraErrors.describe(e,"وضعیت پرداخت تأیید نشد؛ همان سفارش را دوباره بررسی کنید. [CHECKOUT-STATUS]")}
+            finally{checkoutBusy=false}
         }
     }
-    var plan by remember { mutableStateOf("single") }
-    val selectedQuantity = quantity.toLongOrNull()?.takeIf { it in 1L..999_999L }
-    var quotedUnitRial by remember { mutableStateOf<Long?>(null) }
-    var quotedTotalRial by remember { mutableStateOf<Long?>(null) }
-    var quotedVatRial by remember { mutableStateOf<Long?>(null) }
-    var gatewayReady by remember { mutableStateOf(false) }
-    var quoteError by remember { mutableStateOf(false) }
-    var quoteErrorDetail by remember { mutableStateOf("") }
-    LaunchedEffect(accessToken, selectedQuantity) {
-        quotedUnitRial = null
-        quotedTotalRial = null
-        quotedVatRial = null
-        gatewayReady = false
-        quoteError = false; quoteErrorDetail = ""
-        val count = selectedQuantity ?: return@LaunchedEffect
-        if (accessToken.isBlank()) { quoteError = true; return@LaunchedEffect }
-        runCatching { CreditQuoteClient.quote(accessToken, count) }
-            .onSuccess { response ->
-                if (response.optLong("quantity") == count &&
-                    response.optString("currency") == "IRR" &&
-                    response.optLong("unit_price_rial") > 0 &&
-                    response.optLong("vat_rate_percent") == 10L &&
-                    response.optLong("subtotal_rial") == count * response.optLong("unit_price_rial") &&
-                    response.optLong("vat_rial") == (response.optLong("subtotal_rial") * 10 + 50) / 100 &&
-                    response.optLong("total_rial") == response.optLong("subtotal_rial") + response.optLong("vat_rial")) {
-                    quotedUnitRial = response.optLong("unit_price_rial")
-                    quotedTotalRial = response.optLong("total_rial")
-                    quotedVatRial = response.optLong("vat_rial")
-                    gatewayReady = response.optBoolean("payment_enabled", false)
-                } else quoteError = true
-            }
-            .onFailure { quoteError = true; quoteErrorDetail = SuraErrors.describe(it,"استعلام قیمت تأیید نشد. [QUOTE-ERROR]") }
+    LaunchedEffect(accessToken){
+        try{refreshOrders()}catch(e:kotlinx.coroutines.CancellationException){throw e}
+        catch(e:Exception){paymentMessage=SuraErrors.describe(e,"بازیابی سفارش‌های قبلی ناموفق بود. [CHECKOUT-RECOVERY]")}
     }
-    val cardShape = RoundedCornerShape(22.dp)
+    LaunchedEffect(accessToken,plan,selectedQuantity,quoteAttempt){
+        quote=null;quoteError="";quoteBusy=false
+        if(plan=="free")return@LaunchedEffect
+        val units=selectedQuantity?:return@LaunchedEffect
+        quoteBusy=true
+        try{quote=cardPurchaseQuote(accessToken,plan,units)}
+        catch(e:kotlinx.coroutines.CancellationException){throw e}
+        catch(e:Exception){quoteError=SuraErrors.describe(e,"استعلام مبلغ تأیید نشد. [QUOTE-ERROR]")}
+        finally{quoteBusy=false}
+    }
+    val q=quote?.takeIf{it.matches(plan,selectedQuantity)}
+    val canPurchase=historyReady&&onlineReady&&active==null&&pendingOnlineId==null&&!checkoutBusy
+    val cardShape=RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
-        .padding(horizontal = 12.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        CardTransferPanel(accessToken)
-        Text("خرید اعتبار", fontWeight = FontWeight.ExtraBold, color = deepBlue,
-            style = MaterialTheme.typography.headlineSmall)
-        Text("با خرید اعتبار، صورتحساب‌های خود را مدیریت کنید.",
-            style = MaterialTheme.typography.bodySmall, color = Color(0xFF5F7391))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                Triple("single", "اعتبار تکی", "هر صورتحساب یک اعتبار"),
-                Triple("monthly", "اشتراک ماهانه", "در نسخه فعلی غیرفعال")
-            ).forEach { (id, title, subtitle) ->
-                val selected = plan == id
-                Card(onClick = { plan = id }, enabled = id == "single",
-                    modifier = Modifier.weight(1f).height(168.dp),
-                    shape = cardShape,
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (selected) 2.dp else 1.dp,
-                        if (selected) Color(0xFF356DF0) else Color(0xFFE4EAF3)),
-                    colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFFE8F4FF) else Color.White),
-                    elevation = CardDefaults.cardElevation(3.dp)
-                ) {
-                    Column(Modifier.fillMaxSize().padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Text(if (selected) "●" else "○",
-                            color = if (selected) Color(0xFF176AF0) else Color.Gray)
-                        Text(title, fontWeight = FontWeight.ExtraBold, color = deepBlue,
-                            style = MaterialTheme.typography.titleMedium)
-                        Text(subtitle, color = if (id == "monthly") violet else Color(0xFF526D8F),
-                            style = MaterialTheme.typography.bodySmall)
-                        Text(if (id == "single") "بدون تعهد ماهانه" else "به‌زودی؛ بدون امکان خرید",
-                            color = deepBlue, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-        if (plan != "free") Card(shape = cardShape, colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(3.dp)) {
-            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Text(if (plan == "single") "تعداد اعتبار موردنیاز" else "اشتراک ماهانه",
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = deepBlue)
-                if (plan == "single") {
-                    Text("قیمت هر اعتبار: " + (quotedUnitRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "در انتظار استعلام") + " ریال؛ هر صورتحساب یک اعتبار.",
-                        color = Color(0xFF60768B), style = MaterialTheme.typography.bodySmall)
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = {
-                            quantity = ((quantity.toIntOrNull() ?: 1) - 1).coerceAtLeast(1).toString()
-                        }) { Text("−") }
-                        OutlinedTextField(quantity, onValueChange = {
-                            if (it.all(Char::isDigit) && it.length <= 6) quantity = it
-                        }, modifier = Modifier.weight(1f), singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            label = { Text("تعداد اعتبار") }, shape = RoundedCornerShape(14.dp))
-                        Button(onClick = {
-                            quantity = ((quantity.toIntOrNull() ?: 0) + 1).coerceAtMost(999999).toString()
-                        }) { Text("+") }
-                    }
-                } else {
-                    Text("۳۰ روز اعتبار و حداکثر ۲۰ صورتحساب در هر دوره.",
-                        color = deepBlue, style = MaterialTheme.typography.bodyMedium)
-                }
-                if (plan == "single") {
-                    Text("مالیات ارزش افزوده (۱۰٪): " + (quotedVatRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال", color = deepBlue)
-                    Text("مبلغ نهایی قابل پرداخت: " + (quotedTotalRial?.let { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) } ?: "—") + " ریال",
-                        color = deepBlue, fontWeight = FontWeight.Bold)
-                }
-                HorizontalDivider()
-                Text("صورتحساب رسمی خرید اعتبار هنوز به سامانه فروش متصل نیست؛ اطلاعات خریدار در این نسخه جمع‌آوری نمی‌شود.",
-                    color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
-                if (pendingRecoveryBusy && plan == "single") {
-                    Text("در حال بازیابی سفارش پرداخت قبلی…", color = deepBlue,
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                if (pendingRecoveryError && plan == "single") {
-                    Text("بررسی سفارش قبلی ممکن نشد. برای جلوگیری از پرداخت تکراری، خرید جدید موقتاً متوقف است.",
-                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { recoveryAttempt++ }, enabled = !paymentBusy,
-                        modifier = Modifier.fillMaxWidth()) {
-                        Text("تلاش دوباره برای بازیابی سفارش")
-                    }
-                }
-                if (quoteError && plan == "single") Text(quoteErrorDetail.ifBlank{"استعلام قیمت انجام نشد؛ نشست و اینترنت را بررسی کنید. [QUOTE-UNAVAILABLE]"}, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                if (paymentMessage.isNotBlank()) Text(paymentMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                if (plan == "single" && !gatewayReady && quotedTotalRial != null) Text("پذیرنده پرداخت در سرور هنوز فعال نشده است.", color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
-                if (pendingOrderId != null && plan == "single") {
-                    OutlinedButton(onClick = {
-                        val orderId = pendingOrderId ?: return@OutlinedButton
-                        paymentBusy = true
-                        scope.launch {
-                            runCatching { ZarinPalPurchaseClient.status(accessToken, orderId) }
-                                .onSuccess { result ->
-                                    paymentMessage = when (result.optString("state")) {
-                                        "verified" -> { pendingOrderId = null; "پرداخت تأیید شده و اعتبار در سرور ثبت شده است." }
-                                        "failed" -> { pendingOrderId = null; "پرداخت ناموفق بوده است." }
-                                        else -> "پرداخت هنوز توسط سرور تأیید نشده است؛ مجدداً پرداخت نکنید."
-                                    }
-                                }
-                                .onFailure { paymentMessage = SuraErrors.describe(it,"استعلام پرداخت ناموفق بود؛ همان سفارش را بررسی کنید. [PAY-STATUS]") }
-                            paymentBusy = false
-                        }
-                    }, enabled = !paymentBusy, modifier = Modifier.fillMaxWidth()) {
-                        Text("استعلام نتیجه آخرین پرداخت")
-                    }
-                }
-                if (plan == "single" && pendingOrderId != null) {
-                    Text("ابتدا وضعیت پرداخت قبلی را استعلام کنید؛ ایجاد سفارش هم‌زمان ممکن است به پرداخت تکراری منجر شود.",
-                        color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
-                    TextButton(enabled = !paymentBusy, onClick = { abandonPendingConfirmation = true }) {
-                        Text("پیگیری سفارش قبلی را کنار می‌گذارم")
-                    }
-                }
-                Button(onClick = {
-                    val count = selectedQuantity ?: return@Button
-                    paymentBusy = true
-                    paymentMessage = ""
-                    scope.launch {
-                        runCatching { ZarinPalPurchaseClient.create(accessToken, count) }
-                            .onSuccess { response ->
-                                pendingOrderId = response.optString("orderId").takeIf { it.isNotBlank() }
-                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(response.getString("paymentUrl")))) }
-                                catch (_: Exception) { paymentMessage = "بازکردن درگاه پرداخت امکان‌پذیر نیست." }
+        .padding(horizontal=12.dp,vertical=14.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+        Text("خرید اعتبار",fontWeight=FontWeight.ExtraBold,color=deepBlue,style=MaterialTheme.typography.headlineSmall)
+        if(displayedOrder!=null){
+            CardTransferPanel(accessToken,displayedOrder,onRefresh={refreshHistory()},onBack={orderId=null;checkout=false})
+        }else if(checkout && q!=null && active==null){
+            Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                    Text("انتخاب روش پرداخت",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleLarge)
+                    Text(if(q.kind=="monthly")"اشتراک ماهانه • ۲۰ صورتحساب" else "${q.units} اعتبار تکی",color=deepBlue)
+                    Text("مبلغ قابل پرداخت: ${money(q.total)} ریال",fontWeight=FontWeight.Bold,color=deepBlue)
+                    Card(shape=RoundedCornerShape(16.dp),border=androidx.compose.foundation.BorderStroke(2.dp,Color(0xFF356DF0)),colors=CardDefaults.cardColors(containerColor=Color(0xFFE8F4FF))){
+                        Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
+                            RadioButton(selected=true,onClick=null)
+                            Column(Modifier.padding(start=8.dp)){
+                                Text("کارت‌به‌کارت",fontWeight=FontWeight.Bold,color=deepBlue)
+                                Text("ارسال رسید و تأیید توسط مدیرکل",style=MaterialTheme.typography.bodySmall)
                             }
-                            .onFailure { paymentMessage = SuraErrors.transport(it) ?: it.message?.takeIf { m -> m.startsWith("شناسه پذیرنده") || m.startsWith("درگاه زرین‌پال") || m.startsWith("ارتباط سرور سورا") || m.startsWith("ساخت سفارش") || m.startsWith("درخواست توسط سرور زرین‌پال") || m.startsWith("سرور ثبت سفارش") || m.startsWith("قیمت اعتبار") } ?: "درگاه پرداخت در دسترس نیست. [PAY-CREATE]" }
-                        paymentBusy = false
+                        }
                     }
-                }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy && !pendingRecoveryBusy && !pendingRecoveryError && pendingOrderId == null,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)) {
-                    Text(if (paymentBusy) "در حال ایجاد سفارش…" else "پرداخت امن زرین‌پال")
+                    Button(enabled=canPurchase&&q.enabled,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),onClick={payAction{
+                        // Recheck both histories before reserving. An existing order is resumed, not overwritten.
+                        refreshOrders()
+                        val prior=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
+                        if(prior!=null){orderId=prior.getString("id");checkout=false;return@payAction}
+                        if(pendingOnlineId!=null){checkout=false;paymentMessage="ابتدا سفارش پرداخت قبلی را تعیین تکلیف کنید.";return@payAction}
+                        try{
+                            val result=CardTransferApi.call(accessToken,"reserve",org.json.JSONObject().put("kind",q.kind).put("units",q.units).put("total",q.total))
+                            val id=result.getString("id")
+                            refreshHistory()
+                            require(history.any{it.optString("id")==id})
+                            orderId=id;checkout=false
+                        }catch(e:kotlinx.coroutines.CancellationException){throw e}
+                        catch(e:Exception){
+                            // Lost acknowledgement: do not let a second checkout begin without recovery.
+                            historyReady=false
+                            checkout=false
+                            quoteAttempt++
+                            throw e
+                        }
+                    }}){Text(if(checkoutBusy)"در حال ثبت سفارش…" else "ادامه پرداخت")}
+                    OutlinedButton(onClick={checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بازگشت به انتخاب پلن")}
                 }
             }
-        }
+        }else{
+            Text("پلن موردنظر خود را انتخاب کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFF5F7391))
+            if(active!=null){
+                Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color(0xFFE8F4FF))){
+                    Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                        Text("سفارش پرداخت قبلی",fontWeight=FontWeight.Bold,color=deepBlue)
+                        Text(if(active.optString("state")=="pending")"رسید در انتظار بررسی است؛ دوباره واریز نکنید." else "یک سفارش ثبت شده هنوز رسید ندارد.")
+                        Button(onClick={orderId=active.getString("id");checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("ادامه و پیگیری سفارش")}
+                    }
+                }
+            }
+            if(pendingOnlineId!=null){
+                Text("سفارش پرداخت قبلی هنوز تعیین تکلیف نشده است؛ پیش از خرید جدید استعلام بگیرید.",color=MaterialTheme.colorScheme.error)
+                OutlinedButton(enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),onClick={payAction{
+                    val id=pendingOnlineId?:return@payAction
+                    val result=ZarinPalPurchaseClient.status(accessToken,id)
+                    if(result.optString("state") in setOf("verified","failed")){refreshOrders();paymentMessage="وضعیت سفارش قبلی به‌روزرسانی شد."}
+                    else paymentMessage="سفارش قبلی هنوز تعیین تکلیف نشده است؛ دوباره پرداخت نکنید."
+                }}){Text("استعلام سفارش قبلی")}
+            }
+            if(!historyReady||!onlineReady){
+                OutlinedButton(onClick={payAction{refreshOrders()}},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بررسی وضعیت سفارش‌های قبلی")}
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                listOf(Triple("single","اعتبار تکی","هر صورتحساب یک اعتبار"),Triple("monthly","اشتراک ماهانه","۲۰ صورتحساب در ۳۰ روز")).forEach{(id,title,subtitle)->
+                    val selected=plan==id
+                    Card(onClick={plan=id;checkout=false},enabled=!checkoutBusy,modifier=Modifier.weight(1f).height(168.dp),shape=cardShape,
+                        border=androidx.compose.foundation.BorderStroke(if(selected)2.dp else 1.dp,if(selected)Color(0xFF356DF0) else Color(0xFFE4EAF3)),
+                        colors=CardDefaults.cardColors(containerColor=if(selected)Color(0xFFE8F4FF) else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                        Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+                            Text(if(selected)"●" else "○",color=if(selected)Color(0xFF176AF0) else Color.Gray)
+                            Text(title,fontWeight=FontWeight.ExtraBold,color=deepBlue,style=MaterialTheme.typography.titleMedium)
+                            Text(subtitle,color=Color(0xFF526D8F),style=MaterialTheme.typography.bodySmall)
+                            Text(if(id=="single")"بدون تعهد ماهانه" else "تمدید دستی",color=deepBlue,style=MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+            if(plan!="free")Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
+                    Text(if(plan=="single")"تعداد اعتبار موردنیاز" else "اشتراک ماهانه",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=deepBlue)
+                    if(plan=="single"){
+                        Text("قیمت هر اعتبار: ${money(q?.let{it.subtotal/it.units})} ریال",color=Color(0xFF60768B),style=MaterialTheme.typography.bodySmall)
+                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            OutlinedButton(onClick={quantity=((quantity.toIntOrNull()?:1)-1).coerceAtLeast(1).toString()}){Text("−")}
+                            OutlinedTextField(quantity,{quantity=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{c->c in '0'..'9'}.take(6)},modifier=Modifier.weight(1f),singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),label={Text("تعداد اعتبار")},shape=RoundedCornerShape(14.dp))
+                            Button(onClick={quantity=((quantity.toIntOrNull()?:0)+1).coerceAtMost(999999).toString()}){Text("+")}
+                        }
+                    }else Text("۲۰ صورتحساب در ۳۰ روز، تمدید دستی",color=deepBlue)
+                    Text("مبلغ پایه: ${money(q?.subtotal)} ریال",color=deepBlue)
+                    Text("مالیات ارزش افزوده (۱۰٪): ${money(q?.vat)} ریال",color=deepBlue)
+                    Text("مبلغ نهایی قابل پرداخت: ${money(q?.total)} ریال",color=deepBlue,fontWeight=FontWeight.Bold)
+                    if(quoteBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if(quoteError.isNotBlank()){
+                        Text(quoteError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick={quoteAttempt++},modifier=Modifier.fillMaxWidth()){Text("استعلام دوباره")}
+                    }
+                    if(q!=null&&!q.enabled)Text("فروش این پلن فعلاً فعال نیست.",color=MaterialTheme.colorScheme.error)
+                    Button(onClick={checkout=true},enabled=q?.enabled==true&&canPurchase&&!quoteBusy,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("ادامه خرید")}
+                }
+            }
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Card(onClick = { plan = "free" }, modifier = Modifier.fillMaxWidth(),
+            Card(onClick = { plan = "free";checkout=false }, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     if (plan == "free") 2.dp else 1.dp, Color(0xFF359985)),
@@ -280,22 +250,20 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 }
             }
         }
-        Text("مبالغ به ریال هستند؛ اعتبار فقط پس از تأیید سرور شارژ می‌شود. تا روشن‌شدن نتیجه، خرید جدید انجام ندهید.",
-            color = Color(0xFF5F7391), style = MaterialTheme.typography.bodySmall)
+
+            val recent=history.filter{it.optString("state") in setOf("approved","rejected")}.take(5)
+            if(recent.isNotEmpty()){
+                Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White)){
+                    Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+                        Text("سوابق پرداخت",color=deepBlue,fontWeight=FontWeight.Bold)
+                        recent.forEach{r->TextButton(onClick={orderId=r.getString("id")},modifier=Modifier.fillMaxWidth()){Text((if(r.optString("state")=="approved")"تأیید شده" else "رد شده")+" | "+money(r.optLong("amount_rial"))+" ریال")}}
+                    }
+                }
+            }
+        }
+        if(checkoutBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
+        if(paymentMessage.isNotBlank())Text(paymentMessage,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+        Text("مبالغ به ریال هستند؛ اعتبار فقط پس از تأیید سرور شارژ می‌شود.",color=Color(0xFF5F7391),style=MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
     }
-    if (abandonPendingConfirmation) AlertDialog(
-        onDismissRequest = { abandonPendingConfirmation = false },
-        title = { Text("سفارش قبلی هنوز تعیین تکلیف نشده است") },
-        text = { Text("قبل از ایجاد سفارش جدید، تراکنش قبلی را در زرین‌پال و سورا بررسی کنید. کنار گذاشتن پیگیری فقط در این گوشی انجام می‌شود؛ اگر پرداخت قبلی موفق شده باشد، ممکن است بعداً در سرور ثبت شود. هیچ اعتباری با این کار شارژ یا حذف نمی‌شود.") },
-        confirmButton = { TextButton(onClick = {
-            pendingOrderId = null
-            abandonPendingConfirmation = false
-            paymentMessage = "پیگیری محلی سفارش قبلی کنار گذاشته شد؛ برای وضعیت مالی به سوابق درگاه مراجعه کنید."
-        }) { Text("تأیید و شروع سفارش جدید") } },
-        dismissButton = { TextButton(onClick = { abandonPendingConfirmation = false }) {
-            Text("بازگشت به استعلام")
-        } }
-    )
 }
-
