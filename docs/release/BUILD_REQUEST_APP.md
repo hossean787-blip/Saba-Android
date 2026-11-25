@@ -53,3 +53,5 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.85.0: enable correction picker for new invoice form even when no fully bound receipt exists; show same customer accepted originals and reuse read-only reference verification and existing credit-idempotent save. No tax POST during selection. Regression for owner/customer/pending isolation; signed build requested.
 
 0.87.0: premium RTL support UI; brand header, segmented tabs, category selection, ticket cards, empty states, Persian dates, conversation bubbles and composer. Existing API, journal, pagination and validation unchanged. Signed APK requested; physical visual review pending.
+
+0.89.0: company invoice list opens exactly the same direct PDF preview as event list for all statuses; preserve origin-specific back navigation and state-safe edit/send/correction. Align regression tests with new picker and shared preview; previous CI 490/492, two stale correction UI tests. Signed build requested.

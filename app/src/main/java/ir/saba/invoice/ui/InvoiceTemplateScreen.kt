@@ -320,7 +320,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
             Text("صورتحساب اصلاحی")
         }
         val action=invoicePreviewAction(invoice,official)
-        if(action!=null) OutlinedButton(enabled=!busy,onClick=onSend,modifier=Modifier.fillMaxWidth()) { Text(action) }
+        if(action!=null) OutlinedButton(enabled=!busy,onClick=onSend,modifier=Modifier.fillMaxWidth().testTag("invoiceDirectSend")) { Text(action) }
         if(onEdit!=null && canEditInvoicePreview(invoice,official)) {
             OutlinedButton(enabled=!busy,onClick=onEdit,modifier=Modifier.fillMaxWidth()) {
                 Text(if(official?.state=="REJECTED") "اصلاح و ویرایش همین فاکتور" else "ویرایش فاکتور")

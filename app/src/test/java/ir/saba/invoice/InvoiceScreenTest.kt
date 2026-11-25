@@ -184,7 +184,8 @@ class InvoiceScreenTest {
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceDirectSend").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("invoiceDirectSend").performClick()
+        compose.onNodeWithText("پیش‌نمایش و خروجی صورتحساب").assertExists()
+        compose.onNodeWithTag("invoiceDirectSend").performScrollTo().performClick()
         compose.onNodeWithText("تأیید و ارسال").assertExists()
         compose.onNodeWithText("انصراف").performClick()
         compose.onNodeWithText("نهایی‌سازی صورتحساب").assertDoesNotExist()
@@ -321,7 +322,8 @@ class InvoiceScreenTest {
         }
         compose.setContent { Screen() }
         compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("سند ارسال‌شده قابل ویرایش یا حذف نیست.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15000) { compose.onAllNodesWithText("دریافت خروجی PDF").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("پیش‌نمایش و خروجی صورتحساب").assertExists()
         compose.onNodeWithText("ویرایش پیش‌نویس").assertDoesNotExist()
         compose.onNodeWithText("ویرایش فاکتور").assertDoesNotExist()
         compose.onNodeWithText("اصلاح و ویرایش همین فاکتور").assertDoesNotExist()
@@ -437,7 +439,7 @@ class InvoiceScreenTest {
             compose.onAllNodesWithText("ارسال به سامانه مؤدیان")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("invoiceDirectSend").performClick()
+        compose.onNodeWithTag("invoiceDirectSend").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, navigations) }
     }
 
@@ -462,12 +464,15 @@ class InvoiceScreenTest {
         }
     }
 
-    @Test fun correctiveInvoiceIsDisabledWithoutAnAcceptedOriginalReference() {
+    @Test fun correctionPickerExplainsMissingAcceptedReference() {
         compose.setContent { Screen() }
         openNew()
-        compose.onNodeWithText("اصلاحی (آزمایشی)").performScrollTo()
-            .assertExists().assertIsNotEnabled()
-        compose.onNodeWithText("اصلی").assertExists()
+        compose.onNodeWithText("موضوع صورتحساب").performScrollTo()
+        compose.onNodeWithTag("chooseCorrectionReference").assertIsEnabled()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.onNodeWithText("انتخاب فاکتور اصلی برای اصلاح").assertExists()
+        compose.onNodeWithText("برای مشتری انتخاب‌شده فاکتور اصلی با پذیرش گزارش‌شده وجود ندارد.",substring=true).assertExists()
+        assertEquals(0, creditGateway.consumedKeys.size)
     }
 
 
@@ -511,43 +516,21 @@ class InvoiceScreenTest {
                 fiscalId = "A11216", taxId = referenceTaxId,
                 payload = "{}", payloadHash = "fixture", preparedAt = 100,
                 state = "ACCEPTED", referenceNumber = "accepted",
-                signedReceipt = "verified-receipt-fixture"
+                protocol = "LEGACY", lastError = OfficialReferenceEvidence.LEGACY_BOUND
             ))
+            invoices = db.invoiceDao().forCompany(company)
         }
         compose.setContent { Screen() }
         openNew()
-        // The subject chips scroll horizontally; first scroll the outer invoice form vertically.
+        runBlocking { db.moadianDetailsDao().upsert(MoadianDetails(companyId=company,fiscalMemoryId="A11216")) }
         compose.onNodeWithText("موضوع صورتحساب").performScrollTo()
-        // The chip sits inside a horizontally scrolled row. In Robolectric, a
-        // physical test tap can land outside the visible clip after outer scrolling.
-        // Dispatch the exact accessible OnClick action and verify resulting state.
-        compose.onNodeWithText("اصلاحی (آزمایشی)").assertIsEnabled()
-            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
-        compose.waitForIdle()
-        // The semantic selection flag may not be exposed by the Material chip in Robolectric.
-        // The following reference picker assertion verifies the actual selected mode.
-        val referenceLabel = "شناسه مالیاتی مرجع: انتخاب از صورتحساب‌های پذیرفته‌شده"
-        try {
-            compose.waitUntil(15000) {
-                compose.onAllNodesWithText(referenceLabel, useUnmergedTree = true)
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
-        } catch (failure: Exception) {
-            throw AssertionError("Reference picker absent after selected correction; UI tree:\n" +
-                compose.onRoot(useUnmergedTree = true).printToString().take(20000), failure)
-        }
-        // The reference picker also follows a nested scroll container; dispatch
-        // its semantic click instead of an offscreen synthetic touch.
-        compose.onNodeWithText(referenceLabel)
+        compose.onNodeWithTag("chooseCorrectionReference").assertIsEnabled()
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         compose.waitUntil(15000) {
-            compose.onAllNodesWithText(referenceTaxId, useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("فاکتور 11",substring=true).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(referenceTaxId)
+        compose.onNodeWithText("فاکتور 11",substring=true)
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
-        compose.onNodeWithText("کپی اقلام صورتحساب مرجع برای اصلاح")
-            .performScrollTo().performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("1. کالای مرجع").fetchSemanticsNodes().isNotEmpty()
         }

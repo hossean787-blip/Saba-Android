@@ -246,7 +246,11 @@ private fun InvoiceScreenContent(
     }
     var mode by rememberSaveable { mutableStateOf("list") }
     var fromEvents by rememberSaveable { mutableStateOf(false) }
-    fun backFromInvoice() { if (fromEvents) { fromEvents = false; mode = "list"; onBackToEvents() } else mode = "list" }
+    var unifiedPreview by rememberSaveable { mutableStateOf(false) }
+    fun backFromInvoice() {
+        unifiedPreview = false
+        if (fromEvents) { fromEvents = false; mode = "list"; onBackToEvents() } else mode = "list"
+    }
     var invoiceId by rememberSaveable { mutableStateOf<Long?>(null) }
     var number by rememberSaveable { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf("") }
@@ -389,6 +393,7 @@ private fun InvoiceScreenContent(
     LaunchedEffect(openEventInvoiceId) {
         val id = openEventInvoiceId ?: return@LaunchedEffect
         fromEvents = true
+        unifiedPreview = true
         invoiceId = id
         error = ""
         mode = "event_open"
@@ -396,7 +401,7 @@ private fun InvoiceScreenContent(
     }
     LaunchedEffect(newInvoiceRequest) {
         if(newInvoiceRequest>lastHandledNewInvoiceRequest) {
-            lastHandledNewInvoiceRequest=newInvoiceRequest;onNewInvoiceRequestHandled();fromEvents=false
+            lastHandledNewInvoiceRequest=newInvoiceRequest;onNewInvoiceRequestHandled();fromEvents=false;unifiedPreview=false
             beginInvoice()
         }
     }
@@ -530,7 +535,7 @@ private fun InvoiceScreenContent(
                 } finally {
                     sendProgress = ""
                     reloadOfficial(invoice.id)
-                    mode = if (fromEvents) "template" else "details"
+                    mode = if (unifiedPreview || fromEvents) "template" else "details"
                 }
             }
             return
@@ -545,7 +550,7 @@ private fun InvoiceScreenContent(
                 } finally {
                     sendProgress = ""
                     reloadOfficial(invoice.id)
-                    mode = if (fromEvents) "template" else "details"
+                    mode = if (unifiedPreview || fromEvents) "template" else "details"
                 }
             }
             return
@@ -638,7 +643,7 @@ private fun InvoiceScreenContent(
             } finally {
                 sendProgress = ""
                 reloadOfficial(id)
-                mode = if(fromEvents) "template" else "details"
+                mode = if(unifiedPreview || fromEvents) "template" else "details"
             }
         }
     }
@@ -675,7 +680,7 @@ private fun InvoiceScreenContent(
                             operationKey = java.util.UUID.randomUUID().toString()
                             onChanged()
                             runCatching { refreshPaidBalance() }
-                            mode = if(fromEvents) "template" else "details"
+                            mode = if(unifiedPreview || fromEvents) "template" else "details"
                             onNotice("پیش‌نویس ذخیره شد.")
 
         }
@@ -692,6 +697,7 @@ private fun InvoiceScreenContent(
                 officialRecord = db.officialSubmissionDao().forInvoice(id)
                     ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
                 if (mode == "event_open") {
+                    unifiedPreview = true
                     templateCompany = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
                         ?: error("مودی یافت نشد.")
                     mode = "template"
@@ -729,7 +735,7 @@ private fun InvoiceScreenContent(
                 val customer = loaded?.invoice?.let { inv -> customers.firstOrNull { it.id == inv.customerId } }
                 val company = templateCompany
                 if (loaded != null && customer != null && company != null) {
-                    val directPreview = fromEvents
+                    val directPreview = unifiedPreview || fromEvents
                     InvoiceTemplateScreen(company, customer, loaded.invoice, loaded.lines,
                         onExport = { bytes ->
                             exportBytes = bytes
@@ -782,7 +788,7 @@ private fun InvoiceScreenContent(
                                         color=Color.White,fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.bodyMedium)
                                 }
                             }
-                            Button(enabled=!busy,onClick={perform { beginInvoice() }},
+                            Button(enabled=!busy,onClick={unifiedPreview=false;fromEvents=false;perform { beginInvoice() }},
                                 modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),
                                 colors=ButtonDefaults.buttonColors(containerColor=teal)) {
                                 Icon(Icons.Default.Add,contentDescription=null,modifier=Modifier.size(19.dp))
@@ -872,7 +878,7 @@ private fun InvoiceScreenContent(
                                         Text("مشاهده اصلاحیه ${link.invoice.invoiceNumber}")
                                     }
                                 }
-                                OutlinedButton(enabled=!busy,onClick={invoiceId=invoice.id;error="";mode="details"},
+                                OutlinedButton(enabled=!busy,onClick={fromEvents=false;unifiedPreview=true;invoiceId=invoice.id;error="";mode="event_open"},
                                     modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),
                                     border=BorderStroke(1.dp,Color(0xFFBBD7DF)),
                                     colors=ButtonDefaults.outlinedButtonColors(contentColor=teal)) {
@@ -1545,7 +1551,7 @@ private fun InvoiceScreenContent(
         }) },
         confirmButton = { TextButton(enabled = !busy, onClick = {
             val requested = confirmation
-            if (requested == "leave") { confirmation = ""; if (invoiceId == null) backFromInvoice() else mode = if(fromEvents) "template" else "details"; error = "" }
+            if (requested == "leave") { confirmation = ""; if (invoiceId == null) backFromInvoice() else mode = if(unifiedPreview || fromEvents) "template" else "details"; error = "" }
             else perform {
                 val id = actionId ?: throw IllegalArgumentException("فاکتور را دوباره انتخاب کنید.")
                 require(requested == "delete")
