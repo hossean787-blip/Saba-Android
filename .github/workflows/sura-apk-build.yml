@@ -1,14 +1,5 @@
 name: SURA APK build
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - '.github/workflows/sura-apk-build.yml'
   workflow_dispatch:
 permissions:
   contents: read

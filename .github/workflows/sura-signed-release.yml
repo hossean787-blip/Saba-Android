@@ -1,10 +1,6 @@
 name: SURA Signed Release APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/sura-signed-release.yml'
 permissions:
   contents: read
 concurrency:

@@ -66,6 +66,8 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
     var password by remember { mutableStateOf("") }
     var repeatPassword by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
+    var restoredCredit by remember { mutableStateOf<ArchiveCreditSnapshot?>(null) }
+    var creditNames by remember { mutableStateOf<Map<Long,String>>(emptyMap()) }
     var running by remember { mutableStateOf(false) }
     var confirmed by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<Uri?>(null) }
@@ -73,21 +75,27 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
         if(running || password.length !in 12..128 || (!importing && password!=repeatPassword)) return
         val secret=password.toCharArray()
         password="";repeatPassword="";confirmed=false
-        running=true;onBusy(true);status=""
+        running=true;onBusy(true);status="";restoredCredit=null
         scope.launch {
             try {
                 val message=withContext(Dispatchers.IO) {
                     if(importing) {
                         val bytes=requireNotNull(context.contentResolver.openInputStream(uri)).use { AccountArchiveCrypto.read(it) }
-                        val c=archive.restore(bytes,secret)
-                        "بازیابی انجام شد: ${c.taxpayers} مؤدی، ${c.customers} مشتری و ${c.invoices} سابقه صورتحساب."
+                        val result=archive.restoreWithCredit(bytes,secret) { ids -> AccountArchiveCreditClient.read(account,accessToken,ids) }
+                        val c=result.added
+                        restoredCredit=result.credit
+                        "بازیابی انجام شد: ${c.taxpayers} مؤدی، ${c.customers} مشتری و ${c.invoices} سابقه جدید. اطلاعات فعلی حفظ شد."
                     } else {
-                        val bytes=archive.export(secret)
+                        val ids=db.companyDao().all().map { it.id }.toSet()
+                        val credit=AccountArchiveCreditClient.read(account,accessToken,ids)
+                        val bytes=archive.export(secret,credit)
+                        restoredCredit=credit
                         requireNotNull(context.contentResolver.openOutputStream(uri,"w")).use { it.write(bytes);it.flush() }
                         "فایل پشتیبان رمزگذاری‌شده ذخیره شد."
                     }
                 }
                 status=message
+                creditNames=db.companyDao().all().associate { it.id to it.name }
                 if(importing) onChanged()
                 onNotice(message)
             } catch(e:CancellationException) { throw e }
@@ -106,8 +114,8 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
         .padding(16.dp).testTag(if(restore) "restoreScreen" else "backupScreen"),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         ServiceHeader(if(restore) "بازیابی اطلاعات" else "پشتیبان‌گیری",
             if(restore) "بازیابی امن سوابق همان حساب" else "نسخه رمزگذاری‌شده اطلاعات حساب شما")
-        ServicePanel("محتوای فایل","مودیان، مشتریان، صورتحساب‌ها و اقلام، شماره‌های مالیاتی و سوابق ارسال. رمز ورود، کلید خصوصی مالیاتی، اعتبار کیف پول، فایل پیوست و لوگو منتقل نمی‌شوند.")
-        if(restore) ServicePanel("شرایط بازیابی امن","فقط در حساب خالی و با همان شناسه مالک و نسخه پایگاه داده. صورتحساب‌ها به‌صورت سابقه فقط‌خواندنی و مؤدیان غیرفعال بازیابی می‌شوند؛ پیش از صدور جدید، سریال و وضعیت مؤدی را با سامانه تطبیق دهید. هیچ اعتبار یا ارسال مالیاتی ایجاد نمی‌شود.")
+        ServicePanel("محتوای فایل","تمام مؤدیان، مشتریان، صورتحساب‌ها و اقلام، شماره‌های مالیاتی، سوابق ارسال و گزارش مانده اعتبار مالک، تک‌تک مؤدیان و هدیه هنگام ذخیره. اعتبار ذخیره‌شده صرفاً گزارش است. رمز ورود، کلید خصوصی، فایل پیوست و لوگو منتقل نمی‌شوند.")
+        if(restore) ServicePanel("شرایط بازیابی امن","فقط همان مالک و نسخه پایگاه داده؛ اطلاعات جدیدتر حذف یا بازنویسی نمی‌شود. صورتحساب‌های مفقود به صورت سوابق فقط‌خواندنی و مؤدیان جدیدِ بازیابی‌شده غیرفعال هستند تا سریال و وضعیت مالیاتی تطبیق داده شوند. مانده اعتبار فقط از سرور استعلام می‌شود؛ بازیابی در صورت اختلال استعلام متوقف می‌شود.")
         else ServicePanel("حفاظت از نسخه پشتیبان","رمز مستقل حداقل ۱۲ نویسه انتخاب کنید. بدون رمز، بازیابی ممکن نیست. فایل را در محل امن نگه دارید. پشتیبان خودکار ابری نیست؛ سقف فایل داده ۱۶ مگابایت است.")
         OutlinedTextField(value=password,onValueChange={password=it.take(128)},label={Text("رمز فایل پشتیبان")},singleLine=true,
             visualTransformation=PasswordVisualTransformation(),enabled=!running,modifier=Modifier.fillMaxWidth().testTag("archivePassword"))
@@ -129,6 +137,13 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
             modifier=Modifier.fillMaxWidth().testTag("archiveExport")) { Text("ساخت و ذخیره فایل پشتیبان") }
         if(running) LinearProgressIndicator(Modifier.fillMaxWidth())
         if(status.isNotBlank()) ServicePanel("نتیجه عملیات",status)
+        restoredCredit?.let { credit ->
+            ServicePanel(if(restore) "مانده واقعی استعلام‌شده" else "مانده هنگام تهیه پشتیبان",
+                "کیف پول مالک: ${credit.owner} اعتبار\nاعتبار هدیه: ${credit.gift}\n"+
+                credit.taxpayers.entries.sortedBy { it.key }.joinToString("\n") { (id,value) ->
+                    "${creditNames[id] ?: "مودی شماره $id"}: $value اعتبار"
+                }+"\nزمان استعلام: "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(credit.checkedAt)))
+        }
     }
 }
 

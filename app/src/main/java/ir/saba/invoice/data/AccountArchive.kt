@@ -73,10 +73,20 @@ internal object AccountArchiveCrypto {
 }
 
 internal data class ArchiveCounts(val taxpayers:Int,val customers:Int,val invoices:Int)
+internal data class ArchiveCreditSnapshot(val owner:Long,val gift:Long,val taxpayers:Map<Long,Long>,val checkedAt:Long) {
+    init {
+        require(owner in 0..9_007_199_254_740_991L && gift in 0..9_007_199_254_740_991L && checkedAt>0)
+        require(taxpayers.all { (id,balance)->id in 1..9_007_199_254_740_991L && balance in 0..9_007_199_254_740_991L })
+    }
+    fun toJson()=JSONObject().put("owner",owner).put("gift",gift).put("checkedAt",checkedAt)
+        .put("taxpayers",JSONObject().apply { taxpayers.forEach { (id,balance)->put(id.toString(),balance) } })
+}
+internal data class ArchiveRestoreResult(val added:ArchiveCounts,val credit:ArchiveCreditSnapshot)
 
-/** Restore only to an empty account. Preserve historical IDs and tax identifiers;
- * restored records cannot trigger a new tax POST or debit. Server balances,
- * request claims, credentials, URI grants and attachment binaries are excluded. */
+
+/** Non-destructive merge for the same account. Existing rows and live credit always win.
+ * Newly recovered invoice rows are historical; imported taxpayers require fiscal reconciliation.
+ * Credentials, request claims, local balance caches and attachment binaries are excluded. */
 internal class AccountArchive(
     private val db:SabaDatabase, private val account:AccountScope,
     private val checkSession:()->Unit,
@@ -85,9 +95,6 @@ internal class AccountArchive(
     private val tables=listOf("companies","moadian_details","customers","customer_profiles",
         "invoices","invoice_lines","official_submissions")
     private val ownerTables=mapOf("companies" to "purchaserId","official_submissions" to "ownerId")
-    private val guardTables=tables+listOf("quota_wallets","company_quotas","quota_transfers",
-        "invoice_quota_uses","invoice_creation_claims","credit_transfer_claims",
-        "legacy_import_receipts","legacy_quota_exemptions","moadian_simulations")
     private fun columns(sql:SupportSQLiteDatabase,table:String):List<String> =
         sql.query("SELECT * FROM `$table` LIMIT 0").use { it.columnNames.toList() }
     private fun sanitize(table:String,row:JSONObject,restore:Boolean) {
@@ -113,7 +120,7 @@ internal class AccountArchive(
             row.put("signedReceipt",JSONObject.NULL)
         }
     }
-    suspend fun export(password:CharArray):ByteArray {
+    suspend fun export(password:CharArray,credit:ArchiveCreditSnapshot?=null):ByteArray {
         checkSession()
         val plain=db.withTransaction {
             checkSession()
@@ -145,47 +152,89 @@ internal class AccountArchive(
                 }
                 data.put(table,rows)
             }
-            JSONObject().put("format",1).put("schema",sql.version)
+            val ids=data.getJSONArray("companies").let { a -> (0 until a.length()).map { a.getJSONObject(it).getLong("id") }.toSet() }
+            if(credit!=null) require(credit.taxpayers.keys==ids) { "فهرست مؤدیان تغییر کرده است؛ دوباره پشتیبان بگیرید." }
+            JSONObject().put("format",2).put("schema",sql.version)
                 .put("owner",account.ownerId).put("createdAt",System.currentTimeMillis())
+                .put("creditSnapshot",credit?.toJson() ?: JSONObject.NULL)
                 .put("tables",data).toString().toByteArray(Charsets.UTF_8)
         }
         return try { AccountArchiveCrypto.seal(plain,password) } finally { plain.fill(0) }
     }
-    suspend fun restore(blob:ByteArray,password:CharArray):ArchiveCounts {
+    private fun decode(blob:ByteArray,password:CharArray):JSONObject {
         checkSession()
         val plain=AccountArchiveCrypto.open(blob,password)
         val root=try { JSONObject(String(plain,Charsets.UTF_8)) } finally { plain.fill(0) }
-        require(root.getInt("format")==1 && root.getString("owner")==account.ownerId) { "فایل یا مالک پشتیبان معتبر نیست." }
+        require(root.getInt("format") in 1..2 && root.getString("owner")==account.ownerId) { "فایل یا مالک پشتیبان معتبر نیست." }
         val data=root.getJSONObject("tables")
         require(data.keys().asSequence().toSet()==tables.toSet()) { "ساختار فایل پشتیبان معتبر نیست." }
-        val count=tables.sumOf { data.getJSONArray(it).length() }
-        require(count in 1..100_000) { "فایل فاقد داده معتبر یا بیش از سقف مجاز است." }
+        require(tables.sumOf { data.getJSONArray(it).length() }<=100_000) { "تعداد ردیف‌ها بیش از سقف مجاز است." }
+        return root
+    }
+    private fun archivedIds(data:JSONObject):Set<Long> {
+        val companies=data.getJSONArray("companies")
+        val ids=mutableSetOf<Long>()
+        for(i in 0 until companies.length()) {
+            val c=companies.getJSONObject(i)
+            require(c.getString("purchaserId")==account.ownerId && c.getLong("id") in 1..9_007_199_254_740_991L)
+            require(ids.add(c.getLong("id")))
+        }
+        return ids
+    }
+    /** Credits are fetched from an authenticated, read-only server operation.
+     * The snapshot inside the file is NEVER used to authorize spending or update balances. */
+    suspend fun restoreWithCredit(blob:ByteArray,password:CharArray,
+        readCredit:suspend(Set<Long>)->ArchiveCreditSnapshot):ArchiveRestoreResult {
+        val root=decode(blob,password)
+        val ids=archivedIds(root.getJSONObject("tables"))
+        val local=db.companyDao().all().also { require(it.all { c->c.purchaserId==account.ownerId }) }.map { it.id }.toSet()
+        val credit=readCredit(ids+local)
+        require(credit.taxpayers.keys==ids+local) { "استعلام تمام مؤدیان از سرور کامل نشد." }
+        checkSession()
+        return ArchiveRestoreResult(merge(root),credit)
+    }
+    // Compatibility entry for isolated archive unit tests; production restore always uses restoreWithCredit.
+    internal suspend fun restore(blob:ByteArray,password:CharArray):ArchiveCounts=merge(decode(blob,password))
+    private fun existing(sql:SupportSQLiteDatabase,table:String,key:String,id:Any):JSONObject? {
+        return sql.query("SELECT * FROM `$table` WHERE `$key`=?",arrayOf(id)).use { c ->
+            if(!c.moveToFirst()) null else JSONObject().apply {
+                for(i in 0 until c.columnCount) put(c.getColumnName(i),when(c.getType(i)) {
+                    Cursor.FIELD_TYPE_NULL->JSONObject.NULL
+                    Cursor.FIELD_TYPE_INTEGER->c.getLong(i)
+                    Cursor.FIELD_TYPE_STRING->c.getString(i)
+                    else->error("Unsupported row")
+                })
+            }
+        }
+    }
+    private fun same(a:JSONObject,b:JSONObject,vararg keys:String) =
+        keys.all { a.opt(it)?.toString()==b.opt(it)?.toString() }
+    private suspend fun merge(root:JSONObject):ArchiveCounts {
+        val data=root.getJSONObject("tables")
+        val ids=archivedIds(data)
         return db.withTransaction {
             checkSession()
             val sql=db.openHelper.writableDatabase
             require(root.getInt("schema")==sql.version) { "نسخه پایگاه داده فایل با برنامه یکسان نیست." }
-            for(table in guardTables) sql.query("SELECT 1 FROM `$table` LIMIT 1").use {
-                require(!it.moveToFirst()) { "حساب مقصد خالی نیست؛ برای جلوگیری از بازنویسی، بازیابی متوقف شد." }
-            }
-            val companies=data.getJSONArray("companies")
-            val ids=mutableSetOf<Long>()
-            for(i in 0 until companies.length()) {
-                val c=companies.getJSONObject(i)
-                require(c.getString("purchaserId")==account.ownerId && c.getLong("id") in 1..9_007_199_254_740_991L)
-                require(ids.add(c.getLong("id")))
-            }
-            require(ids.isNotEmpty()) { "پشتیبان فاقد مؤدی است." }
-            // Advance separately before import; a failed restore can only leave a harmless gap.
-            reserveTaxpayerIds(ids.maxOrNull()!!)
             val customerOwners=mutableMapOf<Long,Long>()
             val invoiceOwners=mutableMapOf<Long,Long>()
+            val existingInvoices=mutableSetOf<Long>()
+            val newCompanies=mutableSetOf<Long>()
+            val primary=mapOf("companies" to "id","moadian_details" to "companyId","customers" to "id",
+                "customer_profiles" to "customerId","invoices" to "id","invoice_lines" to "id","official_submissions" to "requestId")
+            var companiesAdded=0;var customersAdded=0;var invoicesAdded=0
+            if(ids.isNotEmpty()) reserveTaxpayerIds(ids.maxOrNull()!!)
             for(table in tables) {
                 val rows=data.getJSONArray(table)
                 val cols=columns(sql,table)
+                val seen=mutableSetOf<String>()
                 for(i in 0 until rows.length()) {
                     val row=rows.getJSONObject(i)
                     require(row.keys().asSequence().toSet()==cols.toSet()) { "ستون‌های فایل پشتیبان معتبر نیست." }
-                    sanitize(table,row,true)
+                    val key=primary.getValue(table)
+                    val id=row.get(key)
+                    require(id is String || (id is Number && id.toLong()>0))
+                    require(seen.add(id.toString())) { "شناسه تکراری در فایل پشتیبان." }
                     if(row.has("companyId")) require(row.getLong("companyId") in ids)
                     when(table) {
                         "customers" -> require(customerOwners.put(row.getLong("id"),row.getLong("companyId"))==null)
@@ -197,6 +246,28 @@ internal class AccountArchive(
                         "invoice_lines" -> require(invoiceOwners.containsKey(row.getLong("invoiceId")))
                         "official_submissions" -> require(invoiceOwners[row.getLong("invoiceId")]==row.getLong("companyId"))
                     }
+                    ownerTables[table]?.let { require(row.getString(it)==account.ownerId) }
+                    val old=existing(sql,table,key,id)
+                    if(old!=null) {
+                        val compatible=when(table) {
+                            "companies" -> same(old,row,"purchaserId","nationalId")
+                            "customers" -> same(old,row,"companyId") &&
+                                (old.optString("nationalId").isBlank() || row.optString("nationalId").isBlank() || same(old,row,"nationalId"))
+                            "customer_profiles" -> same(old,row,"companyId")
+                            "invoices" -> same(old,row,"companyId","customerId","invoiceNumber")
+                            "invoice_lines" -> row.getLong("invoiceId") in existingInvoices && same(old,row,"invoiceId")
+                            "official_submissions" -> same(old,row,"ownerId","companyId","invoiceId","fiscalId","taxId","payloadHash")
+                            else -> true
+                        }
+                        require(compatible) { "تداخل شناسه با اطلاعات فعلی؛ هیچ داده‌ای جایگزین نشد." }
+                        if(table=="invoices") existingInvoices.add(row.getLong("id"))
+                        // Existing records (including deleted/changed lines, send state, keys and serials)
+                        // always win; archive cannot roll them back.
+                        continue
+                    }
+                    if(table=="invoice_lines" && row.getLong("invoiceId") in existingInvoices) continue
+                    if(table=="official_submissions" && row.getLong("invoiceId") in existingInvoices) continue
+                    sanitize(table,row,true)
                     val values=ContentValues()
                     for(col in cols) when(val v=row.get(col)) {
                         JSONObject.NULL -> values.putNull(col)
@@ -206,17 +277,22 @@ internal class AccountArchive(
                         else -> error("نوع ستون در فایل معتبر نیست.")
                     }
                     check(sql.insert(table,SQLiteDatabase.CONFLICT_ABORT,values)!=-1L)
+                    when(table) {
+                        "companies"->{companiesAdded++;newCompanies.add(row.getLong("id"))}
+                        "customers"->customersAdded++
+                        "invoices"->invoicesAdded++
+                    }
                 }
             }
-            // Even old taxpayer rows without supplemental details must remain inactive.
-            for(id in ids) {
+            for(id in newCompanies) {
                 if(db.moadianDetailsDao().byCompany(id)==null)
                     db.moadianDetailsDao().upsert(MoadianDetails(companyId=id,inactive=true))
             }
             sql.query("PRAGMA foreign_key_check").use { check(!it.moveToFirst()) }
             checkSession()
-            // Direct SQL inserts use Room's transaction/invalidation tracker; no network calls.
-            ArchiveCounts(ids.size,customerOwners.size,invoiceOwners.size)
+            // No writes to any quota, wallet, credit claim, or server endpoint.
+            ArchiveCounts(companiesAdded,customersAdded,invoicesAdded)
         }
     }
+
 }

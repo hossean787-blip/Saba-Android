@@ -1,14 +1,5 @@
 name: SURA Credit Test APK
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - '.github/workflows/sura-credit-test-apk.yml'
   workflow_dispatch:
 
 permissions:

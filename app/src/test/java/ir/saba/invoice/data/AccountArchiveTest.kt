@@ -49,7 +49,27 @@ class AccountArchiveTest {
             assertEquals("taxid",row.taxId)
             assertFalse(OfficialReferenceEvidence.eligible(row))
             assertNull(dest.quotaDao().wallet(account.ownerId))
-            try { archive.restore(blob,pass);fail("must not overwrite") } catch(_:IllegalArgumentException) {}
+            // A file saved at 80 credits must never replace the live 60.
+            dest.quotaDao().insertWallet(QuotaWallet(account.ownerId,80,60))
+            dest.quotaDao().insertCompanyQuota(CompanyQuota(c,account.ownerId,80,60))
+            val newer=dest.customerDao().insert(Customer(companyId=c,name="مشتری جدید بعد از پشتیبان"))
+            val old=AccountArchive(source,account,{},{}).export(pass,
+                ArchiveCreditSnapshot(80,0,mapOf(c to 80),1))
+            val restored=archive.restoreWithCredit(old,pass) { ids ->
+                assertEquals(setOf(c),ids)
+                ArchiveCreditSnapshot(60,0,mapOf(c to 60),2)
+            }
+            assertEquals(ArchiveCounts(0,0,0),restored.added)
+            assertEquals(60L,restored.credit.owner)
+            assertEquals(60L,restored.credit.taxpayers[c])
+            assertEquals(60L,dest.quotaDao().wallet(account.ownerId)?.available)
+            assertEquals(60L,dest.quotaDao().companyQuota(c)?.available)
+            assertNotNull(dest.customerDao().byId(newer))
+            try {
+                archive.restoreWithCredit(old,pass) { error("offline") }
+                fail("offline restore must fail")
+            } catch(_:IllegalStateException) {}
+            assertEquals(60L,dest.quotaDao().wallet(account.ownerId)?.available)
             try { AccountArchive(foreign,other,{},{}).restore(blob,pass);fail("foreign account") } catch(_:IllegalArgumentException) {}
             assertTrue(foreign.companyDao().all().isEmpty())
             val corrupt=blob.copyOf().apply { this[lastIndex]=(this[lastIndex].toInt() xor 1).toByte() }
