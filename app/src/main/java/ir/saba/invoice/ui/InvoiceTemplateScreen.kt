@@ -83,6 +83,7 @@ object SuraInvoicePdf {
         require(invoice.totalAmountRial == totals.totalAmountRial && invoice.taxAmountRial == totals.taxAmountRial) {
             "جمع مبالغ صورتحساب با اقلام مطابقت ندارد؛ صورتحساب را دوباره بارگذاری کنید."
         }
+        val rowAmounts = InvoicePdfRowAmounts.calculate(lines)
         val pages = InvoicePdfPagination.paginate(lines)
         val pdf = PdfDocument()
         try {
@@ -137,7 +138,7 @@ object SuraInvoicePdf {
             }
             var y = geometry.rowTop
             pageLines.forEachIndexed { index, line ->
-                val rowTotal = InvoiceCalculator.calculate(listOf(line))
+                val rowTotal = rowAmounts[pageIndex * InvoicePdfPagination.ROWS_PER_PAGE + index]
                 if(index%2==0) rect(c,24f,y,571f,y+geometry.rowHeight,p.soft)
                 val quantityLabel = InvoiceLineAmounts.quantityText(line) +
                     (if(line.unitCode.isNotBlank()) " " + (MoadianMeasurementUnits.nameOf(line.unitCode) ?: line.unitCode) else "")

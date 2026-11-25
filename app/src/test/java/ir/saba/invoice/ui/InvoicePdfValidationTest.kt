@@ -46,9 +46,19 @@ class InvoicePdfValidationTest {
         for (count in listOf(1, 14, 15, 28, 29, 500)) {
             val records = (0 until count).toList()
             val pages = InvoicePdfPagination.paginate(records)
-            assertTrue(pages.all { it.isNotEmpty() && it.size <= 14 })
+            assertTrue(pages.all { it.isNotEmpty() && it.size <= InvoicePdfPagination.ROWS_PER_PAGE })
             assertTrue(pages.flatten() == records)
-            assertTrue(pages.size == (count + 13) / 14)
+            assertTrue(pages.size == (count + InvoicePdfPagination.ROWS_PER_PAGE - 1) / InvoicePdfPagination.ROWS_PER_PAGE)
+        }
+    }
+
+    @Test fun printedRowsReconcileWithLegacyAndMixedPreciseTotals() {
+        val legacy = line.copy(unitPriceRial = 5)
+        for (rows in listOf(listOf(legacy,legacy),listOf(legacy,legacy.copy(quantityExact="1.5")))) {
+            val totals = ir.saba.invoice.domain.InvoiceCalculator.calculate(rows)
+            val printed = InvoicePdfRowAmounts.calculate(rows)
+            org.junit.Assert.assertEquals(totals.taxAmountRial, printed.sumOf { it.taxAmountRial })
+            org.junit.Assert.assertEquals(totals.totalAmountRial, printed.sumOf { it.totalAmountRial })
         }
     }
 
