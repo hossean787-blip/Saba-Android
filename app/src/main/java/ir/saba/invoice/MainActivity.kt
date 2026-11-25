@@ -73,6 +73,14 @@ private data class CompanyData(
 
 class MainActivity : ComponentActivity() {
     private val settings by lazy { SabaPreferences(applicationContext) }
+    private val deviceSettings by lazy { SuraDeviceSettings(applicationContext) }
+    private var protectScreen by mutableStateOf(false)
+    private var playIntro by mutableStateOf(true)
+
+    private fun applyScreenProtection() {
+        val flag=android.view.WindowManager.LayoutParams.FLAG_SECURE
+        if(protectScreen) window.addFlags(flag) else window.clearFlags(flag)
+    }
     private val biometricVault by lazy { BiometricLoginVault(applicationContext) }
     private var biometricEnabled by mutableStateOf(false)
     private var biometricBusy by mutableStateOf(false)
@@ -148,7 +156,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun onResume() {
         super.onResume()
-        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        applyScreenProtection()
     }
 
     override fun onPause() {
@@ -158,6 +166,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        protectScreen=deviceSettings.protectScreen
+        playIntro=deviceSettings.playIntro
+        applyScreenProtection()
         val auth = androidx.lifecycle.ViewModelProvider(this, object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
@@ -217,7 +228,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             // Always play once per cold Activity creation, not after a rotation.
-            var showStartupMotion by remember { mutableStateOf(savedInstanceState == null) }
+            var showStartupMotion by remember { mutableStateOf(savedInstanceState == null && playIntro) }
             LaunchedEffect(auth.biometricEnrollment, auth.session, biometricEnabled) {
                 if (auth.session != null && auth.biometricEnrollment != null &&
                     (!biometricVault.canOffer() || biometricEnabled)
@@ -338,6 +349,7 @@ class MainActivity : ComponentActivity() {
         val db = remember(account) { SabaDatabase.openAccount(applicationContext, account) }
         DisposableEffect(db) { onDispose { db.close() } }
         var confirmLogout by remember { mutableStateOf(false) }
+        var diagnosticResult by remember(account) { mutableStateOf("هنوز بررسی نشده") }
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         var confirmDisableBiometrics by remember { mutableStateOf(false) }
         if (confirmDisableBiometrics) AlertDialog(
@@ -811,11 +823,68 @@ class MainActivity : ComponentActivity() {
                                 fontScale = fontScale,
                                 busy = busy,
                                 onFontScale = { fontScale = it },
-                                onCommitFontScale = { act { settings.setFontScale(fontScale) } },
-                                onResetFont = { fontScale = 1f; act { settings.setFontScale(1f) } },
+                                onCommitFontScale = { act {
+                                    try { settings.setFontScale(fontScale) }
+                                    catch(e:Exception) { fontScale=savedFontScale;throw e }
+                                } },
+                                onResetFont = { act { settings.setFontScale(1f);fontScale=1f } },
                                 biometricEnabled = biometricEnabled,
                                 onDisableBiometrics = { confirmDisableBiometrics = true },
-                                onBackToAccount = { page = Page.SETTINGS }
+                                onBackToAccount = { page = Page.SETTINGS },
+                                controls = SettingsControls(
+                                    protectScreen=protectScreen,
+                                    playIntro=playIntro,
+                                    biometricAvailable=biometricVault.canOffer(),
+                                    onProtectScreen={ value ->
+                                        if(deviceSettings.setProtectScreen(value)) {
+                                            protectScreen=value;applyScreenProtection()
+                                        } else notify("ذخیره تنظیم امنیتی ناموفق بود.")
+                                    },
+                                    onPlayIntro={ value ->
+                                        if(deviceSettings.setPlayIntro(value))playIntro=value
+                                        else notify("ذخیره تنظیم ظاهر ناموفق بود.")
+                                    },
+                                    onBiometricSetup={ confirmLogout=true },
+                                    onNavigate={ target ->
+                                        page=when(target) {
+                                            SettingsDestination.TAXPAYERS -> Page.COMPANIES
+                                            SettingsDestination.TAX_CONNECTION -> if(selectedCompanyId!=null) Page.TAX_CONNECTION else Page.COMPANIES
+                                            SettingsDestination.BACKUP -> Page.BACKUP
+                                            SettingsDestination.RESTORE -> Page.RESTORE
+                                            SettingsDestination.SUPPORT -> Page.SUPPORT
+                                            SettingsDestination.PRIVACY -> Page.PRIVACY
+                                            SettingsDestination.TERMS -> Page.TERMS
+                                            SettingsDestination.ABOUT -> Page.ABOUT
+                                            SettingsDestination.ACCOUNT -> Page.SETTINGS
+                                        }
+                                    },
+                                    onSystemSettings={
+                                        try {
+                                            startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                android.net.Uri.fromParts("package",packageName,null)))
+                                        } catch(_:android.content.ActivityNotFoundException) { notify("تنظیمات سیستم در دسترس نیست.") }
+                                        catch(_:SecurityException) { notify("دسترسی به تنظیمات سیستم ممکن نیست.") }
+                                    },
+                                    diagnosticResult=diagnosticResult,
+                                    onDiagnostic={
+                                        act {
+                                            diagnosticResult="در حال استعلام…"
+                                            try {
+                                                AccountArchiveCreditClient.read(account,accessToken,setOfNotNull(selectedCompanyId))
+                                                diagnosticResult="ارتباط با سرویس اعتبار و نشست حساب تأیید شد."
+                                            } catch(e:CancellationException) { throw e }
+                                            catch(_:Exception) { diagnosticResult="استعلام سرور تأیید نشد؛ اینترنت یا نشست ورود را بررسی کنید." }
+                                        }
+                                    },
+                                    onResetAppearance={
+                                        act {
+                                            settings.setFontScale(1f);fontScale=1f
+                                            if(deviceSettings.setPlayIntro(true))playIntro=true
+                                            else notify("اندازه متن بازنشانی شد؛ ذخیره لوگوموشن ناموفق بود.")
+                                        }
+                                    },
+                                    onLogout={confirmLogout=true}
+                                )
                             )
                         }
                     }

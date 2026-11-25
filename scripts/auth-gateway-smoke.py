@@ -18,8 +18,14 @@ def post(path, body):
 
 class GatewaySmoke(unittest.TestCase):
     def test_invalid_registration_is_rejected_without_email(self):
-        status, body = post("/v1/auth/registration/start", {"email": "", "password": ""})
+        status, body = post("/v1/auth/registration/start", {"email": "", "password": "",
+            "acceptedTerms": True, "legalVersion": "2026-11-25.1"})
         self.assertEqual(400, status)
+        self.assertNotIn("accessToken", body)
+
+    def test_missing_consent_is_rejected_without_creating_account(self):
+        status, body = post("/v1/auth/registration/start", {"email": "", "password": ""})
+        self.assertEqual(422, status)
         self.assertNotIn("accessToken", body)
 
     def test_invalid_login_identifier_is_rejected(self):
