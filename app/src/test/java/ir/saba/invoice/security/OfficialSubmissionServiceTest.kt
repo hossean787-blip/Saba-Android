@@ -563,6 +563,39 @@ class OfficialSubmissionServiceTest {
         assertEquals("legacy-reference",db.invoiceDao().byId(invoice)?.trackingCode)
     }
 
+    @Test fun pendingLegacyManualInquiryCrossChecksReferenceWithoutReposting()=runBlocking {
+        credentials.stagePrivateKey(company,TestCertificates.pem(customerKey))
+        val row=service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY")
+        var sends=0
+        var references=0
+        var secondaryStatus="IN_PROGRESS"
+        service.legacyGateway=object:LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String)=
+                LegacyPreparedInvoice("{}",mapOf("requestTraceId" to uid))
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement {
+                sends++;return LegacyInvoiceAcknowledgement(expectedUid,"legacy-reference")
+            }
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String)=
+                LegacyInvoiceInquiry(uid,null,"legacy-reference","IN_PROGRESS",emptyList())
+            override suspend fun inquireByReference(companyId:Long,fiscalId:String,uid:String,taxId:String,reference:String):LegacyInvoiceInquiry {
+                references++;assertEquals("legacy-reference",reference)
+                return LegacyInvoiceInquiry(uid,null,reference,secondaryStatus,emptyList())
+            }
+        }
+        service.submitLegacy(row.requestId)
+        val pending=service.inquireLegacy(row.requestId,true)
+        assertEquals("SUBMITTED",pending.state)
+        assertTrue(pending.lastError.orEmpty().contains("آخرین استعلام"))
+        assertTrue(pending.lastError.orEmpty().contains("استعلام شماره پیگیری: IN_PROGRESS"))
+        secondaryStatus="SUCCESS"
+        val accepted=service.inquireLegacy(row.requestId,true)
+        assertEquals("ACCEPTED",accepted.state)
+        assertTrue(OfficialReferenceEvidence.eligible(accepted))
+        assertEquals(1,sends)
+        assertEquals(2,references)
+        assertEquals(0,api.posts)
+    }
+
     private suspend fun legacyReferralParent(explicitFiscal: Boolean): OfficialSubmission {
         credentials.stagePrivateKey(company, TestCertificates.pem(customerKey))
         val parent=service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY")

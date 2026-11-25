@@ -388,16 +388,39 @@ class OfficialSubmissionService(
     }
 
     /** Read-only reconciliation; SUCCESS from the legacy API is not a v2 signed receipt. */
-    suspend fun inquireLegacy(id: String): OfficialSubmission {
+    suspend fun inquireLegacy(id: String, crossCheckReference: Boolean = false): OfficialSubmission {
         sessionCheck()
         val initial = row(id)
         require(initial.protocol == "LEGACY")
         require(initial.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
         try {
-            val result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
-            require(result.uid == initial.requestId)
-            require(result.taxId == null || result.taxId == initial.taxId)
-            require(initial.referenceNumber == null || result.referenceNumber == initial.referenceNumber)
+            var result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
+            fun validateInquiry(value: LegacyInvoiceInquiry) {
+                require(value.uid == initial.requestId)
+                require(value.taxId == null || value.taxId == initial.taxId)
+                require(value.fiscalId == null || value.fiscalId == initial.fiscalId)
+                require(initial.referenceNumber == null || value.referenceNumber == initial.referenceNumber)
+            }
+            validateInquiry(result)
+            val pending = setOf("PENDING", "IN_PROGRESS")
+            val uidStatus = result.status
+            var referenceStatus = ""
+            // Manual inquiry may independently check the same tracking receipt.
+            // Never enqueue another document or debit credit.
+            if (crossCheckReference && uidStatus in pending && !initial.referenceNumber.isNullOrBlank()) {
+                val reference = requireNotNull(initial.referenceNumber)
+                val second = try {
+                    legacyGateway.inquireByReference(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId, reference)
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { null }
+                if (second == null) referenceStatus = "پاسخ معتبر دریافت نشد"
+                else {
+                    validateInquiry(second)
+                    require(second.referenceNumber == reference)
+                    referenceStatus = second.status.takeIf { it.matches(Regex("[A-Z_]{1,30}")) } ?: "نامشخص"
+                    if (second.status in setOf("SUCCESS", "FAILED")) result = second
+                }
+            }
             when (result.status) {
                 "SUCCESS" -> {
                     // The legacy endpoint reports success over authenticated TLS, but the
@@ -408,8 +431,15 @@ class OfficialSubmissionService(
                 }
                 "FAILED" -> resolve(id, "REJECTED", result.referenceNumber,
                     taxRejectionMessage(result.errorDetails.ifEmpty { result.errorCodes }))
-                "PENDING", "IN_PROGRESS" -> resolve(id, "SUBMITTED", result.referenceNumber,
-                    "صورتحساب در صف اعتبارسنجی سامانه است.")
+                "PENDING", "IN_PROGRESS" -> {
+                    val checkedAt = Instant.ofEpochMilli(clock()).atZone(java.time.ZoneId.of("Asia/Tehran"))
+                    val time = ir.saba.invoice.domain.JalaliCalendar.fromGregorian(checkedAt.toLocalDate()) +
+                        " " + checkedAt.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
+                    val details = "استعلام شناسه ارسال: " + uidStatus +
+                        (if (referenceStatus.isNotBlank()) " | استعلام شماره پیگیری: " + referenceStatus else "")
+                    resolve(id, "SUBMITTED", result.referenceNumber,
+                        "صورتحساب در صف اعتبارسنجی سامانه است.\nآخرین استعلام: $time\n$details")
+                }
                 else -> resolve(id, "UNKNOWN", result.referenceNumber, "نتیجه قطعی نیست؛ دوباره استعلام کنید.")
             }
         } catch (failure: Exception) {

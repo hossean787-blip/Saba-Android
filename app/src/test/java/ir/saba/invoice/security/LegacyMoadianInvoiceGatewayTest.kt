@@ -107,6 +107,13 @@ class LegacyMoadianInvoiceGatewayTest {
                                 JSONObject().put("uid",uid).put("referenceNumber","legacy-ack")
                                     .put("status","SUCCESS"))))
                         }
+                        "INQUIRY_BY_REFERENCE_NUMBER" -> {
+                            val packet = envelope.getJSONObject("packet")
+                            assertEquals("A11216",packet.getString("fiscalId"))
+                            assertEquals("legacy-ack",packet.getJSONObject("data").getJSONArray("referenceNumber").getString(0))
+                            JSONObject().put("result",JSONObject().put("data",JSONArray().put(
+                                JSONObject().put("uid",uid).put("referenceNumber","legacy-ack").put("status","SUCCESS"))))
+                        }
                         else -> error("Unexpected operation")
                     }
                 }
@@ -123,8 +130,10 @@ class LegacyMoadianInvoiceGatewayTest {
             assertNull(result.fiscalId)
             assertNull(result.confirmationReferenceId)
             assertEquals("legacy-ack",result.referenceNumber)
+            val byReference=gateway.inquireByReference(company,"A11216",uid,taxId,"legacy-ack")
+            assertEquals("SUCCESS",byReference.status)
             assertEquals(listOf("GET_TOKEN","GET_SERVER_INFORMATION","INVOICE.V01",
-                "GET_TOKEN","INQUIRY_BY_UID"),calls)
+                "GET_TOKEN","INQUIRY_BY_UID","GET_TOKEN","INQUIRY_BY_REFERENCE_NUMBER"),calls)
         } finally { db.close() }
     }
     @org.junit.Test fun taxErrorRenderingRetainsActualCodesAndDescriptions() {

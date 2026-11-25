@@ -48,6 +48,7 @@ interface LegacyInvoiceGateway {
     suspend fun prepare(companyId: Long, fiscalId: String, uid: String, payload: String): LegacyPreparedInvoice
     suspend fun send(prepared: LegacyPreparedInvoice, expectedUid: String): LegacyInvoiceAcknowledgement
     suspend fun inquire(companyId: Long, fiscalId: String, uid: String, taxId: String): LegacyInvoiceInquiry
+    suspend fun inquireByReference(companyId: Long, fiscalId: String, uid: String, taxId: String, reference: String): LegacyInvoiceInquiry? = null
 }
 
 internal interface LegacyInvoiceTransport {
@@ -58,7 +59,7 @@ internal interface LegacyInvoiceTransport {
 internal class OfficialLegacyInvoiceTransport : LegacyInvoiceTransport {
     override suspend fun post(operation: String, envelope: JSONObject, headers: Map<String, String>): JSONObject =
         withContext(Dispatchers.IO) {
-            require(operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INVOICE.V01", "INQUIRY_BY_UID"))
+            require(operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INVOICE.V01", "INQUIRY_BY_UID", "INQUIRY_BY_REFERENCE_NUMBER"))
             val path = if (operation == "INVOICE.V01") "async/normal-enqueue" else "sync/" + operation
             val url = URL("https://tp.tax.gov.ir/req/api/self-tsp/" + path)
             val connection = url.openConnection() as HttpURLConnection
@@ -274,6 +275,19 @@ internal class LegacyMoadianInvoiceGateway(
         val response = sync(companyId, fiscalId, "INQUIRY_BY_UID",
             JSONArray().put(JSONObject().put("uid", uid).put("fiscalId", fiscalId)),
             token(companyId, fiscalId))
+        return parseInquiry(response, fiscalId, uid, taxId)
+    }
+
+    override suspend fun inquireByReference(companyId: Long, fiscalId: String, uid: String, taxId: String, reference: String): LegacyInvoiceInquiry {
+        require(reference.isNotBlank() && reference.length <= 200 && reference.none(Char::isISOControl))
+        val response = sync(companyId, fiscalId, "INQUIRY_BY_REFERENCE_NUMBER",
+            JSONObject().put("referenceNumber", JSONArray().put(reference)), token(companyId, fiscalId))
+        return parseInquiry(response, fiscalId, uid, taxId).also {
+            require(it.referenceNumber == reference) { "شماره پیگیری استعلام مغایرت دارد [REF-TRACKING]" }
+        }
+    }
+
+    private fun parseInquiry(response: JSONObject, fiscalId: String, uid: String, taxId: String): LegacyInvoiceInquiry {
         val raw = result(response)
         val list = (raw as? JSONObject)?.optJSONArray("data") ?: (raw as? JSONArray)
             ?: error("ساختار پاسخ استعلام معتبر نیست.")

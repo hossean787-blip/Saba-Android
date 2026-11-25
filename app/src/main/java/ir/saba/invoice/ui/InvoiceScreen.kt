@@ -546,7 +546,8 @@ private fun InvoiceScreenContent(
                 try {
                     sendProgress = "در حال استعلام وضعیت صورتحساب…"
                     val row = requireNotNull(record)
-                    officialService.inquireLegacy(row.requestId)
+                    val updated = officialService.inquireLegacy(row.requestId, crossCheckReference = true)
+                    onNotice(invoiceTaxStatus(updated))
                 } finally {
                     sendProgress = ""
                     reloadOfficial(invoice.id)
