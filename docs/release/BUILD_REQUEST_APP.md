@@ -75,3 +75,5 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.101.0: update explicit Room migration test chains to include 16->17, ensuring legacy schema migration tests reach current version. Signed build requested for final commit.
 
 0.103.0: repair stale never-prepared invoice serial on the same invoice before send confirmation; preserve original credit and lines; reject low manually entered numeric serial before debit; immutable pending/accepted/prepared records never renumbered. Added reproduction of old low draft and 2000000001 pending identity, credit and identity regression checks. No real tax submission. Signed APK requested.
+
+0.105.0: restore separate display counters (original 1000000001+, referred 2000000001+); fiscal serial is allocated independently from durable fiscal history and kept immutable for retries. Existing draft numbers never changed. Migration from shared counters uses retained ranges and existing records. Added tests for principal after higher pending fiscal identity and independent numbering. No actual tax submission. Signed build requested.

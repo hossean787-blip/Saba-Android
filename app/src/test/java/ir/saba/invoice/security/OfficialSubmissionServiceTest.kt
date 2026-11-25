@@ -520,6 +520,23 @@ class OfficialSubmissionServiceTest {
         reject{service.submit(row.requestId)};assertEquals(0,api.gets);assertEquals(0,api.posts)
     }
 
+    @Test fun lowerDisplayNumberAfterHigherFiscalSerialKeepsDisplayAndAllocatesFreshTaxId()=runBlocking {
+        val oldInvoice=db.invoiceDao().byId(invoice)!!
+        db.invoiceDao().update(oldInvoice.copy(invoiceNumber="1000000002"))
+        val prior=db.invoiceDao().insert(oldInvoice.copy(id=0,invoiceNumber="2000000001"))
+        val high=OfficialSubmission("prior",account.ownerId,company,prior,"A11216",
+            ir.saba.moadian.TaxIdGenerator.generate("A11216",2000000001L,now-1000),"{}","hash",now-1000,
+            state="SUBMITTED",referenceNumber="old-ref",protocol="LEGACY")
+        db.officialSubmissionDao().insert(high)
+        val row=prepare()
+        assertEquals("1000000002",db.invoiceDao().byId(invoice)!!.invoiceNumber)
+        assertEquals(2000000002L,ir.saba.moadian.TaxIdGenerator.validate(row.taxId).serialHex.toLong(16))
+        assertEquals(2000000002L,JSONObject(row.payload).getJSONObject("header").getString("inno").toLong(16))
+        assertEquals(high,db.officialSubmissionDao().forInvoice(prior))
+        assertEquals(row.requestId,service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164").requestId)
+        assertEquals(0,api.posts)
+    }
+
     @Test fun sameFiscalSerialCannotBeReusedByChangingDateOrLeadingZeros()=runBlocking {
         prepare()
         val original=db.invoiceDao().byId(invoice)!!
