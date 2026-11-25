@@ -23,6 +23,41 @@ internal class SuraStarterCatalog(private val context:Context) {
         private const val URL_PATH="https://fiiitzfbdjzpmepzjsjw.supabase.co/rest/v1/sura_starter_catalog?select=version,source_hash,as_of,entries&order=version.desc&limit=1"
         private const val PUBLIC_KEY="sb_publishable_loYRUibarkSaekgzXQoogQ_Ic_MlDW1"
         val groups=linkedMapOf("accounting" to 25,"computer" to 30,"technical" to 30,"auto" to 40,"other" to 25)
+        // Only the bundled asset may contain an unverified discovery catalogue.
+        // Remote publishing still uses the existing strict verified-catalog parser.
+        fun parseBundled(text:String):Snapshot {
+            require(text.toByteArray(Charsets.UTF_8).size<=LIMIT)
+            val o=JSONObject(text)
+            if(o.optString("catalog_type")!="service_candidates") return parse(text)
+            require(o.getString("official_verification")=="pending")
+            val hash=o.getString("source_hash")
+            require(hash.matches(Regex("[a-f0-9]{64}")))
+            val asOf=o.getString("retrieved_on")
+            require(asOf.matches(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}")))
+            val a=o.getJSONArray("entries")
+            require(a.length()==150 && o.getInt("count")==150)
+            val ids=HashSet<String>()
+            val entries=(0 until a.length()).map { i ->
+                val row=a.getJSONObject(i)
+                val id=row.getString("id")
+                require(id.matches(Regex("[0-9]{13}")) && ids.add(id))
+                val group=row.getString("group"); require(group in groups)
+                val description=row.getString("description")
+                require(description.isNotBlank() && description.length<=1000)
+                val kind=row.getString("kind")
+                require(kind=="شناسه عمومی خدمت")
+                require(row.getString("official_verification")=="pending")
+                require(row.getString("expiration_date_reported").isEmpty())
+                require(row.getString("source")=="Mohsensoft")
+                require(row.getString("source_url").startsWith("https://mohsensoft.com/mtax/Stuffid/"))
+                require(row.getString("vat_reported") in setOf("0","10"))
+                // Never auto-populate a tax rate from an unverified source.
+                Entry(group,SuraIdentifier(id,description,"","نیازمند استعلام رسمی",kind,"","Mohsensoft (pending)"))
+            }
+            val expected=mapOf("accounting" to 22,"computer" to 9,"auto" to 4,"technical" to 36,"other" to 79)
+            require(expected.all{(g,n)->entries.count{it.group==g}==n})
+            return Snapshot(0L,hash,asOf,entries)
+        }
         fun parse(text:String):Snapshot {
             require(text.toByteArray(Charsets.UTF_8).size<=LIMIT)
             val o=JSONObject(text)
@@ -49,7 +84,7 @@ internal class SuraStarterCatalog(private val context:Context) {
         }
     }
     fun snapshot():Snapshot?=synchronized(lock) {
-        val bundled=runCatching { context.assets.open("starter/catalog.json").bufferedReader().use{parse(it.readText())} }.getOrNull()
+        val bundled=runCatching { context.assets.open("starter/catalog.json").bufferedReader().use{parseBundled(it.readText())} }.getOrNull()
         val downloaded=runCatching {cache.openRead().use{parse(String(it.readBytes(),Charsets.UTF_8))}}.getOrNull()
         listOfNotNull(bundled,downloaded).maxByOrNull{it.version}
     }
@@ -71,7 +106,7 @@ internal class SuraStarterCatalog(private val context:Context) {
             val out=java.io.ByteArrayOutputStream()
             c.inputStream.use{input->val b=ByteArray(8192);while(true){val n=input.read(b);if(n<0)break;require(out.size()+n<=LIMIT);out.write(b,0,n)}}
             val a=JSONArray(out.toString("UTF-8"))
-            if(a.length()==0)return@withContext snapshot()?.version
+            if(a.length()==0)return@withContext snapshot()?.version?.takeIf{it>0}
             require(a.length()==1)
             val json=a.getJSONObject(0).toString()
             val candidate=parse(json)

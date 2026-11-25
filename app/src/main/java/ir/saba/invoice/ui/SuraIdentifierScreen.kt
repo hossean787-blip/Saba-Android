@@ -273,6 +273,10 @@ fun SuraIdentifierScreen(
                         Text(entry.kind + "  •  نرخ ثبت‌شده: " +
                                 if (entry.vat.isBlank()) "نامشخص" else entry.vat + "٪",
                             color = Color(0xFF617B8A), style = MaterialTheme.typography.bodySmall)
+                        if (entry.source == "Mohsensoft (pending)") Text(
+                            "شناسه پیشنهادی؛ شرح و نرخ روز را پیش از صدور از مرجع رسمی کنترل کنید.",
+                            color = Color(0xFFB05D38), style = MaterialTheme.typography.labelSmall
+                        )
                         if (entry.expirationDate.isNotBlank()) Text(
                             "تاریخ انقضای درج‌شده: " + entry.expirationDate,
                             color = Color(0xFFB05D38), style = MaterialTheme.typography.labelSmall

@@ -28,6 +28,19 @@ class SuraStarterCatalogTest {
         o.getJSONArray("entries").getJSONObject(1).put("id",o.getJSONArray("entries").getJSONObject(0).getString("id"))
         try{SuraStarterCatalog.parse(o.toString());fail("duplicate accepted")}catch(_:IllegalArgumentException){}
     }
+    @Test fun bundledServiceCandidatesHaveNoAutomaticTaxRate() {
+        val ctx=androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val raw=ctx.assets.open("starter/catalog.json").bufferedReader().use{it.readText()}
+        val snapshot=SuraStarterCatalog.parseBundled(raw)
+        assertEquals(0L,snapshot.version)
+        assertEquals(150,snapshot.entries.size)
+        assertEquals(150,snapshot.entries.map{it.value.id}.toSet().size)
+        assertTrue(snapshot.entries.all{it.value.vat.isEmpty() && it.value.kind.contains("خدمت")})
+        val bank=SuraStarterCatalog(ctx)
+        assertTrue(bank.search("2330001115075","خدمت",null,50).any{it.id=="2330001115075"})
+        assertTrue(bank.search("","کالا",null,50).isEmpty())
+        try{SuraStarterCatalog.parse(raw);fail("remote parser accepted candidate asset")}catch(_:Exception){}
+    }
     @Test fun rejectsIncompleteCatalog() {
         val o=fixture();o.getJSONArray("entries").remove(0)
         try{SuraStarterCatalog.parse(o.toString());fail("incomplete accepted")}catch(_:IllegalArgumentException){}
