@@ -35,3 +35,9 @@ Split historical UI assertion: accepted invoice remains immutable, finalized uns
 0.71.0: compact taxpayer identity, four icon navigation tabs in one row, rounded search with clear action, unified lazy page scrolling for catalog/results/saved/manual Excel, preserving catalog sources and validation. Request signed build.
 
 0.73.0: polish company invoice list with compact gradient credit panel, unified scrolling, icon refresh, full-width creation, rounded search with clear, count filters and colored official status cards. Preserve invoice detail navigation, receipt data and all edit/send/credit behavior. Request signed APK.
+
+0.75.0: preserve spaces, Persian ZWNJ and hyphens through per-keystroke invoice supplementary JSON editing. Retain length and attachment guards; trim only at final persistence. Audit customer/taxpayer/identifier text entry; no change to numeric/identity validation. Add sequential typing and serialization regression tests. Request signed APK.
+
+0.77.0: RSA 2048 export roundtrip verified by actual signing and semantic parameters; PEM picker compatibility, async file writing, visible progress and errors, volatile account-specific workshop state across recreation, clear after export/leave. Include previous authorized whitespace fix from parent commit. Request signed APK.
+
+Direct-only production mode blocks all certificate-based readiness and historic V2 inquiry routes before network; legacy records remain intact and user is directed to official portal. Add guard regression tests. No changes to APK signing or secure TLS.

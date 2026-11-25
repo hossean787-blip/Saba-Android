@@ -737,7 +737,7 @@ class MainActivity : ComponentActivity() {
                                 customers = current?.customers.orEmpty(), receipts = current?.officialReceipts.orEmpty(),
                                 onOpenInvoice = { id -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { openEventInvoiceId = id; page = Page.INVOICES } })
                             Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it }, onOpenConnection = { selectTaxpayer(it); page = Page.TAX_CONNECTION }, account = account)
-                            Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
+                            Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify, ownerId = account.ownerId)
                             Page.TAX_CONNECTION -> if (current != null) key(current.companyId) {
                                 Column(Modifier.fillMaxSize()) {
                                     TextButton(onClick = { page = Page.OFFICIAL_SUBMISSION }) { Text("ارسال و پیگیری صورتحساب رسمی") }

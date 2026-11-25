@@ -58,7 +58,7 @@ data class InvoiceLocalDetails(
     val sendLaterTime: String = "",
     val documents: List<InvoiceDocumentRef> = emptyList()
 ) {
-    fun validated(): InvoiceLocalDetails {
+    fun validated(preserveInput: Boolean = false): InvoiceLocalDetails {
         val values = listOf(
             "موضوع مالیات بند ۱۷" to article17Subject,
             "شماره سوئیچ پرداخت" to paymentSwitchNumber,
@@ -89,6 +89,9 @@ data class InvoiceLocalDetails(
         require(safeDocuments.map { it.uri }.distinct().size == safeDocuments.size) {
             "این سند قبلاً به فاکتور پیوست شده است."
         }
+        // During typing keep every character (including the trailing space before the next word).
+        // All length/document checks above still apply; normalize only at the persistence boundary.
+        if (preserveInput) return copy(documents = safeDocuments)
         return copy(
             article17Subject = article17Subject.trim(),
             paymentSwitchNumber = paymentSwitchNumber.trim(),
@@ -107,8 +110,8 @@ data class InvoiceLocalDetails(
     /** Save-time validation only; stored schedules remain readable once their date has passed. */
     fun requireValidSchedule() = InvoiceSendSchedule.requireFutureOnSave(this)
 
-    fun toJson(): String {
-        val v = validated()
+    fun toJson(preserveInput: Boolean = false): String {
+        val v = validated(preserveInput)
         val documentArray = JSONArray()
         v.documents.forEach { ref ->
             documentArray.put(JSONObject()
@@ -137,7 +140,7 @@ data class InvoiceLocalDetails(
     companion object {
         private const val MAX_JSON_LENGTH = 16000
 
-        fun fromJson(source: String): InvoiceLocalDetails {
+        fun fromJson(source: String, preserveInput: Boolean = false): InvoiceLocalDetails {
             if (source.isBlank()) return InvoiceLocalDetails()
             require(source.length <= MAX_JSON_LENGTH) { "اطلاعات تکمیلی صورتحساب بیش از حد مجاز است." }
             val json = JSONObject(source)
@@ -167,7 +170,7 @@ data class InvoiceLocalDetails(
                 sendLaterDate = json.optString("sendLaterDate"),
                 sendLaterTime = json.optString("sendLaterTime"),
                 documents = documents
-            ).validated()
+            ).validated(preserveInput)
         }
     }
 }

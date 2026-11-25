@@ -36,6 +36,7 @@ class InvoiceEventStatusTest {
         for(state in listOf("SUBMITTED","SENDING","UNKNOWN")) {
             assertFalse(canEditInvoicePreview(invoice,receipt.copy(state=state)))
             assertEquals("استعلام وضعیت ارسال",invoicePreviewAction(invoice,receipt.copy(state=state)))
+            assertNull(invoicePreviewAction(invoice,receipt.copy(state=state,protocol="V2")))
         }
         val accepted=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_UNBOUND)
         assertFalse(canEditInvoicePreview(invoice,accepted))

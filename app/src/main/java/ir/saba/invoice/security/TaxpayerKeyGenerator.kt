@@ -2,6 +2,9 @@ package ir.saba.invoice.security
 
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
+import java.security.Signature
+import java.security.SecureRandom
+import java.security.spec.X509EncodedKeySpec
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
@@ -15,14 +18,24 @@ object TaxpayerKeyGenerator {
     data class Generated(val privatePem: String, val publicPem: String)
 
     fun generate(): Generated {
-        val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+        val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048, SecureRandom()) }.generateKeyPair()
         val publicKey = pair.public as RSAPublicKey
         require(publicKey.modulus.bitLength() >= 2048)
-        val verified = KeyFactory.getInstance("RSA").generatePublic(
-            RSAPublicKeySpec(publicKey.modulus, publicKey.publicExponent)
-        )
-        require(verified.encoded.contentEquals(pair.public.encoded))
-        return Generated(pem("PRIVATE KEY", pair.private.encoded), pem("PUBLIC KEY", pair.public.encoded))
+        // Providers may encode equivalent RSA parameters differently; compare their mathematical identity.
+        val publicDer = requireNotNull(pair.public.encoded)
+        val privateDer = requireNotNull(pair.private.encoded)
+        try {
+            val publicPem = pem("PUBLIC KEY", publicDer)
+            val privatePem = pem("PRIVATE KEY", privateDer)
+            val verified = KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(publicDer)) as RSAPublicKey
+            val imported = TaxpayerPrivateKey.parse(privatePem)
+            require(verified.modulus == publicKey.modulus && verified.publicExponent == publicKey.publicExponent &&
+                imported.modulus == verified.modulus)
+            val challenge = "SURA RSA export verification".toByteArray(Charsets.US_ASCII)
+            val signature = Signature.getInstance("SHA256withRSA").run { initSign(imported); update(challenge); sign() }
+            require(Signature.getInstance("SHA256withRSA").run { initVerify(verified); update(challenge); verify(signature) })
+            return Generated(privatePem,publicPem)
+        } finally { privateDer.fill(0) }
     }
 
     /** Re-create the public PEM from an encrypted-at-rest PKCS#8 RSA CRT private key.

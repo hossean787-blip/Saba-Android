@@ -297,7 +297,7 @@ private fun InvoiceScreenContent(
                     val reference = withContext(Dispatchers.IO) {
                         InvoiceDocumentPicker.inspect(context, selected)
                     }
-                    val current = InvoiceLocalDetails.fromJson(localDetailsJson)
+                    val current = InvoiceLocalDetails.fromJson(localDetailsJson, preserveInput = true)
                     require(current.documents.size < InvoiceDocumentRef.MAX_FILES) {
                         "حداکثر پنج سند به هر صورتحساب پیوست می‌شود."
                     }
@@ -306,7 +306,7 @@ private fun InvoiceScreenContent(
                     }
                     context.contentResolver.takePersistableUriPermission(
                         selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    localDetailsJson = current.copy(documents = current.documents + reference).toJson()
+                    localDetailsJson = current.copy(documents = current.documents + reference).toJson(preserveInput = true)
                     onNotice("سند به فرم پیوست شد؛ با ذخیره پیش‌نویس ثبت می‌شود.")
                 } catch (e: Exception) {
                     onNotice(e.message ?: "خواندن سند یا دریافت دسترسی به آن ناموفق بود.")
@@ -424,7 +424,7 @@ private fun InvoiceScreenContent(
         cashPortionInput = inv.cashPaidRial?.toString().orEmpty()
         subject = inv.subject; referenceTaxId = inv.referenceTaxId.orEmpty()
         localDetailsJson = if (keepId) inv.localDetailsJson else
-            InvoiceLocalDetails.fromJson(inv.localDetailsJson).copy(sendLaterDate = "", sendLaterTime = "").toJson()
+            InvoiceLocalDetails.fromJson(inv.localDetailsJson).copy(sendLaterDate = "", sendLaterTime = "").toJson(preserveInput = true)
         lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }
         error = ""; mode = "edit"
     }
@@ -484,12 +484,12 @@ private fun InvoiceScreenContent(
             return
         }
         if (record?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED")) {
+            if(record?.protocol!="LEGACY") { onNotice("سابقه ارسال قدیمی محفوظ است؛ وضعیت را در کارپوشه بررسی کنید."); return }
             perform {
                 try {
                     sendProgress = "در حال استعلام وضعیت صورتحساب…"
                     val row = requireNotNull(record)
-                    if (row.protocol == "LEGACY") officialService.inquireLegacy(row.requestId)
-                    else officialService.inquire(row.requestId)
+                    officialService.inquireLegacy(row.requestId)
                 } finally {
                     sendProgress = ""
                     reloadOfficial(invoice.id)
@@ -596,7 +596,7 @@ private fun InvoiceScreenContent(
         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
                             InvoiceSubject.validate(subject, referenceTaxId.takeIf { it.isNotBlank() })
-                            InvoiceLocalDetails.fromJson(localDetailsJson).requireValidSchedule()
+                            InvoiceLocalDetails.fromJson(localDetailsJson, preserveInput = true).requireValidSchedule()
                             val settlementCash = InvoiceSettlement.cashFromUserInput(
                                 settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
                             )
@@ -935,7 +935,7 @@ private fun InvoiceScreenContent(
                 }
             }
             "edit" -> {
-                val local = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson) }
+                val local = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson, preserveInput = true) }
                 var retryHistory by remember(invoiceId,companyId) { mutableStateOf<RejectedSubmissionHistory?>(null) }
                 var reservedIdentity by remember(invoiceId,companyId) { mutableStateOf<OfficialSubmission?>(null) }
                 LaunchedEffect(invoiceId,companyId) {
@@ -1181,39 +1181,39 @@ private fun InvoiceScreenContent(
                                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         val fieldsEnabled = !busy && !editorLocked
                         OutlinedTextField(local.article17Subject, { localDetailsJson =
-                            local.copy(article17Subject = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                            local.copy(article17Subject = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                             label = { Text("موضوع مالیات بند ۱۷") }, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(local.paymentSwitchNumber, { localDetailsJson =
-                            local.copy(paymentSwitchNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                            local.copy(paymentSwitchNumber = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                             label = { Text("شماره سوئیچ پرداخت") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Text("روش پرداخت", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf("نقدی", "کارت به کارت", "کارتخوان", "واریز بانکی", "سایر").forEach { method ->
                                 FilterChip(selected = local.paymentMethod == method, enabled = fieldsEnabled,
-                                    onClick = { localDetailsJson = local.copy(paymentMethod = method).toJson() },
+                                    onClick = { localDetailsJson = local.copy(paymentMethod = method).toJson(preserveInput = true) },
                                     label = { Text(method) })
                             }
                         }
                         OutlinedTextField(local.paymentMethod, { localDetailsJson =
-                            local.copy(paymentMethod = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                            local.copy(paymentMethod = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                             label = { Text("روش پرداخت (قابل ویرایش)") }, modifier = Modifier.fillMaxWidth())
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             if (maxWidth >= 440.dp) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedTextField(local.paymentDate, { localDetailsJson =
-                                        local.copy(paymentDate = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        local.copy(paymentDate = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                         label = { Text("تاریخ پرداخت") }, singleLine = true, modifier = Modifier.weight(1f))
                                     OutlinedTextField(local.paymentTrackingNumber, { localDetailsJson =
-                                        local.copy(paymentTrackingNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        local.copy(paymentTrackingNumber = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                         label = { Text("شماره پیگیری") }, singleLine = true, modifier = Modifier.weight(1f))
                                 }
                             } else {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(local.paymentDate, { localDetailsJson =
-                                    local.copy(paymentDate = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    local.copy(paymentDate = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                     label = { Text("تاریخ پرداخت") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(local.paymentTrackingNumber, { localDetailsJson =
-                                    local.copy(paymentTrackingNumber = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    local.copy(paymentTrackingNumber = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                     label = { Text("شماره پیگیری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 }
                             }
@@ -1222,24 +1222,24 @@ private fun InvoiceScreenContent(
                             if (maxWidth >= 440.dp) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedTextField(local.sellerBranchCode, { localDetailsJson =
-                                        local.copy(sellerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        local.copy(sellerBranchCode = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                         label = { Text("کد شعبه فروشنده") }, singleLine = true, modifier = Modifier.weight(1f))
                                     OutlinedTextField(local.buyerBranchCode, { localDetailsJson =
-                                        local.copy(buyerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                        local.copy(buyerBranchCode = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                         label = { Text("کد شعبه خریدار") }, singleLine = true, modifier = Modifier.weight(1f))
                                 }
                             } else {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(local.sellerBranchCode, { localDetailsJson =
-                                    local.copy(sellerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    local.copy(sellerBranchCode = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                     label = { Text("کد شعبه فروشنده") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(local.buyerBranchCode, { localDetailsJson =
-                                    local.copy(buyerBranchCode = it.take(120)).toJson() }, enabled = fieldsEnabled,
+                                    local.copy(buyerBranchCode = it.take(120)).toJson(preserveInput = true) }, enabled = fieldsEnabled,
                                     label = { Text("کد شعبه خریدار") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                                 }
                             }
                         }
-                        OutlinedTextField(local.notes, { localDetailsJson = local.copy(notes = it.take(2000)).toJson() },
+                        OutlinedTextField(local.notes, { localDetailsJson = local.copy(notes = it.take(2000)).toJson(preserveInput = true) },
                             enabled = fieldsEnabled, minLines = 2, maxLines = 4,
                             label = { Text("توضیحات صورتحساب") },
                             modifier = Modifier.fillMaxWidth().testTag("invoiceLocalNotes"))
@@ -1250,25 +1250,25 @@ private fun InvoiceScreenContent(
                         "پیوست فایل، دو یادداشت و زمان پیشنهادی ارسال") {
                         val fieldsEnabled = !busy && !editorLocked && !documentBusy
                         OutlinedTextField(local.note1, {
-                            localDetailsJson = local.copy(note1 = it.take(1200)).toJson()
+                            localDetailsJson = local.copy(note1 = it.take(1200)).toJson(preserveInput = true)
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
                             label = { Text("یادداشت ۱") }, minLines = 2, maxLines = 3)
                         OutlinedTextField(local.note2, {
-                            localDetailsJson = local.copy(note2 = it.take(1200)).toJson()
+                            localDetailsJson = local.copy(note2 = it.take(1200)).toJson(preserveInput = true)
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
                             label = { Text("یادداشت ۲") }, minLines = 2, maxLines = 3)
                         Text("برای ارسال رسمی، یادداشت ۱ و ۲ هرکدام حداکثر ۳۰ نویسه دارند؛ متن بلندتر فقط برای ثبت محلی است.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary)
                         OutlinedTextField(local.invoiceDescription, {
-                            localDetailsJson = local.copy(invoiceDescription = it.take(120)).toJson()
+                            localDetailsJson = local.copy(invoiceDescription = it.take(120)).toJson(preserveInput = true)
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
                             label = { Text("شرح تکمیلی صورتحساب") })
                         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Text("علامت‌گذاری صورتحساب ماده ۹ (محلی)",
                                 modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                             Switch(checked = local.article9Flag,
-                                onCheckedChange = { localDetailsJson = local.copy(article9Flag = it).toJson() },
+                                onCheckedChange = { localDetailsJson = local.copy(article9Flag = it).toJson(preserveInput = true) },
                                 enabled = fieldsEnabled)
                         }
                         if (local.article9Flag) Text(
@@ -1295,24 +1295,24 @@ private fun InvoiceScreenContent(
                                 TextButton(enabled = fieldsEnabled, onClick = {
                                     localDetailsJson = local.copy(
                                         documents = local.documents.filterNot { it.uri == ref.uri }
-                                    ).toJson()
+                                    ).toJson(preserveInput = true)
                                 }) { Text("حذف") }
                             }
                         }
                         HorizontalDivider()
                         Text("تنظیم ارسال در آینده (اختیاری)", fontWeight = FontWeight.SemiBold)
                         OutlinedTextField(local.sendLaterDate, {
-                            localDetailsJson = local.copy(sendLaterDate = it.take(16)).toJson()
+                            localDetailsJson = local.copy(sendLaterDate = it.take(16)).toJson(preserveInput = true)
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
                             label = { Text("تاریخ شمسی ارسال در آینده (مثال: ۱۴۰۵/۰۹/۰۱)") },
                             singleLine = true)
                         OutlinedTextField(local.sendLaterTime, {
-                            localDetailsJson = local.copy(sendLaterTime = it.take(8)).toJson()
+                            localDetailsJson = local.copy(sendLaterTime = it.take(8)).toJson(preserveInput = true)
                         }, enabled = fieldsEnabled, modifier = Modifier.fillMaxWidth(),
                             label = { Text("ساعت ارسال (HH:mm)") }, singleLine = true)
                         TextButton(enabled = fieldsEnabled && (local.sendLaterDate.isNotBlank() ||
                             local.sendLaterTime.isNotBlank()), onClick = {
-                            localDetailsJson = local.copy(sendLaterDate = "", sendLaterTime = "").toJson()
+                            localDetailsJson = local.copy(sendLaterDate = "", sendLaterTime = "").toJson(preserveInput = true)
                         }) { Text("پاک‌کردن زمان ارسال") }
                         Text("تاریخ و ساعت فعلاً فقط در سند ذخیره می‌شوند؛ ارسال خودکار به سامانه مؤدیان فعال نیست.",
                             style = MaterialTheme.typography.bodySmall,
@@ -1361,7 +1361,7 @@ private fun InvoiceScreenContent(
     }
 
     if (previewDialog && mode == "edit") {
-        val localPreview = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson) }
+        val localPreview = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson, preserveInput = true) }
         AlertDialog(
             onDismissRequest = { previewDialog = false },
             modifier = Modifier.fillMaxWidth().padding(8.dp),

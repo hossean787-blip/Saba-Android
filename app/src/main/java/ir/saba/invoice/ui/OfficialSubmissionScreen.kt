@@ -183,12 +183,12 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                             }
                         }) { Text("استعلام و تأیید قابلیت ارجاع") }
                     }
-                    if(row.state in setOf("SENDING","UNKNOWN","SUBMITTED")) OutlinedButton(enabled=!busy,onClick={
-                        act {
-                            if (row.protocol == "LEGACY") service.inquireLegacy(row.requestId)
-                            else service.inquire(row.requestId)
-                        }
-                    }) { Text("استعلام همان درخواست") }
+                    if(row.state in setOf("SENDING","UNKNOWN","SUBMITTED")) {
+                        if(row.protocol=="LEGACY") OutlinedButton(enabled=!busy,onClick={
+                            act { service.inquireLegacy(row.requestId) }
+                        }) { Text("استعلام همان درخواست") }
+                        else Text("سابقه ارسال قدیمی محفوظ است؛ وضعیت را در کارپوشه بررسی کنید.")
+                    }
                 }
             }
         }

@@ -710,4 +710,18 @@ class OfficialSubmissionServiceTest {
         assertEquals(0,api.posts)
     }
 
+    @Test fun directOnlyBlocksCertificateRoutesBeforeNetworkAndPreservesOldHistory()=runBlocking {
+        val row=prepare()
+        service.submit(row.requestId)
+        val prior=db.officialSubmissionDao().byId(row.requestId)
+        val requests=api.gets+api.posts
+        val direct=OfficialSubmissionService(db,account,credentials,api,sessionCheck={},directOnly=true){now}
+        reject { direct.checkLocalSigningReadiness(company) }
+        reject { direct.checkOnlineReadiness(company) }
+        reject { direct.inquire(row.requestId) }
+        reject { direct.submit(row.requestId) }
+        assertEquals(requests,api.gets+api.posts)
+        assertEquals(prior,db.officialSubmissionDao().byId(row.requestId))
+    }
+
 }

@@ -59,6 +59,7 @@ class OfficialSubmissionService(
      * matching unexpired certificate. No HTTP calls and no invoice is submitted.
      */
     suspend fun checkLocalSigningReadiness(companyId: Long): TaxpayerCredentialProfile {
+        require(!directOnly) { "فقط مسیر مستقیم با شناسه یکتا و کلید خصوصی مجاز است." }
         sessionCheck()
         owner(companyId)
         val fiscalId = requireNotNull(db.moadianDetailsDao().byCompany(companyId)).fiscalMemoryId
@@ -447,6 +448,7 @@ class OfficialSubmissionService(
     }
 
     suspend fun inquire(id: String): OfficialSubmission {
+        require(!directOnly) { "این سابقه مربوط به مسیر قدیمی است؛ وضعیت آن را در کارپوشه بررسی کنید." }
         sessionCheck()
         val initial = row(id)
         require(initial.protocol == "V2") { "استعلام این درخواست از مسیر بدون گواهی انجام می‌شود." }

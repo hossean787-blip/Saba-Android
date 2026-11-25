@@ -558,4 +558,17 @@ class InvoiceScreenTest {
     }
 
 
+    @Test fun persianInvoiceNotesAcceptSpaceHyphenAndHalfSpaceDuringTyping() {
+        compose.setContent { Screen() }
+        openNew()
+        val field=compose.onNodeWithText("توضیحات صورتحساب")
+        field.performScrollTo().performClick()
+        field.performTextInput("بابت")
+        field.performTextInput(" ")
+        field.performTextInput("خرید")
+        field.performTextInput(" - ")
+        field.performTextInput("حساب‌داری")
+        field.assertTextContains("بابت خرید - حساب‌داری")
+    }
+
 }

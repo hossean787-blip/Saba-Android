@@ -35,6 +35,26 @@ class InvoiceLocalDetailsTest {
         } catch (_: IllegalArgumentException) {}
     }
 
+    @Test fun liveEditorRetainsPersianWhitespaceAndPunctuationAfterEachKeystroke() {
+        val typed="بابت خرید - خدمات حساب‌داری\nردیف دوم"
+        var json=""
+        for (character in typed) {
+            val current=InvoiceLocalDetails.fromJson(json,preserveInput=true)
+            json=current.copy(notes=current.notes+character,note1=current.note1+character,
+                note2=current.note2+character,invoiceDescription=current.invoiceDescription+character,
+                article17Subject=current.article17Subject+character,paymentMethod=current.paymentMethod+character)
+                .toJson(preserveInput=true)
+        }
+        val result=InvoiceLocalDetails.fromJson(json,preserveInput=true)
+        listOf(result.notes,result.note1,result.note2,result.invoiceDescription,
+            result.article17Subject,result.paymentMethod).forEach { assertEquals(typed,it) }
+        val trailing=result.copy(notes=typed+" ").toJson(preserveInput=true)
+        assertEquals(typed+" ",InvoiceLocalDetails.fromJson(trailing,preserveInput=true).notes)
+        assertEquals(typed,InvoiceLocalDetails.fromJson(trailing).notes)
+        assertEquals(typed,InvoiceLocalDetails.fromJson(result.toJson()).notes)
+        try { result.copy(note1=" ".repeat(1201)).toJson(preserveInput=true); fail("Length guard bypassed") }
+        catch(_:IllegalArgumentException) {}
+    }
     @Test fun documentNotesArticleFlagAndFutureSettingsRoundtrip() {
         val ref = InvoiceDocumentRef(
             uri = "content://com.example.documents/document/record",

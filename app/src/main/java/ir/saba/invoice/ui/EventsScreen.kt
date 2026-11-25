@@ -81,7 +81,7 @@ internal fun invoicePreviewAction(invoice:Invoice, receipt:OfficialSubmission?):
     if(receipt!=null && (receipt.invoiceId!=invoice.id || receipt.companyId!=invoice.companyId)) return null
     if(invoice.status !in setOf("DRAFT","FINALIZED")) return null
     return when {
-        receipt?.state in setOf("SENDING","UNKNOWN","SUBMITTED") -> "استعلام وضعیت ارسال"
+        receipt?.state in setOf("SENDING","UNKNOWN","SUBMITTED") -> if(receipt?.protocol=="LEGACY") "استعلام وضعیت ارسال" else null
         needsLegacyReferenceCheck(receipt) && invoiceEventStatus(invoice,receipt)!=InvoiceEventStatus.SUCCESS -> "استعلام و تطبیق مرجع"
         receipt==null && invoice.trackingCode.isNullOrBlank() ||
             receipt?.state in setOf("PREPARED","RESERVED") -> "ارسال به سامانه مؤدیان"

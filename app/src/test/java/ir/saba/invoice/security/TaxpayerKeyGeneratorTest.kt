@@ -25,8 +25,12 @@ class TaxpayerKeyGeneratorTest {
             initVerify(publicKey); update(bytes); verify(signature)
         })
         assertTrue(privateKey.modulus.bitLength() >= 2048)
-        assertEquals(generated.publicPem,
-            TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(privateKey.encoded))
+        val derived=TaxpayerKeyGenerator.publicPemFromPrivatePkcs8(privateKey.encoded)
+        val derivedDer=derived.substringAfter("-----BEGIN PUBLIC KEY-----").substringBefore("-----END PUBLIC KEY-----").filterNot{it.isWhitespace()}
+        val derivedKey=KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(Base64.getDecoder().decode(derivedDer))) as java.security.interfaces.RSAPublicKey
+        val exported=publicKey as java.security.interfaces.RSAPublicKey
+        assertEquals(exported.modulus,derivedKey.modulus)
+        assertEquals(exported.publicExponent,derivedKey.publicExponent)
     }
 
     @Test fun generatedTaxpayersDoNotShareAKey() {
