@@ -17,7 +17,7 @@ import javax.crypto.spec.PSource
 import javax.crypto.spec.SecretKeySpec
 
 /** No-certificate taxpayer self-TSP protocol (separate from certificate-based v2). */
-class LegacyPreparedInvoice(val envelope: String, val headers: Map<String, String>) {
+class LegacyPreparedInvoice(val envelope: String, val headers: Map<String, String>, val priority: Boolean = false) {
     override fun toString() = "LegacyPreparedInvoice([redacted])"
 }
 data class LegacyInvoiceAcknowledgement(val uid: String, val referenceNumber: String?)
@@ -49,6 +49,7 @@ interface LegacyInvoiceGateway {
     suspend fun send(prepared: LegacyPreparedInvoice, expectedUid: String): LegacyInvoiceAcknowledgement
     suspend fun inquire(companyId: Long, fiscalId: String, uid: String, taxId: String): LegacyInvoiceInquiry
     suspend fun inquireByReference(companyId: Long, fiscalId: String, uid: String, taxId: String, reference: String): LegacyInvoiceInquiry? = null
+    suspend fun inquireErrors(companyId: Long, fiscalId: String, uid: String, taxId: String, from: Int, to: Int): LegacyInvoiceInquiry? = null
 }
 
 internal interface LegacyInvoiceTransport {
@@ -59,8 +60,12 @@ internal interface LegacyInvoiceTransport {
 internal class OfficialLegacyInvoiceTransport : LegacyInvoiceTransport {
     override suspend fun post(operation: String, envelope: JSONObject, headers: Map<String, String>): JSONObject =
         withContext(Dispatchers.IO) {
-            require(operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INVOICE.V01", "INQUIRY_BY_UID", "INQUIRY_BY_REFERENCE_NUMBER"))
-            val path = if (operation == "INVOICE.V01") "async/normal-enqueue" else "sync/" + operation
+            require(operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INVOICE.V01", "INVOICE.V01.FAST", "INQUIRY_BY_UID", "INQUIRY_BY_REFERENCE_NUMBER", "INQUIRY_BY_TIME_RANGE"))
+            val path = when(operation) {
+                "INVOICE.V01" -> "async/normal-enqueue"
+                "INVOICE.V01.FAST" -> "async/fast-enqueue"
+                else -> "sync/" + operation
+            }
             val url = URL("https://tp.tax.gov.ir/req/api/self-tsp/" + path)
             val connection = url.openConnection() as HttpURLConnection
             try {
@@ -155,6 +160,15 @@ internal object LegacyMoadianEncryption {
     }
 }
 
+/** Routing hint from fresh HTTPS-issued token; authority still enforces permissions. */
+internal fun permitsFastSelfTsp(token:String):Boolean = runCatching {
+    val parts=token.split('.')
+    if(parts.size!=3 || parts[1].length>16000) return@runCatching false
+    val payload=JSONObject(String(Base64.getUrlDecoder().decode(parts[1]),Charsets.UTF_8))
+    val permissions=payload.optJSONArray("permissions") ?: return@runCatching false
+    (0 until permissions.length()).any { permissions.optString(it)=="self-tsp.async.fast-enqueue" }
+}.getOrDefault(false)
+
 internal class LegacyMoadianInvoiceGateway(
     private val credentials: TaxpayerCredentialRepository,
     private val transport: LegacyInvoiceTransport = OfficialLegacyInvoiceTransport(),
@@ -191,7 +205,7 @@ internal class LegacyMoadianInvoiceGateway(
 
     private suspend fun sync(companyId: Long, fiscal: String, operation: String, data: Any?, token: String? = null): JSONObject {
         val hs = headers(token)
-        val body = packet(operation, data, if (operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INQUIRY_BY_UID")) "" else fiscal)
+        val body = packet(operation, data, if (operation in setOf("GET_TOKEN", "GET_SERVER_INFORMATION", "INQUIRY_BY_UID", "INQUIRY_BY_TIME_RANGE")) "" else fiscal)
         val signature = sign(companyId, fiscal, LegacyMoadianCanonical.normalize(body, hs))
         return transport.post(operation, JSONObject().put("time", 1).put("packet", body)
             .put("signature", signature).put("signatureKeyId", JSONObject.NULL), hs)
@@ -254,13 +268,13 @@ internal class LegacyMoadianInvoiceGateway(
         val envelope = JSONObject().put("packets", JSONArray().put(row))
             .put("signature", signature).put("signatureKeyId", JSONObject.NULL)
         require(envelope.toString().length <= 4_000_000)
-        LegacyPreparedInvoice(envelope.toString(), hs)
+        LegacyPreparedInvoice(envelope.toString(), hs, subject == 2 && permitsFastSelfTsp(auth))
         }
     }
 
     override suspend fun send(prepared: LegacyPreparedInvoice, expectedUid: String): LegacyInvoiceAcknowledgement {
         // Request envelope and signed timestamp must not change between preparation and POST.
-        val response = transport.post("INVOICE.V01", JSONObject(prepared.envelope),
+        val response = transport.post(if(prepared.priority) "INVOICE.V01.FAST" else "INVOICE.V01", JSONObject(prepared.envelope),
             prepared.headers)
         val rows = result(response) as? JSONArray ?: error("رسید ارسال معتبر نیست.")
         require(rows.length() == 1)
@@ -287,12 +301,27 @@ internal class LegacyMoadianInvoiceGateway(
         }
     }
 
-    private fun parseInquiry(response: JSONObject, fiscalId: String, uid: String, taxId: String): LegacyInvoiceInquiry {
+    override suspend fun inquireErrors(companyId: Long, fiscalId: String, uid: String, taxId: String, from: Int, to: Int): LegacyInvoiceInquiry? {
+        require(from in 13000101..15991230 && to in from..15991230)
+        val response=sync(companyId,fiscalId,"INQUIRY_BY_TIME_RANGE",
+            JSONObject().put("startDate",from).put("endDate",to),token(companyId,fiscalId))
+        val rows=inquiryRows(response)
+        val matches=(0 until rows.length()).mapNotNull{rows.optJSONObject(it)}.filter{it.optString("uid")==uid}
+        require(matches.size<=1)
+        return matches.singleOrNull()?.let{parseInquiryRow(it,fiscalId,uid,taxId)}
+    }
+    private fun inquiryRows(response:JSONObject):JSONArray {
         val raw = result(response)
         val list = (raw as? JSONObject)?.optJSONArray("data") ?: (raw as? JSONArray)
             ?: error("ساختار پاسخ استعلام معتبر نیست.")
-        require(list.length() == 1)
-        val row = list.getJSONObject(0)
+        return list
+    }
+    private fun parseInquiry(response: JSONObject, fiscalId: String, uid: String, taxId: String): LegacyInvoiceInquiry {
+        val list=inquiryRows(response)
+        require(list.length()==1)
+        return parseInquiryRow(list.getJSONObject(0),fiscalId,uid,taxId)
+    }
+    private fun parseInquiryRow(row:JSONObject,fiscalId:String,uid:String,taxId:String):LegacyInvoiceInquiry {
         val returnedFiscalId = row.optString("fiscalId").takeIf { it.isNotBlank() && it != "null" }
         require(row.getString("uid") == uid) { "شناسه درخواست استعلام مغایرت دارد [REF-UID]" }
         require(returnedFiscalId == null || returnedFiscalId == fiscalId) { "حافظه مالیاتی استعلام مغایرت دارد [REF-MEMORY]" }

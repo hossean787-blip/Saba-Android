@@ -116,6 +116,14 @@ class LegacyMoadianInvoiceGatewayTest {
                                     .put("packetType","RECEIVE_INVOICE_CONFIRM")
                                     .put("data",JSONObject().put("taxResult","SUCCESS")))))
                         }
+                        "INQUIRY_BY_TIME_RANGE" -> {
+                            val packet=envelope.getJSONObject("packet")
+                            assertEquals("",packet.getString("fiscalId"))
+                            assertEquals(14050801,packet.getJSONObject("data").getInt("startDate"))
+                            JSONObject().put("result",JSONObject().put("data",JSONArray()
+                                .put(JSONObject().put("uid","other").put("status","FAILED"))
+                                .put(JSONObject().put("uid",uid).put("referenceNumber","legacy-ack").put("status","FAILED"))))
+                        }
                         else -> error("Unexpected operation")
                     }
                 }
@@ -136,9 +144,19 @@ class LegacyMoadianInvoiceGatewayTest {
             assertEquals("SUCCESS",byReference.status)
             assertEquals("SUCCESS",byReference.taxResult)
             assertEquals("RECEIVE_INVOICE_CONFIRM",byReference.packetType)
+            val error=gateway.inquireErrors(company,"A11216",uid,taxId,14050801,14050807)
+            assertEquals("FAILED",error?.status)
             assertEquals(listOf("GET_TOKEN","GET_SERVER_INFORMATION","INVOICE.V01",
-                "GET_TOKEN","INQUIRY_BY_UID","GET_TOKEN","INQUIRY_BY_REFERENCE_NUMBER"),calls)
+                "GET_TOKEN","INQUIRY_BY_UID","GET_TOKEN","INQUIRY_BY_REFERENCE_NUMBER","GET_TOKEN","INQUIRY_BY_TIME_RANGE"),calls)
         } finally { db.close() }
+    }
+    @Test fun fastQueueRequiresExplicitSelfTspPermission() {
+        fun token(permission:String):String = "a."+Base64.getUrlEncoder().withoutPadding().encodeToString(
+            JSONObject().put("permissions",JSONArray().put(permission)).toString().toByteArray())+".b"
+        assertTrue(permitsFastSelfTsp(token("self-tsp.async.fast-enqueue")))
+        assertFalse(permitsFastSelfTsp(token("tsp.async.fast-enqueue")))
+        assertFalse(permitsFastSelfTsp(token("self-tsp.async.normal-enqueue")))
+        assertFalse(permitsFastSelfTsp("opaque"))
     }
     @org.junit.Test fun taxErrorRenderingRetainsActualCodesAndDescriptions() {
         val errors=org.json.JSONArray().put(org.json.JSONObject().put("code","E123").put("message","شناسه کالا نامعتبر است"))

@@ -115,6 +115,8 @@ class OfficialSubmissionService(
             "محتوای محفوظ سند مرجع تغییر کرده است."
         }
         val previous = JSONObject(source.payload).getJSONObject("header")
+        require(header.getString("irtaxid")==source.taxId && header.getString("taxid")!=source.taxId)
+        require(ir.saba.moadian.TaxIdGenerator.validate(header.getString("taxid")).serialHex.toLong(16) > ir.saba.moadian.TaxIdGenerator.validate(source.taxId).serialHex.toLong(16)) { "سریال سند ارجاعی باید بعد از مرجع باشد." }
         require(previous.getString("taxid") == source.taxId &&
             previous.getInt("inty") == header.getInt("inty") &&
             previous.getInt("inp") == header.getInt("inp") &&
@@ -198,6 +200,7 @@ class OfficialSubmissionService(
             val payload=JSONObject(it.payload)
             val header=payload.getJSONObject("header")
             require(header.getString("taxid")==it.taxId)
+            require(ir.saba.moadian.TaxIdGenerator.generate(it.fiscalId,header.getString("inno").toLong(16),header.getLong("indatim")) == it.taxId) { "سریال، تاریخ و حافظه بسته مالیاتی مغایرت دارد." }
             val invoice = requireNotNull(db.invoiceDao().byId(it.invoiceId))
             val company = owner(it.companyId)
             val expectedSubject = InvoiceSubject.officialSubjectCode(invoice)
@@ -427,6 +430,24 @@ class OfficialSubmissionService(
                     if (second.status in setOf("SUCCESS", "FAILED")) result = second
                 }
             }
+            var rangeStatus=""
+            if(crossCheckReference && result.status in pending) {
+                val zone=java.time.ZoneId.of("Asia/Tehran")
+                val start=Instant.ofEpochMilli(initial.preparedAt).atZone(zone).toLocalDate()
+                val end=Instant.ofEpochMilli(clock()).atZone(zone).toLocalDate()
+                if(!end.isBefore(start)) {
+                    fun jalali(d:java.time.LocalDate)=ir.saba.invoice.domain.JalaliCalendar.fromGregorian(d).replace("/","").toInt()
+                    val found=try { legacyGateway.inquireErrors(initial.companyId,initial.fiscalId,initial.requestId,initial.taxId,
+                        jalali(start),jalali(minOf(end,start.plusDays(6)))) }
+                    catch(e:CancellationException){throw e}
+                    catch(_:Exception){null}
+                    if(found!=null) {
+                        validateInquiry(found)
+                        rangeStatus=inquirySummary(found)
+                        if(found.status=="FAILED" && found.referenceNumber==initial.referenceNumber) result=found
+                    } else rangeStatus="خطای منطبق دریافت نشد یا سرویس در دسترس نیست"
+                }
+            }
             when (result.status) {
                 "SUCCESS" -> {
                     // The legacy endpoint reports success over authenticated TLS, but the
@@ -442,7 +463,8 @@ class OfficialSubmissionService(
                     val time = ir.saba.invoice.domain.JalaliCalendar.fromGregorian(checkedAt.toLocalDate()) +
                         " " + checkedAt.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
                     val details = "استعلام شناسه ارسال: " + uidSummary +
-                        (if (referenceStatus.isNotBlank()) " | استعلام شماره پیگیری: " + referenceStatus else "")
+                        (if (referenceStatus.isNotBlank()) " | استعلام شماره پیگیری: " + referenceStatus else "") +
+                        (if(rangeStatus.isNotBlank()) "\nاستعلام خطا در بازه: "+rangeStatus else "")
                     resolve(id, "SUBMITTED", result.referenceNumber,
                         "صورتحساب در صف اعتبارسنجی سامانه است.\nآخرین استعلام: $time\n$details")
                 }
