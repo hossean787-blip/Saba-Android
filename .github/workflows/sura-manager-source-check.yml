@@ -1,0 +1,26 @@
+name: SURA Manager source verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sura-admin-android/**'
+      - 'supabase/functions/sura-manager-support/**'
+      - '.github/workflows/sura-manager-source-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          python3 sura-admin-android/tests/static_guard.py
+          node --check sura-admin-android/app/src/main/assets/admin/manager.js
+          node sura-admin-android/tests/backend_routes.cjs
+          node sura-admin-android/tests/manager_support.cjs
+          node sura-admin-android/tests/report_zip_test.cjs
+          node sura-admin-android/tests/manager_filters.cjs

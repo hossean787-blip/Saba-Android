@@ -1,10 +1,5 @@
 name: SURA Manager emulator smoke
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'sura-admin-android/**'
-      - '.github/workflows/sura-manager-emulator.yml'
   workflow_dispatch:
 permissions:
   contents: read

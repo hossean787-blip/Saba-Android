@@ -219,3 +219,76 @@ function startManagerIdleGuard(){
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)guard();});
 }
 window.addEventListener('DOMContentLoaded',startManagerIdleGuard);
+
+/* Manager support workspace — strictly admin-only on server and UI. */
+let supportPage=1,supportFilter='',supportOwner='',supportTicket='',supportThreadPage=1,supportPending=null;
+const SUPPORT_STATES={open:'ثبت‌شده',in_progress:'در حال بررسی',answered:'پاسخ داده‌شده',closed:'بسته'};
+async function supportFetch(route,body){
+ if(ADMIN_ROLE!=='admin'||!USER_JWT)throw Error('دسترسی مدیرکل لازم است.');
+ await ensureFreshToken();
+ const res=await fetch(SB_URL+'/functions/v1/sura-manager-support/'+route,{method:'POST',headers:{apikey:SB_ANON,authorization:'Bearer '+USER_JWT,'content-type':'application/json'},body:JSON.stringify(body)});
+ const data=await res.json().catch(()=>({error:'invalid_response'}));
+ if(res.status===401){logout();throw Error('نشست منقضی شد.');}
+ if(!res.ok||data.error)throw Error(data.error||'support_unavailable');
+ return data;
+}
+function supportPill(status){return managerPill(SUPPORT_STATES[status]||'نامشخص',status==='answered'?'green':status==='closed'?'gray':'blue');}
+function supportFilterApply(){
+ const owner=document.getElementById('support-owner').value.trim();
+ if(owner&&!validUUID(owner))return toast('شناسه حساب معتبر نیست','error');
+ supportOwner=owner;supportFilter=document.getElementById('support-state').value;supportPage=1;supportTicket='';showPage('support');
+}
+function supportGo(p){supportPage=Math.max(1,p);showPage('support');}
+function supportOpen(id){if(!validUUID(id))return;supportTicket=id;supportThreadPage=1;showPage('support');}
+function supportBack(){supportTicket='';supportThreadPage=1;showPage('support');}
+function supportThreadGo(n){supportThreadPage=Math.max(1,n);showPage('support');}
+function supportMessage(label,body,date){return '<div class="panel" style="padding:14px;margin:8px 0"><b>'+html(label)+'</b><div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">'+html(body)+'</div><small>'+html(safeTime(date))+'</small></div>';}
+async function renderSupport(c){
+ if(ADMIN_ROLE!=='admin'){c.innerHTML='<div class="config-notice">فقط مدیرکل مجاز است.</div>';return;}
+ if(!supportTicket){
+  const q={page:supportPage};if(supportFilter)q.status=supportFilter;if(supportOwner)q.owner=supportOwner;
+  const data=await supportFetch('list',q);const rows=data.tickets||[];
+  c.innerHTML='<div class="section-hero"><span class="eyebrow">SUPPORT CENTER</span><h2>مرکز پشتیبانی کاربران</h2><p>پیگیری درخواست‌ها بر اساس آخرین پیام؛ پاسخ و تغییر وضعیت با ثبت ممیزی.</p></div>'+
+   '<div class="panel" style="padding:16px"><div class="field-row"><label>وضعیت</label><select id="support-state"><option value="">همه</option>'+
+   Object.keys(SUPPORT_STATES).map(k=>'<option value="'+k+'" '+(supportFilter===k?'selected':'')+'>'+SUPPORT_STATES[k]+'</option>').join('')+
+   '</select></div><div class="field-row"><label>شناسه حساب (اختیاری)</label><input id="support-owner" dir="ltr" value="'+html(supportOwner)+'"></div><button class="action-btn" onclick="supportFilterApply()">اعمال فیلتر</button></div>'+
+   (rows.length?rows.map(t=>'<div class="panel" style="padding:15px"><div class="panel-head"><h3>'+html(t.category)+'</h3>'+supportPill(t.status)+'</div><p style="overflow-wrap:anywhere">'+html(String(t.message).slice(0,180))+'</p><div>مالک: '+managerGuid(t.owner_id)+'</div><small>آخرین پیام: '+html(t.last_sender==='customer'?'کاربر':'پشتیبانی')+' | '+html(safeTime(t.activity_at))+'</small><div><button class="action-btn" onclick="supportOpen(\''+html(t.id)+'\')">مشاهده گفتگو</button></div></div>').join(''):'<div class="empty-note">درخواستی یافت نشد.</div>')+
+   '<div class="manager-pagination"><button class="action-btn" '+(supportPage===1?'disabled':'')+' onclick="supportGo('+(supportPage-1)+')">قبلی</button><span>صفحه '+fmtNum(supportPage)+'</span><button class="action-btn" '+(rows.length<30?'disabled':'')+' onclick="supportGo('+(supportPage+1)+')">بعدی</button></div>';
+  return;
+ }
+ const data=await supportFetch('thread',{ticket:supportTicket,page:supportThreadPage});const t=data.ticket,rows=data.messages||[];
+ const pending=supportPending&&supportPending.ticket===t.id?supportPending:null;
+ c.innerHTML='<div class="section-hero"><h2>'+html(t.category)+'</h2><p dir="ltr">'+html(t.id)+'</p>'+supportPill(t.status)+'<button class="action-btn" onclick="supportBack()">بازگشت به فهرست</button></div>'+
+ '<div class="panel" style="padding:14px">مالک حساب: '+managerGuid(t.owner_id)+' '+managerUserLink(t.owner_id)+'</div>'+
+ supportMessage('درخواست اولیه کاربر',t.message,t.created_at)+(t.response?supportMessage('پاسخ اولیه',t.response,''):'')+
+ rows.slice().reverse().map(m=>supportMessage(m.sender==='customer'?'کاربر':'پشتیبانی',m.body,m.created_at)).join('')+
+ '<div class="manager-pagination"><button class="action-btn" '+(supportThreadPage===1?'disabled':'')+' onclick="supportThreadGo('+(supportThreadPage-1)+')">جدیدتر</button><button class="action-btn" '+(rows.length<30?'disabled':'')+' onclick="supportThreadGo('+(supportThreadPage+1)+')">قدیمی‌تر</button></div>'+
+ '<div class="panel" style="padding:16px"><h3>پاسخ و تغییر وضعیت</h3><div class="field-row"><label>وضعیت جدید</label><select id="support-next" '+(pending?'disabled':'')+'>'+
+ Object.keys(SUPPORT_STATES).map(k=>'<option value="'+k+'" '+((pending?pending.status:t.status)===k?'selected':'')+'>'+SUPPORT_STATES[k]+'</option>').join('')+
+ '</select></div><div class="field-row"><label>متن پاسخ (اختیاری برای تغییر وضعیت)</label><textarea id="support-reply" maxlength="4000" rows="5" '+(pending?'disabled':'')+'>'+html(pending?pending.reply:'')+'</textarea></div>'+
+ '<button class="action-btn" id="support-send" onclick="supportSubmit(\''+html(t.id)+'\',\''+html(t.status)+'\')">'+(pending?'بررسی همان عملیات':'تأیید پاسخ و وضعیت')+'</button>'+
+ (pending?'<button class="action-btn" onclick="supportAbandon()">انصراف از تلاش قبلی</button>':'')+'</div>'+
+ '<div class="panel" style="padding:16px"><h3>آخرین تغییرات ثبت‌شده</h3>'+((data.audit||[]).map(a=>'<p>'+html(SUPPORT_STATES[a.status_before])+' ← '+html(SUPPORT_STATES[a.status_after])+' | '+html(safeTime(a.created_at))+'</p>').join('')||'بدون تغییر مدیریتی')+'</div>';
+}
+async function supportSubmit(ticket,expected){
+ const btn=document.getElementById('support-send');if(!btn||btn.disabled)return;
+ if(supportPending&&supportPending.ticket!==ticket)return toast('ابتدا عملیات قبلی را تعیین تکلیف کنید','error');
+ if(!supportPending){
+  const status=document.getElementById('support-next').value,reply=document.getElementById('support-reply').value.trim();
+  if(!reply&&status===expected)return toast('پاسخ یا وضعیت جدید لازم است','error');
+  if(/-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----/i.test(reply))return toast('ارسال کلید خصوصی ممنوع است','error');
+  if(!confirm('پاسخ و وضعیت برای کاربر ثبت شود؟'))return;
+  const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+  const hex=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');
+  const request=hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
+  supportPending={ticket,expected,status,reply,request};
+ }
+ btn.disabled=true;
+ try{
+  const result=await supportFetch('act',supportPending);
+  if(result.status!=='applied'||result.request_id!==supportPending.request)throw Error('unconfirmed');
+  supportPending=null;toast('عملیات ثبت شد');supportThreadPage=1;showPage('support');
+ }catch(e){toast('عملیات تأیید نشد؛ همان تلاش را بررسی کنید. '+String(e.message),'error');showPage('support');}
+ finally{btn.disabled=false;}
+}
+function supportAbandon(){if(confirm('ممکن است عملیات قبلی ثبت شده باشد. انصراف و تازه‌سازی؟')){supportPending=null;showPage('support');}}

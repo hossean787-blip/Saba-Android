@@ -1,10 +1,5 @@
 name: SURA Manager signed release
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'sura-admin-android/**'
-      - '.github/workflows/sura-manager-signed.yml'
   workflow_dispatch:
 permissions:
   contents: read
