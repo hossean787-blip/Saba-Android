@@ -54,6 +54,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var quoteAttempt by remember { mutableIntStateOf(0) }
     var checkout by rememberSaveable { mutableStateOf(false) }
     var orderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var cancelId by remember { mutableStateOf<String?>(null) }
     var history by remember { mutableStateOf<List<org.json.JSONObject>>(emptyList()) }
     var historyReady by remember { mutableStateOf(false) }
     var checkoutBusy by remember { mutableStateOf(false) }
@@ -103,7 +104,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         .padding(horizontal=12.dp,vertical=14.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
         Text("خرید اعتبار",fontWeight=FontWeight.ExtraBold,color=deepBlue,style=MaterialTheme.typography.headlineSmall)
         if(displayedOrder!=null){
-            CardTransferPanel(accessToken,displayedOrder,onRefresh={refreshHistory()},onBack={orderId=null;checkout=false})
+            CardTransferPanel(accessToken,displayedOrder,onRefresh={refreshHistory()},onBack={orderId=null;checkout=false},onCancel={if(!checkoutBusy)cancelId=displayedOrder.getString("id")})
         }else if(checkout && q!=null && active==null){
             Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -126,7 +127,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                         if(prior!=null){orderId=prior.getString("id");checkout=false;return@payAction}
                         if(pendingOnlineId!=null){checkout=false;paymentMessage="ابتدا سفارش پرداخت قبلی را تعیین تکلیف کنید.";return@payAction}
                         try{
-                            val result=CardTransferApi.call(accessToken,"reserve",org.json.JSONObject().put("kind",q.kind).put("units",q.units).put("total",q.total))
+                            val result=CardTransferApi.call(accessToken,"reserve",org.json.JSONObject().put("kind",q.kind).put("units",q.units).put("total",q.total).put("checkoutVersion",2))
                             val id=result.getString("id")
                             refreshHistory()
                             require(history.any{it.optString("id")==id})
@@ -151,6 +152,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                         Text("سفارش پرداخت قبلی",fontWeight=FontWeight.Bold,color=deepBlue)
                         Text(if(active.optString("state")=="pending")"رسید در انتظار بررسی است؛ دوباره واریز نکنید." else "یک سفارش ثبت شده هنوز رسید ندارد.")
                         Button(onClick={orderId=active.getString("id");checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("ادامه و پیگیری سفارش")}
+                        if(active.optString("state")=="draft")TextButton(onClick={cancelId=active.getString("id")},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text("انصراف از سفارش")}
                     }
                 }
             }
@@ -251,12 +253,12 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             }
         }
 
-            val recent=history.filter{it.optString("state") in setOf("approved","rejected")}.take(5)
+            val recent=history.filter{it.optString("state") in setOf("approved","rejected","cancelled")}.take(5)
             if(recent.isNotEmpty()){
                 Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White)){
                     Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
                         Text("سوابق پرداخت",color=deepBlue,fontWeight=FontWeight.Bold)
-                        recent.forEach{r->TextButton(onClick={orderId=r.getString("id")},modifier=Modifier.fillMaxWidth()){Text((if(r.optString("state")=="approved")"تأیید شده" else "رد شده")+" | "+money(r.optLong("amount_rial"))+" ریال")}}
+                        recent.forEach{r->TextButton(onClick={orderId=r.getString("id")},modifier=Modifier.fillMaxWidth()){Text((when(r.optString("state")){"approved"->"تأیید شده";"cancelled"->"لغو شده";else->"رد شده"})+" | "+money(r.optLong("amount_rial"))+" ریال")}}
                     }
                 }
             }
@@ -266,4 +268,20 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         Text("مبالغ به ریال هستند؛ اعتبار فقط پس از تأیید سرور شارژ می‌شود.",color=Color(0xFF5F7391),style=MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
     }
+    cancelId?.let{id->
+        AlertDialog(onDismissRequest={cancelId=null},title={Text("انصراف از سفارش")},
+            text={Text("فقط اگر هیچ مبلغی برای این سفارش واریز نکرده‌اید، آن را لغو کنید. اگر واریز کرده‌اید، رسید همان سفارش را ثبت کنید.")},
+            confirmButton={TextButton(enabled=!checkoutBusy,onClick={
+                cancelId=null
+                payAction{
+                    historyReady=false
+                    val result=CardTransferApi.call(accessToken,"cancel",org.json.JSONObject().put("id",id).put("notPaid",true))
+                    require(result.optString("id")==id&&result.optString("state")=="cancelled")
+                    refreshHistory();orderId=null;checkout=false;quoteAttempt++
+                    paymentMessage="سفارش لغو شد. اکنون می‌توانید خرید جدید انجام دهید."
+                }
+            }){Text("تأیید انصراف؛ واریز نکرده‌ام",color=MaterialTheme.colorScheme.error)}},
+            dismissButton={TextButton(onClick={cancelId=null}){Text("بازگشت")}})
+    }
+
 }

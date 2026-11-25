@@ -29,6 +29,8 @@ internal object SuraErrors {
         "invalid_device" to "شناسه دستگاه تأیید نشد.",
         "invalid_invoice_key" to "شناسه درخواست صورتحساب معتبر نیست.",
         "monthly_not_enabled" to "فروش اشتراک ماهانه فعال نیست.",
+        "monthly_upgrade_required" to "برای خرید اشتراک ماهانه، برنامه را به نسخه جدید ارتقا دهید.",
+        "no_monthly_credit" to "اشتراک فعال یا اعتبار ماهانه کافی نیست.",
         "card_not_enabled" to "فروش کارت‌به‌کارت فعال نیست.",
         "price_changed" to "قیمت تغییر کرده است؛ دوباره استعلام بگیرید.",
         "price_unavailable" to "تعرفه در سرور در دسترس نیست.",
