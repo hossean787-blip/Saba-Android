@@ -37,6 +37,7 @@ internal class SuraStarterCatalog(private val context:Context) {
                 val group=row.getString("group");require(group in groups)
                 val desc=row.getString("description");require(desc.isNotBlank()&&desc.length<=1000)
                 val kind=row.getString("kind");require(kind.contains("عموم")&&kind.length<=100)
+                require(kind.contains("خدمت")==(group in setOf("accounting","technical","other")))
                 val vat=row.getString("vat");require(vat.length<=20 && (vat.isEmpty() || vat.toBigDecimalOrNull()?.let {it>=java.math.BigDecimal.ZERO&&it<=java.math.BigDecimal(100)}==true))
                 val taxable=row.getString("taxable");require(taxable.length<=100)
                 val expiry=row.getString("expiration_date");require(expiry.length<=50)

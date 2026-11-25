@@ -16,7 +16,8 @@ class SuraStarterCatalogTest {
         val a=JSONArray();var n=0
         SuraStarterCatalog.groups.forEach{(g,count)->repeat(count){
             a.put(JSONObject().put("id",(1000000000000L+n++).toString()).put("group",g)
-                .put("description","test only").put("vat","10").put("taxable","test").put("kind","شناسه عمومی خدمت")
+                .put("description","test only").put("vat","10").put("taxable","test")
+                .put("kind",if(g in setOf("accounting","technical","other"))"شناسه عمومی خدمت" else "شناسه عمومی کالا")
                 .put("expiration_date","").put("source","test"))
         }}
         return JSONObject().put("version",1).put("source_hash","a".repeat(64)).put("as_of","2026-11-06").put("entries",a)

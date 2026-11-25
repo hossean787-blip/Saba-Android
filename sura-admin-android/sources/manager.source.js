@@ -310,19 +310,26 @@ async function renderStarter(c){
  starterExpected=v?Number(v.version):0;starterDraft=null;
  c.innerHTML='<div class="section-hero"><h2>بانک عمومی منتخب</h2><p>فقط فایل استخراج‌شده از بانک کنترل‌شده؛ انتشار به همه کاربران. شناسه اختصاصی مؤدیان تغییر نمی‌کند.</p></div>'+
  '<div class="panel" style="padding:16px"><h3>نسخه جاری: '+html(String(starterExpected))+'</h3><p>'+html(v?String(v.entries.length)+' شناسه | تاریخ منبع '+v.as_of:'هنوز داده تأییدشده منتشر نشده است')+'</p>'+
- '<input type="file" id="starter-file" accept=".json,application/json" onchange="starterLoad(this)"><p id="starter-preview"></p><button class="action-btn" id="starter-publish" disabled onclick="starterPublish()">انتشار پس از تأیید منبع</button></div>';
+ '<label for="starter-json">محتوای JSON خروجی ابزار استخراج</label><textarea id="starter-json" rows="6" dir="ltr" style="width:100%" maxlength="900000" oninput="starterInvalidate()"></textarea><button class="action-btn" onclick="starterLoad()">کنترل فایل</button><p id="starter-preview"></p><div id="starter-rows" style="max-height:280px;overflow:auto"></div><button class="action-btn" id="starter-publish" disabled onclick="starterPublish()">انتشار پس از تأیید منبع</button></div>';
 }
-async function starterLoad(input){
- starterDraft=null;const b=document.getElementById('starter-publish'),p=document.getElementById('starter-preview');b.disabled=true;
+function starterInvalidate(){
+ starterDraft=null;document.getElementById('starter-publish').disabled=true;
+ document.getElementById('starter-preview').textContent='متن تغییر کرد؛ دوباره کنترل کنید.';
+ document.getElementById('starter-rows').textContent='';
+}
+function starterLoad(){
+ starterInvalidate();const b=document.getElementById('starter-publish'),p=document.getElementById('starter-preview');
  try{
-  const file=input.files[0];if(!file||file.size>900000)throw Error('حجم نامعتبر');
-  const text=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsText(file);});
+  const text=document.getElementById('starter-json').value;
+  if(!text||text.length>900000)throw Error('حجم نامعتبر');
   const d=JSON.parse(text);if(!Array.isArray(d.entries)||d.entries.length<150||d.entries.length>300||!/^[a-f0-9]{64}$/.test(d.source_hash)||!/^\d{4}-\d{2}-\d{2}$/.test(d.as_of))throw Error('ساختار منبع نامعتبر');
   const quotas={accounting:25,computer:30,technical:30,auto:40,other:25};
   const seen=new Set();for(const e of d.entries){if(!/^\d{13}$/.test(e.id)||seen.has(e.id)||!Object.prototype.hasOwnProperty.call(quotas,e.group)||!String(e.kind).includes('عموم'))throw Error('ردیف یا شناسه نامعتبر');seen.add(e.id);quotas[e.group]--;}
   if(Object.values(quotas).some(n=>n>0))throw Error('تعداد یکی از گروه‌ها کافی نیست');
   starterDraft={expected:starterExpected,source_hash:d.source_hash,as_of:d.as_of,entries:d.entries};
-  p.textContent=d.entries.length+' شناسه یکتا؛ تاریخ منبع '+d.as_of+'؛ بررسی اعتبار و نرخ رسمی بر عهده مدیر پیش از انتشار است.';b.disabled=false;
+  p.textContent=d.entries.length+' شناسه یکتا؛ تاریخ منبع '+d.as_of+'؛ بررسی اعتبار و نرخ رسمی بر عهده مدیر پیش از انتشار است.';
+  document.getElementById('starter-rows').innerHTML=d.entries.map(e=>'<p>'+html(e.id)+' | '+html(e.description)+' | '+html(e.vat||'نیازمند بررسی')+'</p>').join('');
+  b.disabled=false;
  }catch(e){p.textContent='فایل رد شد: '+String(e.message);}
 }
 async function starterPublish(){
