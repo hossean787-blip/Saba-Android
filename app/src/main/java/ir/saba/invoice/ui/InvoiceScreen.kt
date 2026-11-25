@@ -413,7 +413,7 @@ private fun InvoiceScreenContent(
         lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }
         error = ""; mode = "edit"
     }
-    fun editExistingOrCopy(loaded: InvoiceDetails) {
+    fun editExisting(loaded: InvoiceDetails) {
         perform {
             val inv = loaded.invoice
             require(db.companyDao().byId(companyId)?.purchaserId == ownerId)
@@ -422,13 +422,12 @@ private fun InvoiceScreenContent(
             require(receipt == null || (receipt.ownerId == ownerId && receipt.companyId == companyId))
             when {
                 receipt?.state == "REJECTED" -> {
-                    require(creation.pending(companyId) == null) { "ابتدا درخواست صدور ناتمام را تکمیل کنید." }
-                    beginInvoice()
-                    // beginInvoice may restore a concurrent pending claim; never overwrite it.
-                    if (pendingCreation == null) {
-                        populateEditor(current, false)
-                        onNotice("نسخه جدید قابل ویرایش است؛ سند ردشده محفوظ می‌ماند. ذخیره نسخه جدید به اعتبار نیاز دارد.")
-                    }
+                    InvoiceRepository(db).reopenRejectedForEdit(companyId,inv.id,ownerId)
+                    officialRecord=null
+                    officialByInvoice=officialByInvoice-inv.id
+                    populateEditor(repository.detailsForCompany(companyId,inv.id),true)
+                    onChanged()
+                    onNotice("همین فاکتور برای اصلاح باز شد؛ اعتبار جدید مصرف نمی‌شود. شماره مالیاتی تلاش بعدی جدید است.")
                 }
                 current.invoice.status == "DRAFT" && receipt == null -> populateEditor(current, true)
                 current.invoice.status == "FINALIZED" && (receipt == null || receipt.state == "PREPARED") -> {
@@ -800,23 +799,23 @@ private fun InvoiceScreenContent(
                                 MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant)
                         officialRecord?.takeUnless(::isLegacyEvidenceMessage)?.lastError?.takeIf { it.isNotBlank() }?.let {
-                            Text(it.take(300), color = MaterialTheme.colorScheme.error,
+                            Text(it.take(2000), color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         val canEditUnsent = invoice.trackingCode.isNullOrBlank() &&
                             (invoice.status == "DRAFT" && officialRecord == null ||
                                 invoice.status == "FINALIZED" && (officialRecord == null || officialRecord?.state == "PREPARED"))
                         if (canEditUnsent) {
-                            Button(enabled = !busy, onClick = { editExistingOrCopy(loaded) },
+                            Button(enabled = !busy, onClick = { editExisting(loaded) },
                                 modifier = Modifier.fillMaxWidth()) { Text(if (invoice.status == "DRAFT") "ویرایش پیش‌نویس" else "ویرایش فاکتور") }
                             if(invoice.status == "DRAFT") TextButton(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "delete" }) {
                                 Text("حذف پیش‌نویس", color = MaterialTheme.colorScheme.error)
                             }
                         } else if (officialRecord?.state == "REJECTED") {
-                            Text("سند ردشده محفوظ می‌ماند. برای اصلاح، نسخه جدید با شماره جدید ایجاد می‌شود؛ ذخیره آن نیازمند اعتبار است.",
+                            Text("خطای سامانه را اصلاح کنید؛ همین فاکتور با همان اعتبار و شماره مالیاتی جدید دوباره قابل ارسال است.",
                                 style = MaterialTheme.typography.bodySmall)
-                            Button(enabled = !busy, onClick = { editExistingOrCopy(loaded) },
-                                modifier = Modifier.fillMaxWidth()) { Text("ویرایش و ایجاد نسخه جدید") }
+                            Button(enabled = !busy, onClick = { editExisting(loaded) },
+                                modifier = Modifier.fillMaxWidth()) { Text("اصلاح و ویرایش همین فاکتور") }
                         } else Text("سند ارسال‌شده قابل ویرایش یا حذف نیست.")
                     } else if (!busy) OutlinedButton(onClick = { mode = "list" }) { Text("بازگشت و تلاش مجدد") }
                     Spacer(Modifier.height(16.dp))
@@ -824,9 +823,22 @@ private fun InvoiceScreenContent(
             }
             "edit" -> {
                 val local = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson) }
+                val retryHistory by produceState<RejectedSubmissionHistory?>(null,invoiceId,companyId) {
+                    value=invoiceId?.let{db.rejectedSubmissionHistoryDao().forInvoice(it).firstOrNull{row->row.ownerId==ownerId && row.companyId==companyId}}
+                }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     InvoiceEditorHeading(seller = sellerName, editingDraft = invoiceId != null, lineCount = lines.size)
+                    retryHistory?.let { prior ->
+                        Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("خطای آخرین ارسال ناموفق",fontWeight=FontWeight.Bold)
+                                Text(prior.lastError?.take(2000) ?: "سامانه جزئیات خطا ارائه نکرده است.")
+                                Text("شماره مالیاتی قبلی: "+prior.taxId,style=MaterialTheme.typography.bodySmall)
+                                Text("اصلاح همین فاکتور بدون مصرف اعتبار دوباره",style=MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                     InvoiceEditorProgress(
                         headerReady = date.isNotBlank() && (automaticNumber || number.isNotBlank()),
                         buyerReady = customerId != null,

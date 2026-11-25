@@ -243,4 +243,35 @@ class InvoiceCreationCoordinatorTest {
             assertEquals("REJECTED",db.officialSubmissionDao().forInvoice(id)!!.state)
         } finally { db.close() }
     }
+    @Test fun rejectedRetryKeepsInvoiceIdAndCreditAndArchivesOriginalAttempt()=runBlocking {
+        val db=database()
+        try {
+            val (company,customer)=seed(db)
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId=company,fiscalMemoryId="ABC123"))
+            val backend=Backend()
+            val coordinator=InvoiceCreationCoordinator(db,account,backend::authorize)
+            val claim=coordinator.prepare(company,input(customer),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)
+            val id=coordinator.finish(claim.requestId)
+            val repository=InvoiceRepository(db)
+            repository.finalizeDraft(company,id)
+            val taxId=ir.saba.moadian.TaxIdGenerator.generate("ABC123",12,1700000000000L)
+            val failed=OfficialSubmission("failed",account.ownerId,company,id,"ABC123",taxId,"{}","hash",1,
+                state="REJECTED",referenceNumber="ref",lastError="E123 — خطای آزمون",protocol="LEGACY")
+            db.officialSubmissionDao().insert(failed)
+            db.invoiceDao().update(db.invoiceDao().byId(id)!!.copy(trackingCode="ref"))
+            repository.reopenRejectedForEdit(company,id,account.ownerId)
+            val reopened=db.invoiceDao().byId(id)!!
+            assertEquals("DRAFT",reopened.status);assertNull(reopened.trackingCode)
+            assertNotEquals("12",reopened.invoiceNumber);assertNull(db.officialSubmissionDao().forInvoice(id))
+            val archived=db.rejectedSubmissionHistoryDao().forInvoice(id).single()
+            assertEquals(taxId,archived.taxId);assertEquals("ref",archived.referenceNumber)
+            assertEquals(failed.lastError,archived.lastError);assertEquals(failed.payload,archived.payload)
+            expectRejected { repository.saveDraft(company,customer,"12","1405/08/12",input(customer).lines,id) }
+            repository.saveDraft(company,customer,reopened.invoiceNumber,"1405/08/12",input(customer).lines,id)
+            repository.finalizeDraft(company,id)
+            assertEquals(1,db.invoiceDao().forCompany(company).size)
+            assertEquals(1,backend.consumed.size)
+            assertNotNull(db.quotaDao().useForInvoice(id))
+        }finally{db.close()}
+    }
 }

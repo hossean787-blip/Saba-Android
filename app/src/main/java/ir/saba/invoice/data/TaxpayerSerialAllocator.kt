@@ -11,15 +11,15 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
     }
 
     /** Reserve at persistence time; re-checks conflicts within the same transaction. */
-    suspend fun reserve(companyId: Long, reference: Boolean = false): String = db.withTransaction {
-        val next = nextAvailable(companyId, reference)
+    suspend fun reserve(companyId: Long, reference: Boolean = false, minimum:Long = 1L): String = db.withTransaction {
+        val next = nextAvailable(companyId, reference,minimum)
         val details = requireNotNull(db.moadianDetailsDao().byCompany(companyId))
         db.moadianDetailsDao().upsert(if (reference) details.copy(nextReferenceSerial = next + 1)
             else details.copy(nextInvoiceSerial = next + 1))
         next.toString().padStart(10, '0')
     }
 
-    private suspend fun nextAvailable(companyId: Long, reference: Boolean): Long {
+    private suspend fun nextAvailable(companyId: Long, reference: Boolean, minimum:Long=1L): Long {
         val details = db.moadianDetailsDao().byCompany(companyId)
             ?: throw IllegalArgumentException("ابتدا مشخصات مؤدی را تکمیل کنید.")
         require(!details.inactive) { "مودی غیرفعال است." }
@@ -33,7 +33,7 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
             MoadianFieldValidation.digits(configured).toLong()
         }
         val previous = if (reference) details.nextReferenceSerial else details.nextInvoiceSerial
-        var next = maxOf(start, previous ?: start)
+        var next = maxOf(start, previous ?: start, minimum)
         // Existing numeric invoice numbers share one namespace per taxpayer.
         val used = db.invoiceDao().forCompany(companyId).mapNotNull {
             ir.saba.invoice.domain.InvoiceInput.number(it.invoiceNumber).toLongOrNull()
@@ -41,6 +41,7 @@ class TaxpayerSerialAllocator(private val db: SabaDatabase) {
         db.invoiceCreationClaimDao().pending(companyId)?.let {
             ir.saba.invoice.domain.InvoiceInput.number(org.json.JSONObject(it.payloadJson).getString("number")).toLongOrNull()?.let(used::add)
         }
+        db.rejectedSubmissionHistoryDao().forCompany(companyId).mapNotNull { ir.saba.invoice.domain.InvoiceInput.number(it.invoiceNumber).toLongOrNull() }.forEach(used::add)
         while (next in used) next++
         require(next <= 9999999999L) { "ظرفیت سریال ۱۰ رقمی تمام شده است." }
         // Do not allow the primary sequence to enter the reference reservation range.

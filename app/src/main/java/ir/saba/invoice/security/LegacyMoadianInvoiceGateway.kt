@@ -21,7 +21,7 @@ class LegacyPreparedInvoice(val envelope: String, val headers: Map<String, Strin
     override fun toString() = "LegacyPreparedInvoice([redacted])"
 }
 data class LegacyInvoiceAcknowledgement(val uid: String, val referenceNumber: String?)
-data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>, val fiscalId: String? = null)
+data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>, val fiscalId: String? = null, val errorDetails: List<String> = emptyList())
 
 /** Safe diagnostic: do not include raw server messages or credentials. */
 internal class LegacyPreflightFailure(stage: String, cause: Exception) : IllegalStateException(
@@ -288,6 +288,20 @@ internal class LegacyMoadianInvoiceGateway(
         val codes = row.optJSONObject("data")?.optJSONArray("error")
         val errors = if (codes == null) emptyList() else (0 until minOf(codes.length(), 20))
             .mapNotNull { codes.optJSONObject(it)?.optString("code")?.takeIf { c -> c.matches(Regex("[A-Za-z0-9_-]{1,40}")) } }
-        return LegacyInvoiceInquiry(uid, returnedTaxId, ref, row.getString("status"), errors, returnedFiscalId)
+        return LegacyInvoiceInquiry(uid, returnedTaxId, ref, row.getString("status"), errors, returnedFiscalId, taxErrorDetails(codes))
     }
 }
+
+/** Render only bounded official error codes/descriptions, never the raw response or credentials. */
+internal fun taxErrorDetails(errors:JSONArray?):List<String> = if(errors==null) emptyList() else
+    (0 until minOf(errors.length(),20)).mapNotNull { i ->
+        val item=errors.optJSONObject(i) ?: return@mapNotNull null
+        val code=item.optString("code").takeIf{it.matches(Regex("[A-Za-z0-9_-]{1,40}"))}
+        val message=listOf("message","description","detail").firstNotNullOfOrNull{key->
+            item.optString(key).takeIf{it.isNotBlank() && it!="null"}?.filterNot{it.isISOControl()}?.trim()?.take(240)?.takeIf{it.isNotBlank()}
+        }
+        listOfNotNull(code,message).joinToString(" — ").takeIf{it.isNotBlank()}
+    }
+internal fun taxRejectionMessage(details:List<String>):String =
+    if(details.isEmpty()) "صورتحساب رد شد؛ سامانه شرح یا کد خطا ارائه نکرده است."
+    else "صورتحساب رد شد؛ خطای سامانه: "+details.joinToString(" | ").take(1800)

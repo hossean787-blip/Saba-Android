@@ -50,6 +50,7 @@ object OfficialReferenceEvidence {
     @Query("UPDATE official_submissions SET lastError=:evidence WHERE requestId=:id AND protocol='LEGACY' AND state='ACCEPTED' AND referenceNumber=:reference AND signedReceipt IS NULL")
     suspend fun confirmLegacyReference(id: String, reference: String, evidence: String): Int
     @Query("DELETE FROM official_submissions WHERE requestId=:id AND state='PREPARED'") suspend fun discardPrepared(id: String): Int
+    @Query("DELETE FROM official_submissions WHERE requestId=:id AND ownerId=:ownerId AND state='REJECTED'") suspend fun archiveRejected(id: String, ownerId: String): Int
     @Query("UPDATE official_submissions SET state='SENDING', lastError=NULL WHERE requestId=:id AND state='PREPARED'")
     suspend fun claim(id: String): Int
     @Query("UPDATE official_submissions SET lastError=:message WHERE requestId=:id AND ownerId=:ownerId AND state='PREPARED'")
@@ -63,4 +64,21 @@ data class LegacyImportReceipt(@PrimaryKey val companyId: Long, val ownerId: Str
 @Dao interface LegacyImportReceiptDao {
     @Insert suspend fun insert(row: LegacyImportReceipt)
     @Query("SELECT * FROM legacy_import_receipts WHERE companyId=:id") suspend fun byCompany(id: Long): LegacyImportReceipt?
+}
+
+/** A definitively rejected attempt is retained verbatim before the same invoice is reopened. */
+@Entity(tableName="rejected_submission_history", foreignKeys=[
+    ForeignKey(entity=Invoice::class,parentColumns=["id"],childColumns=["invoiceId"],onDelete=ForeignKey.RESTRICT)
+], indices=[Index("invoiceId"),Index("fiscalId"),Index(value=["taxId"],unique=true)])
+data class RejectedSubmissionHistory(
+    @PrimaryKey val requestId:String, val ownerId:String, val companyId:Long, val invoiceId:Long,
+    val fiscalId:String, val taxId:String, val invoiceNumber:String, val payload:String,
+    val payloadHash:String, val preparedAt:Long, val referenceNumber:String?, val lastError:String?,
+    val signedReceipt:String?, val protocol:String, val archivedAt:Long
+)
+@Dao interface RejectedSubmissionHistoryDao {
+    @Insert suspend fun insert(row:RejectedSubmissionHistory)
+    @Query("SELECT * FROM rejected_submission_history WHERE invoiceId=:id ORDER BY archivedAt DESC") suspend fun forInvoice(id:Long):List<RejectedSubmissionHistory>
+    @Query("SELECT * FROM rejected_submission_history WHERE fiscalId=:id") suspend fun forFiscalMemory(id:String):List<RejectedSubmissionHistory>
+    @Query("SELECT * FROM rejected_submission_history WHERE companyId=:id") suspend fun forCompany(id:Long):List<RejectedSubmissionHistory>
 }

@@ -164,8 +164,9 @@ class OfficialSubmissionService(
         }
         val taxId = JSONObject(payload).getJSONObject("header").getString("taxid")
         val serial = ir.saba.moadian.TaxIdGenerator.validate(taxId).serialHex.toLong(16)
-        require(db.officialSubmissionDao().forFiscalMemory(details.fiscalMemoryId).none {
-            ir.saba.moadian.TaxIdGenerator.validate(it.taxId).serialHex.toLong(16) >= serial
+        require((db.officialSubmissionDao().forFiscalMemory(details.fiscalMemoryId).map { it.taxId } +
+            db.rejectedSubmissionHistoryDao().forFiscalMemory(details.fiscalMemoryId).map { it.taxId }).none {
+            ir.saba.moadian.TaxIdGenerator.validate(it).serialHex.toLong(16) >= serial
         }) { "سریال مالیاتی باید از سریال‌های ثبت‌شده این حافظه بزرگ‌تر باشد؛ تغییر تاریخ یا صفرهای ابتدا مجوز تکرار نمی‌دهد." }
         OfficialSubmission(UUID.randomUUID().toString(),account.ownerId,companyId,invoiceId,details.fiscalMemoryId,taxId,payload,
             SubmissionPreparation.sha256Hex(payload.toByteArray(Charsets.UTF_8)),clock(),protocol=protocol).also { db.officialSubmissionDao().insert(it) }
@@ -390,7 +391,7 @@ class OfficialSubmissionService(
                     resolve(id, "ACCEPTED", result.referenceNumber, evidence)
                 }
                 "FAILED" -> resolve(id, "REJECTED", result.referenceNumber,
-                    "صورتحساب رد شد. کدهای خطا: " + result.errorCodes.joinToString("، "))
+                    taxRejectionMessage(result.errorDetails.ifEmpty { result.errorCodes }))
                 "PENDING", "IN_PROGRESS" -> resolve(id, "SUBMITTED", result.referenceNumber,
                     "صورتحساب در صف اعتبارسنجی سامانه است.")
                 else -> resolve(id, "UNKNOWN", result.referenceNumber, "نتیجه قطعی نیست؛ دوباره استعلام کنید.")
@@ -456,12 +457,7 @@ class OfficialSubmissionService(
                 }
                 "FAILED" -> {
                     val codes = result.optJSONObject("data")?.optJSONArray("error")
-                    val message = if (codes == null) "صورتحساب در سامانه رد شد." else {
-                        val safeCodes = (0 until minOf(codes.length(),20)).mapNotNull { i ->
-                            codes.optJSONObject(i)?.optString("code")?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{1,40}")) }
-                        }
-                        "صورتحساب رد شد. کد خطا: " + safeCodes.joinToString(", ")
-                    }
+                    val message = taxRejectionMessage(taxErrorDetails(codes))
                     resolve(id,"REJECTED",reference,message)
                 }
                 "IN_PROGRESS" -> resolve(id,"SUBMITTED",reference,"در صف اعتبارسنجی سامانه")

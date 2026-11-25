@@ -23,3 +23,5 @@ Version 0.59.0: match approved landscape invoice sample, use bundled Vazirmatn a
 0.63.0: card opens its own invoice; success/pending/unknown direct PDF preview; rejected or unsent/draft details with edit. Rejected original immutable, explicit new invoice only on user save; finalized unsent reopened transactionally without new debit, PREPARED may be discarded only before claim. Add routing and credit-preservation regression tests. Request signed build.
 
 Preserve existing draft edit label for accessibility/regression; preflight failure is unsent, not an ambiguous inquiry. Successful event preview is read-only with PDF output; normal manual preview retains prior controls.
+
+0.65.0: Rejected invoices reopen the same local invoice ID and reuse its recorded credit, retaining rejected request payload and error history in schema 16. New fiscal serial prevents reusing prior tax IDs. No retry of ambiguous or accepted requests. Preserve history in account archive, accept schema 15 backups, show bounded official error details in the editor. Add transaction and migration regression coverage. Request signed APK.

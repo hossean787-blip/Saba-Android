@@ -51,6 +51,7 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 else if (existingInvoiceId != null) db.invoiceDao().byId(existingInvoiceId)?.invoiceNumber.orEmpty()
                 else TaxpayerSerialAllocator(db).reserve(companyId)
             require(normalizedNumber.isNotEmpty()) { "شماره فاکتور الزامی است." }
+            require(db.rejectedSubmissionHistoryDao().forCompany(companyId).none { InvoiceInput.number(it.invoiceNumber)==InvoiceInput.number(normalizedNumber) }) { "این شماره در سابقه ارسال ناموفق استفاده شده؛ شماره جدید را حفظ کنید." }
             val customer = db.customerDao().byId(customerId) ?: throw IllegalArgumentException("مشتری پیدا نشد.")
             require(customer.companyId == companyId) { "مشتری به شرکت انتخاب‌شده تعلق ندارد." }
             val duplicate = db.invoiceDao().byNumber(companyId, normalizedNumber)
@@ -134,6 +135,36 @@ class InvoiceRepository(private val db: SabaDatabase) {
             db.invoiceLineDao().insertAll(lines.map { it.copy(id = 0, invoiceId = invoiceId) })
             invoiceId
         }
+    }
+
+    /** Reopen only an explicitly rejected invoice, atomically retaining its immutable attempt.
+     * Same local invoice ID and quota use; a fresh fiscal serial prevents reuse on resubmission. */
+    suspend fun reopenRejectedForEdit(companyId:Long, invoiceId:Long, ownerId:String) = db.withTransaction {
+        require(db.companyDao().byId(companyId)?.purchaserId == ownerId)
+        val profile=requireNotNull(db.moadianDetailsDao().byCompany(companyId))
+        require(!profile.inactive)
+        val invoice=requireNotNull(db.invoiceDao().byId(invoiceId))
+        require(invoice.companyId==companyId && invoice.status=="FINALIZED")
+        val row=requireNotNull(db.officialSubmissionDao().forInvoice(invoiceId))
+        require(row.state=="REJECTED" && row.ownerId==ownerId && row.companyId==companyId &&
+            row.fiscalId==profile.fiscalMemoryId && row.signedReceipt.isNullOrBlank()) {
+            "فقط سند صریحاً ردشده با همین حافظه مالیاتی قابل اصلاح است."
+        }
+        require(db.quotaDao().useForInvoice(invoiceId)!=null || db.legacyQuotaExemptionDao().contains(invoiceId)==1) {
+            "سابقه اعتبار این سند باید بررسی شود."
+        }
+        require(invoice.trackingCode.isNullOrBlank() || invoice.trackingCode==row.referenceNumber)
+        val allTaxIds=db.officialSubmissionDao().forFiscalMemory(row.fiscalId).map{it.taxId}+
+            db.rejectedSubmissionHistoryDao().forFiscalMemory(row.fiscalId).map{it.taxId}
+        val minSerial=allTaxIds.maxOf{ir.saba.moadian.TaxIdGenerator.validate(it).serialHex.toLong(16)}+1
+        val nextNumber=TaxpayerSerialAllocator(db).reserve(companyId,invoice.subject!=InvoiceSubject.ORIGINAL,minSerial)
+        db.rejectedSubmissionHistoryDao().insert(RejectedSubmissionHistory(row.requestId,ownerId,companyId,invoiceId,
+            row.fiscalId,row.taxId,invoice.invoiceNumber,row.payload,row.payloadHash,row.preparedAt,row.referenceNumber,
+            row.lastError,row.signedReceipt,row.protocol,System.currentTimeMillis()))
+        check(db.officialSubmissionDao().archiveRejected(row.requestId,ownerId)==1)
+        val local=InvoiceLocalDetails.fromJson(invoice.localDetailsJson).copy(sendLaterDate="",sendLaterTime="")
+        db.invoiceDao().update(invoice.copy(status="DRAFT",invoiceNumber=nextNumber,trackingCode=null,
+            localDetailsJson=local.toJson()))
     }
 
     /** Explicit edit of a finalized but never posted invoice. The credit record is retained. */
