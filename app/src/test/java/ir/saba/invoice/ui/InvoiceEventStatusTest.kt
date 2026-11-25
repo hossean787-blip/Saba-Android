@@ -21,6 +21,12 @@ class InvoiceEventStatusTest {
         assertEquals(InvoiceEventStatus.DRAFT,invoiceEventStatus(invoice.copy(status="DRAFT"),null))
         assertEquals(InvoiceEventStatus.UNSENT,invoiceEventStatus(invoice,receipt.copy(companyId=99,state="REJECTED")))
     }
+    @Test fun routeOpensPdfOnlyForSubmittedOrUncertainResults() {
+        for(status in InvoiceEventStatus.values()) {
+            assertEquals(status in setOf(InvoiceEventStatus.SUCCESS,InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK),
+                invoiceEventOpensPreview(status))
+        }
+    }
     @Test fun titleUsesOnlyMatchingCustomer() {
         assertEquals("صورتحساب مشتری آزمایشی",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=2,name="مشتری آزمایشی"))))
         assertEquals("صورتحساب مشتری نامشخص",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=99,name="نام دیگر"))))

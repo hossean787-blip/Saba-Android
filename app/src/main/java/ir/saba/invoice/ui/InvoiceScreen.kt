@@ -142,11 +142,14 @@ fun InvoiceScreen(
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {},
     onOpenOfficialSubmission: () -> Unit = {},
-    creditGateway: InvoiceCreditGateway? = null
+    creditGateway: InvoiceCreditGateway? = null,
+    openEventInvoiceId: Long? = null,
+    onEventInvoiceHandled: () -> Unit = {},
+    onBackToEvents: () -> Unit = {}
 ) {
     val states = rememberSaveableStateHolder()
     states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
-        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway) }
+        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents) }
     }
 }
 
@@ -166,7 +169,10 @@ private fun InvoiceScreenContent(
     newInvoiceRequest: Int = 0,
     onNewInvoiceRequestHandled: () -> Unit = {},
     onOpenOfficialSubmission: () -> Unit = {},
-    creditGateway: InvoiceCreditGateway? = null
+    creditGateway: InvoiceCreditGateway? = null,
+    openEventInvoiceId: Long? = null,
+    onEventInvoiceHandled: () -> Unit = {},
+    onBackToEvents: () -> Unit = {}
 ) {
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
     val activeGateway = remember(account,creditGateway) { creditGateway ?: ServerInvoiceCreditGateway(account) }
@@ -217,6 +223,8 @@ private fun InvoiceScreenContent(
         sellerName = db.companyDao().byId(companyId)?.name.orEmpty()
     }
     var mode by rememberSaveable { mutableStateOf("list") }
+    var fromEvents by rememberSaveable { mutableStateOf(false) }
+    fun backFromInvoice() { if (fromEvents) { fromEvents = false; mode = "list"; onBackToEvents() } else mode = "list" }
     var invoiceId by rememberSaveable { mutableStateOf<Long?>(null) }
     var number by rememberSaveable { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf("") }
@@ -355,9 +363,17 @@ private fun InvoiceScreenContent(
         }
     }
     var lastHandledNewInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(openEventInvoiceId) {
+        val id = openEventInvoiceId ?: return@LaunchedEffect
+        fromEvents = true
+        invoiceId = id
+        error = ""
+        mode = "event_open"
+        onEventInvoiceHandled()
+    }
     LaunchedEffect(newInvoiceRequest) {
         if(newInvoiceRequest>lastHandledNewInvoiceRequest) {
-            lastHandledNewInvoiceRequest=newInvoiceRequest;onNewInvoiceRequestHandled()
+            lastHandledNewInvoiceRequest=newInvoiceRequest;onNewInvoiceRequestHandled();fromEvents=false
             beginInvoice()
         }
     }
@@ -378,6 +394,52 @@ private fun InvoiceScreenContent(
                 } else SuraErrors.transport(e) ?: if (e is ArithmeticException) "مبلغ فاکتور بیش از محدوده مجاز است." else e.message ?: "عملیات انجام نشد؛ دوباره تلاش کنید."
                 onNotice(error)
             } finally { busy = false }
+        }
+    }
+
+    fun populateEditor(loaded: InvoiceDetails, keepId: Boolean) {
+        val inv = loaded.invoice
+        if (keepId) {
+            invoiceId = inv.id; number = inv.invoiceNumber; date = inv.issueDate
+        } else {
+            invoiceId = null
+            if (inv.subject != InvoiceSubject.ORIGINAL && automaticNumber) number = ""
+        }
+        customerId = inv.customerId; settlementMode = inv.settlementMode
+        cashPortionInput = inv.cashPaidRial?.toString().orEmpty()
+        subject = inv.subject; referenceTaxId = inv.referenceTaxId.orEmpty()
+        localDetailsJson = if (keepId) inv.localDetailsJson else
+            InvoiceLocalDetails.fromJson(inv.localDetailsJson).copy(sendLaterDate = "", sendLaterTime = "").toJson()
+        lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }
+        error = ""; mode = "edit"
+    }
+    fun editExistingOrCopy(loaded: InvoiceDetails) {
+        perform {
+            val inv = loaded.invoice
+            require(db.companyDao().byId(companyId)?.purchaserId == ownerId)
+            val current = repository.detailsForCompany(companyId, inv.id)
+            val receipt = db.officialSubmissionDao().forInvoice(inv.id)
+            require(receipt == null || (receipt.ownerId == ownerId && receipt.companyId == companyId))
+            when {
+                receipt?.state == "REJECTED" -> {
+                    require(creation.pending(companyId) == null) { "ابتدا درخواست صدور ناتمام را تکمیل کنید." }
+                    beginInvoice()
+                    // beginInvoice may restore a concurrent pending claim; never overwrite it.
+                    if (pendingCreation == null) {
+                        populateEditor(current, false)
+                        onNotice("نسخه جدید قابل ویرایش است؛ سند ردشده محفوظ می‌ماند. ذخیره نسخه جدید به اعتبار نیاز دارد.")
+                    }
+                }
+                current.invoice.status == "DRAFT" && receipt == null -> populateEditor(current, true)
+                current.invoice.status == "FINALIZED" && (receipt == null || receipt.state == "PREPARED") -> {
+                    InvoiceRepository(db).reopenUnsentForEdit(companyId, inv.id, ownerId)
+                    officialRecord = null
+                    officialByInvoice = officialByInvoice - inv.id
+                    populateEditor(repository.detailsForCompany(companyId, inv.id), true)
+                    onChanged()
+                }
+                else -> error("این سند قابل ویرایش نیست؛ وضعیت سامانه را استعلام کنید.")
+            }
         }
     }
 
@@ -402,7 +464,7 @@ private fun InvoiceScreenContent(
                 } finally {
                     sendProgress = ""
                     reloadOfficial(invoice.id)
-                    mode = "details"
+                    mode = if (fromEvents) "template" else "details"
                 }
             }
             return
@@ -417,7 +479,7 @@ private fun InvoiceScreenContent(
                 } finally {
                     sendProgress = ""
                     reloadOfficial(invoice.id)
-                    mode = "details"
+                    mode = if (fromEvents) "template" else "details"
                 }
             }
             return
@@ -548,7 +610,7 @@ private fun InvoiceScreenContent(
     }
 
     LaunchedEffect(mode, invoiceId) {
-        if ((mode == "details" || mode == "template") && invoiceId != null) {
+        if ((mode == "details" || mode == "template" || mode == "event_open") && invoiceId != null) {
             details = null
             officialRecord = null
             busy = true
@@ -557,6 +619,17 @@ private fun InvoiceScreenContent(
                 details = repository.detailsForCompany(companyId, id)
                 officialRecord = db.officialSubmissionDao().forInvoice(id)
                     ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
+                if (mode == "event_open") {
+                    val loaded = requireNotNull(details)
+                    if (invoiceEventOpensPreview(invoiceEventStatus(loaded.invoice, officialRecord))) {
+                        templateCompany = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
+                            ?: error("مودی یافت نشد.")
+                        mode = "template"
+                    } else mode = "details"
+                } else if (mode == "template" && templateCompany == null) {
+                    templateCompany = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
+                        ?: error("مودی یافت نشد.")
+                }
             }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { error = SuraErrors.describe(e,"جزئیات فاکتور بارگذاری نشد. [INVOICE-READ]") }
@@ -566,7 +639,7 @@ private fun InvoiceScreenContent(
 
     BackHandler(enabled = mode != "list") {
         if (!busy) {
-            if (mode == "edit") confirmation = "leave" else { mode = "list"; error = "" }
+            if (mode == "edit") confirmation = "leave" else { backFromInvoice(); error = "" }
         }
     }
 
@@ -581,6 +654,7 @@ private fun InvoiceScreenContent(
             if (sendProgress.isNotBlank()) Text(sendProgress)
         }
         when (mode) {
+            "event_open" -> { if (!busy) TextButton(onClick = { backFromInvoice() }) { Text("بازگشت به فاکتورها") } }
             "template" -> {
                 val loaded = details
                 val customer = loaded?.invoice?.let { inv -> customers.firstOrNull { it.id == inv.customerId } }
@@ -591,9 +665,9 @@ private fun InvoiceScreenContent(
                             exportBytes = bytes
                             pdfExport.launch("SURA-${loaded.invoice.invoiceNumber}.pdf")
                         },
-                        onBack = { mode = "details" },
+                        onBack = { if (fromEvents) backFromInvoice() else mode = "details" },
                         onSend = { requestOfficialSend(loaded) },
-                        official = officialRecord, db = db)
+                        official = officialRecord, db = db, directPreview = fromEvents)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -637,7 +711,7 @@ private fun InvoiceScreenContent(
             "details" -> {
                 val loaded = details
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(enabled = !busy, onClick = { mode = "list"; error = "" }) { Text("بازگشت به فهرست") }
+                    OutlinedButton(enabled = !busy, onClick = { backFromInvoice(); error = "" }) { Text("بازگشت به فهرست") }
                     if (loaded != null) {
                         val invoice = loaded.invoice
                         Text("فاکتور ${invoice.invoiceNumber}", style = MaterialTheme.typography.titleLarge)
@@ -728,17 +802,21 @@ private fun InvoiceScreenContent(
                             Text(it.take(300), color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                        if (invoice.status == "DRAFT") {
-                            Button(enabled = !busy, onClick = {
-                                number = invoice.invoiceNumber; date = invoice.issueDate; customerId = invoice.customerId
-                                settlementMode = invoice.settlementMode
-                                cashPortionInput = invoice.cashPaidRial?.toString().orEmpty()
-                                subject = invoice.subject;referenceTaxId = invoice.referenceTaxId.orEmpty()
-                                localDetailsJson = invoice.localDetailsJson
-                                lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }; error = ""; mode = "edit"
-                            }) { Text("ویرایش پیش‌نویس") }
-                            TextButton(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "delete" }) { Text("حذف پیش‌نویس", color = MaterialTheme.colorScheme.error) }
-                        } else Text("سند نهایی‌شده قابل ویرایش یا حذف نیست.")
+                        val canEditUnsent = invoice.trackingCode.isNullOrBlank() &&
+                            (invoice.status == "DRAFT" && officialRecord == null ||
+                                invoice.status == "FINALIZED" && (officialRecord == null || officialRecord?.state == "PREPARED"))
+                        if (canEditUnsent) {
+                            Button(enabled = !busy, onClick = { editExistingOrCopy(loaded) },
+                                modifier = Modifier.fillMaxWidth()) { Text("ویرایش فاکتور") }
+                            if(invoice.status == "DRAFT") TextButton(enabled = !busy, onClick = { actionId = invoice.id; confirmation = "delete" }) {
+                                Text("حذف پیش‌نویس", color = MaterialTheme.colorScheme.error)
+                            }
+                        } else if (officialRecord?.state == "REJECTED") {
+                            Text("سند ردشده محفوظ می‌ماند. برای اصلاح، نسخه جدید با شماره جدید ایجاد می‌شود؛ ذخیره آن نیازمند اعتبار است.",
+                                style = MaterialTheme.typography.bodySmall)
+                            Button(enabled = !busy, onClick = { editExistingOrCopy(loaded) },
+                                modifier = Modifier.fillMaxWidth()) { Text("ویرایش و ایجاد نسخه جدید") }
+                        } else Text("سند ارسال‌شده قابل ویرایش یا حذف نیست.")
                     } else if (!busy) OutlinedButton(onClick = { mode = "list" }) { Text("بازگشت و تلاش مجدد") }
                     Spacer(Modifier.height(16.dp))
                 }
@@ -1231,7 +1309,7 @@ private fun InvoiceScreenContent(
         }) },
         confirmButton = { TextButton(enabled = !busy, onClick = {
             val requested = confirmation
-            if (requested == "leave") { confirmation = ""; mode = if (invoiceId == null) "list" else "details"; error = "" }
+            if (requested == "leave") { confirmation = ""; if (invoiceId == null) backFromInvoice() else mode = "details"; error = "" }
             else perform {
                 val id = actionId ?: throw IllegalArgumentException("فاکتور را دوباره انتخاب کنید.")
                 require(requested == "delete")

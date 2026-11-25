@@ -136,6 +136,24 @@ class InvoiceRepository(private val db: SabaDatabase) {
         }
     }
 
+    /** Explicit edit of a finalized but never posted invoice. The credit record is retained. */
+    suspend fun reopenUnsentForEdit(companyId: Long, invoiceId: Long, ownerId: String) = db.withTransaction {
+        require(db.companyDao().byId(companyId)?.purchaserId == ownerId) { "مودی متعلق به این حساب نیست." }
+        require(db.moadianDetailsDao().byCompany(companyId)?.inactive != true) { "مودی غیرفعال است." }
+        val invoice = requireNotNull(db.invoiceDao().byId(invoiceId))
+        require(invoice.companyId == companyId && invoice.status == "FINALIZED" && invoice.trackingCode.isNullOrBlank()) {
+            "فقط فاکتور نهایی‌شده و ارسال‌نشده قابل بازگشایی است."
+        }
+        require(db.moadianSimulationDao().latestForInvoice(invoiceId) == null) { "سند دارای سابقه آزمایش است و باید محفوظ بماند." }
+        val row = db.officialSubmissionDao().forInvoice(invoiceId)
+        if (row != null) {
+            require(row.ownerId == ownerId && row.companyId == companyId && row.state == "PREPARED" &&
+                row.referenceNumber.isNullOrBlank() && row.signedReceipt.isNullOrBlank()) { "سند ارسال شده؛ استعلام کنید." }
+            check(db.officialSubmissionDao().discardPrepared(row.requestId) == 1) { "درخواست در حال ارسال است." }
+        }
+        db.invoiceDao().update(invoice.copy(status = "DRAFT"))
+    }
+
     /** Finalization does not consume charge again. Older drafts have explicit migration exemptions. */
     suspend fun finalizeDraft(companyId: Long, invoiceId: Long, nowEpochMillis: Long = System.currentTimeMillis()) {
         require(companyId > 0) { "شرکت نامعتبر است." }

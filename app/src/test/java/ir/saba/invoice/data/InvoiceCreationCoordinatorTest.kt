@@ -220,4 +220,27 @@ class InvoiceCreationCoordinatorTest {
         } finally { db.close() }
     }
 
+    @Test fun reopenUnsentFinalizedInvoiceDoesNotDebitAndCannotReopenPostedInvoice()=runBlocking {
+        val db=database()
+        try {
+            val (company,customer)=seed(db)
+            val backend=Backend()
+            val coordinator=InvoiceCreationCoordinator(db,account,backend::authorize)
+            val claim=coordinator.prepare(company,input(customer),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)
+            val id=coordinator.finish(claim.requestId)
+            val repository=InvoiceRepository(db)
+            repository.finalizeDraft(company,id)
+            repository.reopenUnsentForEdit(company,id,account.ownerId)
+            assertEquals("DRAFT",db.invoiceDao().byId(id)!!.status)
+            repository.saveDraft(company,customer,"12","1405/08/12",input(customer).lines,id)
+            repository.finalizeDraft(company,id)
+            assertEquals(1,backend.consumed.size)
+            assertNotNull(db.quotaDao().useForInvoice(id))
+            val row=OfficialSubmission("test",account.ownerId,company,id,"ABC123","test","{}","hash",1,state="REJECTED",protocol="LEGACY")
+            db.officialSubmissionDao().insert(row)
+            expectRejected { repository.reopenUnsentForEdit(company,id,account.ownerId) }
+            assertEquals("FINALIZED",db.invoiceDao().byId(id)!!.status)
+            assertEquals("REJECTED",db.officialSubmissionDao().forInvoice(id)!!.state)
+        } finally { db.close() }
+    }
 }

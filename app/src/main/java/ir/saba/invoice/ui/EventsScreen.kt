@@ -65,13 +65,17 @@ internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?):
         else -> InvoiceEventStatus.CHECK
     }
 }
+internal fun invoiceEventOpensPreview(status: InvoiceEventStatus): Boolean =
+    status in setOf(InvoiceEventStatus.SUCCESS, InvoiceEventStatus.PENDING, InvoiceEventStatus.CHECK)
+
 internal fun invoiceEventTitle(invoice: Invoice, customers: List<Customer>): String =
     "صورتحساب " + (customers.firstOrNull { it.id == invoice.customerId && it.companyId == invoice.companyId }
         ?.name?.takeIf { it.isNotBlank() } ?: "مشتری نامشخص")
 
 @Composable
 fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
-                 customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap()) {
+                 customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap(),
+                 onOpenInvoice: (Long) -> Unit = { onInvoices() }) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -118,7 +122,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                     else -> Color(0xFF59718F)
                 }
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = onInvoices),
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenInvoice(invoice.id) },
                     shape = RoundedCornerShape(19.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

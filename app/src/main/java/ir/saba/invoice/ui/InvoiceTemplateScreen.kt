@@ -236,7 +236,7 @@ object SuraInvoicePdf {
 fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice,
                           lines: List<InvoiceLine>, onExport: (ByteArray) -> Unit,
                           onBack: () -> Unit, onSend: () -> Unit, official: OfficialSubmission? = null,
-                          db: SabaDatabase? = null) {
+                          db: SabaDatabase? = null, directPreview: Boolean = false) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -274,21 +274,21 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                 TextButton(enabled = previewPage < pageCount - 1, onClick = { previewPage++ }) { Text("صفحه بعد") }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        if (!directPreview) Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf("پیش‌فرض", "ساده", "شرکتی").forEach { option ->
                 FilterChip(selected = template == option, onClick = { template = option },
                     label = { Text(option) })
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        if (!directPreview) Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("لوگو"); Switch(logo, { logo = it })
             Text("مهر"); Switch(stamp, { stamp = it })
         }
         Button(enabled = bytes != null, onClick = { bytes?.let(onExport) },
-            modifier = Modifier.fillMaxWidth()) { Text("ذخیره PDF") }
+            modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
         if (invoice.status in setOf("DRAFT", "FINALIZED") &&
             (official == null || official.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED") ||
-                needsLegacyReferenceCheck(official))) {
+                needsLegacyReferenceCheck(official)) && (!directPreview || official != null)) {
             OutlinedButton(onClick = onSend, modifier = Modifier.fillMaxWidth()) {
                 Text(if (needsLegacyReferenceCheck(official)) "استعلام و تطبیق مرجع"
                     else if (official?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
