@@ -72,6 +72,7 @@ fun SuraIdentifierScreen(
     var found by remember { mutableStateOf(emptyList<SuraIdentifier>()) }
     var saved by remember { mutableStateOf(emptyList<SuraIdentifier>()) }
     var catalogCount by remember { mutableStateOf<Long?>(null) }
+    var starterCount by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     val hasBundledFullCatalog = remember(context) {
@@ -91,6 +92,8 @@ fun SuraIdentifierScreen(
                 message = "بانک کامل داخل برنامه فعال است."
             }
             catalogCount = catalog.count()
+            starterCount = catalog.starterCount()
+            if(starterCount>0)found=catalog.search("",null,null,limit=50)
         } catch (e: Exception) {
             catalogCount = runCatching { catalog.count() }.getOrDefault(0L)
             message = e.message ?: "راه‌اندازی بانک داخلی ناموفق بود؛ بانک قبلی حفظ شد."
@@ -156,7 +159,7 @@ fun SuraIdentifierScreen(
                 Text(
                     if (catalogCount == null) "در حال بررسی بانک اطلاعاتی..."
                     else if (catalogCount == 0L) "بانک اطلاعاتی وارد نشده است."
-                    else "بانک نصب‌شده: " + catalogCount + " شناسه",
+                    else "بانک قابل جستجو: " + catalogCount + " شناسه" + if(starterCount>0) " | عمومی منتخب: $starterCount" else "",
                     color = Color(0xFFDDEDF1),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -186,6 +189,19 @@ fun SuraIdentifierScreen(
             )
         } else {
         if (tab == "search") {
+            OutlinedButton(enabled=!busy,onClick={
+                scope.launch {
+                    busy=true
+                    try{
+                        val v=catalog.updateStarter()
+                        catalogCount=catalog.count();starterCount=catalog.starterCount()
+                        found=catalog.search(query,category,specificity)
+                        message=if(v==null)"هنوز بانک منتخب تأییدشده منتشر نشده است." else "بانک منتخب نسخه $v آماده است."
+                    }catch(e:kotlinx.coroutines.CancellationException){throw e}
+                    catch(_:Exception){message="به‌روزرسانی تأیید نشد؛ بانک قبلی حفظ شد."}
+                    finally{busy=false}
+                }
+            },modifier=Modifier.fillMaxWidth()){Text("به‌روزرسانی شناسه‌های منتخب")}
             OutlinedTextField(
                 value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
                 singleLine = true, label = { Text("نام کالا، خدمت یا شناسه") }
@@ -207,7 +223,7 @@ fun SuraIdentifierScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { search() },
-                    enabled = !busy && catalogCount != null && catalogCount!! > 0 && query.isNotBlank(),
+                    enabled = !busy && catalogCount != null && catalogCount!! > 0 && (query.isNotBlank() || starterCount>0),
                     colors = ButtonDefaults.buttonColors(containerColor = catalogTeal)
                 ) { Text("جستجو") }
                 if (!hasBundledFullCatalog || catalogCount != SuraBundledCatalogInstaller.FULL_RECORD_COUNT) {

@@ -302,3 +302,32 @@ async function openManagerConsent(owner){
   document.getElementById('modal-body').innerHTML=(d.acceptances||[]).map(a=>'<div class="panel" style="padding:12px"><b>نسخه '+html(a.legal_version)+'</b><p>'+html(safeTime(a.accepted_at))+'</p></div>').join('')||'<div class="empty-note">سابقه پذیرش ثبت نشده است (ممکن است حساب قدیمی باشد).</div>';
  }catch(e){document.getElementById('modal-body').textContent='استعلام ناموفق: '+parseError(e);}
 }
+
+let starterExpected=0,starterDraft=null;
+async function renderStarter(c){
+ if(ADMIN_ROLE!=='admin')throw Error('دسترسی مدیرکل لازم است');
+ const d=await supportFetch('catalog-info',{}),v=d.catalog;
+ starterExpected=v?Number(v.version):0;starterDraft=null;
+ c.innerHTML='<div class="section-hero"><h2>بانک عمومی منتخب</h2><p>فقط فایل استخراج‌شده از بانک کنترل‌شده؛ انتشار به همه کاربران. شناسه اختصاصی مؤدیان تغییر نمی‌کند.</p></div>'+
+ '<div class="panel" style="padding:16px"><h3>نسخه جاری: '+html(String(starterExpected))+'</h3><p>'+html(v?String(v.entries.length)+' شناسه | تاریخ منبع '+v.as_of:'هنوز داده تأییدشده منتشر نشده است')+'</p>'+
+ '<input type="file" id="starter-file" accept=".json,application/json" onchange="starterLoad(this)"><p id="starter-preview"></p><button class="action-btn" id="starter-publish" disabled onclick="starterPublish()">انتشار پس از تأیید منبع</button></div>';
+}
+async function starterLoad(input){
+ starterDraft=null;const b=document.getElementById('starter-publish'),p=document.getElementById('starter-preview');b.disabled=true;
+ try{
+  const file=input.files[0];if(!file||file.size>900000)throw Error('حجم نامعتبر');
+  const text=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsText(file);});
+  const d=JSON.parse(text);if(!Array.isArray(d.entries)||d.entries.length<150||d.entries.length>300||!/^[a-f0-9]{64}$/.test(d.source_hash)||!/^\d{4}-\d{2}-\d{2}$/.test(d.as_of))throw Error('ساختار منبع نامعتبر');
+  const quotas={accounting:25,computer:30,technical:30,auto:40,other:25};
+  const seen=new Set();for(const e of d.entries){if(!/^\d{13}$/.test(e.id)||seen.has(e.id)||!Object.prototype.hasOwnProperty.call(quotas,e.group)||!String(e.kind).includes('عموم'))throw Error('ردیف یا شناسه نامعتبر');seen.add(e.id);quotas[e.group]--;}
+  if(Object.values(quotas).some(n=>n>0))throw Error('تعداد یکی از گروه‌ها کافی نیست');
+  starterDraft={expected:starterExpected,source_hash:d.source_hash,as_of:d.as_of,entries:d.entries};
+  p.textContent=d.entries.length+' شناسه یکتا؛ تاریخ منبع '+d.as_of+'؛ بررسی اعتبار و نرخ رسمی بر عهده مدیر پیش از انتشار است.';b.disabled=false;
+ }catch(e){p.textContent='فایل رد شد: '+String(e.message);}
+}
+async function starterPublish(){
+ if(!starterDraft||!confirm('منبع رسمی و نرخ‌ها را بررسی کرده‌اید و انتشار عمومی نسخه جدید را تأیید می‌کنید؟'))return;
+ const b=document.getElementById('starter-publish');b.disabled=true;
+ try{const d=await supportFetch('catalog-publish',starterDraft);if(d.status!=='published')throw Error('انتشار تأیید نشد');toast('نسخه '+d.version+' منتشر شد');showPage('starter');}
+ catch(e){toast('انتشار تأیید نشد؛ نسخه جاری را دوباره بررسی کنید. '+String(e.message),'error');showPage('starter');}
+}

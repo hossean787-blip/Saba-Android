@@ -661,6 +661,7 @@ button:disabled { opacity:.45; cursor:not-allowed!important; }
           تنظیمات
         </div>
         <div class="nav-item" data-min-role="admin" onclick="showPage('support')"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3h12v9H8l-4 3v-3H3z"/></svg>پشتیبانی کاربران</div>
+        <div class="nav-item" data-min-role="admin" onclick="showPage('starter')">بانک عمومی شناسه‌ها</div>
       </div>
     </div>
     <div class="sidebar-footer">
@@ -907,7 +908,7 @@ function showPage(page) {
     closeDrawer();
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const items = document.querySelectorAll('.nav-item');
-    const pageMap = { dashboard: 0, users: 1, directory: 2, credits: 3, packages: 4, payments: 5, reports: 6, gifts: 7, roles: 8, audit: 9, health: 10, settings: 11, support: 12 };
+    const pageMap = { dashboard: 0, users: 1, directory: 2, credits: 3, packages: 4, payments: 5, reports: 6, gifts: 7, roles: 8, audit: 9, health: 10, settings: 11, support: 12, starter: 13 };
     (_a = items[pageMap[page]]) === null || _a === void 0 ? void 0 : _a.classList.add('active');
     const titles = {
         dashboard: ['نمای کلی', 'خلاصه وضعیت فروش و اعتبار'],
@@ -921,6 +922,7 @@ function showPage(page) {
         roles: ['مدیریت نقش‌ها', 'تعیین سطح دسترسی با تأیید مدیر ارشد'],
         audit: ['دفتر ممیزی', 'سوابق تغییرات مالی و مدیریتی'],
         health: ['وضعیت سامانه', 'تست اتصال سرور و پایگاه داده'],
+        starter: ['بانک عمومی شناسه‌ها', 'انتشار نسخه کنترل‌شده'],
         support: ['پشتیبانی کاربران', 'پاسخ و پیگیری درخواست‌ها'],
         settings: ['تنظیمات', 'پیکربندی سیستم و امنیت'],
     };
@@ -1036,6 +1038,8 @@ async function renderPage(page) {
             await renderSettings(view);
         else if (page === 'support')
             await renderSupport(view);
+        else if (page === 'starter')
+            await renderStarter(view);
         if (request === renderSerial)
             c.innerHTML = view.innerHTML;
     }

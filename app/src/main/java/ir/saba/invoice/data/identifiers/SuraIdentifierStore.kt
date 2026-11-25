@@ -28,10 +28,14 @@ data class SuraIdentifier(
 class SuraIdentifierStore(private val context: Context) {
     private val catalogFile get() = File(context.filesDir, "sura_identifiers.db")
 
-    fun installed(): Boolean = catalogFile.isFile && catalogFile.length() > 1024L
+    private val starter=SuraStarterCatalog(context.applicationContext)
+    private fun fullInstalled():Boolean=catalogFile.isFile && catalogFile.length()>1024L
+    fun installed(): Boolean = fullInstalled() || starter.snapshot()!=null
+    suspend fun updateStarter():Long?=starter.update()
+    suspend fun starterCount():Int=withContext(Dispatchers.IO){starter.snapshot()?.entries?.size?:0}
 
     suspend fun count(): Long = withContext(Dispatchers.IO) {
-        if (!installed()) return@withContext 0L
+        if (!fullInstalled()) return@withContext starterCount().toLong()
         SQLiteDatabase.openDatabase(catalogFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             db.rawQuery("SELECT value FROM metadata WHERE key='row_count'", null).use {
                 if (it.moveToFirst()) it.getString(0)?.toLongOrNull() ?: 0L else 0L
@@ -41,9 +45,10 @@ class SuraIdentifierStore(private val context: Context) {
 
     suspend fun search(input: String, category: String?, specificity: String?, limit: Int = 50): List<SuraIdentifier> =
         withContext(Dispatchers.IO) {
-            if (!installed()) return@withContext emptyList()
+            val preferred=starter.search(input,category,specificity,limit)
+            if (!fullInstalled() || preferred.size>=limit.coerceIn(1,100)) return@withContext preferred
             val normalized = normalize(input)
-            if (normalized.isBlank()) return@withContext emptyList()
+            if (normalized.isBlank()) return@withContext preferred
             val numeric = normalized.all { it in '0'..'9' }
             val args = mutableListOf<String>()
             val predicates = mutableListOf<String>()
@@ -82,7 +87,7 @@ class SuraIdentifierStore(private val context: Context) {
                             cursor.getString(6).orEmpty()
                         ))
                     }
-                    result
+                    (preferred+result).distinctBy{it.id}.take(limit.coerceIn(1,100))
                 }
             }
         }

@@ -28,11 +28,11 @@ async function handler(req) {
  if(!u||u.id!==ADMIN||String(u.email||"").toLowerCase()!==EMAIL||!u.email_confirmed_at)return send({error:"forbidden"},403);
  const role=await read("/rest/v1/sura_admin_roles?select=role&user_id=eq."+ADMIN+"&limit=1");
  if(!Array.isArray(role)||role.length!==1||role[0].role!=="admin")return send({error:"forbidden"},403);
+ const route=new URL(req.url).pathname.split("/").filter(Boolean).pop();
  const raw=await req.text();
- if(raw.length>20000)return send({error:"too_large"},413);
+ if(raw.length>(route==="catalog-publish"?900000:20000))return send({error:"too_large"},413);
  let b;try{b=JSON.parse(raw)}catch{return send({error:"invalid_request"},400)}
  if(!b||typeof b!=="object"||Array.isArray(b))return send({error:"invalid_request"},400);
- const route=new URL(req.url).pathname.split("/").filter(Boolean).pop();
  const page=b.page===undefined?1:b.page;
  if(!Number.isSafeInteger(page)||page<1||page>10000)return send({error:"invalid_page"},400);
  if(route==="list"){
@@ -45,6 +45,15 @@ async function handler(req) {
   if(!id(b.owner))return send({error:"invalid_owner"},400);
   const rows=await read("/rest/v1/sura_legal_acceptances?select=legal_version,accepted_at&owner_id=eq."+b.owner+"&order=accepted_at.desc&limit=50");
   return send({acceptances:rows});
+ }
+ if(route==="catalog-info"){
+  const rows=await read("/rest/v1/sura_starter_catalog?select=version,source_hash,as_of,entries&order=version.desc&limit=1");
+  return send({catalog:rows[0]||null});
+ }
+ if(route==="catalog-publish"){
+  if(!Number.isSafeInteger(b.expected)||b.expected<0||!Array.isArray(b.entries)||typeof b.source_hash!=="string"||typeof b.as_of!=="string")return send({error:"invalid_source"},400);
+  const result=await rpc("sura_publish_starter",{p_actor:ADMIN,p_expected:b.expected,p_hash:b.source_hash,p_as_of:b.as_of,p_entries:b.entries});
+  return send(result,result.error?409:200);
  }
  if(!id(b.ticket))return send({error:"invalid_ticket"},400);
  if(route==="thread"){
