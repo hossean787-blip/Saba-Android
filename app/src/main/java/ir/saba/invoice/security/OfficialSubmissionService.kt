@@ -20,8 +20,8 @@ class OfficialSubmissionService(
     private val credentials: TaxpayerCredentialRepository,
     private val transport: OfficialTaxTransport = OfficialMoadianTransport(),
     private val sessionCheck: () -> Unit = { error("نشست معتبر حساب برای این عملیات لازم است.") },
-    private val clock: () -> Long = System::currentTimeMillis,
-    private val directOnly: Boolean = false
+    private val directOnly: Boolean = false,
+    private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val signer = MoadianV2Signer(credentials)
     /** Injectable only inside this module for deterministic fake-server tests. */
