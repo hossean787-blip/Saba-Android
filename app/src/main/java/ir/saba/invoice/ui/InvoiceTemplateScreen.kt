@@ -240,7 +240,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           db: SabaDatabase? = null, directPreview: Boolean = false,
                           busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
                           onCorrection:(() -> Unit)? = null, correction:CorrectionLink? = null,
-                          onOpenCorrection:(Long)->Unit = {}) {
+                          onOpenCorrection:(Long)->Unit = {}, localPreview:Boolean = false) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -268,6 +268,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("پیش‌نمایش و خروجی صورتحساب", style = MaterialTheme.typography.headlineSmall)
+        if(localPreview) Text("پیش‌نمایش محلی • ذخیره و ارسال نشده",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
         if (preview != null) Image(preview.asImageBitmap(), "پیش‌نمایش واقعی PDF",
             modifier = Modifier.fillMaxWidth().heightIn(max = 570.dp))
         else Text(if(profileError) "خواندن مشخصات طرفین ناموفق بود." else error ?: "در حال آماده‌سازی پیش‌نمایش PDF", color = MaterialTheme.colorScheme.error)
@@ -288,6 +289,16 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
             Text("لوگو"); Switch(logo, { logo = it })
             Text("مهر"); Switch(stamp, { stamp = it })
         }
+        if(localPreview) {
+            Card(modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
+                Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+                    Text("مبلغ قابل پرداخت",style=MaterialTheme.typography.titleSmall)
+                    Text(rial(invoice.totalAmountRial),style=MaterialTheme.typography.titleLarge)
+                    Text("این پیش‌نمایش رایگان است؛ برای دریافت فایل یا ارسال، ابتدا پیش‌نویس را ذخیره کنید.",style=MaterialTheme.typography.bodySmall)
+                }
+            }
+            OutlinedButton(onClick=onBack,modifier=Modifier.fillMaxWidth()){Text("بازگشت به فاکتور")}
+        } else {
         if(directPreview && invoiceEventStatus(invoice,official)!=InvoiceEventStatus.SUCCESS) {
             val state=invoiceEventStatus(invoice,official)
             val failed=state==InvoiceEventStatus.REJECTED
@@ -330,5 +341,6 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
             TextButton(enabled=!busy,onClick=onDetails,modifier=Modifier.fillMaxWidth()) { Text("جزئیات فاکتور") }
         }
         TextButton(enabled=!busy,onClick = onBack) { Text("بازگشت") }
+        }
     }
 }

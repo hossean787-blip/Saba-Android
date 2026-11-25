@@ -680,7 +680,8 @@ private fun InvoiceScreenContent(
                             operationKey = java.util.UUID.randomUUID().toString()
                             onChanged()
                             runCatching { refreshPaidBalance() }
-                            mode = if(unifiedPreview || fromEvents) "template" else "details"
+                            unifiedPreview = true
+                            mode = "event_open"
                             onNotice("پیش‌نویس ذخیره شد.")
 
         }
@@ -714,8 +715,44 @@ private fun InvoiceScreenContent(
 
     BackHandler(enabled = mode != "list") {
         if (!busy) {
-            if (mode == "edit") confirmation = "leave" else { backFromInvoice(); error = "" }
+            if (previewDialog && mode == "edit") previewDialog = false
+            else if (mode == "edit") confirmation = "leave" else { backFromInvoice(); error = "" }
         }
+    }
+
+    if (previewDialog && mode == "edit") {
+        val company by produceState<Company?>(null, db, companyId, ownerId) {
+            value = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
+        }
+        val buyer = customers.firstOrNull { it.id == customerId && it.companyId == companyId }
+        val snapshot = remember(companyId, customerId, number, date, lines, subject, referenceTaxId,
+            settlementMode, cashPortionInput, localDetailsJson) {
+            runCatching {
+                val selectedCustomer = requireNotNull(customerId) { "مشتری را انتخاب کنید." }
+                val totals = InvoiceCalculator.calculate(lines)
+                InvoiceSubject.validate(subject, referenceTaxId.takeIf { it.isNotBlank() })
+                val cash = InvoiceSettlement.cashFromUserInput(settlementMode, totals.totalAmountRial, cashPortionInput)
+                Invoice(companyId=companyId, customerId=selectedCustomer, invoiceNumber=number.ifBlank { "تخصیص نیافته" },
+                    issueDate=InvoiceInput.date(date), totalAmountRial=totals.totalAmountRial,
+                    taxAmountRial=totals.taxAmountRial, status="DRAFT", subject=subject,
+                    referenceTaxId=referenceTaxId.takeIf { it.isNotBlank() }, settlementMode=settlementMode,
+                    cashPaidRial=cash, localDetailsJson=InvoiceLocalDetails.fromJson(localDetailsJson, preserveInput=true).toJson(preserveInput=true))
+            }
+        }
+        val seller = company
+        val draft = snapshot.getOrNull()
+        if (seller != null && buyer != null && draft != null) {
+            InvoiceTemplateScreen(seller, buyer, draft, lines,
+                onExport = {}, onBack = { previewDialog = false }, onSend = {},
+                db = db, directPreview = true, localPreview = true)
+        } else {
+            Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text("پیش‌نمایش و خروجی صورتحساب",style=MaterialTheme.typography.headlineSmall)
+                Text(snapshot.exceptionOrNull()?.message ?: if(buyer==null) "مشتری را انتخاب کنید." else "در حال بارگذاری مشخصات مؤدی…")
+                OutlinedButton(onClick={previewDialog=false},modifier=Modifier.fillMaxWidth()){Text("بازگشت به فاکتور")}
+            }
+        }
+        return
     }
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1407,7 +1444,7 @@ private fun InvoiceScreenContent(
                         )
                         OutlinedButton(enabled = lines.isNotEmpty(), onClick = { previewDialog = true },
                             modifier = Modifier.fillMaxWidth()) { Text("پیش‌نمایش فاکتور") }
-                        Text("پیش‌نمایش بدون ثبت و مصرف اعتبار است. پس از ذخیره پیش‌نویس، PDF از صفحه جزئیات قابل دریافت است.",
+                        Text("پیش‌نمایش PDF بدون ثبت و مصرف اعتبار است. دریافت فایل پس از ذخیره پیش‌نویس امکان‌پذیر است.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.height(10.dp))
@@ -1465,44 +1502,6 @@ private fun InvoiceScreenContent(
                 }
             },
             confirmButton = { TextButton(onClick = { correctionPicker = false }) { Text("بستن") } }
-        )
-    }
-
-    if (previewDialog && mode == "edit") {
-        val localPreview = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson, preserveInput = true) }
-        AlertDialog(
-            onDismissRequest = { previewDialog = false },
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-            title = { Text("پیش‌نمایش محلی صورتحساب") },
-            text = {
-                Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("فروشنده: ${sellerName.ifBlank { "مؤدی انتخاب‌شده" }}")
-                    Text("مشتری: ${customers.firstOrNull { it.id == customerId }?.name ?: "انتخاب‌نشده"}")
-                    Text("نوع اول | الگوی ۱ | موضوع: ${InvoiceSubject.label(subject)}")
-                    Text("سریال: ${number.ifBlank { "خودکار" }} | تاریخ: ${date.ifBlank { "نامشخص" }}")
-                    InvoiceEditorItemsTable(lines, enabled = false,
-                        onEdit = {}, onCopy = {}, onDelete = {})
-                    InvoiceLiveOutline(sellerName, customers.firstOrNull { it.id == customerId }?.name,
-                        number, date, lines)
-                    Text("روش تسویه: ${InvoiceSettlement.label(settlementMode)}")
-                    if (localPreview.paymentMethod.isNotBlank()) Text("روش پرداخت: ${localPreview.paymentMethod}")
-                    if (localPreview.paymentDate.isNotBlank()) Text("تاریخ پرداخت: ${localPreview.paymentDate}")
-                    if (localPreview.paymentTrackingNumber.isNotBlank()) Text("شماره پیگیری: ${localPreview.paymentTrackingNumber}")
-                    if (localPreview.notes.isNotBlank()) Text("توضیحات: ${localPreview.notes}")
-                    if (localPreview.note1.isNotBlank()) Text("یادداشت ۱: ${localPreview.note1}")
-                    if (localPreview.note2.isNotBlank()) Text("یادداشت ۲: ${localPreview.note2}")
-                    if (localPreview.documents.isNotEmpty())
-                        Text("تعداد پیوست‌های محلی: ${localPreview.documents.size}")
-                    if (localPreview.sendLaterDate.isNotBlank())
-                        Text("زمان پیشنهادی ارسال: ${localPreview.sendLaterDate} ${localPreview.sendLaterTime} (ارسال خودکار غیرفعال)")
-                    Text("این پیش‌نمایش محلی است؛ نه PDF نهایی و نه رسید ارسال سامانه مؤدیان.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.labelSmall)
-                }
-            },
-            confirmButton = { TextButton(onClick = { previewDialog = false }) { Text("بازگشت به فاکتور") } }
         )
     }
 

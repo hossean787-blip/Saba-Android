@@ -119,13 +119,16 @@ class InvoiceScreenTest {
         openNew()
         addLine()
         compose.onNodeWithTag("invoiceQuickPreview").performClick()
-        compose.onNodeWithText("پیش‌نمایش محلی صورتحساب").assertExists()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("پیش‌نمایش محلی • ذخیره و ارسال نشده").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("پیش‌نمایش و خروجی صورتحساب").assertExists()
+        compose.onNodeWithText("دریافت خروجی PDF").assertDoesNotExist()
+        compose.onNodeWithTag("invoiceDirectSend").assertDoesNotExist()
         check(compose.onAllNodesWithText("مبلغ قابل پرداخت", useUnmergedTree = true)
             .fetchSemanticsNodes().isNotEmpty())
         assertEquals(10L, creditGateway.remaining)
         assertEquals(0, creditGateway.requestedKeys.size)
         runBlocking { assertEquals(0, db.invoiceDao().forCompany(company).size) }
-        compose.onNodeWithText("بازگشت به فاکتور").performClick()
+        compose.onNodeWithText("بازگشت به فاکتور").performScrollTo().performClick()
         compose.onNodeWithText("شماره فاکتور").assertExists()
     }
 
@@ -161,8 +164,10 @@ class InvoiceScreenTest {
         openNew(); addLine()
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
-        compose.waitUntil(15000) { compose.onAllNodesWithText("ویرایش پیش‌نویس").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("فاکتور 12").assertExists()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("دریافت خروجی PDF").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("پیش‌نمایش و خروجی صورتحساب").assertExists()
+        compose.onNodeWithText("جزئیات فاکتور").performScrollTo().performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("فاکتور 12").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(9L, creditGateway.remaining)
         assertEquals(1, creditGateway.consumedKeys.size)
         runBlocking {
@@ -453,6 +458,8 @@ class InvoiceScreenTest {
             .performScrollTo().performTextInput("۴۰۰")
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) { invoices.size == 1 }
+        compose.waitUntil(15000) { compose.onAllNodesWithText("جزئیات فاکتور").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("جزئیات فاکتور").performScrollTo().performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("تسویه: نقدی و نسیه").fetchSemanticsNodes().isNotEmpty()
         }
