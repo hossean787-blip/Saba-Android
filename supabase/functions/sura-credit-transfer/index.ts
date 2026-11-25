@@ -36,11 +36,16 @@ Deno.serve(async(req)=>{
       encodeURIComponent(user.id)+"&local_taxpayer_id=eq."+taxpayer+"&id=eq."+encodeURIComponent(requestId)+"&limit=1");
     return reply(rows[0] ? {status:"transferred",receipt:rows[0]} : {status:"not_found"});
   }
-  if(operation==="consume"){
+  if(operation==="invoice_balance"){
+    const remaining=await rest("rpc/sura_invoice_entitlement_balance","POST",{p_owner:user.id,p_taxpayer:taxpayer});
+    if(!Number.isSafeInteger(remaining)||remaining<0)return reply({error:"invalid_response"},502);
+    return reply({remaining});
+  }
+  if(operation==="consume"||operation==="consume_invoice"){
     const invoiceKey=String(body?.invoiceKey??"");
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceKey))
       return reply({error:"invalid_invoice_key"},400);
-    const result=await rest("rpc/sura_consume_taxpayer_credit","POST",{
+    const result=await rest(operation==="consume_invoice"?"rpc/sura_consume_invoice_entitlement":"rpc/sura_consume_taxpayer_credit","POST",{
       p_owner:user.id,p_taxpayer:taxpayer,p_invoice_key:invoiceKey
     });
     return reply(result,result?.error?409:200);

@@ -9,6 +9,15 @@ internal object CreditTransferClient {
         val id = UUID.fromString(value)
         require(id.toString() == value.lowercase(java.util.Locale.ROOT) && id.version() in 1..8 && id.variant() == 2)
     }
+    suspend fun invoiceBalance(token:String,taxpayerId:Long):Long {
+        require(taxpayerId in 1..CreditServerResponse.MAX_SAFE_CREDITS)
+        return CreditServerResponse.balance(http.post(token,JSONObject().put("operation","invoice_balance").put("taxpayerId",taxpayerId)),"remaining")
+    }
+    suspend fun consumeInvoice(token:String,taxpayerId:Long,invoiceKey:String):Long {
+        require(taxpayerId in 1..CreditServerResponse.MAX_SAFE_CREDITS)
+        validateRequestId(invoiceKey)
+        return CreditServerResponse.consumed(http.post(token,JSONObject().put("operation","consume_invoice").put("taxpayerId",taxpayerId).put("invoiceKey",invoiceKey)))
+    }
     suspend fun consume(token: String, taxpayerId: Long, invoiceKey: String): JSONObject {
         require(taxpayerId in 1..CreditServerResponse.MAX_SAFE_CREDITS)
         validateRequestId(invoiceKey)
