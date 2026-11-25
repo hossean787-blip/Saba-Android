@@ -39,7 +39,7 @@ private val numberFormat = NumberFormat.getIntegerInstance(Locale.forLanguageTag
 @Composable
 fun HomeDashboard(
     taxpayerName: String?,
-    remainingCharge: Long,
+    remainingCharge: Long?,
     draftCount: Int,
     queueCount: Int,
     customerCount: Int,
@@ -138,7 +138,7 @@ fun HomeDashboard(
 
 @Composable
 private fun PremiumMetric(
-    title: String, count: Long, icon: ImageVector,
+    title: String, count: Long?, icon: ImageVector,
     background: Color, accent: Color, modifier: Modifier, onClick: () -> Unit
 ) {
     Card(modifier = modifier.height(76.dp).clickable(onClick = onClick),
@@ -148,7 +148,7 @@ private fun PremiumMetric(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
-            Text(numberFormat.format(count), style = MaterialTheme.typography.titleMedium,
+            Text(count?.let { numberFormat.format(it) } ?: "—", style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold, color = accent)
             Text(title, style = MaterialTheme.typography.labelSmall, color = accent,
                 maxLines = 2)

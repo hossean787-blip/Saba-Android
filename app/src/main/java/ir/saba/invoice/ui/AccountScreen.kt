@@ -44,8 +44,8 @@ private val accountNumber = NumberFormat.getIntegerInstance(Locale.forLanguageTa
 @Composable
 fun AccountScreen(
     ownerId: String,
-    taxpayerCharge: Long,
-    ownerCharge: Long,
+    taxpayerCharge: Long?,
+    ownerCharge: Long?,
     busy: Boolean,
     ownerName: String?,
     ownerEmail: String?,
@@ -58,7 +58,7 @@ fun AccountScreen(
 
 @Composable
 private fun AccountContent(
-    ownerId: String, taxpayerCharge: Long, ownerCharge: Long, busy: Boolean,
+    ownerId: String, taxpayerCharge: Long?, ownerCharge: Long?, busy: Boolean,
     ownerName: String?, ownerEmail: String?, onTransferCharge: () -> Unit, onLogout: () -> Unit,
     onExcelAction: (String, String) -> Unit
 ) {
@@ -116,6 +116,13 @@ private fun AccountContent(
                     Text("اطلاعات شخصی", style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF075F91))
                 }
+            }
+        }
+        Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp),
+            colors=CardDefaults.cardColors(containerColor=Color(0xFF103D59))) {
+            Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                AccountBalance("اعتبار کیف پول مالک",ownerCharge,Modifier.weight(1f))
+                AccountBalance("اعتبار مؤدی انتخاب‌شده",taxpayerCharge,Modifier.weight(1f))
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -301,10 +308,10 @@ private fun ExcelActionRow(
 }
 
 @Composable
-private fun AccountBalance(label: String, value: Long, modifier: Modifier = Modifier) {
+private fun AccountBalance(label: String, value: Long?, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, color = Color(0xFFACCED9), style = MaterialTheme.typography.labelSmall)
-        Text(accountNumber.format(value), color = accountGold,
+        Text(value?.let { accountNumber.format(it) } ?: "—", color = accountGold,
             fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
     }
 }

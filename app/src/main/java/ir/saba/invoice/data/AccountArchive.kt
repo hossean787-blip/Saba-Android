@@ -266,7 +266,13 @@ internal class AccountArchive(
                         continue
                     }
                     if(table=="invoice_lines" && row.getLong("invoiceId") in existingInvoices) continue
-                    if(table=="official_submissions" && row.getLong("invoiceId") in existingInvoices) continue
+                    if(table=="official_submissions" && row.getLong("invoiceId") in existingInvoices) {
+                        val invoiceId=row.getLong("invoiceId")
+                        val active=db.officialSubmissionDao().forInvoice(invoiceId)
+                        require(active==null) { "درخواست ارسال دیگری برای این شماره ثبت شده است؛ بازیابی برای جلوگیری از تداخل متوقف شد." }
+                        // Do not allow a local draft with missing submission history to be posted a second time.
+                        sql.execSQL("UPDATE invoices SET status='RESTORED' WHERE id=?",arrayOf(invoiceId))
+                    }
                     sanitize(table,row,true)
                     val values=ContentValues()
                     for(col in cols) when(val v=row.get(col)) {

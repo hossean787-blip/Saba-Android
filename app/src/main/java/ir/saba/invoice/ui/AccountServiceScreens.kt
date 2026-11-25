@@ -78,26 +78,28 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
         running=true;onBusy(true);status="";restoredCredit=null
         scope.launch {
             try {
-                val message=withContext(Dispatchers.IO) {
+                val outcome=withContext(Dispatchers.IO) {
                     if(importing) {
                         val bytes=requireNotNull(context.contentResolver.openInputStream(uri)).use { AccountArchiveCrypto.read(it) }
                         val result=archive.restoreWithCredit(bytes,secret) { ids -> AccountArchiveCreditClient.read(account,accessToken,ids) }
                         val c=result.added
-                        restoredCredit=result.credit
-                        "بازیابی انجام شد: ${c.taxpayers} مؤدی، ${c.customers} مشتری و ${c.invoices} سابقه جدید. اطلاعات فعلی حفظ شد."
+                        "بازیابی انجام شد: ${c.taxpayers} مؤدی، ${c.customers} مشتری و ${c.invoices} سابقه جدید. اطلاعات فعلی حفظ شد." to result.credit
                     } else {
                         val ids=db.companyDao().all().map { it.id }.toSet()
                         val credit=AccountArchiveCreditClient.read(account,accessToken,ids)
                         val bytes=archive.export(secret,credit)
-                        restoredCredit=credit
                         requireNotNull(context.contentResolver.openOutputStream(uri,"w")).use { it.write(bytes);it.flush() }
-                        "فایل پشتیبان رمزگذاری‌شده ذخیره شد."
+                        // Reopen the actual selected file, not just the in-memory archive.
+                        val saved=requireNotNull(context.contentResolver.openInputStream(uri)).use { AccountArchiveCrypto.read(it) }
+                        check(java.security.MessageDigest.isEqual(bytes,saved)) { "فایل ذخیره‌شده با نسخه تولیدشده یکسان نیست." }
+                        "فایل پشتیبان رمزگذاری‌شده ذخیره و صحت فایل بررسی شد." to credit
                     }
                 }
-                status=message
+                status=outcome.first
+                restoredCredit=outcome.second
                 creditNames=db.companyDao().all().associate { it.id to it.name }
                 if(importing) onChanged()
-                onNotice(message)
+                onNotice(outcome.first)
             } catch(e:CancellationException) { throw e }
             catch(e:Exception) {
                 status=if(e is IllegalArgumentException) e.message.orEmpty().take(220)
@@ -132,6 +134,7 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
             Button(onClick={picked?.let { execute(it,true) }},enabled=!running && picked!=null && confirmed && password.length>=12,
                 modifier=Modifier.fillMaxWidth().testTag("archiveRestore")) { Text("بازیابی اطلاعات") }
             TextButton(onClick=onLegacyRecovery,enabled=!running) { Text("بازیابی سوابق نسخه قدیمی سورا") }
+            ArchiveHistoryBrowser(db,account,enabled=!running,refreshKey=status)
         } else Button(onClick={save.launch("SURA-backup-${System.currentTimeMillis()}.sura")},
             enabled=!running && password.length>=12 && password==repeatPassword,
             modifier=Modifier.fillMaxWidth().testTag("archiveExport")) { Text("ساخت و ذخیره فایل پشتیبان") }
@@ -212,5 +215,92 @@ internal fun SuraServiceScreen(kind:String,onBack:()->Unit,onSupport:(()->Unit)?
             }
         }
         OutlinedButton(onClick=onBack,modifier=Modifier.fillMaxWidth()) { Text("بازگشت به خانه") }
+    }
+}
+
+/** View inactive and historical taxpayers without reactivating or issuing an invoice. */
+@Composable
+private fun ArchiveHistoryBrowser(db:SabaDatabase,account:AccountScope,enabled:Boolean,refreshKey:String) {
+    var expanded by remember { mutableStateOf(false) }
+    var companies by remember { mutableStateOf<List<Company>>(emptyList()) }
+    var companyId by remember { mutableStateOf<Long?>(null) }
+    var customers by remember { mutableStateOf<List<Customer>>(emptyList()) }
+    var invoices by remember { mutableStateOf<List<Invoice>>(emptyList()) }
+    var details by remember { mutableStateOf<List<OfficialSubmission>>(emptyList()) }
+    var page by remember { mutableIntStateOf(0) }
+    var customerPage by remember { mutableIntStateOf(0) }
+    var selectedInvoice by remember { mutableStateOf<Long?>(null) }
+    var lines by remember { mutableStateOf<List<InvoiceLine>>(emptyList()) }
+    var error by remember { mutableStateOf("") }
+    LaunchedEffect(expanded,refreshKey) {
+        if(expanded) {
+            try { companies=db.companyDao().all().filter { it.purchaserId==account.ownerId } }
+            catch(e:CancellationException){throw e}
+            catch(_:Exception){error="بارگذاری مؤدیان انجام نشد."}
+        }
+    }
+    LaunchedEffect(companyId,expanded,refreshKey) {
+        customers=emptyList();invoices=emptyList();details=emptyList();page=0;customerPage=0;selectedInvoice=null
+        if(expanded) companyId?.let { id ->
+            try {
+                require(db.companyDao().byId(id)?.purchaserId==account.ownerId)
+                customers=db.customerDao().forCompany(id)
+                invoices=db.invoiceDao().forCompany(id)
+                details=db.officialSubmissionDao().forCompany(id)
+            } catch(e:CancellationException){throw e}
+            catch(_:Exception){error="بارگذاری سوابق انجام نشد."}
+        }
+    }
+    LaunchedEffect(selectedInvoice) {
+        lines=emptyList()
+        selectedInvoice?.let { id ->
+            try {
+                require(invoices.any { it.id==id })
+                lines=db.invoiceLineDao().forInvoice(id)
+            } catch(e:CancellationException){throw e}
+            catch(_:Exception){error="بارگذاری اقلام انجام نشد."}
+        }
+    }
+    OutlinedButton(onClick={expanded=!expanded},enabled=enabled,modifier=Modifier.fillMaxWidth()) {
+        Text(if(expanded) "بستن مرور سوابق" else "مشاهده تمام سوابق مؤدیان")
+    }
+    if(!expanded)return
+    Text("مرور فقط‌خواندنی — شامل مؤدیان غیرفعال",fontWeight=FontWeight.Bold)
+    var choose by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick={choose=true},enabled=enabled,modifier=Modifier.fillMaxWidth()) {
+            Text(companies.firstOrNull { it.id==companyId }?.name ?: "انتخاب مؤدی")
+        }
+        DropdownMenu(expanded=choose,onDismissRequest={choose=false}) {
+            companies.forEach { c -> DropdownMenuItem(text={Text(c.name)},onClick={companyId=c.id;choose=false;error=""}) }
+        }
+    }
+    if(error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
+    if(companyId!=null) {
+        Text("مشتریان (${customers.size})",fontWeight=FontWeight.Bold)
+        customers.drop(customerPage*20).take(20).forEach { c ->
+            ServicePanel(c.name,"شناسه ملی: ${c.nationalId.ifBlank { "—" }}\nشماره اقتصادی: ${c.economicId.ifBlank { "—" }}")
+        }
+        if(customers.size>20) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            TextButton(onClick={customerPage--},enabled=customerPage>0){Text("قبلی")}
+            TextButton(onClick={customerPage++},enabled=(customerPage+1)*20<customers.size){Text("بعدی")}
+        }
+        Text("صورتحساب‌ها (${invoices.size})",fontWeight=FontWeight.Bold)
+        invoices.drop(page*20).take(20).forEach { inv ->
+            val official=details.firstOrNull { it.invoiceId==inv.id }
+            ServicePanel("شماره ${inv.invoiceNumber} | ${inv.issueDate}",
+                "مشتری: ${customers.firstOrNull { it.id==inv.customerId }?.name.orEmpty()}\nمبلغ: ${inv.totalAmountRial} ریال\nمالیات: ${inv.taxAmountRial} ریال\nشماره مالیاتی: ${official?.taxId ?: "—"}\nوضعیت: ${invoiceStatus(inv.status)}")
+            TextButton(onClick={selectedInvoice=if(selectedInvoice==inv.id)null else inv.id}) {
+                Text(if(selectedInvoice==inv.id)"بستن اقلام" else "مشاهده اقلام")
+            }
+            if(selectedInvoice==inv.id) lines.forEach { l ->
+                Text("${l.description} | تعداد: ${l.quantityExact.ifBlank { l.quantity.toString() }} | قیمت واحد: ${l.unitPriceRial} ریال",
+                    style=MaterialTheme.typography.bodySmall)
+            }
+        }
+        if(invoices.size>20) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            TextButton(onClick={page--;selectedInvoice=null},enabled=page>0){Text("قبلی")}
+            TextButton(onClick={page++;selectedInvoice=null},enabled=(page+1)*20<invoices.size){Text("بعدی")}
+        }
     }
 }

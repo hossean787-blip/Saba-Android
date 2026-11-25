@@ -386,6 +386,7 @@ class MainActivity : ComponentActivity() {
             }
             preferences.edit().putLong(ownerSelectionKey, id).apply()
         }
+        var liveCredit by remember(account) { mutableStateOf<ArchiveCreditSnapshot?>(null) }
         var loading by remember { mutableStateOf(false) }
         var busy by remember { mutableStateOf(false) }
         var editing by rememberSaveable { mutableStateOf(false) }
@@ -500,6 +501,16 @@ class MainActivity : ComponentActivity() {
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { loadError = "اطلاعات شرکت بارگذاری نشد: ${e.message.orEmpty()}" }
             finally { loading = false }
+        }
+        LaunchedEffect(page,selectedCompanyId,accessToken) {
+            liveCredit=null
+            if(page==Page.DASHBOARD || page==Page.SETTINGS) {
+                try {
+                    liveCredit=AccountArchiveCreditClient.read(account,accessToken,
+                        setOfNotNull(selectedCompanyId))
+                } catch(e:CancellationException) { throw e }
+                catch(_:Exception) { /* Unknown is not zero or cached credit. */ }
+            }
         }
         LaunchedEffect(page) {
             if (page != Page.INVOICES) newInvoiceRequest = 0
@@ -677,7 +688,7 @@ class MainActivity : ComponentActivity() {
                         when (page) {
                             Page.DASHBOARD -> HomeDashboard(
                                 taxpayerName = company?.name,
-                                remainingCharge = 0L,
+                                remainingCharge = liveCredit?.taxpayers?.get(selectedCompanyId),
                                 draftCount = current?.invoices?.count { it.status == "DRAFT" } ?: 0,
                                 queueCount = current?.invoices?.count { it.status == "QUEUED" } ?: 0,
                                 customerCount = current?.customers?.size ?: 0,
@@ -761,8 +772,8 @@ class MainActivity : ComponentActivity() {
                                 TextButton(onClick={page=Page.LEGACY_RECOVERY}) { Text("بازیابی سوابق قدیمی این حساب") }
                                 AccountScreen(
                                 ownerId = account.ownerId,
-                                taxpayerCharge = 0,
-                                ownerCharge = 0,
+                                taxpayerCharge = liveCredit?.taxpayers?.get(selectedCompanyId),
+                                ownerCharge = liveCredit?.owner,
                                 busy = busy,
                                 ownerName = ownerName,
                                 ownerEmail = ownerEmail,
