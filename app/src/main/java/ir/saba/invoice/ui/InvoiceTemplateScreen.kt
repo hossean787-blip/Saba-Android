@@ -303,6 +303,10 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         Button(enabled = bytes != null && !busy, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
+        if(onCorrection!=null) OutlinedButton(enabled=!busy,onClick=onCorrection,modifier=Modifier.fillMaxWidth().testTag("startInvoiceCorrection"),
+            shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
+            Text("صورتحساب اصلاحی")
+        }
         val action=invoicePreviewAction(invoice,official)
         if(action!=null) OutlinedButton(enabled=!busy,onClick=onSend,modifier=Modifier.fillMaxWidth()) { Text(action) }
         if(onEdit!=null && canEditInvoicePreview(invoice,official)) {
@@ -312,9 +316,6 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         if(onDetails!=null && invoiceEventStatus(invoice,official)!=InvoiceEventStatus.SUCCESS) {
             TextButton(enabled=!busy,onClick=onDetails,modifier=Modifier.fillMaxWidth()) { Text("جزئیات فاکتور") }
-        }
-        if(onCorrection!=null) OutlinedButton(enabled=!busy,onClick=onCorrection,modifier=Modifier.fillMaxWidth().testTag("startInvoiceCorrection")) {
-            Text("صدور صورتحساب اصلاحی")
         }
         TextButton(enabled=!busy,onClick = onBack) { Text("بازگشت") }
     }

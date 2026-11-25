@@ -457,6 +457,14 @@ private fun InvoiceScreenContent(
         }
     }
 
+    suspend fun reloadOfficial(id: Long) {
+        details = repository.detailsForCompany(companyId, id)
+        officialRecord = db.officialSubmissionDao().forInvoice(id)
+            ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
+        officialRecord?.let { officialByInvoice = officialByInvoice + (id to it) }
+        onChanged()
+    }
+
     fun startCorrection(loaded: InvoiceDetails) {
         perform {
             val original=repository.detailsForCompany(companyId,loaded.invoice.id)
@@ -499,14 +507,6 @@ private fun InvoiceScreenContent(
                 .toJson(preserveInput=true)
             onNotice("اصلاحیه آماده ویرایش است؛ اصل فاکتور بدون تغییر باقی ماند. اعتبار فقط هنگام ذخیره سند جدید مصرف می‌شود.")
         }
-    }
-
-    suspend fun reloadOfficial(id: Long) {
-        details = repository.detailsForCompany(companyId, id)
-        officialRecord = db.officialSubmissionDao().forInvoice(id)
-            ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
-        officialRecord?.let { officialByInvoice = officialByInvoice + (id to it) }
-        onChanged()
     }
 
     fun requestOfficialSend(loaded: InvoiceDetails) {
@@ -953,7 +953,7 @@ private fun InvoiceScreenContent(
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         if(canStartCorrection(invoice,officialRecord)) {
                             OutlinedButton(enabled=!busy,onClick={startCorrection(loaded)},modifier=Modifier.fillMaxWidth()) {
-                                Text("صدور صورتحساب اصلاحی")
+                                Text("صورتحساب اصلاحی")
                             }
                         }
                         Text(invoiceTaxStatus(officialRecord),

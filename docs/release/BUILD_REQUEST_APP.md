@@ -43,3 +43,5 @@ Split historical UI assertion: accepted invoice remains immutable, finalized uns
 Direct-only production mode blocks all certificate-based readiness and historic V2 inquiry routes before network; legacy records remain intact and user is directed to official portal. Add guard regression tests. No changes to APK signing or secure TLS.
 
 0.79.0: start correction from accepted original PDF/details; verify unbound legacy reference without POST, open existing referred document instead of duplicate, prefill buyer/lines/settlement and independent serial without debit until save. Preserve original. Simulated direct submission regression; update old unknown fixture to LEGACY for certificate-free inquiry. Real correction acceptance pending. Request signed APK.
+
+0.79.0 rebuild: fix Kotlin local function declaration order; place exact «صورتحساب اصلاحی» action directly beneath PDF export. Preserve verified parent and no certificate route.
