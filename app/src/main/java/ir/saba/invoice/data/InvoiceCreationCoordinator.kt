@@ -99,6 +99,14 @@ class InvoiceCreationCoordinator(
                 // An auto-prefilled number must be reserved durably just like the blank path.
                 allocator.reserve(companyId, reference = referred)
             } else entered
+        val fiscal=db.moadianDetailsDao().byCompany(companyId)?.fiscalMemoryId
+        if(fiscal?.matches(Regex("[A-Z0-9]{6}"))==true) {
+            val numeric=InvoiceInput.number(number).toLongOrNull()
+            val minimum=allocator.minimumOfficialSerial(companyId)
+            require(numeric==null || numeric>=minimum) {
+                "شماره از سریال‌های مالیاتی محفوظ کوچک‌تر است؛ شماره پیشنهادی "+allocator.suggest(companyId)+" را وارد کنید. هنوز اعتبار مصرف نشده است."
+            }
+        }
         require(db.invoiceDao().forCompany(companyId).none{InvoiceInput.number(it.invoiceNumber)==InvoiceInput.number(number)}){"شماره صورتحساب قبلاً ثبت شده است."}
         val normalized=input.copy(number=number,date=InvoiceInput.date(input.date),lines=lines)
         InvoiceCreationClaim(key,account.ownerId,companyId,kind.name,encode(normalized)).also{db.invoiceCreationClaimDao().insert(it)}

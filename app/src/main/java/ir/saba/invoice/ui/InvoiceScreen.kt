@@ -595,8 +595,14 @@ private fun InvoiceScreenContent(
         // Show the new number in preview and require a fresh explicit send confirmation.
         if(record==null && invoice.trackingCode.isNullOrBlank()) {
             perform {
-                AccountSession.requireOwner(accessToken,account)
-                val repaired=InvoiceRepository(db).repairUnsentFiscalSerial(companyId,invoice.id,ownerId)
+                val profile=db.moadianDetailsDao().byCompany(companyId)
+                val current=InvoiceInput.number(invoice.invoiceNumber).toLongOrNull()
+                val needsRepair=profile?.fiscalMemoryId?.matches(Regex("[A-Z0-9]{6}"))==true &&
+                    current!=null && current<TaxpayerSerialAllocator(db).minimumOfficialSerial(companyId)
+                val repaired=if(needsRepair) {
+                    AccountSession.requireOwner(accessToken,account)
+                    InvoiceRepository(db).repairUnsentFiscalSerial(companyId,invoice.id,ownerId)
+                } else null
                 if(repaired!=null) {
                     reloadOfficial(invoice.id)
                     onNotice("شماره همین صورتحساب به $repaired اصلاح شد؛ اعتبار جدید مصرف نشد. شماره را بررسی و دوباره ارسال را انتخاب کنید.")

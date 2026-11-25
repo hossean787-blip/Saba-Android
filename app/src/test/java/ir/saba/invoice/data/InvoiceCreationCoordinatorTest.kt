@@ -243,6 +243,36 @@ class InvoiceCreationCoordinatorTest {
             assertEquals("REJECTED",db.officialSubmissionDao().forInvoice(id)!!.state)
         } finally { db.close() }
     }
+    @Test fun staleUnsentDraftIsRenumberedWithoutAnotherDebitAndPendingIdentityStaysFixed()=runBlocking {
+        val db=database()
+        try {
+            val (company,customer)=seed(db)
+            db.moadianDetailsDao().upsert(MoadianDetails(companyId=company,fiscalMemoryId="ABC123"))
+            val backend=Backend()
+            val coordinator=InvoiceCreationCoordinator(db,account,backend::authorize)
+            val first=coordinator.finish(coordinator.prepare(company,input(customer,"12"),UUID.randomUUID().toString(),InvoiceCreditKind.PAID).requestId)
+            val second=coordinator.finish(coordinator.prepare(company,input(customer,"2000000001"),UUID.randomUUID().toString(),InvoiceCreditKind.PAID).requestId)
+            val repo=InvoiceRepository(db)
+            repo.finalizeDraft(company,second)
+            val pending=OfficialSubmission("pending",account.ownerId,company,second,"ABC123",
+                ir.saba.moadian.TaxIdGenerator.generate("ABC123",2000000001L,1700000000000L),"{}","hash",1,
+                state="SUBMITTED",referenceNumber="ref",protocol="LEGACY")
+            db.officialSubmissionDao().insert(pending)
+            val oldCredit=db.quotaDao().useForInvoice(first)
+            val oldLines=db.invoiceLineDao().forInvoice(first)
+            expectRejected{coordinator.prepare(company,input(customer,"13"),UUID.randomUUID().toString(),InvoiceCreditKind.PAID)}
+            assertEquals("2000000002",repo.repairUnsentFiscalSerial(company,first,account.ownerId))
+            assertEquals("2000000002",db.invoiceDao().byId(first)!!.invoiceNumber)
+            assertEquals("DRAFT",db.invoiceDao().byId(first)!!.status)
+            assertEquals(oldCredit,db.quotaDao().useForInvoice(first))
+            assertEquals(oldLines,db.invoiceLineDao().forInvoice(first))
+            assertNull(repo.repairUnsentFiscalSerial(company,first,account.ownerId))
+            expectRejected{repo.repairUnsentFiscalSerial(company,second,account.ownerId)}
+            assertEquals(pending,db.officialSubmissionDao().forInvoice(second))
+            assertEquals(2,backend.consumed.size)
+        } finally { db.close() }
+    }
+
     @Test fun rejectedRetryKeepsInvoiceIdAndCreditAndArchivesOriginalAttempt()=runBlocking {
         val db=database()
         try {
