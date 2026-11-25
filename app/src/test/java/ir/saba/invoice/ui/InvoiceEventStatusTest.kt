@@ -24,11 +24,25 @@ class InvoiceEventStatusTest {
         assertEquals(InvoiceEventStatus.DRAFT,invoiceEventStatus(invoice.copy(status="DRAFT"),null))
         assertEquals(InvoiceEventStatus.UNSENT,invoiceEventStatus(invoice,receipt.copy(companyId=99,state="REJECTED")))
     }
-    @Test fun routeOpensPdfOnlyForSubmittedOrUncertainResults() {
-        for(status in InvoiceEventStatus.values()) {
-            assertEquals(status in setOf(InvoiceEventStatus.SUCCESS,InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK),
-                invoiceEventOpensPreview(status))
+    @Test fun allEventStatusesOpenSamePdfPreview() {
+        for(status in InvoiceEventStatus.values()) assertTrue(invoiceEventOpensPreview(status))
+    }
+    @Test fun previewActionsAreSafeForEachState() {
+        assertTrue(canEditInvoicePreview(invoice,null))
+        assertTrue(canEditInvoicePreview(invoice.copy(status="DRAFT"),null))
+        assertEquals("ارسال به سامانه مؤدیان",invoicePreviewAction(invoice,null))
+        assertTrue(canEditInvoicePreview(invoice,receipt.copy(state="REJECTED")))
+        assertNull(invoicePreviewAction(invoice,receipt.copy(state="REJECTED")))
+        for(state in listOf("SUBMITTED","SENDING","UNKNOWN")) {
+            assertFalse(canEditInvoicePreview(invoice,receipt.copy(state=state)))
+            assertEquals("استعلام وضعیت ارسال",invoicePreviewAction(invoice,receipt.copy(state=state)))
         }
+        val accepted=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_UNBOUND)
+        assertFalse(canEditInvoicePreview(invoice,accepted))
+        assertNull(invoicePreviewAction(invoice,accepted))
+        assertNull(invoicePreviewAction(invoice.copy(trackingCode="old"),null))
+        assertFalse(canEditInvoicePreview(invoice.copy(trackingCode="old"),null))
+        assertTrue(canEditInvoicePreview(invoice,receipt.copy(state="RESERVED")))
     }
     @Test fun titleUsesOnlyMatchingCustomer() {
         assertEquals("صورتحساب مشتری آزمایشی",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=2,name="مشتری آزمایشی"))))

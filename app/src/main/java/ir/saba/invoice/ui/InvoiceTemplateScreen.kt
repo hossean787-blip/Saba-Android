@@ -236,7 +236,8 @@ object SuraInvoicePdf {
 fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice,
                           lines: List<InvoiceLine>, onExport: (ByteArray) -> Unit,
                           onBack: () -> Unit, onSend: () -> Unit, official: OfficialSubmission? = null,
-                          db: SabaDatabase? = null, directPreview: Boolean = false) {
+                          db: SabaDatabase? = null, directPreview: Boolean = false,
+                          busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -284,17 +285,32 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
             Text("لوگو"); Switch(logo, { logo = it })
             Text("مهر"); Switch(stamp, { stamp = it })
         }
-        Button(enabled = bytes != null, onClick = { bytes?.let(onExport) },
-            modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
-        if (invoice.status in setOf("DRAFT", "FINALIZED") &&
-            (official == null || official.state in setOf("PREPARED", "RESERVED", "SENDING", "UNKNOWN", "SUBMITTED") ||
-                needsLegacyReferenceCheck(official)) && (!directPreview || (official != null && invoiceEventStatus(invoice, official) != InvoiceEventStatus.SUCCESS))) {
-            OutlinedButton(onClick = onSend, modifier = Modifier.fillMaxWidth()) {
-                Text(if (needsLegacyReferenceCheck(official)) "استعلام و تطبیق مرجع"
-                    else if (official?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
-                    "استعلام وضعیت ارسال" else "ارسال به سامانه مؤدیان")
+        if(directPreview && invoiceEventStatus(invoice,official)!=InvoiceEventStatus.SUCCESS) {
+            val state=invoiceEventStatus(invoice,official)
+            val failed=state==InvoiceEventStatus.REJECTED
+            Card(colors=CardDefaults.cardColors(containerColor=if(failed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant),
+                modifier=Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text("وضعیت: "+state.label,style=MaterialTheme.typography.titleSmall)
+                    Text(invoiceTaxStatus(official),style=MaterialTheme.typography.bodySmall)
+                    official?.takeUnless(::isLegacyEvidenceMessage)?.lastError?.takeIf{it.isNotBlank()}?.let {
+                        Text(it.take(2000),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
         }
-        TextButton(onClick = onBack) { Text("بازگشت") }
+        Button(enabled = bytes != null && !busy, onClick = { bytes?.let(onExport) },
+            modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
+        val action=invoicePreviewAction(invoice,official)
+        if(action!=null) OutlinedButton(enabled=!busy,onClick=onSend,modifier=Modifier.fillMaxWidth()) { Text(action) }
+        if(onEdit!=null && canEditInvoicePreview(invoice,official)) {
+            OutlinedButton(enabled=!busy,onClick=onEdit,modifier=Modifier.fillMaxWidth()) {
+                Text(if(official?.state=="REJECTED") "اصلاح و ویرایش همین فاکتور" else "ویرایش فاکتور")
+            }
+        }
+        if(onDetails!=null && invoiceEventStatus(invoice,official)!=InvoiceEventStatus.SUCCESS) {
+            TextButton(enabled=!busy,onClick=onDetails,modifier=Modifier.fillMaxWidth()) { Text("جزئیات فاکتور") }
+        }
+        TextButton(enabled=!busy,onClick = onBack) { Text("بازگشت") }
     }
 }

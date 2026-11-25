@@ -573,7 +573,7 @@ private fun InvoiceScreenContent(
             } finally {
                 sendProgress = ""
                 reloadOfficial(id)
-                mode = "details"
+                mode = if(fromEvents) "template" else "details"
             }
         }
     }
@@ -610,7 +610,7 @@ private fun InvoiceScreenContent(
                             operationKey = java.util.UUID.randomUUID().toString()
                             onChanged()
                             runCatching { refreshPaidBalance() }
-                            mode = "details"
+                            mode = if(fromEvents) "template" else "details"
                             onNotice("پیش‌نویس ذخیره شد.")
 
         }
@@ -627,12 +627,9 @@ private fun InvoiceScreenContent(
                 officialRecord = db.officialSubmissionDao().forInvoice(id)
                     ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
                 if (mode == "event_open") {
-                    val loaded = requireNotNull(details)
-                    if (invoiceEventOpensPreview(invoiceEventStatus(loaded.invoice, officialRecord))) {
-                        templateCompany = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
-                            ?: error("مودی یافت نشد.")
-                        mode = "template"
-                    } else mode = "details"
+                    templateCompany = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
+                        ?: error("مودی یافت نشد.")
+                    mode = "template"
                 } else if (mode == "template" && templateCompany == null) {
                     templateCompany = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
                         ?: error("مودی یافت نشد.")
@@ -667,7 +664,7 @@ private fun InvoiceScreenContent(
                 val customer = loaded?.invoice?.let { inv -> customers.firstOrNull { it.id == inv.customerId } }
                 val company = templateCompany
                 if (loaded != null && customer != null && company != null) {
-                    val directPreview = fromEvents && invoiceEventOpensPreview(invoiceEventStatus(loaded.invoice, officialRecord))
+                    val directPreview = fromEvents
                     InvoiceTemplateScreen(company, customer, loaded.invoice, loaded.lines,
                         onExport = { bytes ->
                             exportBytes = bytes
@@ -675,7 +672,11 @@ private fun InvoiceScreenContent(
                         },
                         onBack = { if (directPreview) backFromInvoice() else mode = "details" },
                         onSend = { requestOfficialSend(loaded) },
-                        official = officialRecord, db = db, directPreview = directPreview)
+                        official = officialRecord, db = db, directPreview = directPreview,
+                        busy = busy, onEdit = if(canEditInvoicePreview(loaded.invoice,officialRecord)) {
+                            { editExisting(loaded) }
+                        } else null,
+                        onDetails = if(directPreview) { { mode = "details" } } else null)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -1338,7 +1339,7 @@ private fun InvoiceScreenContent(
         }) },
         confirmButton = { TextButton(enabled = !busy, onClick = {
             val requested = confirmation
-            if (requested == "leave") { confirmation = ""; if (invoiceId == null) backFromInvoice() else mode = "details"; error = "" }
+            if (requested == "leave") { confirmation = ""; if (invoiceId == null) backFromInvoice() else mode = if(fromEvents) "template" else "details"; error = "" }
             else perform {
                 val id = actionId ?: throw IllegalArgumentException("فاکتور را دوباره انتخاب کنید.")
                 require(requested == "delete")

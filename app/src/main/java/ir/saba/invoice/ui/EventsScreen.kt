@@ -66,8 +66,28 @@ internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?):
         else -> InvoiceEventStatus.CHECK
     }
 }
-internal fun invoiceEventOpensPreview(status: InvoiceEventStatus): Boolean =
-    status in setOf(InvoiceEventStatus.SUCCESS, InvoiceEventStatus.PENDING, InvoiceEventStatus.CHECK)
+internal fun invoiceEventOpensPreview(status: InvoiceEventStatus): Boolean = true
+
+/** Only never-posted documents or a definitively rejected attempt may enter editing. */
+internal fun canEditInvoicePreview(invoice: Invoice, receipt: OfficialSubmission?): Boolean {
+    if(receipt!=null && (receipt.invoiceId!=invoice.id || receipt.companyId!=invoice.companyId)) return false
+    if(receipt?.state=="REJECTED") return invoice.status=="FINALIZED"
+    return invoice.trackingCode.isNullOrBlank() &&
+        (invoice.status=="DRAFT" && (receipt==null || receipt.state=="RESERVED") ||
+         invoice.status=="FINALIZED" && (receipt==null || receipt.state in setOf("PREPARED","RESERVED")))
+}
+
+internal fun invoicePreviewAction(invoice:Invoice, receipt:OfficialSubmission?):String? {
+    if(receipt!=null && (receipt.invoiceId!=invoice.id || receipt.companyId!=invoice.companyId)) return null
+    if(invoice.status !in setOf("DRAFT","FINALIZED")) return null
+    return when {
+        receipt?.state in setOf("SENDING","UNKNOWN","SUBMITTED") -> "استعلام وضعیت ارسال"
+        needsLegacyReferenceCheck(receipt) && invoiceEventStatus(invoice,receipt)!=InvoiceEventStatus.SUCCESS -> "استعلام و تطبیق مرجع"
+        receipt==null && invoice.trackingCode.isNullOrBlank() ||
+            receipt?.state in setOf("PREPARED","RESERVED") -> "ارسال به سامانه مؤدیان"
+        else -> null
+    }
+}
 
 internal fun invoiceEventTitle(invoice: Invoice, customers: List<Customer>): String =
     "صورتحساب " + (customers.firstOrNull { it.id == invoice.customerId && it.companyId == invoice.companyId }
