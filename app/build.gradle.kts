@@ -60,13 +60,72 @@ android {
 
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
+// Robolectric 4.14.1 runtime SDK coordinates (DefaultSdkProvider, i7).
+// Resolve SDK jars with Gradle's normal dependency cache BEFORE any test starts.
+// Tests must never perform their own Maven downloads.
+val robolectricSdkVersions = mapOf(
+    21 to "5.0.2_r3-robolectric-r0-i7",
+    22 to "5.1.1_r9-robolectric-r2-i7",
+    23 to "6.0.1_r3-robolectric-r1-i7",
+    24 to "7.0.0_r1-robolectric-r1-i7",
+    25 to "7.1.0_r7-robolectric-r1-i7",
+    26 to "8.0.0_r4-robolectric-r1-i7",
+    27 to "8.1.0-robolectric-4611349-i7",
+    28 to "9-robolectric-4913185-2-i7",
+    29 to "10-robolectric-5803371-i7",
+    30 to "11-robolectric-6757853-i7",
+    31 to "12-robolectric-7732740-i7",
+    32 to "12.1-robolectric-8229987-i7",
+    33 to "13-robolectric-9030017-i7",
+    34 to "14-robolectric-10818077-i7",
+    35 to "15-robolectric-12650502-i7"
+)
+val declaredTestSdks = mutableSetOf(28, 35) // existing default test API and latest resource SDK
+val sdkAnnotation = Regex("""@Config\s*\([^)]*\)""")
+val sdkArray = Regex("""\bsdk\s*=\s*(?:\[([^]]+)\]|\{([^}]+)\}|(\d+))""")
+fileTree("src/test") { include("**/*.kt", "**/*.java") }.files.forEach { source ->
+    sdkAnnotation.findAll(source.readText()).forEach { annotation ->
+        sdkArray.find(annotation.value)?.let { match ->
+            Regex("""\d+""").findAll(match.value.substringAfter('=')).forEach {
+                declaredTestSdks.add(it.value.toInt())
+            }
+        }
+    }
+}
+val sdkJars = declaredTestSdks.sorted().map { api ->
+    val version = requireNotNull(robolectricSdkVersions[api]) {
+        "No pinned Robolectric SDK for API $api; update the SDK map."
+    }
+    // Separate configurations prevent Gradle from choosing only the highest version.
+    configurations.detachedConfiguration(
+        dependencies.create("org.robolectric:android-all-instrumented:$version")
+    ).apply { isTransitive = false }
+}
+val robolectricSdkDir = layout.buildDirectory.dir("robolectric-sdk-jars")
+val prepareRobolectricSdks = tasks.register<Sync>("prepareRobolectricSdks") {
+    group = "verification"
+    description = "Resolve and stage all pinned Robolectric Android SDK jars."
+    sdkJars.forEach { from(it) }
+    into(robolectricSdkDir)
+    doLast {
+        val expected = declaredTestSdks.map { "android-all-instrumented-${robolectricSdkVersions.getValue(it)}.jar" }
+        expected.forEach { name ->
+            val jar = robolectricSdkDir.get().file(name).asFile
+            check(jar.isFile && jar.length() > 0) { "Missing Robolectric SDK: $name" }
+            java.util.zip.ZipFile(jar).use { archive ->
+                check(archive.size() > 0) { "Empty Robolectric SDK: $name" }
+            }
+        }
+        logger.lifecycle("ROBOLECTRIC_SDK_READY APIs=${declaredTestSdks.sorted()}")
+    }
+}
+
 tasks.withType<Test>().configureEach {
-    // Keep Robolectric's SDK cache and download lock inside Gradle's writable cache.
-    val testHome = gradle.gradleUserHomeDir.resolve("robolectric")
-    systemProperty("user.home", testHome.absolutePath)
-    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    dependsOn(prepareRobolectricSdks)
+    systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.usePreinstrumentedJars", "true")
     maxHeapSize = "1536m"
-    doFirst { testHome.mkdirs() }
 }
 
 dependencies {
