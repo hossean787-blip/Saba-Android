@@ -66,7 +66,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         scope.launch {
             try { block(); refresh() }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = if (e is IllegalArgumentException || e is IllegalStateException) e.message.orEmpty().take(300) else "عملیات انجام نشد؛ اتصال و اطلاعات مؤدی را بررسی کنید." }
+            catch (e: Exception) { error = SuraErrors.transport(e) ?: if (e is IllegalArgumentException || e is IllegalStateException) e.message.orEmpty().take(300) else "عملیات انجام نشد؛ اتصال و اطلاعات مؤدی را بررسی کنید." }
             finally { busy = false; sendStage = "" }
         }
     }

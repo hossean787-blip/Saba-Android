@@ -74,12 +74,13 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var quotedVatRial by remember { mutableStateOf<Long?>(null) }
     var gatewayReady by remember { mutableStateOf(false) }
     var quoteError by remember { mutableStateOf(false) }
+    var quoteErrorDetail by remember { mutableStateOf("") }
     LaunchedEffect(accessToken, selectedQuantity) {
         quotedUnitRial = null
         quotedTotalRial = null
         quotedVatRial = null
         gatewayReady = false
-        quoteError = false
+        quoteError = false; quoteErrorDetail = ""
         val count = selectedQuantity ?: return@LaunchedEffect
         if (accessToken.isBlank()) { quoteError = true; return@LaunchedEffect }
         runCatching { CreditQuoteClient.quote(accessToken, count) }
@@ -97,7 +98,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                     gatewayReady = response.optBoolean("payment_enabled", false)
                 } else quoteError = true
             }
-            .onFailure { quoteError = true }
+            .onFailure { quoteError = true; quoteErrorDetail = SuraErrors.describe(it,"استعلام قیمت تأیید نشد. [QUOTE-ERROR]") }
     }
     val cardShape = RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
@@ -182,7 +183,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                         Text("تلاش دوباره برای بازیابی سفارش")
                     }
                 }
-                if (quoteError && plan == "single") Text("استعلام قیمت از سرور انجام نشد؛ اتصال اینترنت را بررسی کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (quoteError && plan == "single") Text(quoteErrorDetail.ifBlank{"استعلام قیمت انجام نشد؛ نشست و اینترنت را بررسی کنید. [QUOTE-UNAVAILABLE]"}, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (paymentMessage.isNotBlank()) Text(paymentMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (plan == "single" && !gatewayReady && quotedTotalRial != null) Text("پذیرنده پرداخت در سرور هنوز فعال نشده است.", color = Color(0xFF977425), style = MaterialTheme.typography.bodySmall)
                 if (pendingOrderId != null && plan == "single") {
@@ -198,7 +199,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                                         else -> "پرداخت هنوز توسط سرور تأیید نشده است؛ مجدداً پرداخت نکنید."
                                     }
                                 }
-                                .onFailure { paymentMessage = it.message ?: "استعلام پرداخت ناموفق بود." }
+                                .onFailure { paymentMessage = SuraErrors.describe(it,"استعلام پرداخت ناموفق بود؛ همان سفارش را بررسی کنید. [PAY-STATUS]") }
                             paymentBusy = false
                         }
                     }, enabled = !paymentBusy, modifier = Modifier.fillMaxWidth()) {
@@ -223,7 +224,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(response.getString("paymentUrl")))) }
                                 catch (_: Exception) { paymentMessage = "بازکردن درگاه پرداخت امکان‌پذیر نیست." }
                             }
-                            .onFailure { paymentMessage = it.message ?: "درگاه پرداخت در دسترس نیست." }
+                            .onFailure { paymentMessage = SuraErrors.transport(it) ?: it.message?.takeIf { m -> m.startsWith("شناسه پذیرنده") || m.startsWith("درگاه زرین‌پال") || m.startsWith("ارتباط سرور سورا") || m.startsWith("ساخت سفارش") || m.startsWith("درخواست توسط سرور زرین‌پال") || m.startsWith("سرور ثبت سفارش") || m.startsWith("قیمت اعتبار") } ?: "درگاه پرداخت در دسترس نیست. [PAY-CREATE]" }
                         paymentBusy = false
                     }
                 }, enabled = plan == "single" && selectedQuantity != null && quotedTotalRial != null && gatewayReady && !paymentBusy && !pendingRecoveryBusy && !pendingRecoveryError && pendingOrderId == null,
@@ -266,7 +267,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                                     FreeCreditClient.redeem(context,accessToken,promoCode).getOrThrow()
                                     promoGranted=true;promoMessage="۳ اعتبار هدیه در سرور ثبت شد."
                                 } catch(e:kotlinx.coroutines.CancellationException) { throw e }
-                                catch(e:Exception) { promoMessage=e.message ?: "دریافت هدیه ناموفق بود." }
+                                catch(e:Exception) { promoMessage=SuraErrors.describe(e,"دریافت هدیه تأیید نشد؛ موجودی را استعلام کنید. [GIFT-ERROR]") }
                                 finally { promoBusy=false }
                             }
                         }) { Text(if (promoBusy) "در حال بررسی…" else "فعال‌سازی هدیه") }

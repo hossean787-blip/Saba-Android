@@ -23,10 +23,10 @@ internal object FreeCreditClient {
             Result.success(granted)
         } catch(e:CancellationException) { throw e }
         catch(e:CreditHttpException) {
-            Result.failure(IllegalStateException(when(e.status) {
-                409 -> "این هدیه قبلاً با این حساب یا گوشی دریافت شده است."
-                400 -> "کد هدیه معتبر نیست."
-                else -> "تأیید هدیه از سرور انجام نشد (کد ${e.status})."
+            Result.failure(SuraServiceException(e.status,e.code ?: when(e.status) {
+                409 -> "already_redeemed"
+                400 -> "invalid_code"
+                else -> null
             }))
         } catch(e:Exception) { Result.failure(e) }
     }

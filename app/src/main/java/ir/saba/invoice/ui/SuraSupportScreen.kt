@@ -148,11 +148,7 @@ internal class SupportOperationJournal(context:Context,account:AccountScope) {
 private val navy=Color(0xFF12354C)
 private val teal=Color(0xFF087A83)
 private fun supportStatus(status:String)=when(status){"open"->"ثبت‌شده";"in_progress"->"در حال بررسی";"answered"->"پاسخ داده‌شده";else->"بسته"}
-private fun supportError(e:Exception)=when {
-    e is SupportHttpError&&e.status in 401..403 ->"دسترسی تأیید نشد؛ دوباره وارد شوید یا وضعیت درخواست را بررسی کنید."
-    e is SupportHttpError&&e.status in setOf(400,429) ->"پیام پذیرفته نشد؛ محدودیت ارسال یا محتوای پیام را بررسی کنید."
-    else->"ارتباط تأیید نشد. همان متن را دوباره ارسال کنید؛ شماره درخواست قبلی حفظ می‌شود."
-}
+private fun supportError(e:Exception)=if(e is SupportHttpError) SuraErrors.message(e.status)+" شماره درخواست قبلی حفظ می‌شود." else SuraErrors.describe(e,"ارتباط تأیید نشد. همان متن را دوباره ارسال کنید؛ شماره درخواست قبلی حفظ می‌شود. [SUPPORT-UNKNOWN]")
 @Composable private fun SupportHeader(title:String,subtitle:String) {
     Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(navy,teal)),RoundedCornerShape(22.dp)).padding(20.dp),
         verticalArrangement=Arrangement.spacedBy(8.dp)){

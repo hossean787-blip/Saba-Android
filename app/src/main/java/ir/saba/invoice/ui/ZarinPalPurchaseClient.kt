@@ -28,7 +28,8 @@ internal object ZarinPalPurchaseClient {
             conn.setRequestProperty("Authorization", "Bearer $token")
             conn.setRequestProperty("Content-Type", "application/json")
             conn.outputStream.use { it.write("{}".toByteArray(Charsets.UTF_8)) }
-            if (conn.responseCode !in 200..299) error("بازیابی سفارش پرداخت از سرور انجام نشد.")
+            val status=conn.responseCode
+            if (status !in 200..299) throw SuraServiceException(status,SuraErrors.readCode(conn))
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             parsePendingOrder(JSONObject(body))
         } finally { conn.disconnect() }
@@ -69,7 +70,7 @@ internal object ZarinPalPurchaseClient {
             val status = conn.responseCode
             val raw = (if (status in 200..299) conn.inputStream else conn.errorStream)
                 .bufferedReader().use { it.readText() }
-            if (status !in 200..299) error("استعلام وضعیت پرداخت ناموفق بود.")
+            if (status !in 200..299) throw SuraServiceException(status,runCatching { JSONObject(raw).optString("error") }.getOrNull())
             JSONObject(raw)
         } finally { conn.disconnect() }
     }

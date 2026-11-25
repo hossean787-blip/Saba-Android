@@ -56,7 +56,7 @@ private fun TaxpayerConnectionContent(
             pendingStored = repository.hasPendingPrivateKey(companyId)
             if (memoryId.matches(Regex("[A-Z0-9]{6}"))) profile = repository.profile(companyId,System.currentTimeMillis())
         } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { error = e.message ?: "اطلاعات اتصال قابل بارگذاری نیست." }
+        catch (e: Exception) { error = SuraErrors.transport(e) ?: e.message?.takeIf{it in setOf("مودی یافت نشد.","مودی متعلق به این حساب نیست.")} ?: "اطلاعات اتصال قابل بارگذاری نیست. [TAX-CONNECTION]" }
         finally { busy = false }
     }
     fun import(uri: android.net.Uri?, isCertificate: Boolean) {
@@ -89,7 +89,7 @@ private fun TaxpayerConnectionContent(
                 }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                error = e.message ?: "ورود فایل انجام نشد."
+                error = SuraErrors.transport(e) ?: if(isCertificate) "ساختار یا اعتبار گواهی تأیید نشد؛ فایل گواهی معتبر را انتخاب کنید. [CERT-IMPORT]" else "ساختار کلید خصوصی تأیید نشد؛ فایل RSA معتبر را انتخاب کنید. [KEY-IMPORT]"
                 onNotice(error)
             }
             finally { busy = false }
@@ -191,7 +191,7 @@ private fun TaxpayerConnectionContent(
                     }
                     confirmation=""
                 } catch(e:CancellationException){throw e}
-                catch(e:Exception){error=when(action){
+                catch(e:Exception){error=SuraErrors.transport(e) ?: when(action){
                     "probe" -> "بررسی مسیر نسخه ۲ ناموفق بود؛ گواهی و اتصال اینترنت را بررسی کنید."
                     "legacy" -> "بررسی اتصال بدون گواهی ناموفق بود؛ کلید خصوصی، شناسه یکتا، ثبت کلید عمومی در کارپوشه و دسترسی این API را بررسی کنید."
                     else -> e.message?:"تغییر اطلاعات اتصال انجام نشد."

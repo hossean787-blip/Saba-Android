@@ -73,7 +73,7 @@ private fun CreditManagementContent(
                 } else message="رسید انتقال قبلی تأیید نشد؛ فقط همان شناسه را تکرار کنید."
             }
         } catch(e:CancellationException) { throw e }
-        catch(_:Exception) { message="دریافت مانده یا رسید ناموفق بود؛ درخواست قبلی محفوظ است. نشست و اتصال را بررسی کنید." }
+        catch(e:Exception) { message=SuraErrors.describe(e,"دریافت مانده یا رسید ناموفق بود. [CREDIT-READ]")+" درخواست قبلی محفوظ است." }
     }
     val count = amount.toLongOrNull()
     Column(
@@ -118,7 +118,7 @@ private fun CreditManagementContent(
                             reload++
                         } else message="رسید معتبر همان درخواست دریافت نشد؛ شناسهٔ قبلی محفوظ است."
                     } catch(e:CancellationException) { throw e }
-                    catch(_:Exception) { message="نتیجه انتقال قطعی نیست؛ درخواست محفوظ را با همان شناسه پیگیری کنید." }
+                    catch(e:Exception) { message=SuraErrors.describe(e,"نتیجه انتقال قطعی نیست. [CREDIT-TRANSFER]")+" درخواست محفوظ را با همان شناسه پیگیری کنید." }
                     finally { busy=false }
                 }
             },
