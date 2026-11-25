@@ -115,12 +115,13 @@ internal class AccountArchivePortable(private val context:Context,private val ac
     }
     suspend fun captureAccount(ids:Set<Long>,a:JSONObject,journals:JSONObject):JSONObject {
         val rows=JSONArray()
-        SuraSavedIdentifierStore(context,account).use { store ->
+        val store=SuraSavedIdentifierStore(context,account)
+        try {
             for(id in ids.sorted()) store.forTaxpayer(id).forEach { v ->
                 rows.put(JSONObject().put("company",id).put("id",v.id).put("description",v.description)
                     .put("vat",v.vat).put("taxable",v.taxable).put("kind",v.kind).put("expiry",v.expirationDate).put("source",v.source))
             }
-        }
+        } finally { store.close() }
         val local=JSONObject()
         for(k in listOf("name","mobile")) profile.getString("${k}_${account.storageKey}",null)?.let {local.put(k,it)}
         val prior=JSONArray()
@@ -222,14 +223,15 @@ internal class AccountArchivePortable(private val context:Context,private val ac
             require(edit.commit()) {"ذخیره کلید بازیابی‌شده ناموفق بود؛ همان فایل را دوباره وارد کنید."}
         }
         val rows=a.getJSONArray("identifiers")
-        SuraSavedIdentifierStore(context,account).use { store ->
+        val store=SuraSavedIdentifierStore(context,account)
+        try {
             for((id,items) in (0 until rows.length()).map {rows.getJSONObject(it)}.groupBy {it.getLong("company")}) {
                 require(db.companyDao().byId(id)?.purchaserId==account.ownerId)
                 items.map {v->SuraIdentifier(v.getString("id"),v.getString("description"),v.getString("vat"),
                     v.getString("taxable"),v.getString("kind"),v.getString("expiry"),v.getString("source"))}
                     .chunked(1000).forEach {store.importBatch(id,it)}
             }
-        }
+        } finally { store.close() }
         val local=a.getJSONObject("profile");val edit=profile.edit()
         for(k in listOf("name","mobile")) {
             val key="${k}_${account.storageKey}"

@@ -56,7 +56,9 @@ class AccountArchivePortableTest {
             assertArrayEquals(key,targetVault.decryptPending(account,7,stored))
             assertNull(db.quotaDao().wallet(account.ownerId))
             assertTrue(db.moadianDetailsDao().byCompany(7)!!.inactive)
-            SuraSavedIdentifierStore(ctx,account).use {assertEquals("1234567890123",it.forTaxpayer(7).single().id)}
+            val savedStore=SuraSavedIdentifierStore(ctx,account)
+            try { assertEquals("1234567890123",savedStore.forTaxpayer(7).single().id) }
+            finally { savedStore.close() }
             assertTrue(target.history().isNotEmpty())
             target.restoreAccount(assets,db,setOf(7L))
             assertEquals(stored,prefs.getString("pending_company_7",null))
@@ -64,6 +66,38 @@ class AccountArchivePortableTest {
             prefs.edit().clear().commit();db.close()
             ctx.deleteDatabase("sura_identifier_saved_${account.storageKey}.db")
             File(ctx.filesDir,"archive-history/${account.storageKey}").deleteRecursively()
+        }
+    }
+    @Test fun portableArchiveRejectsDifferentAccountBeforeCreditOrDataImport()=runBlocking {
+        val ctx=ApplicationProvider.getApplicationContext<Context>()
+        val owner=AccountScope.of("11111111-1111-4111-8111-444444444444")
+        val other=AccountScope.of("11111111-1111-4111-8111-555555555555")
+        val source=Room.inMemoryDatabaseBuilder(ctx,SabaDatabase::class.java).build()
+        val target=Room.inMemoryDatabaseBuilder(ctx,SabaDatabase::class.java).build()
+        val password="owner-bound-test-123".toCharArray()
+        try {
+            source.companyDao().insert(Company(id=7,purchaserId=owner.ownerId,name="Test",nationalId="123"))
+            val blob=AccountArchive(source,owner,{},{},AccountArchivePortable(ctx,owner))
+                .export(password,ArchiveCreditSnapshot(80,0,mapOf(7L to 80L),1))
+            var queried=false
+            var reserved=false
+            try {
+                AccountArchive(target,other,{},{reserved=true},AccountArchivePortable(ctx,other))
+                    .restoreWithCredit(blob,password) {
+                        queried=true
+                        error("must not query other account")
+                    }
+                fail("different account with correct password must be rejected")
+            } catch(e:IllegalArgumentException) {
+                assertTrue(e.message.orEmpty().contains("همان حساب"))
+            }
+            assertFalse(queried)
+            assertFalse(reserved)
+            assertTrue(target.companyDao().all().isEmpty())
+            assertNull(target.quotaDao().wallet(other.ownerId))
+            assertTrue(AccountArchivePortable(ctx,other).history().isEmpty())
+        } finally {
+            password.fill(' ');source.close();target.close()
         }
     }
     @Test fun unreadableLogoRejectsInsteadOfDroppingData() {

@@ -195,7 +195,10 @@ internal class AccountArchive(
         checkSession()
         val plain=AccountArchiveCrypto.open(blob,password)
         val root=try { JSONObject(String(plain,Charsets.UTF_8)) } finally { plain.fill(0) }
-        require(root.getInt("format") in 1..3 && root.getString("owner")==account.ownerId) { "فایل یا مالک پشتیبان معتبر نیست." }
+        require(root.getInt("format") in 1..3) { "نسخه فایل پشتیبان معتبر نیست." }
+        require(root.getString("owner")==account.ownerId) {
+            "بازیابی غیرمجاز: فقط با همان حسابی که پشتیبان را تهیه کرده وارد شوید."
+        }
         val data=root.getJSONObject("tables")
         require(data.keys().asSequence().toSet()==tables.toSet()) { "ساختار فایل پشتیبان معتبر نیست." }
         require(tables.sumOf { data.getJSONArray(it).length() }<=100_000) { "تعداد ردیف‌ها بیش از سقف مجاز است." }
@@ -222,7 +225,10 @@ internal class AccountArchive(
         require(credit.taxpayers.keys==ids+local) { "استعلام تمام مؤدیان از سرور کامل نشد." }
         checkSession()
         val added=merge(root)
-        if(root.getInt("format")==3) requireNotNull(portable).restoreAccount(root.getJSONObject("portable"),db,ids)
+        if(root.getInt("format")==3) {
+            checkSession()
+            requireNotNull(portable).restoreAccount(root.getJSONObject("portable"),db,ids)
+        }
         return ArchiveRestoreResult(added,credit)
     }
     // Compatibility entry for isolated archive unit tests; production restore always uses restoreWithCredit.
