@@ -16,6 +16,14 @@ class TaxpayerSerialAllocator(private val db:SabaDatabase) {
         db.moadianDetailsDao().upsert(details.copy(nextInvoiceSerial=next+1,nextReferenceSerial=next+1))
         next.toString().padStart(10,'0')
     }
+    /** Fiscal floor includes pending/unknown and rejected identities, not only accepted receipts. */
+    suspend fun minimumOfficialSerial(companyId:Long):Long {
+        val details=requireNotNull(db.moadianDetailsDao().byCompany(companyId))
+        require(details.fiscalMemoryId.matches(Regex("[A-Z0-9]{6}"))){"شناسه حافظه مالیاتی معتبر نیست."}
+        val ids=db.officialSubmissionDao().forFiscalMemory(details.fiscalMemoryId).map{it.taxId}+
+            db.rejectedSubmissionHistoryDao().forFiscalMemory(details.fiscalMemoryId).map{it.taxId}
+        return (ids.maxOfOrNull{ir.saba.moadian.TaxIdGenerator.validate(it).serialHex.toLong(16)}?:0L)+1
+    }
     private suspend fun nextAvailable(companyId:Long,minimum:Long=1L):Long {
         val details=requireNotNull(db.moadianDetailsDao().byCompany(companyId)){"ابتدا مشخصات مؤدی را تکمیل کنید."}
         require(!details.inactive){"مودی غیرفعال است."}

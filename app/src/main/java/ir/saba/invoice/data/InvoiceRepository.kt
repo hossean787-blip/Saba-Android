@@ -144,6 +144,23 @@ class InvoiceRepository(private val db: SabaDatabase) {
         }
     }
 
+    /** Repair only a never-prepared invoice before confirmation; no new invoice or credit use. */
+    suspend fun repairUnsentFiscalSerial(companyId:Long,invoiceId:Long,ownerId:String):String?=db.withTransaction {
+        require(db.companyDao().byId(companyId)?.purchaserId==ownerId)
+        val invoice=requireNotNull(db.invoiceDao().byId(invoiceId))
+        require(invoice.companyId==companyId && invoice.status in setOf("DRAFT","FINALIZED") &&
+            invoice.trackingCode.isNullOrBlank()){"فقط سند ارسال‌نشده قابل اصلاح شماره است."}
+        require(db.officialSubmissionDao().forInvoice(invoiceId)==null){"شماره مالیاتی این سند قبلاً محفوظ شده است."}
+        require(db.moadianSimulationDao().latestForInvoice(invoiceId)==null){"سند دارای سابقه آزمایشی باید بررسی شود."}
+        val allocator=TaxpayerSerialAllocator(db)
+        val minimum=allocator.minimumOfficialSerial(companyId)
+        val current=InvoiceInput.wholeNumber(invoice.invoiceNumber,"شماره فاکتور")
+        if(current>=minimum) return@withTransaction null
+        val next=allocator.reserve(companyId,invoice.subject!=InvoiceSubject.ORIGINAL,minimum)
+        db.invoiceDao().update(invoice.copy(invoiceNumber=next))
+        next
+    }
+
     /** Reopen only an explicitly rejected invoice, atomically retaining its immutable attempt.
      * Same local invoice ID and quota use; a fresh fiscal serial prevents reuse on resubmission. */
     suspend fun reopenRejectedForEdit(companyId:Long, invoiceId:Long, ownerId:String) = db.withTransaction {

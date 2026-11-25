@@ -591,8 +591,24 @@ private fun InvoiceScreenContent(
             else onNotice("واحد سنجش هر ردیف را در ویرایش پیش‌نویس انتخاب کنید.")
             return
         }
-        issueClock = ""
-        sendConfirm = true
+        // Before asking for permission to POST, repair stale numbers on the same never-prepared document.
+        // Show the new number in preview and require a fresh explicit send confirmation.
+        if(record==null && invoice.trackingCode.isNullOrBlank()) {
+            perform {
+                AccountSession.requireOwner(accessToken,account)
+                val repaired=InvoiceRepository(db).repairUnsentFiscalSerial(companyId,invoice.id,ownerId)
+                if(repaired!=null) {
+                    reloadOfficial(invoice.id)
+                    onNotice("شماره همین صورتحساب به $repaired اصلاح شد؛ اعتبار جدید مصرف نشد. شماره را بررسی و دوباره ارسال را انتخاب کنید.")
+                } else {
+                    issueClock=""
+                    sendConfirm=true
+                }
+            }
+        } else {
+            issueClock = ""
+            sendConfirm = true
+        }
     }
 
     fun sendConfirmed(id: Long, declaredClock: String) {
