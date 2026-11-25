@@ -43,7 +43,7 @@ fun TaxpayerKeysScreen(onNotice: (String) -> Unit) {
             context.contentResolver.openOutputStream(uri)?.use { it.write(publicPem.toByteArray(Charsets.US_ASCII)) }
                 ?: error("File unavailable")
             onNotice("کلید عمومی ذخیره شد.")
-        } catch (_: Exception) { onNotice("ذخیره کلید عمومی ناموفق بود.") }
+        } catch (e: Exception) { onNotice(SuraErrors.describe(e,"ذخیره کلید عمومی ناموفق بود. [KEY-PUBLIC]")) }
     }
     val exportPrivate = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
         if (uri != null && privatePem.isNotBlank()) try {
@@ -51,14 +51,14 @@ fun TaxpayerKeysScreen(onNotice: (String) -> Unit) {
                 ?: error("File unavailable")
             privateSaved = true
             onNotice("کلید خصوصی ذخیره شد. فایل را در مکانی امن و خارج از دسترس دیگران نگهداری کنید.")
-        } catch (_: Exception) { onNotice("ذخیره کلید خصوصی انجام نشد.") }
+        } catch (e: Exception) { onNotice(SuraErrors.describe(e,"ذخیره کلید خصوصی انجام نشد. [KEY-PRIVATE]")) }
     }
     val exportCsr = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
         if (uri != null && csrPem.isNotBlank()) try {
             context.contentResolver.openOutputStream(uri)?.use { it.write(csrPem.toByteArray(Charsets.US_ASCII)) }
                 ?: error("File unavailable")
             onNotice("فایل درخواست گواهی CSR ذخیره شد.")
-        } catch (_: Exception) { onNotice("ذخیره CSR ناموفق بود.") }
+        } catch (e: Exception) { onNotice(SuraErrors.describe(e,"ذخیره CSR ناموفق بود. [KEY-CSR]")) }
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),

@@ -313,7 +313,7 @@ private fun InvoiceScreenContent(
             try { action() }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                error = if (e is ArithmeticException) "مبلغ فاکتور بیش از محدوده مجاز است." else e.message ?: "عملیات انجام نشد؛ دوباره تلاش کنید."
+                error = SuraErrors.transport(e) ?: if (e is ArithmeticException) "مبلغ فاکتور بیش از محدوده مجاز است." else e.message ?: "عملیات انجام نشد؛ دوباره تلاش کنید."
                 onNotice(error)
             } finally { busy = false }
         }
@@ -368,7 +368,7 @@ private fun InvoiceScreenContent(
                     ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
             }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: "جزئیات فاکتور بارگذاری نشد." }
+            catch (e: Exception) { error = SuraErrors.describe(e,"جزئیات فاکتور بارگذاری نشد. [INVOICE-READ]") }
             finally { busy = false }
         }
     }

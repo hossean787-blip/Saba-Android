@@ -164,7 +164,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
                         onChanged()
                         editorOpen = false
                         onNotice("اطلاعات طرف حساب ذخیره شد.")
-                    } catch (e: Exception) { error = e.message ?: "خطا در ذخیره اطلاعات" }
+                    } catch (e: Exception) { error = SuraErrors.describe(e,"ذخیره مشتری تأیید نشد؛ اطلاعات فرم را بررسی کنید. [CUSTOMER-SAVE]") }
                     finally { busy = false }
                 }
             }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("ذخیره اطلاعات") }

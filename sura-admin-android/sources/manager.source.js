@@ -373,7 +373,7 @@ async function cardReview(approve){
  if(!confirm(approve?'واریز واقعی بررسی شده و اعتبار شارژ شود؟':'درخواست رد شود؟'))return;
  document.getElementById('card-approve').disabled=true;document.getElementById('card-reject').disabled=true;
  try{await cardFetch('admin-review',{id:cardSelected,decision:approve?'approved':'rejected',amount:approve?amount:null,reference:approve?reference:null,bankChecked:checked,reason:reason});toast('نتیجه ثبت شد');cardBack();}
- catch(e){toast('نتیجه تأیید نشد؛ مجدداً استعلام کنید','error');showPage('card-transfer');}
+ catch(e){toast('نتیجه تأیید نشد: '+parseError(e)+'؛ مجدداً استعلام کنید','error');showPage('card-transfer');}
 }
 
 
@@ -388,7 +388,7 @@ async function appendMonthlyPrice(c){
   const box=document.createElement('div');box.className='panel';
   box.innerHTML='<div class="panel-head"><h3>اشتراک ماهانه | ۲۰ صورتحساب در ۳۰ روز</h3></div><div style="padding:16px"><p>قیمت پایه: '+(price===null?'تعیین نشده':html(fmtRial(price)))+'</p><p>ارزش افزوده: '+(price===null?'—':html(fmtRial(Math.floor((price*10+50)/100))))+'</p><p>مبلغ نهایی: '+(price===null?'—':html(fmtRial(price+Math.floor((price*10+50)/100))))+'</p><p>وضعیت فروش: '+(p.enabled?'فعال':'غیرفعال')+'</p><button class="btn btn-accent" onclick="openMonthlyPrice()">تعیین یا تغییر قیمت اشتراک</button><p>تغییر قیمت فقط سفارش‌های جدید را متأثر می‌کند؛ این دکمه فروش را فعال نمی‌کند.</p><h4>تاریخچه تغییرات</h4>'+ (d.history||[]).map(h=>'<p>'+html(h.old_price===null?'تعیین اولیه':fmtRial(h.old_price))+' ← '+html(fmtRial(h.new_price))+' | '+html(safeTime(h.created_at))+' | '+html(h.reason)+'</p>').join('')+'</div>';
   c.appendChild(box);
- }catch(e){const box=document.createElement('div');box.className='panel';box.textContent='استعلام قیمت اشتراک از سرور ناموفق بود.';c.appendChild(box);}
+ }catch(e){const box=document.createElement('div');box.className='panel';box.textContent='استعلام قیمت اشتراک: '+parseError(e);c.appendChild(box);}
 }
 function openMonthlyPrice(){
  if(ADMIN_ROLE!=='admin'||!monthlyPriceSnapshot)return;
@@ -401,7 +401,7 @@ async function saveMonthlyPrice(){return submitBusy(async()=>{
  if(!Number.isSafeInteger(price)||price<1||price>10000000000||reason.length<5)return toast('قیمت یا دلیل معتبر نیست','error');
  if(!confirm('قیمت پایه '+fmtRial(price)+' و مبلغ نهایی '+fmtRial(price+Math.floor((price*10+50)/100))+' ثبت شود؟'))return;
  try{await cardFetch('admin-monthly-save',{request:m.dataset.monthlyRequest,expected:Number(m.dataset.monthlyRevision),price,reason});toast('قیمت اشتراک ثبت شد','success');closeModal();showPage('packages');}
- catch(e){toast('ذخیره تأیید نشد؛ قیمت فعلی را دوباره استعلام کنید.','error');}
+ catch(e){toast('ذخیره تأیید نشد: '+parseError(e),'error');}
 });}
 
 

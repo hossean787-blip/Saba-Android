@@ -96,7 +96,7 @@ fun SuraIdentifierScreen(
             if(starterCount>0)found=catalog.search("",null,null,limit=50)
         } catch (e: Exception) {
             catalogCount = runCatching { catalog.count() }.getOrDefault(0L)
-            message = e.message ?: "راه‌اندازی بانک داخلی ناموفق بود؛ بانک قبلی حفظ شد."
+            message = SuraErrors.transport(e) ?: e.message ?: "راه‌اندازی بانک داخلی ناموفق بود؛ بانک قبلی حفظ شد. [CATALOG-INIT]"
         } finally {
             busy = false
         }
@@ -117,7 +117,7 @@ fun SuraIdentifierScreen(
                 found = emptyList()
                 message = "بانک معتبر با " + total + " شناسه نصب شد."
             } catch (e: Exception) {
-                message = e.message ?: "بارگذاری بانک اطلاعاتی ناموفق بود؛ بانک قبلی حفظ شد."
+                message = SuraErrors.transport(e) ?: e.message ?: "بارگذاری بانک اطلاعاتی ناموفق بود؛ بانک قبلی حفظ شد. [CATALOG-IMPORT]"
             } finally { busy = false }
         }
     }
@@ -198,7 +198,7 @@ fun SuraIdentifierScreen(
                         found=catalog.search(query,category,specificity)
                         message=if(v==null)"هنوز بانک منتخب تأییدشده منتشر نشده است." else "بانک منتخب نسخه $v آماده است."
                     }catch(e:kotlinx.coroutines.CancellationException){throw e}
-                    catch(_:Exception){message="به‌روزرسانی تأیید نشد؛ بانک قبلی حفظ شد."}
+                    catch(e:Exception){message=SuraErrors.describe(e,"به‌روزرسانی تأیید نشد. [CATALOG-UPDATE]")+" بانک قبلی حفظ شد."}
                     finally{busy=false}
                 }
             },modifier=Modifier.fillMaxWidth()){Text("به‌روزرسانی شناسه‌های منتخب")}

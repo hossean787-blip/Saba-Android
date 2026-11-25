@@ -556,7 +556,7 @@ fun MoadianScreen(
                                 }
                             } catch (e: CancellationException) { throw e }
                             catch (e: DuplicateTaxpayer) { fieldErrors = mapOf(e.field to "این مقدار برای مودی دیگری ثبت شده است."); error = "مودی تکراری قابل ثبت نیست."; pending = false }
-                            catch (_: Exception) { error = "ذخیره انجام نشد؛ اطلاعات فرم حفظ شد."; pending = false }
+                            catch (e: Exception) { error = SuraErrors.describe(e,"ذخیره انجام نشد؛ اطلاعات فرم حفظ شد. [TAXPAYER-SAVE]"); pending = false }
                             finally { busy = false }
                         }
                     }) { Text("تأیید") }
