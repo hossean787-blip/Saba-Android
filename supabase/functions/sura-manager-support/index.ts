@@ -41,6 +41,11 @@ async function handler(req) {
   const rows=await rpc("sura_support_manager_list",{p_status:b.status||null,p_owner:b.owner||null,p_page:page});
   return send({tickets:rows,page});
  }
+ if(route==="consent"){
+  if(!id(b.owner))return send({error:"invalid_owner"},400);
+  const rows=await read("/rest/v1/sura_legal_acceptances?select=legal_version,accepted_at&owner_id=eq."+b.owner+"&order=accepted_at.desc&limit=50");
+  return send({acceptances:rows});
+ }
  if(!id(b.ticket))return send({error:"invalid_ticket"},400);
  if(route==="thread"){
   const tickets=await read("/rest/v1/sura_support_tickets?select=id,owner_id,category,status,message,response,created_at&id=eq."+b.ticket+"&limit=1");

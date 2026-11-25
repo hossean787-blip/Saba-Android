@@ -24,8 +24,10 @@ class RegistrationValidationTest {
     }
 
     @Test fun emailPasswordRegistrationDoesNotRequireUnusedIdentityFields() {
-        val input = RegistrationInput("Ali", "Ahmadi", "", "", "owner@example.com", "password123", "password123")
+        val input = RegistrationInput("Ali", "Ahmadi", "", "", "owner@example.com", "password123", "password123", true, SuraLegal.VERSION)
         assertTrue(RegistrationValidator.emailPasswordErrors(input).isEmpty())
+        assertTrue("legalConsent" in RegistrationValidator.emailPasswordErrors(input.copy(acceptedTerms=false)))
+        assertTrue("legalConsent" in RegistrationValidator.emailPasswordErrors(input.copy(legalVersion="old")))
     }
 
     @Test fun blankOrOversizePasswordsAreRejected() {

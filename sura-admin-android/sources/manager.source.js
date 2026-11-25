@@ -65,6 +65,7 @@ async function openManagerUser(id){
   <span>${managerPill(role,u.role==='admin'?'red':'blue')} ${managerPill(u.verified?'ایمیل تأییدشده':'ایمیل تأییدنشده',u.verified?'green':'yellow')}</span></div>
   <div class="manager-facts"><div><small>ثبت‌نام</small><strong>${safeTime(u.created_at)}</strong></div><div><small>آخرین ورود</small><strong>${safeTime(u.last_sign_in_at)}</strong></div>
   <div><small>اعتبار مالک</small><strong>${fmtNum(d.wallet?.credits||0)} واحد</strong></div><div><small>مودیان دارای اعتبار</small><strong>${fmtNum((d.taxpayers||[]).length)}</strong></div></div>
+${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openManagerConsent(\''+html(u.id)+'\')">سابقه پذیرش قوانین</button>':''}
   <h4>اعتبار مؤدیان</h4><div class="tbl-wrap"><table><thead><tr><th>شناسه محلی مؤدی</th><th>موجودی</th></tr></thead><tbody>
   ${(d.taxpayers||[]).map(t=>`<tr><td>${fmtNum(t.local_taxpayer_id)}</td><td>${fmtNum(t.credits)}</td></tr>`).join('')||'<tr><td colspan="2">مودی دارای موجودی ثبت نشده است.</td></tr>'}</tbody></table></div>
   ${d.taxpayers_truncated?'<div class="empty-note">فهرست مؤدیان تا ۱۰۰ مورد نمایش داده شده است.</div>':''}
@@ -292,3 +293,12 @@ async function supportSubmit(ticket,expected){
  finally{btn.disabled=false;}
 }
 function supportAbandon(){if(confirm('ممکن است عملیات قبلی ثبت شده باشد. انصراف و تازه‌سازی؟')){supportPending=null;showPage('support');}}
+
+async function openManagerConsent(owner){
+ if(ADMIN_ROLE!=='admin'||!validUUID(owner))return toast('دسترسی مدیرکل لازم است','error');
+ openModal('سابقه پذیرش قوانین','<div class="empty-note">در حال استعلام…</div>','<button class="btn btn-ghost" onclick="closeModal()">بستن</button>');
+ try{
+  const d=await supportFetch('consent',{owner});
+  document.getElementById('modal-body').innerHTML=(d.acceptances||[]).map(a=>'<div class="panel" style="padding:12px"><b>نسخه '+html(a.legal_version)+'</b><p>'+html(safeTime(a.accepted_at))+'</p></div>').join('')||'<div class="empty-note">سابقه پذیرش ثبت نشده است (ممکن است حساب قدیمی باشد).</div>';
+ }catch(e){document.getElementById('modal-body').textContent='استعلام ناموفق: '+parseError(e);}
+}

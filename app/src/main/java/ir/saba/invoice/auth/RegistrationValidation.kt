@@ -11,7 +11,9 @@ data class RegistrationInput(
     val mobile: String,
     val email: String,
     val password: String,
-    val passwordConfirmation: String
+    val passwordConfirmation: String,
+    val acceptedTerms: Boolean = false,
+    val legalVersion: String = ""
 )
 
 object RegistrationValidator {
@@ -46,6 +48,7 @@ object RegistrationValidator {
     }
 
     fun emailPasswordErrors(input: RegistrationInput): Set<String> = buildSet {
+        if(!input.acceptedTerms || input.legalVersion!=SuraLegal.VERSION) add("legalConsent")
         if (input.firstName.trim().length !in 1..100) add("firstName")
         if (input.lastName.trim().length !in 1..100) add("lastName")
         if (!validEmail(input.email)) add("email")

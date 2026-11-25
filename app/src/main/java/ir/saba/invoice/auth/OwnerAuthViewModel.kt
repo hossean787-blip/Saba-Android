@@ -66,6 +66,10 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
 
     fun register(input: RegistrationInput) {
         if (busy) return
+        if(!input.acceptedTerms || input.legalVersion!=SuraLegal.VERSION) {
+            message="ابتدا قوانین و حریم خصوصی سورا را مطالعه و تأیید کنید."
+            return
+        }
         if (RegistrationValidator.emailPasswordErrors(input).isNotEmpty()) {
             message = "اطلاعات ثبت‌نام را اصلاح کنید."
             return

@@ -26,7 +26,7 @@ class AuthGatewayClientTest {
         override fun getResponseCode() = status
     }
     private fun client(c: Connection) = AuthGatewayClient("https://example.com/gateway") { c }
-    private fun form() = RegistrationInput(" Ali ", "Ahmadi", "", "", " owner@example.com ", "password123", "password123")
+    private fun form() = RegistrationInput(" Ali ", "Ahmadi", "", "", " owner@example.com ", "password123", "password123", true, SuraLegal.VERSION)
 
     @Test fun registrationSendsEmailPasswordWithoutUnusedIdentityFields() = runBlocking {
         val c = Connection("""{"accessToken":"access","refreshToken":"refresh"}""")
@@ -36,6 +36,8 @@ class AuthGatewayClientTest {
         assertEquals("Ali", body.getString("firstName"))
         assertFalse(body.has("nationalId"))
         assertFalse(body.has("mobile"))
+        assertTrue(body.getBoolean("acceptedTerms"))
+        assertEquals(SuraLegal.VERSION,body.getString("legalVersion"))
         assertFalse(c.instanceFollowRedirects)
         assertTrue(c.closed)
     }

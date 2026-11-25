@@ -37,7 +37,10 @@ fun RegistrationScreen(
     var password by remember { mutableStateOf("") }
     var repeatPassword by remember { mutableStateOf("") }
     var attempted by rememberSaveable { mutableStateOf(false) }
-    val input = RegistrationInput(first.trim(), last.trim(), "", "", email.trim(), password, repeatPassword)
+    var accepted by remember(SuraLegal.VERSION) { mutableStateOf(false) }
+    var legalPage by remember { mutableStateOf<String?>(null) }
+    val input = RegistrationInput(first.trim(), last.trim(), "", "", email.trim(), password, repeatPassword,
+        acceptedTerms=accepted,legalVersion=if(accepted) SuraLegal.VERSION else "")
     var revealed by rememberSaveable { mutableIntStateOf(1) }
     val allErrors = RegistrationValidator.emailPasswordErrors(input)
     val errors = allErrors.filter { key ->
@@ -119,6 +122,17 @@ fun RegistrationScreen(
             Text(serverError, modifier = Modifier.testTag("registrationServerError"),
                 color = MaterialTheme.colorScheme.error)
         }
+        if(revealed>=5) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Checkbox(checked=accepted,onCheckedChange={accepted=it},enabled=!submitting,
+                    modifier=Modifier.testTag("acceptSuraLegal"))
+                Text(SuraLegal.ACCEPT_LABEL,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly) {
+                TextButton(onClick={legalPage="terms"},enabled=!submitting){Text("مطالعه قوانین")}
+                TextButton(onClick={legalPage="privacy"},enabled=!submitting){Text("حریم خصوصی")}
+            }
+        }
         Button(
             enabled = !submitting && revealed == 5 && allErrors.isEmpty(),
             onClick = {
@@ -139,6 +153,19 @@ fun RegistrationScreen(
         }
         Text("پس از ثبت‌نام، در صورت نیاز پیوند تأیید ایمیل برای شما ارسال می‌شود.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    legalPage?.let { kind ->
+        AlertDialog(onDismissRequest={legalPage=null},
+            title={Text(if(kind=="privacy") "حریم خصوصی" else "قوانین و شرایط استفاده")},
+            text={
+                Column(Modifier.heightIn(max=420.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Text("نسخه "+SuraLegal.VERSION,style=MaterialTheme.typography.labelSmall)
+                    SuraLegal.sections(kind).forEach { (title,body) ->
+                        Text(title,fontWeight=FontWeight.Bold)
+                        Text(body,style=MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },confirmButton={TextButton(onClick={legalPage=null}){Text("بازگشت به ثبت‌نام")}})
     }
 }
 

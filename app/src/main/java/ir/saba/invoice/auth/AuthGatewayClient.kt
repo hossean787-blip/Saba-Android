@@ -38,6 +38,8 @@ class AuthGatewayClient(
             .put("lastName", input.lastName.trim())
             .put("email", input.email.trim())
             .put("password", input.password)
+            .put("acceptedTerms", input.acceptedTerms)
+            .put("legalVersion", input.legalVersion)
         val result = post("/v1/auth/registration/start", body)
         return when {
             result.has("accessToken") -> session(result)
@@ -47,6 +49,7 @@ class AuthGatewayClient(
     }
 
     suspend fun startRegistration(input: RegistrationInput): Challenge {
+        require(input.acceptedTerms && input.legalVersion==SuraLegal.VERSION)
         val body = JSONObject()
             .put("firstName", input.firstName)
             .put("lastName", input.lastName)
@@ -54,6 +57,8 @@ class AuthGatewayClient(
             .put("mobile", RegistrationValidator.normalizeDigits(input.mobile))
             .put("email", input.email.trim())
             .put("password", input.password)
+            .put("acceptedTerms",input.acceptedTerms)
+            .put("legalVersion",input.legalVersion)
         val response = post("/v1/auth/registration/start", body)
         return Challenge(
             response.getString("challengeId"),
@@ -123,7 +128,7 @@ class AuthGatewayException(val httpStatus: Int, val isRegistration: Boolean = fa
         isRegistration && httpStatus == 409 ->
             "این حساب ممکن است قبلاً ثبت شده باشد. ورود یا بازیابی حساب را بررسی کنید."
         isRegistration && httpStatus == 422 ->
-            "سرور شرایط ثبت‌نام را تأیید نکرد؛ ایمیل و ضوابط رمز عبور را بررسی کنید."
+            "پذیرش نسخه جاری قوانین و حریم خصوصی الزامی است؛ نسخه برنامه و تیک پذیرش را بررسی کنید."
         httpStatus == 400 -> "اطلاعات واردشده معتبر نیست."
         httpStatus == 401 || httpStatus == 403 ->
             "ایمیل یا رمز عبور صحیح نیست؛ تأیید ایمیل را نیز بررسی کنید."

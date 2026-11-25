@@ -29,7 +29,7 @@ class OwnerAuthViewModelTest {
             if (fail) throw java.io.IOException("sensitive upstream failure")
         }
     }
-    private fun form() = RegistrationInput("Ali", "Ahmadi", "", "", "owner@example.com", "password123", "password123")
+    private fun form() = RegistrationInput("Ali", "Ahmadi", "", "", "owner@example.com", "password123", "password123", true, SuraLegal.VERSION)
 
     @Test fun loginPublishesSessionOnlyAfterSuccess() = runTest(dispatcher) {
         val model = OwnerAuthViewModel(Fake())
