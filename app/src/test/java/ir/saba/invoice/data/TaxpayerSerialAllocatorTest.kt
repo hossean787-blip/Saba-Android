@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class TaxpayerSerialAllocatorTest {
-    @Test fun automaticNumbersRemainSeparateAndAreNotReusedAfterDeletion() = runBlocking {
+    @Test fun automaticNumbersShareSequenceAndAreNotReusedAfterDeletion() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {
             val first = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
@@ -30,10 +30,10 @@ class TaxpayerSerialAllocatorTest {
             assertEquals("1000000002", db.invoiceDao().byId(nextInvoice)!!.invoiceNumber)
             val allocator = TaxpayerSerialAllocator(db)
             assertEquals("1000000001", allocator.reserve(second))
-            assertEquals("2000000001", allocator.reserve(first, reference = true))
+            assertEquals("1000000003", allocator.reserve(first, reference = true))
             val numbers = (1..5).map { async(Dispatchers.IO) { allocator.reserve(first) } }.awaitAll()
             assertEquals(5, numbers.toSet().size)
-            assertEquals(1000000008L, db.moadianDetailsDao().byCompany(first)!!.nextInvoiceSerial)
+            assertEquals(1000000009L, db.moadianDetailsDao().byCompany(first)!!.nextInvoiceSerial)
         } finally { db.close() }
     }
     @Test fun suggestedSerialIsReadOnlyAndReservationAdvancesAfterDeletion() = runBlocking {
@@ -47,40 +47,34 @@ class TaxpayerSerialAllocatorTest {
             assertNull(db.moadianDetailsDao().byCompany(taxpayer)?.nextInvoiceSerial)
             assertEquals("1000000001", allocator.reserve(taxpayer))
             assertEquals("1000000002", allocator.suggest(taxpayer))
-            assertEquals("2000000001", allocator.suggest(taxpayer, reference = true))
-            assertEquals("2000000001", allocator.reserve(taxpayer, reference = true))
-            assertEquals("2000000002", allocator.suggest(taxpayer, reference = true))
-            assertEquals("1000000002", allocator.suggest(taxpayer))
+            assertEquals("1000000002", allocator.suggest(taxpayer, reference = true))
+            assertEquals("1000000002", allocator.reserve(taxpayer, reference = true))
+            assertEquals("1000000003", allocator.suggest(taxpayer, reference = true))
+            assertEquals("1000000003", allocator.suggest(taxpayer))
         } finally { db.close() }
     }
 
-    @Test fun persianReferenceRangeCannotBeReservedByPrimarySequence() = runBlocking {
+    @Test fun legacyReferenceReservationBecomesSharedFloor() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {
             val id = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
             db.moadianDetailsDao().upsert(MoadianDetails(companyId = id,
                 invoiceSerialStart = "1000000001", referenceSerialStart = "۱۰۰۰۰۰۰۰۰۰",
                 nextReferenceSerial = 1000000003L))
-            try {
-                TaxpayerSerialAllocator(db).reserve(id)
-                fail("Expected reserved reference range rejection")
-            } catch (_: IllegalArgumentException) { }
-            assertNull(db.moadianDetailsDao().byCompany(id)!!.nextInvoiceSerial)
+            assertEquals("1000000003",TaxpayerSerialAllocator(db).reserve(id))
+            assertEquals(1000000004L,db.moadianDetailsDao().byCompany(id)!!.nextInvoiceSerial)
         } finally { db.close() }
     }
 
-    @Test fun implicitPrimaryStartCannotEqualConfiguredReferenceStart() = runBlocking {
+    @Test fun unusedLegacyReferenceStartDoesNotSplitSequence() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), SabaDatabase::class.java).build()
         try {
             val id = db.companyDao().insert(Company(purchaserId = "owner", name = "اول", nationalId = "1"))
             db.moadianDetailsDao().upsert(MoadianDetails(companyId = id, referenceSerialStart = "1000000001"))
-            try {
-                TaxpayerSerialAllocator(db).reserve(id)
-                fail("Expected default start collision rejection")
-            } catch (_: IllegalArgumentException) { }
+            assertEquals("1000000001",TaxpayerSerialAllocator(db).reserve(id))
             val details = db.moadianDetailsDao().byCompany(id)!!
-            assertNull(details.nextInvoiceSerial)
-            assertNull(details.nextReferenceSerial)
+            assertEquals(1000000002L,details.nextInvoiceSerial)
+            assertEquals(details.nextInvoiceSerial,details.nextReferenceSerial)
         } finally { db.close() }
     }
 
