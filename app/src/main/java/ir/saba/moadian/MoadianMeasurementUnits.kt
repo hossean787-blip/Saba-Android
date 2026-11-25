@@ -135,7 +135,13 @@ object MoadianMeasurementUnits {
         val term = normalize(query)
         if (term.isBlank()) return options
         return options.filter { normalize(it.name).contains(term) }
-            .sortedBy { if (normalize(it.name).startsWith(term)) 0 else 1 }
+            .sortedWith(compareBy<UnitOption> { 
+                when {
+                    normalize(it.name) == term -> 0
+                    normalize(it.name).startsWith(term) -> 1
+                    else -> 2
+                }
+            }.thenBy { if (it.code in setOf("1627", "164", "165", "1637", "16103", "1653")) 0 else 1 })
     }
     fun nameOf(code: String): String? = names[code]
 }
