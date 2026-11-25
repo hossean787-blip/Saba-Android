@@ -46,8 +46,9 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var promoGranted by remember { mutableStateOf(false) }
     var quantity by remember { mutableStateOf("1") }
 
-    var plan by rememberSaveable { mutableStateOf("single") }
-    val selectedQuantity=if(plan=="monthly")20L else quantity.toLongOrNull()?.takeIf{it in 1L..999999L}
+    var freeSelected by rememberSaveable { mutableStateOf(false) }
+    val plan=if(freeSelected)"free" else "single"
+    val selectedQuantity=quantity.toLongOrNull()?.takeIf{it in 1L..999999L}
     var quote by remember { mutableStateOf<PurchaseQuote?>(null) }
     var quoteError by remember { mutableStateOf("") }
     var quoteBusy by remember { mutableStateOf(false) }
@@ -109,7 +110,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
                     Text("انتخاب روش پرداخت",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleLarge)
-                    Text(if(q.kind=="monthly")"اشتراک ماهانه • ۲۰ صورتحساب" else "${q.units} اعتبار تکی",color=deepBlue)
+                    Text("${q.units} اعتبار تکی",color=deepBlue)
                     Text("مبلغ قابل پرداخت: ${money(q.total)} ریال",fontWeight=FontWeight.Bold,color=deepBlue)
                     Card(shape=RoundedCornerShape(16.dp),border=androidx.compose.foundation.BorderStroke(2.dp,Color(0xFF356DF0)),colors=CardDefaults.cardColors(containerColor=Color(0xFFE8F4FF))){
                         Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
@@ -145,7 +146,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 }
             }
         }else{
-            Text("پلن موردنظر خود را انتخاب کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFF5F7391))
+            Text("تعداد اعتبار یا گزینه هدیه را انتخاب کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFF5F7391))
             if(active!=null){
                 Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color(0xFFE8F4FF))){
                     Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -168,32 +169,26 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             if(!historyReady||!onlineReady){
                 OutlinedButton(onClick={payAction{refreshOrders()}},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بررسی وضعیت سفارش‌های قبلی")}
             }
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                listOf(Triple("single","اعتبار تکی","هر صورتحساب یک اعتبار"),Triple("monthly","اشتراک ماهانه","۲۰ صورتحساب در ۳۰ روز")).forEach{(id,title,subtitle)->
-                    val selected=plan==id
-                    Card(onClick={plan=id;checkout=false},enabled=!checkoutBusy,modifier=Modifier.weight(1f).height(168.dp),shape=cardShape,
-                        border=androidx.compose.foundation.BorderStroke(if(selected)2.dp else 1.dp,if(selected)Color(0xFF356DF0) else Color(0xFFE4EAF3)),
-                        colors=CardDefaults.cardColors(containerColor=if(selected)Color(0xFFE8F4FF) else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
-                        Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-                            Text(if(selected)"●" else "○",color=if(selected)Color(0xFF176AF0) else Color.Gray)
-                            Text(title,fontWeight=FontWeight.ExtraBold,color=deepBlue,style=MaterialTheme.typography.titleMedium)
-                            Text(subtitle,color=Color(0xFF526D8F),style=MaterialTheme.typography.bodySmall)
-                            Text(if(id=="single")"بدون تعهد ماهانه" else "تمدید دستی",color=deepBlue,style=MaterialTheme.typography.labelSmall)
-                        }
+            Card(onClick={freeSelected=false;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),shape=cardShape,
+                border=androidx.compose.foundation.BorderStroke(if(!freeSelected)2.dp else 1.dp,if(!freeSelected)Color(0xFF356DF0) else Color(0xFFE4EAF3)),
+                colors=CardDefaults.cardColors(containerColor=if(!freeSelected)Color(0xFFE8F4FF) else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                    RadioButton(selected=!freeSelected,onClick=null)
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)){
+                        Text("اعتبار تکی",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleMedium)
+                        Text("هر صورتحساب یک اعتبار • خرید به تعداد دلخواه",color=Color(0xFF526D8F),style=MaterialTheme.typography.bodySmall)
                     }
                 }
             }
             if(plan!="free")Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
-                    Text(if(plan=="single")"تعداد اعتبار موردنیاز" else "اشتراک ماهانه",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=deepBlue)
-                    if(plan=="single"){
-                        Text("قیمت هر اعتبار: ${money(q?.let{it.subtotal/it.units})} ریال",color=Color(0xFF60768B),style=MaterialTheme.typography.bodySmall)
+                    Text("تعداد اعتبار موردنیاز",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=deepBlue)
+                    Text("قیمت هر اعتبار: ${money(q?.let{it.subtotal/it.units})} ریال",color=Color(0xFF60768B),style=MaterialTheme.typography.bodySmall)
                         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
                             OutlinedButton(onClick={quantity=((quantity.toIntOrNull()?:1)-1).coerceAtLeast(1).toString()}){Text("−")}
                             OutlinedTextField(quantity,{quantity=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{c->c in '0'..'9'}.take(6)},modifier=Modifier.weight(1f),singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),label={Text("تعداد اعتبار")},shape=RoundedCornerShape(14.dp))
                             Button(onClick={quantity=((quantity.toIntOrNull()?:0)+1).coerceAtMost(999999).toString()}){Text("+")}
                         }
-                    }else Text("۲۰ صورتحساب در ۳۰ روز، تمدید دستی",color=deepBlue)
                     Text("مبلغ پایه: ${money(q?.subtotal)} ریال",color=deepBlue)
                     Text("مالیات ارزش افزوده (۱۰٪): ${money(q?.vat)} ریال",color=deepBlue)
                     Text("مبلغ نهایی قابل پرداخت: ${money(q?.total)} ریال",color=deepBlue,fontWeight=FontWeight.Bold)
@@ -207,7 +202,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 }
             }
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Card(onClick = { plan = "free";checkout=false }, modifier = Modifier.fillMaxWidth(),
+            Card(onClick = { freeSelected=true;checkout=false }, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     if (plan == "free") 2.dp else 1.dp, Color(0xFF359985)),
