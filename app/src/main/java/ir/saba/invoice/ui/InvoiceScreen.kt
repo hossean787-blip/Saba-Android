@@ -199,6 +199,7 @@ private fun InvoiceScreenContent(
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
     val activeGateway = remember(account,creditGateway) { creditGateway ?: ServerInvoiceCreditGateway(account) }
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var paidRemaining by remember(companyId) { mutableLongStateOf(0L) }
     var paidLoading by remember { mutableStateOf(false) }
     // Stable idempotency key for the current unsaved invoice.
@@ -650,6 +651,25 @@ private fun InvoiceScreenContent(
     }
 
     // Preserve the existing credit-idempotent persistence path; only the UI entry moved.
+    // Foreground only; leaving this screen cancels the polling timer.
+    LaunchedEffect(mode, invoiceId, officialRecord?.state, officialRecord?.requestId, lifecycleOwner) {
+        val pending=officialRecord
+        if(mode in setOf("template","details") && pending?.protocol=="LEGACY" &&
+            pending.state in setOf("SENDING","UNKNOWN","SUBMITTED")) {
+            while(true) {
+                kotlinx.coroutines.delay(60_000L)
+                if(!busy && lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                    perform {
+                        val refreshed=officialService.inquireLegacy(pending.requestId)
+                        officialRecord=refreshed
+                        officialByInvoice=officialByInvoice+(refreshed.invoiceId to refreshed)
+                        if(refreshed.state in setOf("ACCEPTED","REJECTED")) onNotice(invoiceTaxStatus(refreshed))
+                    }
+                }
+            }
+        }
+    }
+
     fun saveCurrentInvoice() {
         perform {
                             val selectedCustomer = customerId ?: throw IllegalArgumentException("مشتری را انتخاب کنید.")
