@@ -1,2 +1,3 @@
 # SURA Manager 1.1.3-rc5 / 6
 Authorized manager biometric saved login. Existing signing identity, no store publication. Native Android 9+ biometric crypto with manual fallback on older devices. Display email maps only to the independent manager account. No credential in source or browser storage. Server verifies password and role on every new login. Physical biometric testing remains required.
+Retry: guard API 24+ biometric enrollment invalidation call; preserve API 23 manual fallback and lint gate.

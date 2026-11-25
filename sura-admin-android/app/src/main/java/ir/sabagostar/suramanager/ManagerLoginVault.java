@@ -66,8 +66,8 @@ final class ManagerLoginVault {
         KeyGenParameterSpec.Builder builder=new KeyGenParameterSpec.Builder(KEY,KeyProperties.PURPOSE_ENCRYPT|KeyProperties.PURPOSE_DECRYPT)
             .setKeySize(256).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setRandomizedEncryptionRequired(true).setUserAuthenticationRequired(true)
-            .setInvalidatedByBiometricEnrollment(true);
+            .setRandomizedEncryptionRequired(true).setUserAuthenticationRequired(true);
+        if(Build.VERSION.SDK_INT>=24)builder.setInvalidatedByBiometricEnrollment(true);
         if(Build.VERSION.SDK_INT>=30)builder.setUserAuthenticationParameters(0,KeyProperties.AUTH_BIOMETRIC_STRONG);
         else builder.setUserAuthenticationValidityDurationSeconds(-1);
         gen.init(builder.build());return gen.generateKey();
