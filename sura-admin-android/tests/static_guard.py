@@ -33,7 +33,7 @@ assert 'ACTION_CREATE_DOCUMENT' in java
 assert 'zipFiles' in js and 'makeXlsx' in js
 assert 'renderDirectory' in manager and 'managerFetch' in manager
 assert 'admin/manager.js' in java
-assert 'versionCode = 6' in (ROOT/'app/build.gradle.kts').read_text()
+assert 'versionCode = 7' in (ROOT/'app/build.gradle.kts').read_text()
 assert 'openSelectedGift' in manager and 'saveSelectedGift' in manager
 print('PASS: isolated application, secure WebView, CSP, no private API key, file export')
 
@@ -45,3 +45,5 @@ assert 'saveVerifiedLogin(email,pass,me,fromBio,rememberEmail,rememberBio)' in h
 assert 'if(nativeVault())return;' in html and 'setSavePassword(false)' in java
 assert 'id="bio-login"' in html and 'id="forget-login"' in html
 print('PASS: biometric vault source guards and native session restore isolation')
+
+assert 'await appendMonthlyPrice(c);' not in html, 'Subscription sale must remain hidden in manager UI'
