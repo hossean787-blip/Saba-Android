@@ -1549,7 +1549,7 @@ private fun InvoiceScreenContent(
             onCancel={
                 managementOpen=false
                 perform {
-                    repository.cancelNeverSent(companyId,loaded.invoice.id,ownerId)
+                    InvoiceRepository(db).cancelNeverSent(companyId,loaded.invoice.id,ownerId)
                     reloadOfficial(loaded.invoice.id)
                     onNotice("سند ارسال‌نشده لغو شد؛ شماره مالیاتی و مصرف اعتبار محفوظ است.")
                 }
