@@ -3,19 +3,20 @@ package ir.saba.invoice.ui
 /** A4 geometry shared by drawing and bounds tests; coordinates are PDF points. */
 internal data class InvoicePdfLayout(val rows: Int) {
     init { require(rows in 1..InvoicePdfPagination.ROWS_PER_PAGE) }
-    val rowTop = 303f
+    val rowTop = 298f
     val rowHeight = 24f
-    val rowsBottom get() = rowTop + rows * rowHeight
-    val totalsTop get() = maxOf(rowsBottom + 16f,605f)
-    val totalsBottom get() = totalsTop + 105f
-    val signatureTop get() = maxOf(750f,totalsBottom + 10f)
-    val footerTop = 801f
-    val pageHeight = 842f
+    val displayRows get() = InvoicePdfPagination.ROWS_PER_PAGE
+    val rowsBottom get() = rowTop + displayRows * rowHeight
+    val totalsTop get() = rowsBottom
+    val totalsBottom get() = totalsTop + 30f
+    val signatureTop get() = totalsBottom + 34f
+    val footerTop = 556f
+    val pageHeight = 595f
 }
 
 /** Deterministic pagination, isolated from android.graphics.pdf for JVM testing. */
 internal object InvoicePdfPagination {
-    const val ROWS_PER_PAGE = 13
+    const val ROWS_PER_PAGE = 5
     const val MAX_ROWS = 500
 
     fun <T> paginate(items: List<T>): List<List<T>> {
@@ -46,5 +47,23 @@ internal object InvoicePdfRowAmounts {
                 ir.saba.invoice.domain.InvoiceTotals(net,tax,Math.addExact(net,tax))
             }
         }
+    }
+}
+
+internal object InvoicePdfPersianWords {
+    private val small=listOf("صفر","یک","دو","سه","چهار","پنج","شش","هفت","هشت","نه","ده","یازده","دوازده","سیزده","چهارده","پانزده","شانزده","هفده","هجده","نوزده")
+    private val tens=listOf("","","بیست","سی","چهل","پنجاه","شصت","هفتاد","هشتاد","نود")
+    private val hundreds=listOf("","صد","دویست","سیصد","چهارصد","پانصد","ششصد","هفتصد","هشتصد","نهصد")
+    private val groups=listOf("","هزار","میلیون","میلیارد","تریلیون","کوادریلیون","کوینتیلیون")
+    private fun part(n:Int):String {
+        val r=n%100
+        return listOf(hundreds[n/100],if(r<20)small[r].takeIf{r!=0}.orEmpty() else listOf(tens[r/10],small[r%10].takeIf{r%10!=0}.orEmpty()).filter{it.isNotBlank()}.joinToString(" و ")).filter{it.isNotBlank()}.joinToString(" و ")
+    }
+    fun rials(value:Long):String {
+        require(value>=0)
+        if(value==0L)return "صفر ریال"
+        var n=value;var index=0;val chunks=mutableListOf<String>()
+        while(n>0){val v=(n%1000).toInt();if(v>0)chunks.add(listOf(part(v),groups[index]).filter{it.isNotBlank()}.joinToString(" "));n/=1000;index++}
+        return chunks.asReversed().joinToString(" و ")+" ریال"
     }
 }

@@ -567,7 +567,7 @@ private fun InvoiceScreenContent(
                         },
                         onBack = { mode = "details" },
                         onSend = { requestOfficialSend(loaded) },
-                        official = officialRecord)
+                        official = officialRecord, db = db)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {

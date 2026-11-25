@@ -7,12 +7,15 @@ class InvoicePdfLayoutTest {
     @Test fun everySupportedRowCountKeepsTableTotalsAndSignatureInsideA4() {
         for(count in 1..InvoicePdfPagination.ROWS_PER_PAGE) {
             val layout=InvoicePdfLayout(count)
-            assertTrue(layout.rowsBottom + 12f <= layout.totalsTop)
-            assertTrue(layout.rowTop >= 300f)
+            assertEquals(layout.rowsBottom,layout.totalsTop,0f)
+            assertEquals(5,layout.displayRows)
             assertTrue(layout.totalsBottom < layout.signatureTop)
-            assertTrue(layout.signatureTop + 28 <= 779f)
-            assertTrue(779f < layout.footerTop)
-            assertTrue(layout.footerTop + 30 < layout.pageHeight)
+            assertTrue(layout.signatureTop + 62 < layout.footerTop)
+            assertTrue(layout.footerTop + 22 < layout.pageHeight)
         }
+    }
+    @Test fun payableWordsAreExact() {
+        assertEquals("هفت میلیون و هفتصد هزار ریال",InvoicePdfPersianWords.rials(7700000))
+        assertEquals("صفر ریال",InvoicePdfPersianWords.rials(0))
     }
 }
