@@ -128,8 +128,11 @@ begin
  values(p_request,p_actor,p_ticket,old_status,p_status,msg);
  return jsonb_build_object('status','applied','request_id',p_request,'replayed',false);
 end $function$;
-insert into public.sura_admin_roles(user_id,role) values('b652c55e-27e3-4110-87d5-995f265d7d78'::uuid,'admin');
+-- Rebind the existing single-superadmin constraint atomically, not relax it.
+alter table public.sura_admin_roles drop constraint sura_only_designated_superadmin;
 delete from public.sura_admin_roles where user_id='eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc'::uuid and role='admin';
+alter table public.sura_admin_roles add constraint sura_only_designated_superadmin check (role <> 'admin' or user_id = 'b652c55e-27e3-4110-87d5-995f265d7d78'::uuid);
+insert into public.sura_admin_roles(user_id,role) values('b652c55e-27e3-4110-87d5-995f265d7d78'::uuid,'admin');
 insert into public.sura_manager_role_audit(request_id,actor_id,target_id,role_before,role_after,reason) values
 (gen_random_uuid(),'eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc'::uuid,'b652c55e-27e3-4110-87d5-995f265d7d78'::uuid,null,'admin','Authorized separate manager identity'),
 (gen_random_uuid(),'eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc'::uuid,'eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc'::uuid,'admin','none','Authorized separate manager identity');
