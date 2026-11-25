@@ -94,8 +94,8 @@ internal class AccountArchive(
     private val portable:AccountArchivePortable?=null
 ) {
     private val tables=listOf("companies","moadian_details","customers","customer_profiles",
-        "invoices","invoice_lines","official_submissions","rejected_submission_history")
-    private val ownerTables=mapOf("companies" to "purchaserId","official_submissions" to "ownerId","rejected_submission_history" to "ownerId")
+        "invoices","invoice_lines","official_submissions","rejected_submission_history","submission_audit")
+    private val ownerTables=mapOf("companies" to "purchaserId","official_submissions" to "ownerId","rejected_submission_history" to "ownerId","submission_audit" to "ownerId")
     private fun columns(sql:SupportSQLiteDatabase,table:String):List<String> =
         sql.query("SELECT * FROM `$table` LIMIT 0").use { it.columnNames.toList() }
     private fun sanitize(table:String,row:JSONObject,restore:Boolean) {
@@ -200,7 +200,8 @@ internal class AccountArchive(
             "بازیابی غیرمجاز: فقط با همان حسابی که پشتیبان را تهیه کرده وارد شوید."
         }
         val data=root.getJSONObject("tables")
-        if(root.getInt("schema")==15 && data.keys().asSequence().toSet()==(tables-"rejected_submission_history").toSet()) data.put("rejected_submission_history",JSONArray())
+        if(root.getInt("schema")==15 && data.keys().asSequence().toSet()==(tables-"rejected_submission_history"-"submission_audit").toSet()) data.put("rejected_submission_history",JSONArray())
+        if(root.getInt("schema") in 15..16 && data.keys().asSequence().toSet()==(tables-"submission_audit").toSet()) data.put("submission_audit",JSONArray())
         require(data.keys().asSequence().toSet()==tables.toSet()) { "ساختار فایل پشتیبان معتبر نیست." }
         require(tables.sumOf { data.getJSONArray(it).length() }<=100_000) { "تعداد ردیف‌ها بیش از سقف مجاز است." }
         return root
@@ -256,13 +257,13 @@ internal class AccountArchive(
         return db.withTransaction {
             checkSession()
             val sql=db.openHelper.writableDatabase
-            require(root.getInt("schema")==sql.version || (root.getInt("schema")==15 && sql.version==16)) { "نسخه پایگاه داده فایل با برنامه یکسان نیست." }
+            require(root.getInt("schema")==sql.version || (root.getInt("schema") in 15..16 && sql.version==17)) { "نسخه پایگاه داده فایل با برنامه یکسان نیست." }
             val customerOwners=mutableMapOf<Long,Long>()
             val invoiceOwners=mutableMapOf<Long,Long>()
             val existingInvoices=mutableSetOf<Long>()
             val newCompanies=mutableSetOf<Long>()
             val primary=mapOf("companies" to "id","moadian_details" to "companyId","customers" to "id",
-                "customer_profiles" to "customerId","invoices" to "id","invoice_lines" to "id","official_submissions" to "requestId","rejected_submission_history" to "requestId")
+                "customer_profiles" to "customerId","invoices" to "id","invoice_lines" to "id","official_submissions" to "requestId","rejected_submission_history" to "requestId","submission_audit" to "id")
             var companiesAdded=0;var customersAdded=0;var invoicesAdded=0
             if(ids.isNotEmpty()) reserveTaxpayerIds(ids.maxOrNull()!!)
             for(table in tables) {
@@ -285,7 +286,7 @@ internal class AccountArchive(
                             require(invoiceOwners.put(row.getLong("id"),row.getLong("companyId"))==null)
                         }
                         "invoice_lines" -> require(invoiceOwners.containsKey(row.getLong("invoiceId")))
-                        "official_submissions","rejected_submission_history" -> require(invoiceOwners[row.getLong("invoiceId")]==row.getLong("companyId"))
+                        "official_submissions","rejected_submission_history","submission_audit" -> require(invoiceOwners[row.getLong("invoiceId")]==row.getLong("companyId"))
                     }
                     ownerTables[table]?.let { require(row.getString(it)==account.ownerId) }
                     val old=existing(sql,table,key,id)
@@ -298,6 +299,7 @@ internal class AccountArchive(
                             "invoices" -> same(old,row,"companyId","customerId","invoiceNumber")
                             "invoice_lines" -> row.getLong("invoiceId") in existingInvoices && same(old,row,"invoiceId")
                             "official_submissions","rejected_submission_history" -> same(old,row,"ownerId","companyId","invoiceId","fiscalId","taxId","payloadHash")
+                            "submission_audit" -> same(old,row,"ownerId","companyId","invoiceId","requestId","observedAt","kind","state","message")
                             else -> true
                         }
                         require(compatible) { "تداخل شناسه با اطلاعات فعلی؛ هیچ داده‌ای جایگزین نشد." }

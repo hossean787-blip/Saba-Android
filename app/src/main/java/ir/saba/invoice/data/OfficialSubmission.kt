@@ -85,3 +85,17 @@ data class RejectedSubmissionHistory(
     @Query("SELECT * FROM rejected_submission_history WHERE fiscalId=:id") suspend fun forFiscalMemory(id:String):List<RejectedSubmissionHistory>
     @Query("SELECT * FROM rejected_submission_history WHERE companyId=:id") suspend fun forCompany(id:Long):List<RejectedSubmissionHistory>
 }
+
+/** Observed local timeline; never evidence of a new tax authority acceptance by itself. */
+@Entity(tableName="submission_audit",foreignKeys=[
+    ForeignKey(entity=Invoice::class,parentColumns=["id"],childColumns=["invoiceId"],onDelete=ForeignKey.RESTRICT)
+],indices=[Index("invoiceId")])
+data class SubmissionAudit(
+    @PrimaryKey val id:String,val ownerId:String,val companyId:Long,val invoiceId:Long,
+    val requestId:String,val observedAt:Long,val kind:String,val state:String,val message:String
+)
+@Dao interface SubmissionAuditDao {
+    @Insert suspend fun insert(row:SubmissionAudit)
+    @Query("SELECT * FROM submission_audit WHERE invoiceId=:invoiceId AND ownerId=:ownerId AND companyId=:companyId ORDER BY observedAt DESC, id DESC LIMIT 100")
+    suspend fun recent(invoiceId:Long,ownerId:String,companyId:Long):List<SubmissionAudit>
+}

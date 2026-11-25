@@ -67,7 +67,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     @Query("DELETE FROM invoice_lines WHERE invoiceId = :invoiceId") suspend fun deleteForInvoice(invoiceId: Long)
 }
 
-@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class, InvoiceCreationClaim::class, OfficialSubmission::class, LegacyImportReceipt::class, CreditTransferClaim::class, RejectedSubmissionHistory::class], version = 16, exportSchema = true)
+@Database(entities = [Company::class, Customer::class, Invoice::class, InvoiceLine::class, QuotaWallet::class, CompanyQuota::class, QuotaTransfer::class, InvoiceQuotaUse::class, MoadianSimulation::class, MoadianDetails::class, LegacyQuotaExemption::class, CustomerProfile::class, InvoiceCreationClaim::class, OfficialSubmission::class, LegacyImportReceipt::class, CreditTransferClaim::class, RejectedSubmissionHistory::class, SubmissionAudit::class], version = 17, exportSchema = true)
 abstract class SabaDatabase : RoomDatabase() {
     companion object {
         internal val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -226,6 +226,12 @@ abstract class SabaDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_rejected_submission_history_taxId ON rejected_submission_history(taxId)")
             }
         }
+        internal val MIGRATION_16_17 = object : Migration(16,17) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS submission_audit (id TEXT NOT NULL PRIMARY KEY, ownerId TEXT NOT NULL, companyId INTEGER NOT NULL, invoiceId INTEGER NOT NULL, requestId TEXT NOT NULL, observedAt INTEGER NOT NULL, kind TEXT NOT NULL, state TEXT NOT NULL, message TEXT NOT NULL, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_submission_audit_invoiceId ON submission_audit(invoiceId)")
+            }
+        }
         /** New commercial accounts never open or automatically claim the unowned legacy database. */
         fun openAccount(context: Context, account: ir.saba.invoice.security.AccountScope): SabaDatabase =
             Room.databaseBuilder(context.applicationContext, SabaDatabase::class.java, account.databaseName)
@@ -248,7 +254,7 @@ abstract class SabaDatabase : RoomDatabase() {
                         db.execSQL("CREATE TRIGGER IF NOT EXISTS account_owner_update BEFORE UPDATE ON companies WHEN NEW.purchaserId != '${account.ownerId}' OR OLD.purchaserId != '${account.ownerId}' BEGIN SELECT RAISE(ABORT, 'Taxpayer owner differs from account database'); END")
                     }
                 })
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16).build()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17).build()
 
         @Volatile private var INSTANCE: SabaDatabase? = null
         fun getInstance(context: Context): SabaDatabase = INSTANCE ?: synchronized(this) {
@@ -256,11 +262,12 @@ abstract class SabaDatabase : RoomDatabase() {
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17).build().also { INSTANCE = it }
         }
     }
     abstract fun creditTransferClaimDao(): CreditTransferClaimDao
     abstract fun officialSubmissionDao(): OfficialSubmissionDao
+    abstract fun submissionAuditDao(): SubmissionAuditDao
     abstract fun rejectedSubmissionHistoryDao(): RejectedSubmissionHistoryDao
     abstract fun legacyImportReceiptDao(): LegacyImportReceiptDao
     abstract fun invoiceCreationClaimDao(): InvoiceCreationClaimDao
