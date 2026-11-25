@@ -7,3 +7,5 @@ Retry after CI 45610216054: 459/460 passed; preserve pending-credit retry and sh
 0.57.0 / 57 (reserved full variant 58): user-authorized signed app-only build. Direct fiscal-memory/private-key submission only, draft-to-send workflow, tax status and PDF, stage diagnostics. Source gate CI 45623584056: 468 passed, 0 failed. Retain original signer, package ID, full test and lint gates. No public release or real tax invoice submission. Build artifact for owner testing only.
 
 CI dependency stabilization (same application version 0.57.0): stage pinned Robolectric SDK jars using Gradle dependency cache before running tests; retry preparation only; tests use local SDK jars, never download from Maven during test execution. Rebuild with all existing signing and test gates intact. No app behavior or signing identity changes.
+
+Fix Kotlin DSL java extension shadowing: import ZipFile explicitly. Preserve dependency preparation, tests and signed build gates.

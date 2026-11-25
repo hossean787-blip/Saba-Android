@@ -1,3 +1,5 @@
+import java.util.zip.ZipFile
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -112,7 +114,7 @@ val prepareRobolectricSdks = tasks.register<Sync>("prepareRobolectricSdks") {
         expected.forEach { name ->
             val jar = robolectricSdkDir.get().file(name).asFile
             check(jar.isFile && jar.length() > 0) { "Missing Robolectric SDK: $name" }
-            java.util.zip.ZipFile(jar).use { archive ->
+            ZipFile(jar).use { archive ->
                 check(archive.size() > 0) { "Empty Robolectric SDK: $name" }
             }
         }
