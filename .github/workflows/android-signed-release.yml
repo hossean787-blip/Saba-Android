@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'docs/release/BUILD_REQUEST.md'
+      - 'docs/release/BUILD_REQUEST_APP.md'
 permissions:
   contents: read
 
@@ -95,7 +96,15 @@ jobs:
             echo "::error::APK package version differs from Gradle release configuration"
             exit 1
           }
+          # Inspect actual merged APK permissions; do not remove legitimate security controls.
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump permissions "$APK" | tee app/build/outputs/apk/release/apk-permissions.txt
+          if grep -Eq "android.permission.(REQUEST_INSTALL_PACKAGES|INSTALL_PACKAGES|SYSTEM_ALERT_WINDOW|MANAGE_EXTERNAL_STORAGE|READ_SMS|RECEIVE_SMS|SEND_SMS|READ_CONTACTS|RECORD_AUDIO|QUERY_ALL_PACKAGES|BIND_ACCESSIBILITY_SERVICE|READ_CALL_LOG|WRITE_CALL_LOG)'?" app/build/outputs/apk/release/apk-permissions.txt; then
+            echo "::error::Unexpected high-risk permission; review required."
+            exit 1
+          fi
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK" | tee app/build/outputs/apk/release/apk-sha256.txt
           # Public SHA-256 fingerprint of the long-standing SURA release certificate.
           # Enforce it even if optional external settings are absent: wrong keys would
           # force an uninstall and lose customer data.
@@ -116,4 +125,6 @@ jobs:
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/release/signing-certificate-sha256.txt
+            app/build/outputs/apk/release/apk-permissions.txt
+            app/build/outputs/apk/release/apk-sha256.txt
           if-no-files-found: error
