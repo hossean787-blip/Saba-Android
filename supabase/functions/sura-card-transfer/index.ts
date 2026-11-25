@@ -37,10 +37,21 @@ async function handler(req:Request){
   const r=await rpc("sura_card_submit",{p_owner:u.id,p_id:b.id,p_tracking:b.tracking,p_date:b.date,p_receipt:b.receipt});
   return reply(r,r.error?409:200);
  }
- if(!["admin-list","admin-detail","admin-review"].includes(route??""))return reply({error:"not_found"},404);
+ if(!["admin-list","admin-detail","admin-review","admin-monthly-price","admin-monthly-save"].includes(route??""))return reply({error:"not_found"},404);
  if(u.id!==admin||String(u.email).toLowerCase()!==email)return reply({error:"forbidden"},403);
  const roles=await rest("sura_admin_roles?select=role&user_id=eq."+admin+"&limit=1");
  if(roles[0]?.role!=="admin")return reply({error:"forbidden"},403);
+ if(route==="admin-monthly-price"){
+  const rows=await rest("sura_monthly_plan?select=price_rial,enabled,revision&id=eq.1&limit=1");
+  const history=await rest("sura_monthly_price_audit?select=request_id,old_price,new_price,created_at,reason&order=new_revision.desc&limit=10");
+  if(!rows[0])return reply({error:"plan_missing"},503);
+  return reply({plan:rows[0],history});
+ }
+ if(route==="admin-monthly-save"){
+  if(!uuid(b.request)||!Number.isSafeInteger(b.expected)||b.expected<0||!safeNum(b.price)||b.price>10000000000||typeof b.reason!=="string"||b.reason.trim().length<5||b.reason.length>500)return reply({error:"invalid_request"},400);
+  const result=await rpc("sura_manager_monthly_price",{p_actor:u.id,p_request:b.request,p_expected:b.expected,p_price:b.price,p_reason:b.reason.trim()});
+  return reply(result,result.error?409:200);
+ }
  if(route==="admin-list"){
   const page=b.page??1;if(!safeNum(page)||page>10000)return reply({error:"invalid_page"},400);
   return reply({requests:await rest("sura_card_requests?select="+fields+"&state=eq.pending&order=submitted_at.asc&limit=30&offset="+((page-1)*30))});

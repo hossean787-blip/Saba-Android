@@ -404,3 +404,31 @@ async function cardReview(approve){
  try{await cardFetch('admin-review',{id:cardSelected,decision:approve?'approved':'rejected',amount:approve?amount:null,reference:approve?reference:null,bankChecked:checked,reason:reason});toast('نتیجه ثبت شد');cardBack();}
  catch(e){toast('نتیجه تأیید نشد؛ مجدداً استعلام کنید','error');showPage('card-transfer');}
 }
+
+
+/* Monthly pricing: price changes never enable sales or mutate prior orders. */
+let monthlyPriceSnapshot=null;
+async function appendMonthlyPrice(c){
+ if(ADMIN_ROLE!=='admin')return;
+ try{
+  const d=await cardFetch('admin-monthly-price',{}),p=d.plan;
+  monthlyPriceSnapshot=p;
+  const price=p.price_rial===null?null:Number(p.price_rial);
+  const box=document.createElement('div');box.className='panel';
+  box.innerHTML='<div class="panel-head"><h3>اشتراک ماهانه | ۲۰ صورتحساب در ۳۰ روز</h3></div><div style="padding:16px"><p>قیمت پایه: '+(price===null?'تعیین نشده':html(fmtRial(price)))+'</p><p>ارزش افزوده: '+(price===null?'—':html(fmtRial(Math.floor((price*10+50)/100))))+'</p><p>مبلغ نهایی: '+(price===null?'—':html(fmtRial(price+Math.floor((price*10+50)/100))))+'</p><p>وضعیت فروش: '+(p.enabled?'فعال':'غیرفعال')+'</p><button class="btn btn-accent" onclick="openMonthlyPrice()">تعیین یا تغییر قیمت اشتراک</button><p>تغییر قیمت فقط سفارش‌های جدید را متأثر می‌کند؛ این دکمه فروش را فعال نمی‌کند.</p><h4>تاریخچه تغییرات</h4>'+ (d.history||[]).map(h=>'<p>'+html(h.old_price===null?'تعیین اولیه':fmtRial(h.old_price))+' ← '+html(fmtRial(h.new_price))+' | '+html(safeTime(h.created_at))+' | '+html(h.reason)+'</p>').join('')+'</div>';
+  c.appendChild(box);
+ }catch(e){const box=document.createElement('div');box.className='panel';box.textContent='استعلام قیمت اشتراک از سرور ناموفق بود.';c.appendChild(box);}
+}
+function openMonthlyPrice(){
+ if(ADMIN_ROLE!=='admin'||!monthlyPriceSnapshot)return;
+ const p=monthlyPriceSnapshot;
+ openModal('قیمت اشتراک ماهانه','<div class="field-row"><label>قیمت پایه به ریال</label><input type="number" id="monthly-price" min="1" max="10000000000" step="1" value="'+(p.price_rial===null?'':Number(p.price_rial))+'"></div><div class="field-row"><label>دلیل تغییر</label><textarea id="monthly-reason" maxlength="500"></textarea></div><p>مالیات ۱۰ درصد طبق تنظیم فعلی سرور محاسبه می‌شود. ظرفیت و مدت ثابت هستند.</p>','<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="saveMonthlyPrice()">ذخیره قیمت</button>');
+ const m=document.getElementById('modal');m.dataset.monthlyRevision=String(p.revision);m.dataset.monthlyRequest=newUUID();
+}
+async function saveMonthlyPrice(){return submitBusy(async()=>{
+ const m=document.getElementById('modal'),price=Number(document.getElementById('monthly-price').value),reason=document.getElementById('monthly-reason').value.trim();
+ if(!Number.isSafeInteger(price)||price<1||price>10000000000||reason.length<5)return toast('قیمت یا دلیل معتبر نیست','error');
+ if(!confirm('قیمت پایه '+fmtRial(price)+' و مبلغ نهایی '+fmtRial(price+Math.floor((price*10+50)/100))+' ثبت شود؟'))return;
+ try{await cardFetch('admin-monthly-save',{request:m.dataset.monthlyRequest,expected:Number(m.dataset.monthlyRevision),price,reason});toast('قیمت اشتراک ثبت شد','success');closeModal();showPage('packages');}
+ catch(e){toast('ذخیره تأیید نشد؛ قیمت فعلی را دوباره استعلام کنید.','error');}
+});}

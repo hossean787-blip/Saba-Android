@@ -1352,6 +1352,7 @@ async function renderPackages(c) {
     </div><div style="padding:12px 16px"><div class="empty-note">یک رکورد قیمت پایه در سرور وجود دارد. مالیات در جدول قیمت‌گذاری تفکیک نشده و نمی‌توان نرخ یا جمع مالیاتی را از روی آن فرض کرد.</div>
     ${CAN.editPackages() ? `<button class="btn btn-accent" onclick="openPackageModal(${Number(p.price_per_invoice_rial)})">ویرایش قیمت پایه</button>` : ''}</div></div>`;
     await appendManagerPriceHistory(c);
+    await appendMonthlyPrice(c);
 }
 function openPackageModal(price) {
     if (!CAN.editPackages())
