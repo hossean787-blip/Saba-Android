@@ -287,7 +287,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         Button(enabled = bytes != null, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
         if (invoice.status in setOf("DRAFT", "FINALIZED") &&
-            (official == null || official.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED") ||
+            (official == null || official.state in setOf("PREPARED", "RESERVED", "SENDING", "UNKNOWN", "SUBMITTED") ||
                 needsLegacyReferenceCheck(official)) && (!directPreview || (official != null && invoiceEventStatus(invoice, official) != InvoiceEventStatus.SUCCESS))) {
             OutlinedButton(onClick = onSend, modifier = Modifier.fillMaxWidth()) {
                 Text(if (needsLegacyReferenceCheck(official)) "استعلام و تطبیق مرجع"

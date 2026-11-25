@@ -482,8 +482,8 @@ class OfficialSubmissionServiceTest {
     }
     @Test fun preparedCanBeDiscardedButSendingCannotBeDeleted()=runBlocking {
         val original=prepare();service.discardPrepared(original.requestId)
-        assertNull(db.officialSubmissionDao().forInvoice(invoice))
-        val replacement=prepare();assertNotEquals(original.requestId,replacement.requestId)
+        assertEquals("RESERVED",db.officialSubmissionDao().forInvoice(invoice)!!.state)
+        val replacement=prepare();assertEquals(original.requestId,replacement.requestId)
         assertEquals(original.taxId,replacement.taxId)
         service.submit(replacement.requestId)
         reject{service.discardPrepared(replacement.requestId)}
@@ -683,7 +683,31 @@ class OfficialSubmissionServiceTest {
         db.moadianDetailsDao().upsert(MoadianDetails(companyId=company,fiscalMemoryId="ABC123"))
         reject{service.submit(row.requestId)}
         service.discardPrepared(row.requestId)
-        assertNull(db.officialSubmissionDao().byId(row.requestId));assertEquals(0,api.posts)
+        assertEquals("RESERVED",db.officialSubmissionDao().byId(row.requestId)!!.state)
+        assertEquals(row.taxId,db.officialSubmissionDao().byId(row.requestId)!!.taxId);assertEquals(0,api.posts)
+    }
+
+    @Test fun neverPostedInvoiceKeepsTaxIdAndOriginalIssueTimestampAcrossEditAndReprepare()=runBlocking {
+        val original=prepare()
+        InvoiceRepository(db).reopenUnsentForEdit(company,invoice,account.ownerId)
+        val reserved=db.officialSubmissionDao().forInvoice(invoice)!!
+        assertEquals("RESERVED",reserved.state);assertEquals(original.taxId,reserved.taxId)
+        reject { service.submit(original.requestId) }
+        val old=db.invoiceDao().byId(invoice)!!
+        val changed=db.invoiceLineDao().forInvoice(invoice).map{it.copy(description="شرح اصلاح‌شده")}
+        reject { InvoiceRepository(db).saveDraft(company,old.customerId,"13",old.issueDate,changed,invoice) }
+        reject { InvoiceRepository(db).saveDraft(company,old.customerId,old.invoiceNumber,"1405/08/13",changed,invoice) }
+        InvoiceRepository(db).saveDraft(company,old.customerId,old.invoiceNumber,old.issueDate,changed,invoice)
+        // Fixture predates credits; mark its existing exemption before finalization.
+        db.legacyQuotaExemptionDao().insert(LegacyQuotaExemption(invoice))
+        InvoiceRepository(db).finalizeDraft(company,invoice)
+        val refreshed=service.prepare(company,invoice,"2026-11-03T13:00:00+03:30","164")
+        assertEquals(original.taxId,refreshed.taxId)
+        assertEquals(original.requestId,refreshed.requestId)
+        assertEquals(JSONObject(original.payload).getJSONObject("header").getLong("indatim"),
+            JSONObject(refreshed.payload).getJSONObject("header").getLong("indatim"))
+        assertNotEquals(original.payloadHash,refreshed.payloadHash)
+        assertEquals(0,api.posts)
     }
 
 }

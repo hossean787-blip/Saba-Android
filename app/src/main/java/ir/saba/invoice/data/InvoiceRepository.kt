@@ -97,6 +97,13 @@ class InvoiceRepository(private val db: SabaDatabase) {
                 val old = db.invoiceDao().byId(existingInvoiceId) ?: throw IllegalArgumentException("فاکتور پیدا نشد.")
                 require(old.status == "DRAFT") { "فقط پیش‌نویس قابل ویرایش است." }
                 require(old.companyId == companyId) { "شرکت فاکتور قابل تغییر نیست." }
+                db.officialSubmissionDao().forInvoice(old.id)?.let { reserved ->
+                    require(reserved.state == "RESERVED" && reserved.ownerId==issuer.purchaserId &&
+                        reserved.companyId==companyId && reserved.referenceNumber.isNullOrBlank()) { "این سند برای ارسال محفوظ است." }
+                    require(normalizedNumber==old.invoiceNumber && normalizedDate==old.issueDate) {
+                        "بعد از تخصیص شماره مالیاتی، سریال و تاریخ صدور قابل تغییر نیستند."
+                    }
+                }
                 db.invoiceDao().update(
                     old.copy(
                         customerId = customerId,
@@ -178,9 +185,9 @@ class InvoiceRepository(private val db: SabaDatabase) {
         require(db.moadianSimulationDao().latestForInvoice(invoiceId) == null) { "سند دارای سابقه آزمایش است و باید محفوظ بماند." }
         val row = db.officialSubmissionDao().forInvoice(invoiceId)
         if (row != null) {
-            require(row.ownerId == ownerId && row.companyId == companyId && row.state == "PREPARED" &&
+            require(row.ownerId == ownerId && row.companyId == companyId && row.state in setOf("PREPARED","RESERVED") &&
                 row.referenceNumber.isNullOrBlank() && row.signedReceipt.isNullOrBlank()) { "سند ارسال شده؛ استعلام کنید." }
-            check(db.officialSubmissionDao().discardPrepared(row.requestId) == 1) { "درخواست در حال ارسال است." }
+            if(row.state=="PREPARED") check(db.officialSubmissionDao().reservePreparedIdentity(row.requestId) == 1) { "درخواست در حال ارسال است." }
         }
         db.invoiceDao().update(invoice.copy(status = "DRAFT"))
     }

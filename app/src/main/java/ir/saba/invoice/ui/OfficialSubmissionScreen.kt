@@ -68,7 +68,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
     }
     // Read snapshots in composition, rather than deferring state reads inside the lazy DSL.
     val historyRows = history
-    val availableInvoices = invoices.filter { i -> historyRows.none { it.invoiceId == i.id } }
+    val availableInvoices = invoices.filter { i -> historyRows.none { it.invoiceId == i.id && it.state!="RESERVED" } }
     val invoiceRows = invoices
     LazyColumn(Modifier.fillMaxSize().padding(16.dp).testTag("officialSubmissionList").semantics { stateDescription = if (busy) "در حال پردازش" else "پایان پردازش" },verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {
@@ -139,6 +139,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                     Text("شماره مالیاتی: ${row.taxId}")
                     Text("روش ارسال: " + if (row.protocol == "LEGACY") "کلید خصوصی و شناسه یکتا" else "سابقه اتصال قدیمی")
                     Text(when(row.state) {
+                        "RESERVED" -> "شماره مالیاتی محفوظ؛ ارسال نشده"
                         "PREPARED" -> "آماده؛ ارسال نشده"
                         "SUBMITTED" -> "در سامانه در انتظار اعتبارسنجی؛ نتیجه نهایی نشده"
                         "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row)) "پذیرفته‌شده در سامانه"
@@ -170,7 +171,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                             }
                         } else Text("درخواست قدیمی ارسال نشده؛ آماده‌سازی را لغو و با اتصال مستقیم دوباره ایجاد کنید.")
                         TextButton(enabled=!busy,onClick={act { service.discardPrepared(row.requestId) }}) {
-                            Text("لغو آماده‌سازی؛ هنوز ارسال نشده")
+                            Text("لغو آماده‌سازی؛ حفظ شماره مالیاتی")
                         }
                     }
                     if (row.protocol == "LEGACY" && row.state == "ACCEPTED" &&

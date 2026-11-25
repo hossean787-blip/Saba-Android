@@ -49,6 +49,8 @@ object OfficialReferenceEvidence {
     @Query("SELECT * FROM official_submissions WHERE companyId=:id ORDER BY preparedAt DESC") suspend fun forCompany(id: Long): List<OfficialSubmission>
     @Query("UPDATE official_submissions SET lastError=:evidence WHERE requestId=:id AND protocol='LEGACY' AND state='ACCEPTED' AND referenceNumber=:reference AND signedReceipt IS NULL")
     suspend fun confirmLegacyReference(id: String, reference: String, evidence: String): Int
+    @Query("UPDATE official_submissions SET state='RESERVED' WHERE requestId=:id AND state='PREPARED' AND referenceNumber IS NULL AND signedReceipt IS NULL") suspend fun reservePreparedIdentity(id: String): Int
+    @Query("UPDATE official_submissions SET state='PREPARED', payload=:payload, payloadHash=:hash, protocol=:protocol, lastError=NULL WHERE requestId=:id AND state='RESERVED' AND referenceNumber IS NULL AND signedReceipt IS NULL") suspend fun refreshReserved(id:String,payload:String,hash:String,protocol:String):Int
     @Query("DELETE FROM official_submissions WHERE requestId=:id AND state='PREPARED'") suspend fun discardPrepared(id: String): Int
     @Query("DELETE FROM official_submissions WHERE requestId=:id AND ownerId=:ownerId AND state='REJECTED'") suspend fun archiveRejected(id: String, ownerId: String): Int
     @Query("UPDATE official_submissions SET state='SENDING', lastError=NULL WHERE requestId=:id AND state='PREPARED'")

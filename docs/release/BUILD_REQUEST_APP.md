@@ -27,3 +27,5 @@ Preserve existing draft edit label for accessibility/regression; preflight failu
 0.65.0: Rejected invoices reopen the same local invoice ID and reuse its recorded credit, retaining rejected request payload and error history in schema 16. New fiscal serial prevents reusing prior tax IDs. No retry of ambiguous or accepted requests. Preserve history in account archive, accept schema 15 backups, show bounded official error details in the editor. Add transaction and migration regression coverage. Request signed APK.
 
 Split historical UI assertion: accepted invoice remains immutable, finalized unsent offers edit but not delete. Verify actual error description and missing-error fallback. Request signed rebuild.
+
+0.67.0: preserve never-posted tax identity via RESERVED state; lock serial and issue date after allocation; rebuild payload with original issue timestamp and same tax ID/UID; guard concurrent stale send; fix Compose lint on rejection history. Existing definitive FAILED retry policy unchanged pending protocol verification. Request signed build.

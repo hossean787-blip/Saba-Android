@@ -154,12 +154,28 @@ class OfficialSubmissionService(
         require(invoice.trackingCode.isNullOrBlank() || (existing != null && existing.referenceNumber == invoice.trackingCode)) {
             "صورتحساب دارای کد پیگیری قدیمی است؛ ساخت درخواست تازه مجاز نیست و سابقه باید بررسی شود."
         }
+        // Preserve the originally issued timestamp and tax ID for an explicitly reopened, never-posted request.
+        if(existing!=null) require(existing.ownerId==account.ownerId && existing.companyId==companyId &&
+            existing.fiscalId==details.fiscalMemoryId) { "حافظه یا مالک شماره مالیاتی قابل تغییر نیست." }
+        val reservedTime = existing?.takeIf { it.state=="RESERVED" }?.let {
+            require(SubmissionPreparation.sha256Hex(it.payload.toByteArray(Charsets.UTF_8))==it.payloadHash)
+            Instant.ofEpochMilli(JSONObject(it.payload).getJSONObject("header").getLong("indatim")).toString()
+        }
         val payload = MoadianInvoiceMapper.map(company,customer,db.customerProfileDao().byCustomer(customer.id),details,invoice,
-            sourceLines,issueTime,unit,clock())
+            sourceLines,reservedTime ?: issueTime,unit,clock())
         requireOfficialReference(invoice, JSONObject(payload).getJSONObject("header"))
         require(payload.length <= 2_000_000) { "حجم صورتحساب بیش از حد مجاز است." }
         if (existing != null) {
-            require(existing.ownerId == account.ownerId && existing.companyId == companyId && existing.protocol == protocol && existing.payload == payload) { "صورتحساب قبلاً با محتوای ثابت آماده شده است." }
+            if(existing.state=="RESERVED") {
+                require(invoice.status=="FINALIZED" && existing.referenceNumber.isNullOrBlank() && existing.signedReceipt.isNullOrBlank())
+                require(JSONObject(payload).getJSONObject("header").getString("taxid")==existing.taxId) {
+                    "شماره مالیاتی محفوظ باید بدون تغییر باقی بماند."
+                }
+                check(db.officialSubmissionDao().refreshReserved(existing.requestId,payload,
+                    SubmissionPreparation.sha256Hex(payload.toByteArray(Charsets.UTF_8)),protocol)==1)
+                return@withTransaction requireNotNull(db.officialSubmissionDao().byId(existing.requestId))
+            }
+            require(existing.protocol == protocol && existing.payload == payload) { "صورتحساب قبلاً با محتوای ثابت آماده شده است." }
             return@withTransaction existing
         }
         val taxId = JSONObject(payload).getJSONObject("header").getString("taxid")
@@ -216,8 +232,8 @@ class OfficialSubmissionService(
         sessionCheck()
         val existing=requireNotNull(db.officialSubmissionDao().byId(id))
         require(existing.ownerId==account.ownerId && db.companyDao().byId(existing.companyId)?.purchaserId==account.ownerId)
-        // PREPARED has never reached POST; even a changed memory or corrupt preview can be discarded.
-        require(db.officialSubmissionDao().discardPrepared(id) == 1) { "درخواست شروع شده و قابل حذف نیست؛ استعلام کنید." }
+        // Cancel the prepared content, not the allocated fiscal identity.
+        require(db.officialSubmissionDao().reservePreparedIdentity(id) == 1) { "درخواست شروع شده و قابل لغو نیست؛ استعلام کنید." }
     }
     /** Keep the PDF/history tracking field and the outbox receipt in one local transaction. */
     private suspend fun resolve(id: String, state: String, reference: String?, error: String?, receipt: String? = null): Int = db.withTransaction {
@@ -311,7 +327,7 @@ class OfficialSubmissionService(
         val token = authorization(initial)
         db.withTransaction {
             sessionCheck()
-            row(id)
+            require(row(id)==initial) { "محتوای سند تغییر کرده؛ دوباره بررسی کنید." }
             check(db.officialSubmissionDao().claim(id) == 1) { "درخواست قبلاً شروع شده است؛ استعلام کنید." }
         }
         try {
@@ -351,7 +367,7 @@ class OfficialSubmissionService(
         }
         db.withTransaction {
             sessionCheck()
-            require(row(id).protocol == "LEGACY")
+            require(row(id)==initial) { "محتوای سند تغییر کرده؛ دوباره بررسی کنید." }
             check(db.officialSubmissionDao().claim(id) == 1) {
                 "ارسال این درخواست آغاز شده است؛ ابتدا نتیجه را استعلام کنید."
             }

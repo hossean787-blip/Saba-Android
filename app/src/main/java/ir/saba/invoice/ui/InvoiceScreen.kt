@@ -97,6 +97,7 @@ internal fun isLegacyEvidenceMessage(row: OfficialSubmission): Boolean =
 internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): String = when (row?.state) {
     null -> if (!invoice.trackingCode.isNullOrBlank() || invoice.status == "RESTORED")
         "سابقه نیازمند استعلام" else if (invoice.status == "DRAFT") "پیش‌نویس؛ ارسال نشده" else "ارسال نشده"
+    "RESERVED" -> "شماره مالیاتی محفوظ؛ ارسال نشده"
     "PREPARED" -> "آماده؛ ارسال نشده"
     "SENDING", "UNKNOWN" -> "وضعیت نامشخص؛ نیازمند استعلام"
     "SUBMITTED" -> "ارسال شده؛ در انتظار پذیرش"
@@ -111,6 +112,7 @@ internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): St
 /** Receipt status must never be inferred from a local draft, tracking code alone or a POST response. */
 internal fun invoiceTaxStatus(row: OfficialSubmission?): String = when (row?.state) {
     null -> "این صورتحساب هنوز به سامانه مؤدیان ارسال نشده است."
+    "RESERVED" -> "شماره مالیاتی محفوظ است؛ پس از ویرایش همین شماره ارسال می‌شود."
     "PREPARED" -> "درخواست رسمی آماده شده ولی هنوز به سامانه مؤدیان ارسال نشده است."
     "SENDING", "UNKNOWN" -> "وضعیت ارسال قطعی نیست؛ تنها استعلام کنید و صورتحساب را مجدداً ارسال نکنید."
     "SUBMITTED" -> "در سامانه ارسال شده؛ پذیرش نهایی هنوز تأیید نشده و استعلام لازم است."
@@ -429,11 +431,11 @@ private fun InvoiceScreenContent(
                     onChanged()
                     onNotice("همین فاکتور برای اصلاح باز شد؛ اعتبار جدید مصرف نمی‌شود. شماره مالیاتی تلاش بعدی جدید است.")
                 }
-                current.invoice.status == "DRAFT" && receipt == null -> populateEditor(current, true)
-                current.invoice.status == "FINALIZED" && (receipt == null || receipt.state == "PREPARED") -> {
+                current.invoice.status == "DRAFT" && (receipt == null || receipt.state=="RESERVED") -> populateEditor(current, true)
+                current.invoice.status == "FINALIZED" && (receipt == null || receipt.state in setOf("PREPARED","RESERVED")) -> {
                     InvoiceRepository(db).reopenUnsentForEdit(companyId, inv.id, ownerId)
-                    officialRecord = null
-                    officialByInvoice = officialByInvoice - inv.id
+                    officialRecord = db.officialSubmissionDao().forInvoice(inv.id)
+                    officialRecord?.let { officialByInvoice=officialByInvoice+(inv.id to it) }
                     populateEditor(repository.detailsForCompany(companyId, inv.id), true)
                     onChanged()
                 }
@@ -488,7 +490,7 @@ private fun InvoiceScreenContent(
             onOpenOfficialSubmission()
             return
         }
-        if (record != null && record.state != "PREPARED") {
+        if (record != null && record.state !in setOf("PREPARED","RESERVED")) {
             onNotice(invoiceTaxStatus(record))
             return
         }
@@ -503,7 +505,7 @@ private fun InvoiceScreenContent(
             return
         }
         // Legacy finalized rows without per-line units require the existing recovery tools.
-        if (record == null && invoice.subject != InvoiceSubject.CANCELLATION &&
+        if ((record == null || record.state=="RESERVED") && invoice.subject != InvoiceSubject.CANCELLATION &&
             loaded.lines.any { MoadianMeasurementUnits.nameOf(it.unitCode) == null }) {
             if (invoice.status == "FINALIZED") onOpenOfficialSubmission()
             else onNotice("واحد سنجش هر ردیف را در ویرایش پیش‌نویس انتخاب کنید.")
@@ -525,7 +527,13 @@ private fun InvoiceScreenContent(
                     InvoiceSendSchedule.requireDueForManualSubmission(
                         InvoiceLocalDetails.fromJson(invoice.localDetailsJson))
                     val prior = db.officialSubmissionDao().forInvoice(id)
-                    if (prior != null) {
+                    if (prior?.state=="RESERVED") {
+                        require(prior.ownerId==ownerId && prior.companyId==companyId)
+                        val originalTime=Instant.ofEpochMilli(org.json.JSONObject(prior.payload).getJSONObject("header").getLong("indatim")).toString()
+                        repository.finalizeDraft(companyId,id)
+                        val row=officialService.prepare(companyId,id,originalTime,"","LEGACY")
+                        officialService.reviewPrepared(row.requestId)
+                    } else if (prior != null) {
                         require(prior.ownerId == ownerId && prior.companyId == companyId)
                         require(prior.state == "PREPARED") {
                             "ارسال قبلاً آغاز شده است؛ فقط استعلام همان درخواست مجاز است."
@@ -803,8 +811,8 @@ private fun InvoiceScreenContent(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         val canEditUnsent = invoice.trackingCode.isNullOrBlank() &&
-                            (invoice.status == "DRAFT" && officialRecord == null ||
-                                invoice.status == "FINALIZED" && (officialRecord == null || officialRecord?.state == "PREPARED"))
+                            (invoice.status == "DRAFT" && (officialRecord == null || officialRecord?.state=="RESERVED") ||
+                                invoice.status == "FINALIZED" && (officialRecord == null || officialRecord?.state in setOf("PREPARED","RESERVED")))
                         if (canEditUnsent) {
                             Button(enabled = !busy, onClick = { editExisting(loaded) },
                                 modifier = Modifier.fillMaxWidth()) { Text(if (invoice.status == "DRAFT") "ویرایش پیش‌نویس" else "ویرایش فاکتور") }
@@ -823,12 +831,20 @@ private fun InvoiceScreenContent(
             }
             "edit" -> {
                 val local = remember(localDetailsJson) { InvoiceLocalDetails.fromJson(localDetailsJson) }
-                val retryHistory by produceState<RejectedSubmissionHistory?>(null,invoiceId,companyId) {
-                    value=invoiceId?.let{db.rejectedSubmissionHistoryDao().forInvoice(it).firstOrNull{row->row.ownerId==ownerId && row.companyId==companyId}}
+                var retryHistory by remember(invoiceId,companyId) { mutableStateOf<RejectedSubmissionHistory?>(null) }
+                var reservedIdentity by remember(invoiceId,companyId) { mutableStateOf<OfficialSubmission?>(null) }
+                LaunchedEffect(invoiceId,companyId) {
+                    retryHistory=invoiceId?.let{db.rejectedSubmissionHistoryDao().forInvoice(it).firstOrNull{row->row.ownerId==ownerId && row.companyId==companyId}}
+                    reservedIdentity=invoiceId?.let{db.officialSubmissionDao().forInvoice(it)?.takeIf{row->row.state=="RESERVED" && row.ownerId==ownerId && row.companyId==companyId}}
                 }
+                val identityLocked = reservedIdentity!=null || (officialRecord?.invoiceId==invoiceId && officialRecord?.state=="RESERVED")
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     InvoiceEditorHeading(seller = sellerName, editingDraft = invoiceId != null, lineCount = lines.size)
+                    reservedIdentity?.let { row ->
+                        Text("شماره مالیاتی محفوظ: "+row.taxId, fontWeight=FontWeight.Bold)
+                        Text("شماره فاکتور و تاریخ صدور ثابت می‌مانند؛ سایر اطلاعات قابل ویرایش هستند.",style=MaterialTheme.typography.bodySmall)
+                    }
                     retryHistory?.let { prior ->
                         Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
                             Column(Modifier.padding(12.dp)) {
@@ -859,22 +875,22 @@ private fun InvoiceScreenContent(
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             if (maxWidth >= 440.dp) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked,
+                                    OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked && !identityLocked,
                                         label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") },
                                         singleLine = true, modifier = Modifier.weight(1f),
                                         textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
-                                    OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
+                                    OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked && !identityLocked,
                                         label = { Text("شماره فاکتور") }, singleLine = true,
                                         supportingText = { if (automaticNumber) Text("سریال پیشنهادی قابل ویرایش است؛ یکتایی هنگام ذخیره کنترل می‌شود") },
                                         modifier = Modifier.weight(1f))
                                 }
                             } else {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked,
+                                OutlinedTextField(date, { date = it }, enabled = !busy && !editorLocked && !identityLocked,
                                     label = { Text("تاریخ شمسی، نمونه: ۱۴۰۵/۰۷/۰۲") }, singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
-                                OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked,
+                                OutlinedTextField(number, { number = it }, enabled = !busy && !editorLocked && !identityLocked,
                                     label = { Text("شماره فاکتور") },
                                     supportingText = { if (automaticNumber) Text("سریال پیشنهادی قابل ویرایش است؛ برای شماره خودکار خالی بگذارید") },
                                     singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -1218,7 +1234,7 @@ private fun InvoiceScreenContent(
             val loaded = requireNotNull(details)
             val row = officialRecord
             if (loaded.invoice.status in setOf("DRAFT", "FINALIZED") &&
-                (row == null || row.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED"))) {
+                (row == null || row.state in setOf("PREPARED", "RESERVED", "SENDING", "UNKNOWN", "SUBMITTED"))) {
                 Button(enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("invoiceDirectSend"),
                     onClick = { requestOfficialSend(loaded) }) {
                     Text(if (row?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))

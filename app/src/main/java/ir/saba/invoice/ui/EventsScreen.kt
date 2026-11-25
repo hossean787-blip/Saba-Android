@@ -54,6 +54,7 @@ internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?):
         "REJECTED" -> InvoiceEventStatus.REJECTED
         "SUBMITTED" -> InvoiceEventStatus.PENDING
         "UNKNOWN", "SENDING", "RESTORED" -> InvoiceEventStatus.CHECK
+        "RESERVED" -> if(invoice.status=="DRAFT") InvoiceEventStatus.DRAFT else InvoiceEventStatus.UNSENT
         "PREPARED" -> if (row.lastError.isNullOrBlank()) InvoiceEventStatus.READY else InvoiceEventStatus.UNSENT
         null -> when {
             !invoice.trackingCode.isNullOrBlank() || invoice.status == "RESTORED" -> InvoiceEventStatus.CHECK
