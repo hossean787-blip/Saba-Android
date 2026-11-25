@@ -45,8 +45,12 @@ class SuraIdentifierStore(private val context: Context) {
 
     suspend fun search(input: String, category: String?, specificity: String?, limit: Int = 50): List<SuraIdentifier> =
         withContext(Dispatchers.IO) {
+            val snapshot=starter.snapshot()
             val preferred=starter.search(input,category,specificity,limit)
-            if (!fullInstalled() || preferred.size>=limit.coerceIn(1,100)) return@withContext preferred
+            if (!fullInstalled()) return@withContext preferred
+            // An unverified bundled discovery bank must not shadow an installed, controlled catalog.
+            val unverifiedStarter=snapshot?.version==0L
+            if (!unverifiedStarter && preferred.size>=limit.coerceIn(1,100)) return@withContext preferred
             val normalized = normalize(input)
             if (normalized.isBlank()) return@withContext preferred
             val numeric = normalized.all { it in '0'..'9' }
@@ -87,7 +91,9 @@ class SuraIdentifierStore(private val context: Context) {
                             cursor.getString(6).orEmpty()
                         ))
                     }
-                    (preferred+result).distinctBy{it.id}.take(limit.coerceIn(1,100))
+                    val combined=if(unverifiedStarter && result.isNotEmpty()) result
+                        else if(unverifiedStarter) preferred else (result+preferred)
+                    combined.distinctBy{it.id}.take(limit.coerceIn(1,100))
                 }
             }
         }

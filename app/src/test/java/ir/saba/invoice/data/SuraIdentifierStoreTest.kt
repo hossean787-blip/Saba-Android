@@ -83,6 +83,8 @@ class SuraIdentifierStoreTest {
             assertEquals("1234567890123", catalog.search("۱۲۳۴", null, null).single().id)
             assertEquals("1234567890123", catalog.search("حمل", "خدمت", "عمومی").single().id)
             assertTrue(catalog.search("حمل", "کالا", null).isEmpty())
+            // Unverified starter entries remain available when the installed catalog has no match.
+            assertTrue(catalog.search("2330001115075", "خدمت", null).any { it.id=="2330001115075" && it.vat.isEmpty() })
         } finally {
             file.delete()
         }
