@@ -457,6 +457,50 @@ private fun InvoiceScreenContent(
         }
     }
 
+    fun startCorrection(loaded: InvoiceDetails) {
+        perform {
+            val original=repository.detailsForCompany(companyId,loaded.invoice.id)
+            val parent=requireNotNull(db.officialSubmissionDao().forInvoice(original.invoice.id))
+            require(parent.ownerId==ownerId && canStartCorrection(original.invoice,parent)) {
+                "فقط فاکتور اصلی پذیرفته‌شده همین مؤدی قابل اصلاح است."
+            }
+            require(creation.pending(companyId)==null) { "ابتدا صدور ناتمام قبلی را تکمیل کنید." }
+            val existing=db.invoiceDao().forCompany(companyId).firstOrNull {
+                it.referenceTaxId==parent.taxId && it.subject in setOf(InvoiceSubject.CORRECTION,InvoiceSubject.CANCELLATION,InvoiceSubject.RETURN) &&
+                    it.status!="CANCELLED"
+            }
+            if(existing!=null) {
+                invoiceId=existing.id;mode="event_open"
+                onNotice("سند ارجاعی این فاکتور قبلاً ثبت شده است؛ همان سند باز شد.")
+                return@perform
+            }
+            val verified=if(OfficialReferenceEvidence.eligible(parent)) parent else {
+                sendProgress="در حال استعلام مرجع اصلاحیه…"
+                try { officialService.verifyLegacyReference(parent.requestId) }
+                finally { sendProgress="" ; reloadOfficial(original.invoice.id) }
+            }
+            require(OfficialReferenceEvidence.eligible(verified))
+            val copied=original.lines.map { it.copy(id=0,invoiceId=0) }
+            InvoiceCalculator.calculate(copied)
+            // Recheck reference and conflicts before opening the unsaved form; persistence rechecks again.
+            val issueDate=JalaliCalendar.fromGregorian(java.time.LocalDate.now(tehran))
+            InvoiceSubject.requireLocalAcceptedReference(db,ownerId,companyId,original.invoice.customerId,
+                InvoiceSubject.CORRECTION,verified.taxId,copied,newIssueDate=issueDate)
+            val suggested=TaxpayerSerialAllocator(db).suggest(companyId,reference=true)
+            beginInvoice()
+            if(pendingCreation!=null) return@perform
+            invoiceId=null;number=suggested;date=issueDate
+            subject=InvoiceSubject.CORRECTION;referenceTaxId=verified.taxId
+            customerId=original.invoice.customerId;lines=copied
+            settlementMode=original.invoice.settlementMode
+            cashPortionInput=if(settlementMode==InvoiceSettlement.MIXED) original.invoice.cashPaidRial?.toString().orEmpty() else ""
+            localDetailsJson=InvoiceLocalDetails.fromJson(original.invoice.localDetailsJson)
+                .copy(documents=emptyList(),sendLaterDate="",sendLaterTime="",paymentTrackingNumber="",paymentDate="")
+                .toJson(preserveInput=true)
+            onNotice("اصلاحیه آماده ویرایش است؛ اصل فاکتور بدون تغییر باقی ماند. اعتبار فقط هنگام ذخیره سند جدید مصرف می‌شود.")
+        }
+    }
+
     suspend fun reloadOfficial(id: Long) {
         details = repository.detailsForCompany(companyId, id)
         officialRecord = db.officialSubmissionDao().forInvoice(id)
@@ -689,7 +733,8 @@ private fun InvoiceScreenContent(
                         busy = busy, onEdit = if(canEditInvoicePreview(loaded.invoice,officialRecord)) {
                             { editExisting(loaded) }
                         } else null,
-                        onDetails = if(directPreview) { { mode = "details" } } else null)
+                        onDetails = if(directPreview) { { mode = "details" } } else null,
+                        onCorrection = if(canStartCorrection(loaded.invoice,officialRecord)) { { startCorrection(loaded) } } else null)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -906,6 +951,11 @@ private fun InvoiceScreenContent(
                                 mode = "template"
                             }
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
+                        if(canStartCorrection(invoice,officialRecord)) {
+                            OutlinedButton(enabled=!busy,onClick={startCorrection(loaded)},modifier=Modifier.fillMaxWidth()) {
+                                Text("صدور صورتحساب اصلاحی")
+                            }
+                        }
                         Text(invoiceTaxStatus(officialRecord),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (officialRecord?.let(OfficialReferenceEvidence::eligible) == true)
@@ -1069,7 +1119,7 @@ private fun InvoiceScreenContent(
                         Text(when (subject) {
                             InvoiceSubject.RETURN -> "برگشت از فروش: اقلام مرجع را کپی کنید و مقدار باقی‌مانده پس از برگشت را وارد کنید. قیمت، نرخ و شناسه کالا نباید تغییر کنند؛ ارسال رسمی آزمایشی است."
                             InvoiceSubject.CANCELLATION -> "ابطالی با شماره مرجع پذیرفته‌شده آماده می‌شود؛ اقلام مرجع را بدون تغییر کپی کنید. ارسال رسمی آزمایشی و نیازمند تأیید شماست؛ ذخیره یک فاکتور جدید اعتبار مصرف می‌کند."
-                            else -> "برای اصلاحی، تنها صورتحساب اصلی پذیرفته‌شده همان مؤدی و خریدار قابل ارجاع است؛ ارسال رسمی آزمایشی است."
+                            else -> "اصلاحیه یک سند جدید با شماره مالیاتی مرجع است؛ مبلغ، تعداد و تخفیف را اصلاح کنید. اطلاعات هویتی و شناسه اقلام باید مطابق مرجع باشند. ارسال واقعی هنوز آزمون نشده است."
                         },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)

@@ -107,7 +107,10 @@ class OfficialSubmissionScreenTest {
         val service=OfficialSubmissionService(db,account,
             TaxpayerCredentialRepository(ApplicationProvider.getApplicationContext(),db,account),
             sessionCheck={AccountSession.requireOwner(testSessionToken,account)})
-        val row=service.prepare(company,invoice,"2025-03-21T12:00:00+03:30","1627")
+        val prefs=ApplicationProvider.getApplicationContext<android.content.Context>().getSharedPreferences("sura_tax_credentials_${account.storageKey}",0)
+        prefs.edit().putString("pending_company_$company","synthetic-staged-key-marker").commit()
+        val row=try { service.prepare(company,invoice,"2025-03-21T12:00:00+03:30","1627","LEGACY") }
+            finally { prefs.edit().remove("pending_company_$company").commit() }
         db.officialSubmissionDao().claim(row.requestId)
         db.officialSubmissionDao().resolve(row.requestId,"UNKNOWN",null,"نتیجه نامشخص")
         compose.setContent {MaterialTheme {OfficialSubmissionScreen(db,account,company,{},accessToken=testSessionToken)}}

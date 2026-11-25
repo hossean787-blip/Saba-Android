@@ -69,6 +69,14 @@ internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?):
 internal fun invoiceEventOpensPreview(status: InvoiceEventStatus): Boolean = true
 
 /** Only never-posted documents or a definitively rejected attempt may enter editing. */
+/** A correction is a NEW referred invoice, not an edit or resend of the original. */
+internal fun canStartCorrection(invoice:Invoice, receipt:OfficialSubmission?):Boolean =
+    invoice.status=="FINALIZED" && invoice.subject=="ORIGINAL" &&
+        receipt?.invoiceId==invoice.id && receipt.companyId==invoice.companyId &&
+        receipt.protocol=="LEGACY" && receipt.state=="ACCEPTED" &&
+        !receipt.referenceNumber.isNullOrBlank() &&
+        (OfficialReferenceEvidence.eligible(receipt) || needsLegacyReferenceCheck(receipt))
+
 internal fun canEditInvoicePreview(invoice: Invoice, receipt: OfficialSubmission?): Boolean {
     if(receipt!=null && (receipt.invoiceId!=invoice.id || receipt.companyId!=invoice.companyId)) return false
     if(receipt?.state=="REJECTED") return invoice.status=="FINALIZED"

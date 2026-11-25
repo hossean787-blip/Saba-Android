@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
@@ -237,7 +238,8 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           lines: List<InvoiceLine>, onExport: (ByteArray) -> Unit,
                           onBack: () -> Unit, onSend: () -> Unit, official: OfficialSubmission? = null,
                           db: SabaDatabase? = null, directPreview: Boolean = false,
-                          busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null) {
+                          busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
+                          onCorrection:(() -> Unit)? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -310,6 +312,9 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         if(onDetails!=null && invoiceEventStatus(invoice,official)!=InvoiceEventStatus.SUCCESS) {
             TextButton(enabled=!busy,onClick=onDetails,modifier=Modifier.fillMaxWidth()) { Text("جزئیات فاکتور") }
+        }
+        if(onCorrection!=null) OutlinedButton(enabled=!busy,onClick=onCorrection,modifier=Modifier.fillMaxWidth().testTag("startInvoiceCorrection")) {
+            Text("صدور صورتحساب اصلاحی")
         }
         TextButton(enabled=!busy,onClick = onBack) { Text("بازگشت") }
     }

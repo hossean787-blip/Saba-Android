@@ -41,3 +41,5 @@ Split historical UI assertion: accepted invoice remains immutable, finalized uns
 0.77.0: RSA 2048 export roundtrip verified by actual signing and semantic parameters; PEM picker compatibility, async file writing, visible progress and errors, volatile account-specific workshop state across recreation, clear after export/leave. Include previous authorized whitespace fix from parent commit. Request signed APK.
 
 Direct-only production mode blocks all certificate-based readiness and historic V2 inquiry routes before network; legacy records remain intact and user is directed to official portal. Add guard regression tests. No changes to APK signing or secure TLS.
+
+0.79.0: start correction from accepted original PDF/details; verify unbound legacy reference without POST, open existing referred document instead of duplicate, prefill buyer/lines/settlement and independent serial without debit until save. Preserve original. Simulated direct submission regression; update old unknown fixture to LEGACY for certificate-free inquiry. Real correction acceptance pending. Request signed APK.

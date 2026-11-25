@@ -724,4 +724,30 @@ class OfficialSubmissionServiceTest {
         assertEquals(prior,db.officialSubmissionDao().byId(row.requestId))
     }
 
+    @Test fun directCorrectionSendsOwnTaxIdAndOriginalReferenceThroughCertificateFreeGateway()=runBlocking {
+        val parent=legacyReferralParent(true)
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val direct=OfficialSubmissionService(db,account,credentials,api,sessionCheck={},directOnly=true){now+86_400_000}
+        val row=direct.prepare(company,id,"2026-11-04T12:00:00+03:30","164","LEGACY")
+        assertNotEquals(parent.taxId,row.taxId)
+        var posts=0
+        direct.legacyGateway=object:LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String):LegacyPreparedInvoice {
+                val h=JSONObject(payload).getJSONObject("header")
+                assertEquals(2,h.getInt("ins"));assertEquals(parent.taxId,h.getString("irtaxid"))
+                assertEquals(row.taxId,h.getString("taxid"))
+                return LegacyPreparedInvoice("{}",mapOf("requestTraceId" to uid))
+            }
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement {
+                posts++;return LegacyInvoiceAcknowledgement(expectedUid,"correction-reference")
+            }
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String)=
+                LegacyInvoiceInquiry(uid,taxId,"correction-reference","SUCCESS",emptyList(),fiscalId)
+        }
+        val result=direct.submitAndInquire(row.requestId)
+        assertEquals("ACCEPTED",result.state);assertEquals(1,posts);assertNull(result.signedReceipt)
+        assertEquals(parent,db.officialSubmissionDao().byId(parent.requestId))
+        assertEquals(0,api.posts);assertEquals(0,api.gets)
+    }
+
 }

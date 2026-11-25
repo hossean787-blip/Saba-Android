@@ -45,6 +45,16 @@ class InvoiceEventStatusTest {
         assertFalse(canEditInvoicePreview(invoice.copy(trackingCode="old"),null))
         assertTrue(canEditInvoicePreview(invoice,receipt.copy(state="RESERVED")))
     }
+    @Test fun correctionRequiresSameCompanyAcceptedOriginalAndDirectProtocol() {
+        val accepted=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_BOUND)
+        assertTrue(canStartCorrection(invoice,accepted))
+        assertTrue(canStartCorrection(invoice,accepted.copy(lastError=OfficialReferenceEvidence.LEGACY_UNBOUND)))
+        assertFalse(canStartCorrection(invoice,accepted.copy(state="UNKNOWN")))
+        assertFalse(canStartCorrection(invoice,accepted.copy(protocol="V2")))
+        assertFalse(canStartCorrection(invoice,accepted.copy(companyId=99)))
+        assertFalse(canStartCorrection(invoice.copy(subject="CORRECTION"),accepted))
+        assertFalse(canStartCorrection(invoice.copy(status="DRAFT"),accepted))
+    }
     @Test fun titleUsesOnlyMatchingCustomer() {
         assertEquals("صورتحساب مشتری آزمایشی",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=2,name="مشتری آزمایشی"))))
         assertEquals("صورتحساب مشتری نامشخص",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=99,name="نام دیگر"))))
