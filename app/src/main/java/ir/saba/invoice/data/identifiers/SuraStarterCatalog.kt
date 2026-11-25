@@ -51,8 +51,8 @@ internal class SuraStarterCatalog(private val context:Context) {
                 require(row.getString("source")=="Mohsensoft")
                 require(row.getString("source_url").startsWith("https://mohsensoft.com/mtax/Stuffid/"))
                 require(row.getString("vat_reported") in setOf("0","10"))
-                // Never auto-populate a tax rate from an unverified source.
-                Entry(group,SuraIdentifier(id,description,"","نیازمند استعلام رسمی",kind,"","Mohsensoft (pending)"))
+                // Preserve the reported rate, but keep its unverified provenance.
+                Entry(group,SuraIdentifier(id,description,row.getString("vat_reported"),"نیازمند استعلام رسمی",kind,"","Mohsensoft (pending)"))
             }
             val expected=mapOf("accounting" to 22,"computer" to 9,"auto" to 4,"technical" to 36,"other" to 79)
             require(expected.all{(g,n)->entries.count{it.group==g}==n})

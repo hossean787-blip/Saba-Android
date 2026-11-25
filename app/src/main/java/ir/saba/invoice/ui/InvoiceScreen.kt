@@ -1268,6 +1268,9 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
     var discount by rememberSaveable { mutableStateOf(initial?.discountRial?.toString() ?: "0") }
     var tax by rememberSaveable { mutableStateOf(initial?.let(InvoiceLineAmounts::vatText).orEmpty()) }
     var vatHint by rememberSaveable { mutableStateOf("") }
+    var identifierLocked by rememberSaveable { mutableStateOf(initial?.itemCode?.matches(Regex("[0-9]{13}")) == true) }
+    var rateNeedsConfirmation by rememberSaveable { mutableStateOf(false) }
+    var rateConfirmed by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf("") }
     val headerRequester = remember { BringIntoViewRequester() }
     // Editing from the wide grid opens this form below the table. Explicitly
@@ -1292,26 +1295,39 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
                     val selected = InvoiceIdentifierPrefill.from(identifier)
                     code = selected.code
                     itemTitle = selected.description
-                    description = selected.description
+                    if (description.isBlank()) description = selected.description
                     tax = selected.vatRatePercent
-                    vatHint = if (selected.requiresVatReview)
-                        "نرخ مالیات برای این شناسه معلوم نیست؛ نرخ معتبر را خودتان بررسی و وارد کنید."
-                    else "نرخ بانک شناسه‌ها باید با مقررات معتبر روز کنترل شود."
+                    identifierLocked = true
+                    rateNeedsConfirmation = selected.requiresVatReview && tax.isNotBlank()
+                    rateConfirmed = false
+                    vatHint = when {
+                        tax.isBlank() -> "نرخ معتبر در بانک ثبت نشده است؛ نرخ را در بخش شناسه‌های مؤدی تکمیل و دوباره انتخاب کنید."
+                        rateNeedsConfirmation -> "نرخ گزارش‌شده است؛ قبل از ثبت ردیف با مرجع رسمی تطبیق دهید."
+                        else -> "نرخ ثبت‌شده شناسه به‌صورت خودکار اعمال شد."
+                    }
                     error = ""
                 } catch (e: IllegalArgumentException) {
                     error = e.message ?: "شناسه قابل انتخاب نیست."
                 }
             }
             OutlinedTextField(code, { code = InvoiceInput.digits(it).trim() },
-                label = { Text("شناسه کالا و خدمت") }, singleLine = true,
+                label = { Text("شناسه کالا و خدمت") }, singleLine = true, readOnly = identifierLocked,
                 modifier = Modifier.fillMaxWidth())
-            NumberField(tax, { tax = it; vatHint = "" }, "درصد مالیات (تا ۲ رقم اعشار)")
+            OutlinedTextField(tax, { if (!identifierLocked) { tax = it; vatHint = "" } },
+                label = { Text("درصد مالیات (تا ۲ رقم اعشار)") }, singleLine = true,
+                readOnly = identifierLocked, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth().testTag("invoiceVatRate"))
+            if (identifierLocked && rateNeedsConfirmation) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(checked = rateConfirmed, onCheckedChange = { rateConfirmed = it })
+                Text("نرخ گزارش‌شده را با مرجع رسمی کنترل و تأیید کردم.")
+            }
             if (vatHint.isNotBlank()) Text(vatHint, style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(itemTitle, { itemTitle = it },
-                label = { Text("عنوان کالا/خدمت") }, singleLine = true,
+                label = { Text("عنوان کالا/خدمت") }, singleLine = true, readOnly = identifierLocked,
                 modifier = Modifier.fillMaxWidth())
             OutlinedTextField(description, { description = it },
                 label = { Text("شرح کالا یا خدمت") },
+                supportingText = { Text("همین شرح در خروجی PDF و صورتحساب نمایش داده می‌شود.") },
                 modifier = Modifier.fillMaxWidth())
             InvoiceMeasurementUnitPicker(unit) { unit = it; error = "" }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -1365,6 +1381,8 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         try {
+                            require(!rateNeedsConfirmation || rateConfirmed) { "ابتدا نرخ گزارش‌شده را تأیید کنید." }
+                            require(!identifierLocked || tax.isNotBlank()) { "نرخ این شناسه در بانک مشخص نیست." }
                             val row = InvoiceLineAmounts.fromUserInput(
                                 code = code, description = description,
                                 rawQuantity = quantity,

@@ -359,6 +359,8 @@ class InvoiceScreenTest {
         }
         compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performScrollTo().performClick()
         compose.onNodeWithText("شناسه کالا و خدمت").assertTextContains(code)
+        compose.onNodeWithTag("invoiceVatRate").assertTextContains("9")
+        compose.onNodeWithText("شرح کالا یا خدمت").performScrollTo().performTextReplacement("شرح اختصاصی آزمایشی")
         compose.onNodeWithTag("invoiceUnitPicker").performScrollTo().performClick()
         compose.onNodeWithTag("invoiceUnitSearch").performTextInput("نفر")
         compose.onNodeWithTag("invoiceUnit_16134").performClick()
@@ -375,7 +377,8 @@ class InvoiceScreenTest {
         runBlocking {
             val row = db.invoiceLineDao().forInvoice(invoices.single().id).single()
             assertEquals(code, row.itemCode)
-            assertEquals("کالای انتخاب‌شده مؤدی", row.description)
+            assertEquals("شرح اختصاصی آزمایشی", row.description)
+            assertEquals("کالای انتخاب‌شده مؤدی", row.itemTitle)
             assertEquals(9, row.taxRatePercent)
             assertEquals("16134", row.unitCode)
         }

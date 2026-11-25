@@ -33,6 +33,9 @@ class SuraIdentifierStore(private val context: Context) {
     fun installed(): Boolean = fullInstalled() || starter.snapshot()!=null
     suspend fun updateStarter():Long?=starter.update()
     suspend fun starterCount():Int=withContext(Dispatchers.IO){starter.snapshot()?.entries?.size?:0}
+    suspend fun starterEntries(): List<SuraIdentifier> = withContext(Dispatchers.IO) {
+        starter.snapshot()?.entries.orEmpty().map { it.value }
+    }
 
     suspend fun count(): Long = withContext(Dispatchers.IO) {
         if (!fullInstalled()) return@withContext starterCount().toLong()

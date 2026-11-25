@@ -28,14 +28,15 @@ class SuraStarterCatalogTest {
         o.getJSONArray("entries").getJSONObject(1).put("id",o.getJSONArray("entries").getJSONObject(0).getString("id"))
         try{SuraStarterCatalog.parse(o.toString());fail("duplicate accepted")}catch(_:IllegalArgumentException){}
     }
-    @Test fun bundledServiceCandidatesHaveNoAutomaticTaxRate() {
+    @Test fun bundledServiceCandidatesPreserveReportedRateAndUnverifiedSource() {
         val ctx=androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val raw=ctx.assets.open("starter/catalog.json").bufferedReader().use{it.readText()}
         val snapshot=SuraStarterCatalog.parseBundled(raw)
         assertEquals(0L,snapshot.version)
         assertEquals(150,snapshot.entries.size)
         assertEquals(150,snapshot.entries.map{it.value.id}.toSet().size)
-        assertTrue(snapshot.entries.all{it.value.vat.isEmpty() && it.value.kind.contains("خدمت")})
+        assertTrue(snapshot.entries.all{it.value.vat in setOf("0","10") && it.value.kind.contains("خدمت") && it.value.source == "Mohsensoft (pending)"})
+        assertEquals(150, kotlinx.coroutines.runBlocking { ir.saba.invoice.data.identifiers.SuraIdentifierStore(ctx).starterEntries().size })
         val bank=SuraStarterCatalog(ctx)
         assertTrue(bank.search("2330001115075","خدمت",null,50).any{it.id=="2330001115075"})
         assertTrue(bank.search("","کالا",null,50).isEmpty())

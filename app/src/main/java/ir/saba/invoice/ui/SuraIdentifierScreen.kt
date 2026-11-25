@@ -16,6 +16,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -68,9 +71,11 @@ fun SuraIdentifierScreen(
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<String?>(null) }
     var specificity by remember { mutableStateOf<String?>(null) }
-    var tab by remember { mutableStateOf("search") }
+    var tab by remember { mutableStateOf("starter") }
     var found by remember { mutableStateOf(emptyList<SuraIdentifier>()) }
-    var saved by remember { mutableStateOf(emptyList<SuraIdentifier>()) }
+    var saved by remember(bookmarks, taxpayerId) { mutableStateOf(emptyList<SuraIdentifier>()) }
+    var starterEntries by remember { mutableStateOf(emptyList<SuraIdentifier>()) }
+    var starterQuery by remember { mutableStateOf("") }
     var catalogCount by remember { mutableStateOf<Long?>(null) }
     var starterCount by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
@@ -93,7 +98,7 @@ fun SuraIdentifierScreen(
             }
             catalogCount = catalog.count()
             starterCount = catalog.starterCount()
-            if(starterCount>0)found=catalog.search("",null,null,limit=50)
+            starterEntries = catalog.starterEntries()
         } catch (e: Exception) {
             catalogCount = runCatching { catalog.count() }.getOrDefault(0L)
             message = SuraErrors.transport(e) ?: e.message ?: "راه‌اندازی بانک داخلی ناموفق بود؛ بانک قبلی حفظ شد. [CATALOG-INIT]"
@@ -171,7 +176,9 @@ fun SuraIdentifierScreen(
             FilterChip(selected = tab == "entry", onClick = { tab = "entry" },
                 label = { Text("ثبت دستی / اکسل") })
         }
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = tab == "starter", onClick = { tab = "starter" },
+                label = { Text("بانک آماده ($starterCount)") })
             FilterChip(selected = tab == "saved", onClick = { tab = "saved" },
                 label = { Text("شناسه‌های مؤدی (" + saved.size + ")") })
         }
@@ -195,6 +202,7 @@ fun SuraIdentifierScreen(
                     try{
                         val v=catalog.updateStarter()
                         catalogCount=catalog.count();starterCount=catalog.starterCount()
+                        starterEntries=catalog.starterEntries()
                         found=catalog.search(query,category,specificity)
                         message=if(v==null)"هنوز بانک منتخب تأییدشده منتشر نشده است." else "بانک منتخب نسخه $v آماده است."
                     }catch(e:kotlinx.coroutines.CancellationException){throw e}
@@ -238,6 +246,11 @@ fun SuraIdentifierScreen(
                     "برای نسخه کامل به فضای ذخیره‌سازی کافی نیاز دارید.",
                 style = MaterialTheme.typography.bodySmall, color = catalogNavy
             )
+        } else if (tab == "starter") {
+            OutlinedTextField(starterQuery, { starterQuery = it }, singleLine = true,
+                label = { Text("جستجوی شناسه‌های آماده") }, modifier = Modifier.fillMaxWidth())
+            Text(if (taxpayerId == null) "برای افزودن شناسه ابتدا مؤدی را انتخاب کنید." else
+                "با تیک هر شناسه، به فهرست مؤدی فعلی اضافه می‌شود.", style = MaterialTheme.typography.bodySmall)
         } else if (taxpayerId == null) {
             Text("برای مشاهده شناسه‌های ذخیره‌شده ابتدا مؤدی را انتخاب کنید.",
                 color = catalogNavy, style = MaterialTheme.typography.bodyMedium)
@@ -246,12 +259,26 @@ fun SuraIdentifierScreen(
         if (message.isNotBlank()) Text(message, color = catalogTeal,
             style = MaterialTheme.typography.bodySmall)
         Text(
-            if (tab == "search") "نتایج جستجو" else "شناسه‌های مؤدی انتخاب‌شده",
+            when(tab) { "search" -> "نتایج جستجو"; "starter" -> "تمام شناسه‌های آماده ($starterCount)"; else -> "شناسه‌های مؤدی انتخاب‌شده" },
             color = catalogNavy, fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleSmall
         )
         HorizontalDivider(color = Color(0xFFDBE7EC))
-        val entries = if (tab == "search") found else saved
+        val savedIds = saved.map { it.id }.toSet()
+        val starterById = starterEntries.associateBy { it.id }
+        val entries = when (tab) {
+            "search" -> found
+            "starter" -> {
+                val q = SuraIdentifierStore.normalize(starterQuery)
+                starterEntries.filter { q.isBlank() || it.id.contains(q) ||
+                    SuraIdentifierStore.normalize(it.description).contains(q) }
+            }
+            else -> saved.map { row ->
+                if (row.vat.isBlank() && row.source == "Mohsensoft (pending)")
+                    starterById[row.id]?.takeIf { it.source == row.source }?.let { row.copy(vat = it.vat) } ?: row
+                else row
+            }
+        }
         if (entries.isEmpty() && tab == "saved" && taxpayerId != null) {
             Text("برای این مؤدی هنوز شناسه‌ای ذخیره نشده است.", color = catalogNavy)
         }
@@ -267,39 +294,43 @@ fun SuraIdentifierScreen(
                 ) {
                     Column(Modifier.fillMaxWidth().padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(entry.id, color = catalogTeal, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(entry.id, color = catalogTeal, fontWeight = FontWeight.Bold)
+                            if (tab == "starter" || tab == "search") Checkbox(
+                                checked = entry.id in savedIds,
+                                enabled = !busy && taxpayerId != null,
+                                modifier = Modifier.testTag("saveIdentifier_" + entry.id),
+                                onCheckedChange = { checked ->
+                                    val selected = taxpayerId ?: return@Checkbox
+                                    scope.launch {
+                                        busy = true
+                                        try {
+                                            if (checked) bookmarks.importBatch(selected, listOf(entry))
+                                            else bookmarks.remove(selected, entry.id)
+                                            saved = bookmarks.forTaxpayer(selected)
+                                            message = if (checked) "شناسه به فهرست مؤدی اضافه شد." else "شناسه از فهرست مؤدی حذف شد."
+                                        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                        catch (_: Exception) { message = "تغییر فهرست مؤدی انجام نشد." }
+                                        finally { busy = false }
+                                    }
+                                }
+                            )
+                        }
                         Text(entry.description, color = catalogNavy,
                             maxLines = 3, overflow = TextOverflow.Ellipsis)
                         Text(entry.kind + "  •  نرخ ثبت‌شده: " +
                                 if (entry.vat.isBlank()) "نامشخص" else entry.vat + "٪",
                             color = Color(0xFF617B8A), style = MaterialTheme.typography.bodySmall)
                         if (entry.source == "Mohsensoft (pending)") Text(
-                            "شناسه پیشنهادی؛ شرح و نرخ روز را پیش از صدور از مرجع رسمی کنترل کنید.",
+                            "نرخ گزارش‌شده؛ اعتبار رسمی هنوز تأیید نشده است.",
                             color = Color(0xFFB05D38), style = MaterialTheme.typography.labelSmall
                         )
                         if (entry.expirationDate.isNotBlank()) Text(
                             "تاریخ انقضای درج‌شده: " + entry.expirationDate,
                             color = Color(0xFFB05D38), style = MaterialTheme.typography.labelSmall
                         )
-                        if (tab == "search") {
-                            Button(
-                                enabled = !busy && taxpayerId != null,
-                                onClick = {
-                                    val selected = taxpayerId ?: return@Button
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            bookmarks.save(selected, entry)
-                                            saved = bookmarks.forTaxpayer(selected)
-                                            message = "شناسه " + entry.id + " برای همین مؤدی ذخیره شد."
-                                        } catch (e: Exception) {
-                                            message = "ثبت شناسه ناموفق بود."
-                                        } finally { busy = false }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = catalogTeal)
-                            ) { Text("ذخیره برای مؤدی") }
-                        } else {
+                        if (tab == "saved") {
                             TextButton(enabled = !busy, onClick = {
                                 val selected = taxpayerId ?: return@TextButton
                                 scope.launch {

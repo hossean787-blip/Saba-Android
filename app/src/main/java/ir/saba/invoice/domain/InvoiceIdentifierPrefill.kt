@@ -30,7 +30,8 @@ data class InvoiceIdentifierPrefill(
                 InvoiceLineAmounts.taxPercent(rate.replace('٫', '.'))
                     .stripTrailingZeros().toPlainString()
             }.getOrDefault("")
-            return InvoiceIdentifierPrefill(code, description, validatedRate, validatedRate.isEmpty())
+            return InvoiceIdentifierPrefill(code, description, validatedRate,
+                validatedRate.isEmpty() || identifier.source == "Mohsensoft (pending)")
         }
     }
 }

@@ -67,7 +67,14 @@ internal fun InvoiceIdentifierPicker(
 
     LaunchedEffect(bookmarks, companyId) {
         try {
-            saved = bookmarks.forTaxpayer(companyId)
+            val rows = bookmarks.forTaxpayer(companyId)
+            val reported = if (rows.any { it.vat.isBlank() && it.source == "Mohsensoft (pending)" })
+                catalog.starterEntries().associateBy { it.id } else emptyMap()
+            saved = rows.map { row ->
+                if (row.vat.isBlank() && row.source == "Mohsensoft (pending)")
+                    reported[row.id]?.takeIf { it.source == row.source }?.let { row.copy(vat = it.vat) } ?: row
+                else row
+            }
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
@@ -173,7 +180,8 @@ internal fun InvoiceIdentifierPicker(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        item.id + " • مالیات: " + item.vat.ifBlank { "نیازمند بررسی" },
+                                        item.id + " • مالیات: " + item.vat.ifBlank { "نیازمند بررسی" } +
+                                            if (item.source == "Mohsensoft (pending)") " (گزارش‌شده)" else "",
                                         style = MaterialTheme.typography.labelSmall
                                     )
                                 }

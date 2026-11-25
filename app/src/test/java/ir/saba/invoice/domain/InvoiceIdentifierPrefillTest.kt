@@ -32,6 +32,12 @@ class InvoiceIdentifierPrefillTest {
         }
     }
 
+    @Test fun reportedStarterRateRequiresConfirmationWithoutManualEntry() {
+        val result = InvoiceIdentifierPrefill.from(identifier("1234567890123", "10").copy(source = "Mohsensoft (pending)"))
+        assertEquals("10", result.vatRatePercent)
+        assertTrue(result.requiresVatReview)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsFourteenDigitIdentifierBeforeInvoiceIsSaved() {
         InvoiceIdentifierPrefill.from(identifier("12345678901234", "10"))
