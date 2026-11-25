@@ -124,7 +124,7 @@ class AuthGatewayClient(
 class AuthGatewayException(val httpStatus: Int, val isRegistration: Boolean = false) : Exception(
     when {
         isRegistration && httpStatus == 400 ->
-            "سرور اطلاعات ثبت‌نام را نپذیرفت؛ شرایط رمز عبور و اعتبار ایمیل را بررسی کنید. این خطا به‌معنای متفاوت بودن دو رمز نیست."
+            "سرور ثبت‌نام را نپذیرفت. اگر قبلاً حساب ساخته‌اید، از صفحه ورود استفاده کنید؛ در غیر این صورت ایمیل و شرایط رمز عبور را بررسی کنید. این خطا به‌معنای متفاوت بودن دو رمز نیست."
         isRegistration && httpStatus == 409 ->
             "این حساب ممکن است قبلاً ثبت شده باشد. ورود یا بازیابی حساب را بررسی کنید."
         isRegistration && httpStatus == 422 ->

@@ -74,6 +74,7 @@ class AuthGatewayClientTest {
             assertTrue(expected.isRegistration)
             assertTrue(expected.message!!.contains("سرور"))
             assertTrue(expected.message!!.contains("متفاوت بودن دو رمز نیست"))
+            assertTrue(expected.message!!.contains("صفحه ورود"))
             assertFalse(expected.message!!.contains("private"))
             assertTrue(c.closed)
         }
