@@ -24,6 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.Invoice
+import ir.saba.invoice.data.Customer
+import ir.saba.invoice.data.OfficialSubmission
+import ir.saba.invoice.data.OfficialReferenceEvidence
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -35,9 +38,40 @@ private val cool = Color(0xFFD8F5F8)
 private val textNavy = Color(0xFF16334B)
 private val numberFormat = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR"))
 
-/** Independent invoice event history; statuses describe local state, not tax submission. */
+internal enum class InvoiceEventStatus(val label: String) {
+    SUCCESS("موفق"), REJECTED("ناموفق"), PENDING("در انتظار پاسخ"), CHECK("نیازمند استعلام"),
+    READY("آماده ارسال"), DRAFT("پیش‌نویس"), UNSENT("ارسال نشده"), CANCELLED("لغوشده")
+}
+
+/** A successful direct inquiry is not buyer approval or permission to create a referred invoice. */
+internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?): InvoiceEventStatus {
+    val row = receipt?.takeIf { it.invoiceId == invoice.id && it.companyId == invoice.companyId }
+    return when (row?.state) {
+        "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row) ||
+            (row.protocol == "LEGACY" && !row.referenceNumber.isNullOrBlank() &&
+                row.lastError == OfficialReferenceEvidence.LEGACY_UNBOUND))
+            InvoiceEventStatus.SUCCESS else InvoiceEventStatus.CHECK
+        "REJECTED" -> InvoiceEventStatus.REJECTED
+        "SUBMITTED" -> InvoiceEventStatus.PENDING
+        "UNKNOWN", "SENDING", "RESTORED" -> InvoiceEventStatus.CHECK
+        "PREPARED" -> if (row.lastError.isNullOrBlank()) InvoiceEventStatus.READY else InvoiceEventStatus.CHECK
+        null -> when {
+            !invoice.trackingCode.isNullOrBlank() || invoice.status == "RESTORED" -> InvoiceEventStatus.CHECK
+            invoice.status == "DRAFT" -> InvoiceEventStatus.DRAFT
+            invoice.status == "FINALIZED" -> InvoiceEventStatus.UNSENT
+            invoice.status == "CANCELLED" -> InvoiceEventStatus.CANCELLED
+            else -> InvoiceEventStatus.CHECK
+        }
+        else -> InvoiceEventStatus.CHECK
+    }
+}
+internal fun invoiceEventTitle(invoice: Invoice, customers: List<Customer>): String =
+    "صورتحساب " + (customers.firstOrNull { it.id == invoice.customerId && it.companyId == invoice.companyId }
+        ?.name?.takeIf { it.isNotBlank() } ?: "مشتری نامشخص")
+
 @Composable
-fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit) {
+fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
+                 customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap()) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -75,17 +109,12 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit) {
             }
         } else {
             items(invoices, key = { it.id }) { invoice ->
-                val statusText = when (invoice.status) {
-                    "DRAFT" -> "پیش‌نویس"
-                    "FINALIZED" -> "نهایی محلی"
-                    "CANCELLED" -> "لغوشده"
-                    "QUEUED" -> "در صف"
-                    else -> "وضعیت نامشخص"
-                }
-                val statusColor = when (invoice.status) {
-                    "FINALIZED" -> Color(0xFF0B806F)
-                    "QUEUED" -> Color(0xFFAD792A)
-                    "CANCELLED" -> Color(0xFFBD4A5E)
+                val eventStatus = invoiceEventStatus(invoice, receipts[invoice.id])
+                val statusText = eventStatus.label
+                val statusColor = when (eventStatus) {
+                    InvoiceEventStatus.SUCCESS -> Color(0xFF0B806F)
+                    InvoiceEventStatus.PENDING, InvoiceEventStatus.CHECK -> Color(0xFFAD792A)
+                    InvoiceEventStatus.REJECTED, InvoiceEventStatus.CANCELLED -> Color(0xFFBD4A5E)
                     else -> Color(0xFF59718F)
                 }
                 Card(
@@ -101,10 +130,10 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit) {
                             Icon(Icons.AutoMirrored.Filled.List, null, tint = teal)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("صورتحساب ${invoice.invoiceNumber}", color = textNavy,
+                            Text(invoiceEventTitle(invoice, customers), color = textNavy,
                                 fontWeight = FontWeight.Bold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
-                            Text(invoice.issueDate, color = Color(0xFF75899B),
+                            Text("${invoice.issueDate} • شماره ${invoice.invoiceNumber}", color = Color(0xFF75899B),
                                 style = MaterialTheme.typography.labelSmall)
                         }
                         Column(horizontalAlignment = Alignment.End,
@@ -125,7 +154,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("ⓘ", color = Color(0xFF42728C))
-                Text("ارسال واقعی به سامانه مؤدیان هنوز فعال نیست؛ وضعیت‌ها صرفاً بر اساس داده‌های محلی هستند.",
+                Text("وضعیت بر اساس آخرین پاسخ ثبت‌شده سامانه مؤدیان است. موفق به معنی موفقیت ارسال است، نه تأیید خریدار.",
                     color = Color(0xFF56768C), style = MaterialTheme.typography.labelSmall)
             }
         }

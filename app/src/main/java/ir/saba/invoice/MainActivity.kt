@@ -68,7 +68,8 @@ private data class CompanyData(
     val invoices: List<Invoice>,
     val simulations: List<MoadianSimulation>,
     val wallet: QuotaWallet?,
-    val quota: CompanyQuota?
+    val quota: CompanyQuota?,
+    val officialReceipts: Map<Long, OfficialSubmission>
 )
 
 class MainActivity : ComponentActivity() {
@@ -418,7 +419,8 @@ class MainActivity : ComponentActivity() {
             val company = db.companyDao().byId(id) ?: error("شرکت پیدا نشد.")
             require(company.purchaserId == account.ownerId) { "مودی متعلق به این حساب نیست." }
             val snapshot = db.withTransaction { CompanyData(id, db.customerDao().forCompany(id), db.invoiceDao().forCompany(id),
-                db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id)) }
+                db.moadianSimulationDao().forCompany(id), db.quotaDao().wallet(company.purchaserId), db.quotaDao().companyQuota(id),
+                db.officialSubmissionDao().forCompany(id).filter { it.ownerId == account.ownerId && it.companyId == id }.associateBy { it.invoiceId }) }
             if (selectedCompanyId == id) data = snapshot
         }
         suspend fun refresh() {
@@ -730,7 +732,8 @@ class MainActivity : ComponentActivity() {
                                     onSelectTaxpayer = { page = Page.COMPANIES }
                                 )
                             }
-                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES })
+                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES },
+                                customers = current?.customers.orEmpty(), receipts = current?.officialReceipts.orEmpty())
                             Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it }, onOpenConnection = { selectTaxpayer(it); page = Page.TAX_CONNECTION }, account = account)
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify)
                             Page.TAX_CONNECTION -> if (current != null) key(current.companyId) {

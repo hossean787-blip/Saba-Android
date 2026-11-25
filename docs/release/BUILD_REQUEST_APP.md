@@ -17,3 +17,5 @@ Version 0.59.0: match approved landscape invoice sample, use bundled Vazirmatn a
 0.59.0 retry: preserve itemTitle through durable invoice creation payload, including recovery; retain optional backward-compatible decoding for old claims. Update starter fallback regression to verify reported VAT and unverified provenance instead of obsolete blank-rate expectation. All original tests remain enabled.
 
 0.61.0: clarify direct inquiry SUCCESS vs reference identity verification; expose read-only reference recheck in details and PDF, suppress misleading V2 receipt evidence warnings from visible error text, preserve strict reference eligibility and prohibit resending. Regression test status and request eligibility. Request signed APK.
+
+0.61.0: invoice events show customer names, invoice number and date in subtitle, and latest scoped official result. Distinguish SUCCESS from buyer approval and reference eligibility; remove obsolete local-only notice. Request rebuild.
