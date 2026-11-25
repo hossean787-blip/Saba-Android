@@ -5,6 +5,15 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -147,13 +156,54 @@ internal class SupportOperationJournal(context:Context,account:AccountScope) {
 }
 private val navy=Color(0xFF12354C)
 private val teal=Color(0xFF087A83)
+private val supportGold=Color(0xFFE9C77D)
+private val supportMuted=Color(0xFF607A89)
+private val supportBorder=Color(0xFFD7E6ED)
+private fun supportDate(value:String):String = runCatching {
+    val local=java.time.Instant.parse(value).atZone(java.time.ZoneId.of("Asia/Tehran"))
+    ir.saba.invoice.domain.JalaliCalendar.fromGregorian(local.toLocalDate())+"  •  "+
+        local.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+}.getOrDefault(value)
+
+@Composable private fun SupportSection(title:String,subtitle:String) {
+    Column(verticalArrangement=Arrangement.spacedBy(3.dp)){
+        Text(title,color=navy,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
+        Text(subtitle,color=supportMuted,style=MaterialTheme.typography.bodySmall)
+    }
+}
+@Composable private fun SupportNotice(text:String) {
+    Surface(color=Color(0xFFE8F3F7),shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,supportBorder)){
+        Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            Icon(Icons.Default.Info,contentDescription=null,tint=teal,modifier=Modifier.size(20.dp))
+            Text(text,color=navy,style=MaterialTheme.typography.bodySmall,modifier=Modifier.weight(1f))
+        }
+    }
+}
+@Composable private fun SupportPrimaryButton(label:String,enabled:Boolean,tag:String,onClick:()->Unit) {
+    Button(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag(tag),
+        shape=RoundedCornerShape(15.dp),colors=ButtonDefaults.buttonColors(containerColor=teal,contentColor=Color.White)){
+        Icon(Icons.Default.Send,contentDescription=null,modifier=Modifier.size(19.dp))
+        Spacer(Modifier.width(8.dp));Text(label,fontWeight=FontWeight.Bold)
+    }
+}
 private fun supportStatus(status:String)=when(status){"open"->"ثبت‌شده";"in_progress"->"در حال بررسی";"answered"->"پاسخ داده‌شده";else->"بسته"}
 private fun supportError(e:Exception)=if(e is SupportHttpError) SuraErrors.message(e.status)+" شماره درخواست قبلی حفظ می‌شود." else SuraErrors.describe(e,"ارتباط تأیید نشد. همان متن را دوباره ارسال کنید؛ شماره درخواست قبلی حفظ می‌شود. [SUPPORT-UNKNOWN]")
 @Composable private fun SupportHeader(title:String,subtitle:String) {
-    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(navy,teal)),RoundedCornerShape(22.dp)).padding(20.dp),
-        verticalArrangement=Arrangement.spacedBy(8.dp)){
-        Text(title,color=Color.White,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
-        Text(subtitle,color=Color(0xFFD9F3F2),style=MaterialTheme.typography.bodyMedium)
+    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0B2337),navy,teal)),RoundedCornerShape(24.dp)).padding(20.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)){
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+            Box(Modifier.size(52.dp).background(Color.White.copy(alpha=.12f),RoundedCornerShape(17.dp)),contentAlignment=Alignment.Center){
+                Icon(Icons.Default.Email,contentDescription=null,tint=supportGold,modifier=Modifier.size(27.dp))
+            }
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){
+                Text("SURA  /  SUPPORT",color=supportGold,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
+                Text(title,color=Color.White,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+            }
+        }
+        Text(subtitle,color=Color(0xFFE0F0F3),style=MaterialTheme.typography.bodyMedium)
+        HorizontalDivider(color=Color.White.copy(alpha=.17f))
+        Text("ثبت درخواست  •  دریافت پاسخ  •  پیگیری گفتگو",color=Color(0xFFE0F0F3),style=MaterialTheme.typography.labelSmall)
     }
 }
 @Composable private fun TicketStatus(status:String) {
@@ -205,19 +255,24 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
         .testTag("service-support"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         SupportHeader("مرکز پشتیبانی سورا","ثبت درخواست، پیگیری و گفتگو با پشتیبانی در حساب شما")
         if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-        if(notice.isNotBlank())Text(notice,color=navy,style=MaterialTheme.typography.bodyMedium)
+        if(notice.isNotBlank())SupportNotice(notice)
         val ticket=selected
         if(ticket!=null) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
                 TextButton(enabled=!busy,onClick={selected=null;thread=emptyList();reply="";tab=1}){Text("بازگشت به درخواست‌ها")}
                 TicketStatus(ticket.status)
             }
-            Text(ticket.category,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleLarge)
-            Text(ticket.createdAt,style=MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick={
-                val clipboard=ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("شماره پیگیری",ticket.id));notice="شماره پیگیری کپی شد."
-            },modifier=Modifier.fillMaxWidth()){Text("کپی شماره پیگیری")}
+            Surface(color=Color.White,shape=RoundedCornerShape(20.dp),border=BorderStroke(1.dp,supportBorder)){
+                Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                    SupportSection(ticket.category,supportDate(ticket.createdAt))
+                    Text("شناسه پیگیری: "+ticket.id.take(8).uppercase()+"…",color=supportMuted,style=MaterialTheme.typography.labelMedium)
+                    OutlinedButton(onClick={
+                        val clipboard=ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("شماره پیگیری",ticket.id));notice="شماره پیگیری کپی شد."
+                    },modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp)){Text("کپی شماره پیگیری کامل")}
+                }
+            }
+            SupportSection("گفتگوی درخواست","پیام‌ها و پاسخ‌های پشتیبانی")
             SupportBubble("درخواست شما",ticket.message,true)
             if(ticket.response.isNotBlank())SupportBubble("پاسخ اولیه پشتیبانی",ticket.response,false)
             thread.asReversed().forEach {m->SupportBubble(if(m.sender=="customer")"شما" else "پشتیبانی",m.body,m.sender=="customer",m.createdAt)}
@@ -227,9 +282,12 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
                 TextButton(enabled=!busy,onClick={perform{refreshTicket(ticket.id)}}){Text("تازه‌سازی")}
             }
             if(ticket.status!="closed") {
+                Surface(color=Color.White,shape=RoundedCornerShape(20.dp),border=BorderStroke(1.dp,supportBorder)){
+                Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                SupportSection("پاسخ شما","جزئیات تکمیلی را در همین گفتگو بفرستید.")
                 OutlinedTextField(value=reply,onValueChange={reply=it.take(2000)},label={Text("پیام جدید")},enabled=!busy,
-                    minLines=3,modifier=Modifier.fillMaxWidth().testTag("supportReplyText"),supportingText={Text("${reply.length}/۲۰۰۰")})
-                Button(enabled=!busy&&SupportTicketClient.validMessage(reply),onClick={
+                    minLines=3,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().testTag("supportReplyText"),supportingText={Text("${reply.length}/۲۰۰۰")})
+                SupportPrimaryButton(label="ارسال پیام",enabled=!busy&&SupportTicketClient.validMessage(reply),tag="supportReply",onClick={
                     perform {
                         val id=journal.id("reply:"+ticket.id,reply)
                         val sent=client.reply(id,ticket.id,reply)
@@ -241,43 +299,81 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
                         catch(e:CancellationException){throw e}
                         catch(_:Exception){notice="پیام ثبت شد؛ تازه‌سازی گفتگو انجام نشد."}
                     }
-                },modifier=Modifier.fillMaxWidth().testTag("supportReply")){Text("ارسال پیام")}
-            }else Text("درخواست بسته است؛ برای موضوع جدید تیکت تازه ثبت کنید.")
+                })
+                }}
+            }else SupportNotice("درخواست بسته است؛ برای موضوع جدید تیکت تازه ثبت کنید.")
         }else {
-            TabRow(selectedTabIndex=tab){
-                Tab(selected=tab==0,onClick={if(!busy)tab=0},text={Text("درخواست جدید")})
-                Tab(selected=tab==1,onClick={if(!busy)tab=1},text={Text("درخواست‌های من")})
+            Surface(color=Color.White,shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,supportBorder)){
+                Row(Modifier.fillMaxWidth().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(5.dp)){
+                    listOf("تیکت جدید","تیکت‌های من").forEachIndexed { index,label ->
+                        val active=tab==index
+                        Button(onClick={tab=index},enabled=!busy,modifier=Modifier.weight(1f).heightIn(min=48.dp),
+                            shape=RoundedCornerShape(13.dp),colors=ButtonDefaults.buttonColors(
+                                containerColor=if(active)navy else Color.White,contentColor=if(active)Color.White else navy)){
+                            Icon(if(index==0)Icons.Default.Add else Icons.Default.Email,contentDescription=null,modifier=Modifier.size(18.dp))
+                            Spacer(Modifier.width(5.dp));Text(label,style=MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
             }
             if(tab==0){
                 Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(18.dp)){
                     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                        Text("موضوع درخواست",fontWeight=FontWeight.Bold,color=navy)
+                        SupportSection("۱. موضوع درخواست","دسته مرتبط با مشکل را انتخاب کنید.")
                         SupportTicketClient.categories.forEach{item->
-                            FilterChip(selected=category==item,onClick={category=item},enabled=!busy,label={Text(item)})
+                            val active=category==item
+                            OutlinedButton(onClick={category=item},enabled=!busy,
+                                modifier=Modifier.fillMaxWidth().heightIn(min=46.dp),
+                                shape=RoundedCornerShape(13.dp),border=BorderStroke(1.dp,if(active)teal else supportBorder),
+                                colors=ButtonDefaults.outlinedButtonColors(containerColor=if(active)Color(0xFFE5F4F2) else Color.White,contentColor=navy)){
+                                Text(item,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,
+                                    fontWeight=if(active)FontWeight.Bold else FontWeight.Normal)
+                                if(active)Icon(Icons.Default.CheckCircle,contentDescription="انتخاب شده",tint=teal,modifier=Modifier.size(20.dp))
+                            }
                         }
+                        HorizontalDivider(Modifier.padding(vertical=5.dp),color=supportBorder)
+                        SupportSection("۲. شرح درخواست","مشکل را واضح و با جزئیات لازم بنویسید.")
                         OutlinedTextField(value=message,onValueChange={message=it.take(2000)},enabled=!busy,
-                            label={Text("شرح مشکل")},minLines=4,modifier=Modifier.fillMaxWidth().testTag("supportMessage"),
+                            label={Text("شرح مشکل")},minLines=5,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().testTag("supportMessage"),
                             supportingText={Text("${message.length}/۲۰۰۰؛ حداقل ۱۰ نویسه")})
-                        Text("رمز، کلید خصوصی، اطلاعات کارت و اطلاعات محرمانه مشتری را وارد نکنید.",color=Color(0xFF9A6312),style=MaterialTheme.typography.bodySmall)
-                        Button(enabled=!busy&&SupportTicketClient.validMessage(message,10),onClick={confirm=true},
-                            modifier=Modifier.fillMaxWidth().testTag("supportSubmit")){Text("ثبت درخواست")}
+                        SupportNotice("رمز، کلید خصوصی، اطلاعات کارت و اطلاعات محرمانه مشتری را وارد نکنید.")
+                        SupportPrimaryButton("ثبت و ارسال درخواست",!busy&&SupportTicketClient.validMessage(message,10),"supportSubmit"){confirm=true}
                     }
                 }
                 OutlinedButton(onClick={tab=1},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("پیگیری درخواست‌های قبلی")}
             }else{
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
-                    Text("درخواست‌های ثبت‌شده",fontWeight=FontWeight.Bold,color=navy)
-                    TextButton(enabled=!busy,onClick={perform{tickets=client.list();page=0;loaded=true}}){Text("تازه‌سازی")}
+                    Column(Modifier.weight(1f)){SupportSection("تیکت‌های ثبت‌شده","پیگیری وضعیت و ادامه گفتگو")}
+                    TextButton(enabled=!busy,onClick={perform{tickets=client.list();page=0;loaded=true}}){
+                        Icon(Icons.Default.Refresh,contentDescription=null,modifier=Modifier.size(18.dp));Spacer(Modifier.width(4.dp));Text("تازه‌سازی")
+                    }
                 }
-                if(loaded&&tickets.isEmpty())Text("درخواستی ثبت نشده است.")
-                if(!loaded&&!busy)Text("فهرست هنوز از سرور دریافت نشده است.")
+                if(loaded&&tickets.isEmpty()) {
+                    Surface(color=Color.White,shape=RoundedCornerShape(20.dp),border=BorderStroke(1.dp,supportBorder)){
+                        Column(Modifier.fillMaxWidth().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){
+                            Icon(Icons.Default.Email,contentDescription=null,tint=teal,modifier=Modifier.size(36.dp))
+                            Text("هنوز تیکتی ثبت نشده",color=navy,fontWeight=FontWeight.Bold)
+                            Text("برای دریافت راهنمایی یک درخواست جدید ثبت کنید.",color=supportMuted,style=MaterialTheme.typography.bodySmall)
+                            Button(onClick={tab=0},enabled=!busy,colors=ButtonDefaults.buttonColors(containerColor=teal)){Text("ثبت اولین تیکت")}
+                        }
+                    }
+                }
+                if(!loaded&&!busy)SupportNotice("فهرست هنوز از سرور دریافت نشده است. تازه‌سازی را بزنید.")
                 tickets.forEach{t->
-                    Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Color.White)){
-                        Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(t.category,fontWeight=FontWeight.Bold);TicketStatus(t.status)}
-                            Text(t.message,maxLines=3)
-                            Text(t.createdAt,style=MaterialTheme.typography.bodySmall)
-                            TextButton(enabled=!busy,onClick={perform{refreshTicket(t.id);reply=""}}){Text("مشاهده و ادامه گفتگو")}
+                    OutlinedCard(Modifier.fillMaxWidth(),shape=RoundedCornerShape(19.dp),colors=CardDefaults.outlinedCardColors(containerColor=Color.White),border=BorderStroke(1.dp,supportBorder)){
+                        Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+                                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){
+                                    Text(t.category,fontWeight=FontWeight.Bold,color=navy,style=MaterialTheme.typography.titleSmall)
+                                    Text("#"+t.id.take(8).uppercase(),color=supportMuted,style=MaterialTheme.typography.labelSmall)
+                                }
+                                TicketStatus(t.status)
+                            }
+                            Text(t.message,maxLines=3,overflow=TextOverflow.Ellipsis,color=navy,style=MaterialTheme.typography.bodyMedium)
+                            Text(supportDate(t.createdAt),style=MaterialTheme.typography.labelSmall,color=supportMuted)
+                            HorizontalDivider(color=supportBorder)
+                            OutlinedButton(enabled=!busy,onClick={perform{refreshTicket(t.id);reply=""}},
+                                modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp)){Text("مشاهده تیکت و ادامه گفتگو")}
                         }
                     }
                 }
@@ -299,10 +395,16 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
         }}){Text("تأیید و ارسال")}},dismissButton={TextButton(onClick={confirm=false}){Text("انصراف")}})
 }
 @Composable private fun SupportBubble(label:String,body:String,customer:Boolean,date:String="") {
-    Column(Modifier.fillMaxWidth().background(if(customer)Color(0xFFE0F2F1) else Color.White,RoundedCornerShape(18.dp)).padding(14.dp),
-        verticalArrangement=Arrangement.spacedBy(6.dp)){
-        Text(label,fontWeight=FontWeight.Bold,color=if(customer)teal else navy)
-        Text(body,color=navy)
-        if(date.isNotBlank())Text(date,style=MaterialTheme.typography.labelSmall,color=Color(0xFF64748B))
+    Box(Modifier.fillMaxWidth(),contentAlignment=if(customer)Alignment.CenterStart else Alignment.CenterEnd){
+        Surface(modifier=Modifier.fillMaxWidth(.88f),
+            color=if(customer)Color(0xFFE0F2F1) else Color.White,
+            shape=RoundedCornerShape(topStart=18.dp,topEnd=18.dp,bottomStart=if(customer)5.dp else 18.dp,bottomEnd=if(customer)18.dp else 5.dp),
+            border=BorderStroke(1.dp,if(customer)Color(0xFFC3E4DF) else supportBorder)){
+            Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+                Text(label,fontWeight=FontWeight.Bold,color=if(customer)teal else navy,style=MaterialTheme.typography.labelLarge)
+                Text(body,color=navy,style=MaterialTheme.typography.bodyMedium)
+                if(date.isNotBlank())Text(supportDate(date),style=MaterialTheme.typography.labelSmall,color=supportMuted)
+            }
+        }
     }
 }
