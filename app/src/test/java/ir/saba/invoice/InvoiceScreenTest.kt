@@ -317,6 +317,30 @@ class InvoiceScreenTest {
         runBlocking { check(db.invoiceDao().forCompany(company).isEmpty()) }
     }
 
+    @Test fun pendingManagementFilterAndPanelDisableUnsafeActions() {
+        runBlocking {
+            val repo=InvoiceRepository(db)
+            val lines=listOf(InvoiceLine(invoiceId=0,description="کالا",quantity=1,unitPriceRial=100,taxRatePercent=10))
+            val id=repo.saveDraft(company,customer,"PENDING","1405/07/02",lines)
+            repo.finalizeDraft(company,id)
+            repo.saveDraft(company,customer,"UNSENT","1405/07/02",lines)
+            db.officialSubmissionDao().insert(OfficialSubmission("pending",ownerId,company,id,"ABC123","tax","{}","hash",1,
+                state="SUBMITTED",referenceNumber="ref",protocol="LEGACY",lastError="در صف"))
+            invoices=db.invoiceDao().forCompany(company)
+        }
+        compose.setContent { Screen() }
+        compose.waitUntil(15000){compose.onAllNodesWithText("نیازمند تعیین تکلیف · 1").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("needsSubmissionManagement").performScrollTo().performClick()
+        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.waitUntil(15000){compose.onAllNodesWithTag("openSubmissionManagement").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("openSubmissionManagement").performScrollTo().performClick()
+        compose.onNodeWithTag("manageInquiry").assertIsEnabled()
+        compose.onNodeWithTag("manageCancel").assertIsNotEnabled()
+        compose.onNodeWithTag("manageRetry").assertIsNotEnabled()
+        compose.onNodeWithTag("manageCancellation").assertIsNotEnabled()
+        assertEquals(10L,creditGateway.remaining)
+    }
+
     @Test fun acceptedInvoiceHasDetailsWithoutEditOrDeleteActions() {
         runBlocking {
             val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))

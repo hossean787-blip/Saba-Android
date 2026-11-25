@@ -30,6 +30,7 @@ class AccountArchiveTest {
             source.invoiceLineDao().insertAll(listOf(InvoiceLine(invoiceId=i,description="کالا",quantity=1,unitPriceRial=100,taxRatePercent=0)))
             source.quotaDao().insertWallet(QuotaWallet(account.ownerId,50,50))
             source.officialSubmissionDao().insert(OfficialSubmission("request",account.ownerId,c,i,"A11216","taxid","{}", "hash",1,state="ACCEPTED",referenceNumber="ref",signedReceipt="receipt"))
+            source.submissionAuditDao().insert(SubmissionAudit("audit-1",account.ownerId,c,i,"request",123L,"INQUIRY","ACCEPTED","historical"))
             val blob=AccountArchive(source,account,{},{}).export(pass)
             val plain=String(AccountArchiveCrypto.open(blob,pass),Charsets.UTF_8)
             assertFalse(plain.contains("DO-NOT-EXPORT"))
@@ -48,6 +49,7 @@ class AccountArchiveTest {
             assertEquals("RESTORED",row.state)
             assertEquals("taxid",row.taxId)
             assertFalse(OfficialReferenceEvidence.eligible(row))
+            assertEquals("audit-1",dest.submissionAuditDao().recent(i,account.ownerId,c).single().id)
             assertNull(dest.quotaDao().wallet(account.ownerId))
             // A file saved at 80 credits must never replace the live 60.
             dest.quotaDao().insertWallet(QuotaWallet(account.ownerId,80,60))

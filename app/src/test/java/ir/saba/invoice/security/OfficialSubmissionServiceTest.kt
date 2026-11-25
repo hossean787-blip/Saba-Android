@@ -95,6 +95,7 @@ class OfficialSubmissionServiceTest {
         InvoiceRepository(db).cancelNeverSent(company,invoice,account.ownerId)
         assertEquals("CANCELLED",db.invoiceDao().byId(invoice)?.status)
         assertEquals("RESERVED",db.officialSubmissionDao().byId(row.requestId)?.state)
+        assertEquals("LOCAL_CANCEL",db.submissionAuditDao().recent(invoice,account.ownerId,company).single().kind)
         reject { service.submitAndInquire(row.requestId) }
         assertEquals(0,api.posts)
     }
@@ -108,6 +109,10 @@ class OfficialSubmissionServiceTest {
         service.inquire(row.requestId)
         reject { InvoiceRepository(db).cancelNeverSent(company,invoice,account.ownerId) }
         assertEquals("ACCEPTED",db.officialSubmissionDao().byId(row.requestId)?.state)
+        val audit=db.submissionAuditDao().recent(invoice,account.ownerId,company)
+        assertEquals(setOf("SEND_START","ACK","INQUIRY"),audit.map{it.kind}.toSet())
+        assertEquals(3,audit.size)
+        assertTrue(db.submissionAuditDao().recent(invoice,"foreign",company).isEmpty())
         assertEquals(1,api.posts)
     }
 
