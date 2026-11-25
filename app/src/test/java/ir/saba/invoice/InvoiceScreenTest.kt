@@ -11,6 +11,7 @@ import ir.saba.invoice.data.*
 import ir.saba.invoice.ui.InvoiceScreen
 import ir.saba.invoice.ui.InvoiceCreditGateway
 import ir.saba.invoice.ui.invoiceTaxStatus
+import ir.saba.invoice.ui.invoiceReceiptLabel
 import ir.saba.invoice.data.identifiers.SuraIdentifier
 import ir.saba.invoice.data.identifiers.SuraSavedIdentifierStore
 import ir.saba.invoice.security.AccountScope
@@ -191,6 +192,22 @@ class InvoiceScreenTest {
             assertEquals("DRAFT", db.invoiceDao().forCompany(company).single().status)
             assertEquals(0, db.officialSubmissionDao().forCompany(company).size)
         }
+    }
+
+    @Test fun receiptLabelNeverTreatsTaxNumberOrTrackingAsAcceptance() {
+        val invoice = Invoice(id = 123, companyId = company, customerId = customer,
+            invoiceNumber = "17", issueDate = "1405/07/02", totalAmountRial = 1100,
+            taxAmountRial = 100, status = "FINALIZED")
+        val row = OfficialSubmission(requestId = "fixture", ownerId = ownerId, companyId = company,
+            invoiceId = invoice.id, fiscalId = "A11216", taxId = "A11216" + "0".repeat(16),
+            payload = "{}", payloadHash = "fixture", preparedAt = 100)
+        assertEquals("آماده؛ ارسال نشده", invoiceReceiptLabel(invoice, row))
+        assertEquals("ارسال شده؛ در انتظار پذیرش", invoiceReceiptLabel(invoice, row.copy(state = "SUBMITTED", referenceNumber = "ref")))
+        assertEquals("سابقه نیازمند استعلام", invoiceReceiptLabel(invoice.copy(trackingCode = "ref"), null))
+        assertEquals("پاسخ موفق؛ پذیرش نیازمند بررسی", invoiceReceiptLabel(invoice, row.copy(state = "ACCEPTED", referenceNumber = "ref")))
+        assertEquals("پذیرفته شده در سامانه", invoiceReceiptLabel(invoice, row.copy(state = "ACCEPTED", referenceNumber = "ref", signedReceipt = "signed", protocol = "V2")))
+        assertEquals("پذیرفته شده در سامانه", invoiceReceiptLabel(invoice, row.copy(state = "ACCEPTED", referenceNumber = "ref", protocol = "LEGACY", lastError = OfficialReferenceEvidence.LEGACY_BOUND)))
+        assertEquals("رد شده در سامانه", invoiceReceiptLabel(invoice, row.copy(state = "REJECTED")))
     }
 
     @Test fun officialStatusAlwaysDistinguishesLocalDraftFromSignedAcceptance() {

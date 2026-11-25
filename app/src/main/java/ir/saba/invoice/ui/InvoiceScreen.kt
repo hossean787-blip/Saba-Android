@@ -84,6 +84,20 @@ internal fun invoiceStatus(status: String) = when (status) {
     else -> status
 }
 
+/** Compact status for the list, details and PDF; never infer acceptance from a tax ID. */
+internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): String = when (row?.state) {
+    null -> if (!invoice.trackingCode.isNullOrBlank() || invoice.status == "RESTORED")
+        "سابقه نیازمند استعلام" else if (invoice.status == "DRAFT") "پیش‌نویس؛ ارسال نشده" else "ارسال نشده"
+    "PREPARED" -> "آماده؛ ارسال نشده"
+    "SENDING", "UNKNOWN" -> "وضعیت نامشخص؛ نیازمند استعلام"
+    "SUBMITTED" -> "ارسال شده؛ در انتظار پذیرش"
+    "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row)) "پذیرفته شده در سامانه"
+        else "پاسخ موفق؛ پذیرش نیازمند بررسی"
+    "REJECTED" -> "رد شده در سامانه"
+    "RESTORED" -> "سابقه نیازمند استعلام"
+    else -> "وضعیت نامشخص؛ نیازمند استعلام"
+}
+
 /** Receipt status must never be inferred from a local draft, tracking code alone or a POST response. */
 internal fun invoiceTaxStatus(row: OfficialSubmission?): String = when (row?.state) {
     null -> "این صورتحساب هنوز به سامانه مؤدیان ارسال نشده است."
@@ -215,6 +229,15 @@ private fun InvoiceScreenContent(
     var error by rememberSaveable { mutableStateOf("") }
     var details by remember { mutableStateOf<InvoiceDetails?>(null) }
     var officialRecord by remember(companyId) { mutableStateOf<OfficialSubmission?>(null) }
+    var officialByInvoice by remember(companyId, ownerId) { mutableStateOf(emptyMap<Long, OfficialSubmission>()) }
+    LaunchedEffect(companyId, ownerId, invoices, mode) {
+        try {
+            officialByInvoice = db.officialSubmissionDao().forCompany(companyId)
+                .filter { it.companyId == companyId && it.ownerId == ownerId }
+                .associateBy { it.invoiceId }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { officialByInvoice = emptyMap() }
+    }
     val credentials = remember(db, account) { TaxpayerCredentialRepository(context, db, account) }
     val officialService = remember(db, account, accessToken) {
         OfficialSubmissionService(db, account, credentials,
@@ -350,6 +373,7 @@ private fun InvoiceScreenContent(
         details = repository.detailsForCompany(companyId, id)
         officialRecord = db.officialSubmissionDao().forInvoice(id)
             ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
+        officialRecord?.let { officialByInvoice = officialByInvoice + (id to it) }
         onChanged()
     }
 
@@ -532,7 +556,8 @@ private fun InvoiceScreenContent(
                             pdfExport.launch("SURA-${loaded.invoice.invoiceNumber}.pdf")
                         },
                         onBack = { mode = "details" },
-                        onSend = { requestOfficialSend(loaded) })
+                        onSend = { requestOfficialSend(loaded) },
+                        official = officialRecord)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -562,7 +587,10 @@ private fun InvoiceScreenContent(
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("فاکتور ${invoice.invoiceNumber}", fontWeight = FontWeight.Bold)
                                 Text(customers.firstOrNull { it.id == invoice.customerId }?.name ?: "مشتری شماره ${invoice.customerId}")
-                                Text("${invoice.issueDate} • ${invoiceStatus(invoice.status)}")
+                                val receipt = officialByInvoice[invoice.id]
+                                Text("${invoice.issueDate} • ${invoiceReceiptLabel(invoice, receipt)}")
+                                receipt?.taxId?.let { Text("شماره مالیاتی: $it", style = MaterialTheme.typography.bodySmall) }
+                                receipt?.referenceNumber?.let { Text("شماره پیگیری: $it", style = MaterialTheme.typography.bodySmall) }
                                 Text(rial(invoice.totalAmountRial), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                                 OutlinedButton(enabled = !busy, onClick = { invoiceId = invoice.id; error = ""; mode = "details" }) { Text("مشاهده جزئیات") }
                             }
@@ -579,7 +607,18 @@ private fun InvoiceScreenContent(
                         Text("فاکتور ${invoice.invoiceNumber}", style = MaterialTheme.typography.titleLarge)
                         Text("مشتری: ${customers.firstOrNull { it.id == invoice.customerId }?.name ?: invoice.customerId}")
                         Text("تاریخ: ${invoice.issueDate}")
-                        Text("وضعیت: ${invoiceStatus(invoice.status)}")
+                        ElevatedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("وضعیت سامانه مؤدیان", fontWeight = FontWeight.Bold)
+                                Text(invoiceReceiptLabel(invoice, officialRecord),
+                                    color = if (officialRecord?.let(OfficialReferenceEvidence::eligible) == true)
+                                        MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                officialRecord?.taxId?.let { Text("شماره مالیاتی: $it") }
+                                officialRecord?.referenceNumber?.let { Text("شماره پیگیری رسمی: $it") }
+                                if (officialRecord == null && !invoice.trackingCode.isNullOrBlank())
+                                    Text("کد پیگیری سابقه: ${invoice.trackingCode}؛ نیازمند استعلام")
+                            }
+                        }
                         Text("موضوع: " + InvoiceSubject.label(invoice.subject))
                         invoice.referenceTaxId?.let { Text("شماره مالیاتی مرجع: " + it) }
                         Text("تسویه: " + InvoiceSettlement.label(invoice.settlementMode))
@@ -644,7 +683,6 @@ private fun InvoiceScreenContent(
                                 !officialRecord?.signedReceipt.isNullOrBlank())
                                 MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant)
-                        officialRecord?.referenceNumber?.let { Text("شماره پیگیری رسمی: $it") }
                         officialRecord?.lastError?.takeIf { it.isNotBlank() }?.let {
                             Text(it.take(300), color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)

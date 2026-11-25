@@ -57,9 +57,13 @@ object SuraInvoicePdf {
     }
     fun generate(company: Company, customer: Customer, invoice: Invoice,
                  lines: List<InvoiceLine>, template: String, logo: Boolean,
-                 stamp: Boolean, qr: Boolean): ByteArray {
+                 stamp: Boolean, qr: Boolean, official: OfficialSubmission? = null): ByteArray {
         require(invoice.companyId == company.id && customer.companyId == company.id &&
                 invoice.customerId == customer.id) { "Invoice ownership mismatch" }
+        require(official == null || (official.invoiceId == invoice.id &&
+            official.companyId == company.id && official.ownerId == company.purchaserId)) {
+            "سابقه مالیاتی متعلق به این صورتحساب نیست."
+        }
         // Reject invalid documents before allocating native PDF resources.
         require(lines.isNotEmpty() && lines.size <= 500) { "برای PDF حداکثر ۵۰۰ ردیف مجاز است." }
         val totals = InvoiceCalculator.calculate(lines)
@@ -87,6 +91,9 @@ object SuraInvoicePdf {
             text(c, "شماره صورتحساب: ${invoice.invoiceNumber}", 559f, 103f, 235, 11f, true)
             text(c, "تاریخ: ${invoice.issueDate}", 305f, 103f, 200)
             text(c, "قالب: $template", 112f, 103f, 85, 9f)
+            val taxLabel = official?.taxId?.let { "شماره مالیاتی: $it" } ?: "شماره مالیاتی: ثبت نشده"
+            text(c, "${invoiceReceiptLabel(invoice, official)} | $taxLabel", 559f, 116f,
+                525, 9f, true, navy, maxLines=1, includePad=false)
             rect(c, 306f, 140f, 574f, 259f, Color.rgb(241, 248, 253))
             rect(c, 22f, 140f, 290f, 259f, Color.rgb(241, 248, 253))
             text(c, "اطلاعات فروشنده", 560f, 149f, 240, 13f, true, navy)
@@ -131,7 +138,13 @@ object SuraInvoicePdf {
                     557f, ty + 93, 510, 8f, false, navy, maxLines=1, includePad=false)
             }
             if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
-            if (qr) text(c, "کد رهگیری: ${invoice.trackingCode ?: "هنوز صادر نشده"}", 290f, geometry.signatureTop, 252, 10f,maxLines=2)
+            val reference = official?.referenceNumber
+            if (official != null || qr) {
+                val trackingLabel = if (reference != null) "شماره پیگیری رسمی: $reference"
+                    else if (invoice.trackingCode != null) "کد پیگیری سابقه: ${invoice.trackingCode}"
+                    else "شماره پیگیری: دریافت نشده"
+                text(c, trackingLabel, 290f, geometry.signatureTop, 252, 10f,maxLines=2)
+            }
             }
             if (invoice.subject in setOf(InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                 text(c, "مرجع سند ارجاعی: " + invoice.referenceTaxId.orEmpty() +
@@ -170,15 +183,15 @@ object SuraInvoicePdf {
 @Composable
 fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice,
                           lines: List<InvoiceLine>, onExport: (ByteArray) -> Unit,
-                          onBack: () -> Unit, onSend: () -> Unit) {
+                          onBack: () -> Unit, onSend: () -> Unit, official: OfficialSubmission? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var template by remember { mutableStateOf("پیش‌فرض") }
     var logo by remember { mutableStateOf(true) }
     var stamp by remember { mutableStateOf(false) }
     var qr by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, qr) {
-        runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, qr) }
+    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, qr, official) {
+        runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, qr, official) }
             .onFailure { error = it.message }.getOrNull()
     }
     var previewPage by remember(invoice.id) { mutableIntStateOf(0) }
@@ -212,8 +225,12 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         Button(enabled = bytes != null, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("ذخیره PDF") }
-        OutlinedButton(onClick = onSend, modifier = Modifier.fillMaxWidth()) {
-            Text("ارسال به سامانه مؤدیان")
+        if (invoice.status in setOf("DRAFT", "FINALIZED") &&
+            (official == null || official.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED"))) {
+            OutlinedButton(onClick = onSend, modifier = Modifier.fillMaxWidth()) {
+                Text(if (official?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
+                    "استعلام وضعیت ارسال" else "ارسال به سامانه مؤدیان")
+            }
         }
         TextButton(onClick = onBack) { Text("بازگشت") }
     }
