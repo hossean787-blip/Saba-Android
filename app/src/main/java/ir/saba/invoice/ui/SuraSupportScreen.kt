@@ -3,6 +3,7 @@ package ir.saba.invoice.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -53,6 +54,7 @@ internal class SupportTicketClient(
     }
     private suspend fun request(table:String,method:String,query:String,body:JSONObject?=null):JSONArray=withContext(Dispatchers.IO) {
         require(table in setOf(TICKETS,MESSAGES))
+        require(token.length in 1..32768 && token.none { it.isWhitespace() || it.isISOControl() })
         AccountSession.requireOwner(token,account)
         val c=connection(URL(BASE+table+query))
         try {
@@ -131,13 +133,13 @@ internal class SupportTicketClient(
 /** Persist only operation IDs and hashes; retry an ambiguous send with the same key even after restart. */
 internal class SupportOperationJournal(context:Context,account:AccountScope) {
     private val prefs=context.getSharedPreferences("sura_support_operations_${account.storageKey}",Context.MODE_PRIVATE)
-    fun id(scope:String,body:String):String {
+    fun id(scope:String,body:String):String = synchronized(SupportOperationJournal::class.java) {
         val hash=java.security.MessageDigest.getInstance("SHA-256").digest((scope+"\u0000"+body.trim()).toByteArray())
             .joinToString(""){"%02x".format(it.toInt() and 255)}
         val name="pending_$hash"
-        return prefs.getString(name,null)?:UUID.randomUUID().toString().also {require(prefs.edit().putString(name,it).commit())}
+        prefs.getString(name,null)?:UUID.randomUUID().toString().also {require(prefs.edit().putString(name,it).commit())}
     }
-    fun complete(id:String) {
+    fun complete(id:String) = synchronized(SupportOperationJournal::class.java) {
         val edit=prefs.edit()
         prefs.all.filterValues {it==id}.keys.forEach {edit.remove(it)}
         require(edit.commit())
@@ -200,6 +202,9 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
         selected=ticket;thread=messages;threadPage=0
     }
     LaunchedEffect(client){perform{tickets=client.list();loaded=true}}
+    BackHandler(enabled=selected!=null) {
+        if(!busy){selected=null;thread=emptyList();reply="";tab=1}
+    }
     Column(Modifier.fillMaxSize().background(Color(0xFFF2F8FC)).verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("service-support"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         SupportHeader("مرکز پشتیبانی سورا","ثبت درخواست، پیگیری و گفتگو با پشتیبانی در حساب شما")
@@ -232,9 +237,13 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
                     perform {
                         val id=journal.id("reply:"+ticket.id,reply)
                         val sent=client.reply(id,ticket.id,reply)
-                        journal.complete(id);reply="";threadPage=0
-                        thread=listOf(sent)+thread.filter{it.id!=sent.id}
+                        journal.complete(id);reply=""
+                        thread=if(threadPage==0) (listOf(sent)+thread.filter{it.id!=sent.id}).take(SupportTicketClient.PAGE_SIZE) else listOf(sent)
+                        threadPage=0
                         notice="پیام ثبت شد."
+                        try { refreshTicket(ticket.id) }
+                        catch(e:CancellationException){throw e}
+                        catch(_:Exception){notice="پیام ثبت شد؛ تازه‌سازی گفتگو انجام نشد."}
                     }
                 },modifier=Modifier.fillMaxWidth().testTag("supportReply")){Text("ارسال پیام")}
             }else Text("درخواست بسته است؛ برای موضوع جدید تیکت تازه ثبت کنید.")
