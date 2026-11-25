@@ -31,3 +31,5 @@ Split historical UI assertion: accepted invoice remains immutable, finalized uns
 0.67.0: preserve never-posted tax identity via RESERVED state; lock serial and issue date after allocation; rebuild payload with original issue timestamp and same tax ID/UID; guard concurrent stale send; fix Compose lint on rejection history. Existing definitive FAILED retry policy unchanged pending protocol verification. Request signed build.
 
 0.69.0: unified PDF preview for all event cards, show status and error, conditional edit/send/inquiry, retain PDF-only successful view; return to preview after saving/editing/sending. Add action matrix regression coverage. Request signed APK.
+
+0.71.0: compact taxpayer identity, four icon navigation tabs in one row, rounded search with clear action, unified lazy page scrolling for catalog/results/saved/manual Excel, preserving catalog sources and validation. Request signed build.

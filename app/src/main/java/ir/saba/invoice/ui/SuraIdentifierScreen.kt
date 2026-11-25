@@ -3,6 +3,23 @@ package ir.saba.invoice.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -140,48 +157,53 @@ fun SuraIdentifierScreen(
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().background(catalogIvory).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("شناسه کالا و خدمات", color = catalogNavy,
-                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            TextButton(onClick = onBack) { Text("بازگشت به خانه") }
-        }
-        Card(
-            colors = CardDefaults.cardColors(containerColor = catalogNavy),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("پرونده مؤدی", color = Color(0xFFBADDE4),
-                    style = MaterialTheme.typography.labelSmall)
-                Text(taxpayerName ?: "مؤدی انتخاب نشده", color = Color.White,
-                    fontWeight = FontWeight.Bold)
-                if (taxpayerId == null) TextButton(onClick = onSelectTaxpayer) {
-                    Text("انتخاب مؤدی برای ذخیره شناسه", color = Color(0xFFE7CB92))
+    val header: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("شناسه کالا و خدمات", color = catalogNavy,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    modifier=Modifier.weight(1f))
+                TextButton(onClick = onBack) { Text("بازگشت", color=catalogTeal) }
+            }
+            Card(shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().testTag("identifierTaxpayerCard")) {
+                Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(catalogNavy,Color(0xFF17616D))))
+                    .padding(horizontal=12.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Surface(shape=RoundedCornerShape(12.dp),color=Color.White.copy(alpha=.13f)) {
+                        Icon(Icons.Default.AccountCircle,contentDescription=null,tint=Color(0xFFE7CB92),
+                            modifier=Modifier.padding(9.dp).size(24.dp))
+                    }
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                        Text("پرونده مؤدی",color=Color(0xFFBADDE4),style=MaterialTheme.typography.labelSmall)
+                        Text(taxpayerName ?: "مؤدی انتخاب نشده",color=Color.White,fontWeight=FontWeight.Bold,
+                            style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        if(taxpayerId==null) TextButton(onClick=onSelectTaxpayer) {
+                            Text("انتخاب مؤدی",color=Color(0xFFE7CB92))
+                        }
+                    }
+                    Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                        Text(catalogCount?.toString() ?: "…",color=Color.White,fontWeight=FontWeight.Bold,
+                            style=MaterialTheme.typography.titleMedium)
+                        Text("شناسه بانک",color=Color(0xFFDDEDF1),style=MaterialTheme.typography.labelSmall)
+                    }
                 }
-                Text(
-                    if (catalogCount == null) "در حال بررسی بانک اطلاعاتی..."
-                    else if (catalogCount == 0L) "بانک اطلاعاتی وارد نشده است."
-                    else "بانک قابل جستجو: " + catalogCount + " شناسه" + if(starterCount>0) " | عمومی منتخب: $starterCount" else "",
-                    color = Color(0xFFDDEDF1),
-                    style = MaterialTheme.typography.bodySmall
-                )
+            }
+            Row(Modifier.fillMaxWidth().testTag("identifierTabs"),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                CatalogTab("بانک آماده",starterCount.toString(),Icons.AutoMirrored.Filled.List,tab=="starter",
+                    {tab="starter"},Modifier.weight(1f).testTag("identifierTabStarter"))
+                CatalogTab("شناسه مؤدی",saved.size.toString(),Icons.Default.AccountCircle,tab=="saved",
+                    {tab="saved"},Modifier.weight(1f).testTag("identifierTabSaved"))
+                CatalogTab("جستجوی بانک",null,Icons.Default.Search,tab=="search",
+                    {tab="search"},Modifier.weight(1f).testTag("identifierTabSearch"))
+                CatalogTab("ثبت / اکسل",null,Icons.Default.Add,tab=="entry",
+                    {tab="entry"},Modifier.weight(1f).testTag("identifierTabEntry"))
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = tab == "search", onClick = { tab = "search" },
-                label = { Text("بارگذاری بانک و جستجو") })
-            FilterChip(selected = tab == "entry", onClick = { tab = "entry" },
-                label = { Text("ثبت دستی / اکسل") })
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = tab == "starter", onClick = { tab = "starter" },
-                label = { Text("بانک آماده ($starterCount)") })
-            FilterChip(selected = tab == "saved", onClick = { tab = "saved" },
-                label = { Text("شناسه‌های مؤدی (" + saved.size + ")") })
-        }
+    }
+    val pageState=rememberLazyListState()
+    LaunchedEffect(tab) { pageState.scrollToItem(0) }
+    Column(Modifier.fillMaxSize().background(catalogIvory).padding(horizontal=12.dp)) {
         if (tab == "entry") {
             SuraIdentifierEntryPanel(
                 bookmarks = bookmarks,
@@ -192,9 +214,30 @@ fun SuraIdentifierScreen(
                         saved = taxpayerId?.let { bookmarks.forTaxpayer(it) }.orEmpty()
                     }
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f), header = header
             )
         } else {
+        val savedIds = saved.map { it.id }.toSet()
+        val starterById = starterEntries.associateBy { it.id }
+        val entries = when (tab) {
+            "search" -> found
+            "starter" -> {
+                val q = SuraIdentifierStore.normalize(starterQuery)
+                starterEntries.filter { q.isBlank() || it.id.contains(q) ||
+                    SuraIdentifierStore.normalize(it.description).contains(q) }
+            }
+            else -> saved.map { row ->
+                if (row.vat.isBlank() && row.source == "Mohsensoft (pending)")
+                    starterById[row.id]?.takeIf { it.source == row.source }?.let { row.copy(vat = it.vat) } ?: row
+                else row
+            }
+        }
+        LazyColumn(state=pageState, modifier=Modifier.fillMaxWidth().weight(1f).testTag("identifierPageScroll"),
+            contentPadding=PaddingValues(top=8.dp,bottom=22.dp),
+            verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            item(key="header") { header() }
+            item(key="controls") {
+                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
         if (tab == "search") {
             OutlinedButton(enabled=!busy,onClick={
                 scope.launch {
@@ -210,10 +253,7 @@ fun SuraIdentifierScreen(
                     finally{busy=false}
                 }
             },modifier=Modifier.fillMaxWidth()){Text("به‌روزرسانی شناسه‌های منتخب")}
-            OutlinedTextField(
-                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
-                singleLine = true, label = { Text("نام کالا، خدمت یا شناسه") }
-            )
+            CatalogSearchField(query,{query=it},"نام کالا، خدمت یا شناسه")
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 FilterChip(selected = category == "کالا", onClick = {
                     category = if (category == "کالا") null else "کالا"
@@ -247,8 +287,7 @@ fun SuraIdentifierScreen(
                 style = MaterialTheme.typography.bodySmall, color = catalogNavy
             )
         } else if (tab == "starter") {
-            OutlinedTextField(starterQuery, { starterQuery = it }, singleLine = true,
-                label = { Text("جستجوی شناسه‌های آماده") }, modifier = Modifier.fillMaxWidth())
+            CatalogSearchField(starterQuery,{starterQuery=it},"جستجوی شناسه‌های آماده")
             Text(if (taxpayerId == null) "برای افزودن شناسه ابتدا مؤدی را انتخاب کنید." else
                 "با تیک هر شناسه، به فهرست مؤدی فعلی اضافه می‌شود.", style = MaterialTheme.typography.bodySmall)
         } else if (taxpayerId == null) {
@@ -264,28 +303,13 @@ fun SuraIdentifierScreen(
             style = MaterialTheme.typography.titleSmall
         )
         HorizontalDivider(color = Color(0xFFDBE7EC))
-        val savedIds = saved.map { it.id }.toSet()
-        val starterById = starterEntries.associateBy { it.id }
-        val entries = when (tab) {
-            "search" -> found
-            "starter" -> {
-                val q = SuraIdentifierStore.normalize(starterQuery)
-                starterEntries.filter { q.isBlank() || it.id.contains(q) ||
-                    SuraIdentifierStore.normalize(it.description).contains(q) }
+        if (entries.isEmpty()) Text(
+            if(tab=="saved" && taxpayerId!=null) "برای این مؤدی هنوز شناسه‌ای ذخیره نشده است."
+            else if(tab=="starter" && starterQuery.isNotBlank()) "شناسه مطابق جستجو پیدا نشد."
+            else if(tab=="search") "برای مشاهده نتایج، جستجو را انجام دهید." else "",
+            color=catalogNavy,style=MaterialTheme.typography.bodySmall)
+                }
             }
-            else -> saved.map { row ->
-                if (row.vat.isBlank() && row.source == "Mohsensoft (pending)")
-                    starterById[row.id]?.takeIf { it.source == row.source }?.let { row.copy(vat = it.vat) } ?: row
-                else row
-            }
-        }
-        if (entries.isEmpty() && tab == "saved" && taxpayerId != null) {
-            Text("برای این مؤدی هنوز شناسه‌ای ذخیره نشده است.", color = catalogNavy)
-        }
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
             items(entries, key = { it.id }) { entry ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -347,11 +371,44 @@ fun SuraIdentifierScreen(
                     }
                 }
             }
+            item(key="footer") {
+                Text("بانک آفلاین و داده‌های دستی باید پیش از ارسال صورتحساب با مرجع رسمی تطبیق داده شوند.",
+                    color = Color(0xFF657D89), style = MaterialTheme.typography.labelSmall)
+            }
         }
-        Text(
-            "بانک آفلاین و داده‌های دستی باید پیش از ارسال صورتحساب با مرجع رسمی تطبیق داده شوند.",
-            color = Color(0xFF657D89), style = MaterialTheme.typography.labelSmall
-        )
         }
     }
 }
+
+@Composable
+private fun CatalogTab(label:String,count:String?,image:ImageVector,selected:Boolean,onClick:()->Unit,modifier:Modifier=Modifier) {
+    Surface(modifier=modifier.heightIn(min=76.dp).selectable(selected=selected,onClick=onClick,role=Role.Tab),
+        shape=RoundedCornerShape(13.dp),
+        color=if(selected) catalogNavy else Color.White,
+        border=androidx.compose.foundation.BorderStroke(1.dp,if(selected) catalogNavy else Color(0xFFDCE8ED))) {
+        Column(Modifier.padding(horizontal=3.dp,vertical=9.dp),horizontalAlignment=Alignment.CenterHorizontally,
+            verticalArrangement=Arrangement.spacedBy(3.dp)) {
+            val ink=if(selected) Color.White else catalogNavy
+            Icon(image,contentDescription=null,tint=if(selected) Color(0xFFE7CB92) else catalogTeal,
+                modifier=Modifier.size(22.dp))
+            Text(label,color=ink,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.SemiBold,
+                textAlign=TextAlign.Center,maxLines=2)
+            if(count!=null) Text(count,color=if(selected) Color(0xFFC4E8E9) else catalogTeal,
+                style=MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun CatalogSearchField(value:String,onChange:(String)->Unit,label:String) {
+    OutlinedTextField(value=value,onValueChange=onChange,modifier=Modifier.fillMaxWidth().testTag("identifierSearch"),
+        singleLine=true,shape=RoundedCornerShape(18.dp),
+        placeholder={ Text(label,style=MaterialTheme.typography.bodyMedium) },
+        leadingIcon={ Icon(Icons.Default.Search,contentDescription=null,tint=catalogTeal) },
+        trailingIcon={ if(value.isNotEmpty()) IconButton(onClick={onChange("")}) {
+            Icon(Icons.Default.Close,contentDescription="پاک کردن جستجو")
+        } },
+        colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=catalogTeal,unfocusedBorderColor=Color(0xFFCEDFE5),
+            focusedContainerColor=Color.White,unfocusedContainerColor=Color.White,cursorColor=catalogTeal))
+}
+

@@ -47,7 +47,8 @@ internal fun SuraIdentifierEntryPanel(
     taxpayerId: Long?,
     onSelectTaxpayer: () -> Unit,
     onSaved: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    header: @Composable () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -99,9 +100,10 @@ internal fun SuraIdentifierEntryPanel(
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(bottom = 18.dp),
+        contentPadding = PaddingValues(top = 8.dp,bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item(key="header") { header() }
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE4F4F3)),
