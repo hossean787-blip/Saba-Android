@@ -238,9 +238,14 @@ class OfficialSubmissionService(
         require(existing.ownerId==account.ownerId && db.companyDao().byId(existing.companyId)?.purchaserId==account.ownerId)
         // Cancel the prepared content, not the allocated fiscal identity.
         require(db.officialSubmissionDao().reservePreparedIdentity(id) == 1) { "درخواست شروع شده و قابل لغو نیست؛ استعلام کنید." }
+        audit(existing,"CANCEL_PREPARATION","RESERVED")
     }
     /** Keep the PDF/history tracking field and the outbox receipt in one local transaction. */
-    private suspend fun resolve(id: String, state: String, reference: String?, error: String?, receipt: String? = null): Int = db.withTransaction {
+    private suspend fun audit(row:OfficialSubmission,kind:String,state:String,message:String="") {
+        db.submissionAuditDao().insert(SubmissionAudit(UUID.randomUUID().toString(),row.ownerId,row.companyId,
+            row.invoiceId,row.requestId,clock(),kind,state,message.take(2000)))
+    }
+    private suspend fun resolve(id: String, state: String, reference: String?, error: String?, receipt: String? = null, kind:String="INQUIRY"): Int = db.withTransaction {
         val current = requireNotNull(db.officialSubmissionDao().byId(id))
         require(current.ownerId == account.ownerId)
         val changed = db.officialSubmissionDao().resolve(id,state,reference,error,receipt)
@@ -250,6 +255,7 @@ class OfficialSubmissionService(
             require(invoice.trackingCode.isNullOrBlank() || invoice.trackingCode == reference)
             db.invoiceDao().update(invoice.copy(trackingCode=reference))
         }
+        if(changed==1) audit(current,kind,state,error.orEmpty())
         changed
     }
     private suspend fun authorization(row: OfficialSubmission): String {
@@ -333,6 +339,7 @@ class OfficialSubmissionService(
             sessionCheck()
             require(row(id)==initial) { "محتوای سند تغییر کرده؛ دوباره بررسی کنید." }
             check(db.officialSubmissionDao().claim(id) == 1) { "درخواست قبلاً شروع شده است؛ استعلام کنید." }
+            audit(initial,"SEND_START","SENDING")
         }
         try {
             val result = JSONObject(transport.request("POST","invoice",token,JSONArray().put(packet).toString())).getJSONArray("result")
@@ -341,11 +348,11 @@ class OfficialSubmissionService(
             require(receipt.getString("uid") == initial.requestId)
             val reference = receipt.getString("referenceNumber")
             require(reference.isNotBlank() && reference.length <= 200 && reference.none { it.isISOControl() })
-            resolve(id,"SUBMITTED",reference,null)
+            resolve(id,"SUBMITTED",reference,null,kind="ACK")
         } catch (failure: Exception) {
             // This persisted state also covers cancellation/lost acknowledgement. Never assign a new UUID.
             kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                resolve(id,"UNKNOWN",null,"پاسخ ارسال قطعی نیست؛ فقط استعلام همان درخواست مجاز است.")
+                resolve(id,"UNKNOWN",null,"پاسخ ارسال قطعی نیست؛ فقط استعلام همان درخواست مجاز است.",kind="ACK")
             }
             if (failure is CancellationException) throw failure
         }
@@ -375,15 +382,16 @@ class OfficialSubmissionService(
             check(db.officialSubmissionDao().claim(id) == 1) {
                 "ارسال این درخواست آغاز شده است؛ ابتدا نتیجه را استعلام کنید."
             }
+            audit(initial,"SEND_START","SENDING",if(prepared.priority) "صف اولویت‌دار" else "صف عادی")
         }
         try {
             val ack = legacyGateway.send(prepared, initial.requestId)
             require(ack.uid == initial.requestId)
-            resolve(id, "SUBMITTED", ack.referenceNumber, null)
+            resolve(id, "SUBMITTED", ack.referenceNumber, null,kind="ACK")
         } catch (failure: Exception) {
             kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                 resolve(id, "UNKNOWN", null,
-                    "پاسخ قطعی دریافت نشد؛ ارسال مجدد ممنوع است. فقط شناسه همین درخواست را استعلام کنید.")
+                    "پاسخ قطعی دریافت نشد؛ ارسال مجدد ممنوع است. فقط شناسه همین درخواست را استعلام کنید.",kind="ACK")
             }
             if (failure is CancellationException) throw failure
         }
@@ -522,6 +530,7 @@ class OfficialSubmissionService(
             check(current == initial) { "وضعیت مرجع تغییر کرده است؛ دوباره استعلام کنید." }
             check(db.officialSubmissionDao().confirmLegacyReference(id,
                 requireNotNull(result.referenceNumber), requireNotNull(evidence)) == 1)
+            audit(current,"REFERENCE_CHECK","ACCEPTED",requireNotNull(evidence))
         }
         return row(id)
     }

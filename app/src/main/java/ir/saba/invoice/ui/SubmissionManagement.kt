@@ -71,6 +71,7 @@ internal fun SubmissionManagementDialog(invoice:Invoice,row:OfficialSubmission?,
     var checks by remember(invoice.id,row){mutableStateOf<List<SubmissionCheck>?>(null)}
     var history by remember(invoice.id,row){mutableStateOf<List<RejectedSubmissionHistory>?>(null)}
     var loadError by remember(invoice.id,row){mutableStateOf(false)}
+    var timeline by remember(invoice.id,row){mutableStateOf<List<SubmissionAudit>>(emptyList())}
     LaunchedEffect(invoice.id,row,ownerId) {
         try {
             require(db.companyDao().byId(invoice.companyId)?.purchaserId==ownerId)
@@ -78,6 +79,7 @@ internal fun SubmissionManagementDialog(invoice:Invoice,row:OfficialSubmission?,
             val source=db.officialSubmissionDao().forCompany(invoice.companyId).firstOrNull{it.taxId==invoice.referenceTaxId && it.ownerId==ownerId}
             checks=submissionChecks(invoice,row,source,db.moadianDetailsDao().byCompany(invoice.companyId)?.fiscalMemoryId)
             history=db.rejectedSubmissionHistoryDao().forInvoice(invoice.id).filter{it.ownerId==ownerId && it.companyId==invoice.companyId}
+            timeline=db.submissionAuditDao().recent(invoice.id,ownerId,invoice.companyId)
         } catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(_:Exception){loadError=true}
     }
@@ -122,6 +124,27 @@ internal fun SubmissionManagementDialog(invoice:Invoice,row:OfficialSubmission?,
                 HorizontalDivider()
                 Text("سوابق ارسال",style=MaterialTheme.typography.titleMedium)
                 row?.let { Text("آماده‌سازی: "+managementTime(it.preparedAt));Text("آخرین وضعیت: "+invoiceTaxStatus(it),style=MaterialTheme.typography.bodySmall) }
+                if(timeline.isEmpty()) Text("رویدادهای دقیق نسخه‌های قبلی ثبت نشده‌اند.",style=MaterialTheme.typography.bodySmall)
+                else {
+                    Text("۱۰۰ رویداد اخیر ثبت‌شده در این دستگاه",style=MaterialTheme.typography.labelMedium)
+                    timeline.forEach{event->
+                        OutlinedCard(Modifier.fillMaxWidth()){
+                            Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
+                                Text(when(event.kind){
+                                    "SEND_START"->"آغاز ارسال"
+                                    "ACK"->"پاسخ اولیه ارسال"
+                                    "INQUIRY"->"استعلام"
+                                    "REFERENCE_CHECK"->"تطبیق مرجع"
+                                    "LOCAL_CANCEL"->"لغو محلی"
+                                    "CANCEL_PREPARATION"->"لغو آماده‌سازی"
+                                    else->"رویداد"
+                                }+" • "+event.state,style=MaterialTheme.typography.titleSmall)
+                                Text(managementTime(event.observedAt),style=MaterialTheme.typography.bodySmall)
+                                if(event.message.isNotBlank()) Text(event.message,style=MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
                 history?.forEach{old->
                     OutlinedCard(Modifier.fillMaxWidth()){
                         Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){

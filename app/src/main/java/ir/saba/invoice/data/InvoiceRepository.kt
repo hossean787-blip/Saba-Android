@@ -255,6 +255,8 @@ class InvoiceRepository(private val db: SabaDatabase) {
             if(receipt.state=="PREPARED") check(db.officialSubmissionDao().reservePreparedIdentity(receipt.requestId)==1)
         }
         db.invoiceDao().update(invoice.copy(status="CANCELLED"))
+        db.submissionAuditDao().insert(SubmissionAudit(java.util.UUID.randomUUID().toString(),ownerId,companyId,
+            invoiceId,receipt?.requestId.orEmpty(),System.currentTimeMillis(),"LOCAL_CANCEL","CANCELLED","سند ارسال‌نشده لغو شد."))
     }
 
     suspend fun deleteDraft(companyId: Long, invoiceId: Long) = db.withTransaction {
