@@ -565,7 +565,14 @@ class MainActivity : ComponentActivity() {
                                                 onClick = {
                                                     if (!busy && !editing) {
                                                         scope.launch { drawerState.close() }
-                                                        page = destination
+                                                        if (destination == Page.CONTACT) {
+                                                            if (!SuraContact.openDialer(this@MainActivity)) {
+                                                                page = Page.CONTACT
+                                                                notify("شماره‌گیر دستگاه در دسترس نیست؛ شماره تماس در این صفحه نمایش داده شد.")
+                                                            }
+                                                        } else {
+                                                            page = destination
+                                                        }
                                                     }
                                                 },
                                                 colors = NavigationDrawerItemDefaults.colors(

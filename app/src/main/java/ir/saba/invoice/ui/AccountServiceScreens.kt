@@ -190,8 +190,17 @@ internal fun SuraServiceScreen(kind:String,onBack:()->Unit,onSupport:(()->Unit)?
                 if(feedback.isNotBlank()) Text(feedback,color=muted)
             }
             "contact" -> {
-                ServicePanel("صبا گستر اراک","نام برند: صورتحساب سورا. اطلاعات تماس عمومی و رسمی ناشر هنوز تأیید و ثبت نشده است.")
-                ServicePanel("راه ارتباطی داخل برنامه","درخواست خود را در پشتیبانی ثبت و شماره و وضعیت آن را پیگیری کنید. شماره تلفن و ایمیل عمومی تأیید نشده‌اند.")
+                ServicePanel("تماس با صبا گستر اراک",SuraContact.PHONE)
+                Button(onClick={
+                    if(!SuraContact.openDialer(context)) feedback="شماره‌گیر در دسترس نیست؛ شماره تماس را کپی کنید."
+                },modifier=Modifier.fillMaxWidth()) { Text("باز کردن شماره‌گیر") }
+                OutlinedButton(onClick={
+                    val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("شماره تماس سورا",SuraContact.PHONE))
+                    feedback="شماره تماس کپی شد."
+                },modifier=Modifier.fillMaxWidth()) { Text("کپی شماره تماس") }
+                if(feedback.isNotBlank()) Text(feedback,color=muted)
+                ServicePanel("پشتیبانی متنی","برای ثبت و پیگیری درخواست از بخش پشتیبانی استفاده کنید.")
                 onSupport?.let { open ->
                     Button(onClick=open,modifier=Modifier.fillMaxWidth()) { Text("ثبت درخواست و ارتباط با پشتیبانی") }
                 }
