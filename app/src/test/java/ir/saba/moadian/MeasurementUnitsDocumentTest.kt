@@ -19,4 +19,11 @@ class MeasurementUnitsDocumentTest {
         assertEquals("164", MoadianMeasurementUnits.search("كيلوگرم").single().code)
         assertTrue(MoadianMeasurementUnits.search("99999").isEmpty())
     }
+    @Test fun nameAutocompleteSupportsPartialWordsWithoutExposingCodes() {
+        assertEquals("عدد", MoadianMeasurementUnits.searchByName("عد").first().name)
+        assertEquals("1627", MoadianMeasurementUnits.searchByName("عد").first().code)
+        assertEquals("کیلوگرم", MoadianMeasurementUnits.searchByName("كيلو").first().name)
+        assertTrue(MoadianMeasurementUnits.searchByName("16134").isEmpty())
+        assertEquals(102, MoadianMeasurementUnits.searchByName("").size)
+    }
 }

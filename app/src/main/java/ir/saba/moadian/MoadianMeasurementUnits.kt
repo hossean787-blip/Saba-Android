@@ -130,5 +130,12 @@ object MoadianMeasurementUnits {
         return options.filter { term.isBlank() || normalize(it.code).contains(term) ||
             normalize(it.name).contains(term) }
     }
+    /** User-facing autocomplete; matching prefixes precede other name matches. */
+    fun searchByName(query: String): List<UnitOption> {
+        val term = normalize(query)
+        if (term.isBlank()) return options
+        return options.filter { normalize(it.name).contains(term) }
+            .sortedBy { if (normalize(it.name).startsWith(term)) 0 else 1 }
+    }
     fun nameOf(code: String): String? = names[code]
 }

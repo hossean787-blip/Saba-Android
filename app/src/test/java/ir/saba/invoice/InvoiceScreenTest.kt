@@ -360,9 +360,10 @@ class InvoiceScreenTest {
         compose.onNodeWithTag("invoiceSelectIdentifier_" + code).performScrollTo().performClick()
         compose.onNodeWithText("شناسه کالا و خدمت").assertTextContains(code)
         compose.onNodeWithTag("invoiceUnitPicker").performScrollTo().performClick()
-        compose.onNodeWithTag("invoiceUnitSearch").performTextInput("۱۶۱۳۴")
+        compose.onNodeWithTag("invoiceUnitSearch").performTextInput("نفر")
         compose.onNodeWithTag("invoiceUnit_16134").performClick()
-        compose.onNodeWithTag("invoiceUnitPicker").assertTextContains("نفر-ماه (16134)")
+        compose.onNodeWithTag("invoiceUnitPicker").assertTextContains("نفر-ماه")
+        compose.onNodeWithText("16134", substring = true).assertDoesNotExist()
         compose.onNodeWithText("قیمت واحد به ریال").performScrollTo().performTextInput("1000")
         compose.onNodeWithText("ثبت ردیف").performScrollTo().performClick()
         compose.waitUntil(15000) {

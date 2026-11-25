@@ -1400,7 +1400,7 @@ private fun InvoiceMeasurementUnitPicker(unit: String, onSelect: (String) -> Uni
         onClick = { query = ""; open = true },
         modifier = Modifier.fillMaxWidth().testTag("invoiceUnitPicker")
     ) {
-        Text(if (name != null) "$name ($unit)" else "انتخاب واحد اندازه‌گیری")
+        Text(name ?: "انتخاب واحد اندازه‌گیری")
     }
     if (name == null && unit.isNotBlank()) Text("کد قدیمی معتبر نیست؛ واحد صحیح را انتخاب کنید.",
         color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -1419,9 +1419,10 @@ private fun InvoiceMeasurementUnitPicker(unit: String, onSelect: (String) -> Uni
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(query, { query = it }, singleLine = true,
-                    label = { Text("جستجوی نام یا کد واحد") },
+                    label = { Text("جستجوی واحد اندازه‌گیری") },
+                    placeholder = { Text("مثلاً عد، کیلو، نفر") },
                     modifier = Modifier.fillMaxWidth().testTag("invoiceUnitSearch"))
-                val matches = remember(query) { MoadianMeasurementUnits.search(query) }
+                val matches = remember(query) { MoadianMeasurementUnits.searchByName(query) }
                 Text("${matches.size} واحد سنجش", style = MaterialTheme.typography.bodySmall)
                 if (matches.isEmpty()) Text("واحدی یافت نشد.")
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 300.dp)
@@ -1429,10 +1430,7 @@ private fun InvoiceMeasurementUnitPicker(unit: String, onSelect: (String) -> Uni
                     items(matches, key = { it.code }) { option ->
                         TextButton(onClick = { onSelect(option.code); open = false },
                             modifier = Modifier.fillMaxWidth().testTag("invoiceUnit_${option.code}")) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(option.name)
-                                Text(option.code, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                            Text(option.name, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
