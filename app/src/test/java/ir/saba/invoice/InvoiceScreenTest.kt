@@ -232,7 +232,7 @@ class InvoiceScreenTest {
         openNew(); addLine()
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
         compose.waitUntil(15000) {
-            compose.onAllNodesWithText("تأیید مصرف دریافت نشد").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("تأیید مصرف اعتبار دریافت نشد؛ برای جلوگیری از برداشت تکراری، همین درخواست را ادامه دهید.").fetchSemanticsNodes().isNotEmpty()
         }
         runBlocking { check(db.invoiceDao().forCompany(company).isEmpty()) }
         compose.onNodeWithText("ذخیره پیش‌نویس").performClick()

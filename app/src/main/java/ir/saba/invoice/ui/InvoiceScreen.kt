@@ -313,7 +313,9 @@ private fun InvoiceScreenContent(
             try { action() }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                error = SuraErrors.transport(e) ?: if (e is ArithmeticException) "مبلغ فاکتور بیش از محدوده مجاز است." else e.message ?: "عملیات انجام نشد؛ دوباره تلاش کنید."
+                error = if (pendingCreation != null && e is java.io.IOException) {
+                    "تأیید مصرف اعتبار دریافت نشد؛ برای جلوگیری از برداشت تکراری، همین درخواست را ادامه دهید."
+                } else SuraErrors.transport(e) ?: if (e is ArithmeticException) "مبلغ فاکتور بیش از محدوده مجاز است." else e.message ?: "عملیات انجام نشد؛ دوباره تلاش کنید."
                 onNotice(error)
             } finally { busy = false }
         }
