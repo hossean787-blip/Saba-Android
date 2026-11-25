@@ -1,8 +1,8 @@
 const BASE=Deno.env.get("SUPABASE_URL")||"";
 const ANON=Deno.env.get("SUPABASE_ANON_KEY")||"";
 const SERVICE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
-const SUPERADMIN_ID="eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc";
-const SUPERADMIN_EMAIL="hossean787@gmail.com";
+const SUPERADMIN_ID="b652c55e-27e3-4110-87d5-995f265d7d78";
+const SUPERADMIN_EMAIL="hossean787+suramanager@gmail.com";
 const CORS={"access-control-allow-origin":"*","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"authorization,apikey,content-type","cache-control":"no-store"};
 const READ=new Set(["sura_owner_wallets","sura_taxpayer_wallets","sura_payment_orders","sura_credit_grants","sura_credit_transfers","sura_promo_redemptions","sura_promo_invoice_uses","sura_credit_pricing","sura_admin_credit_adjustments"]);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

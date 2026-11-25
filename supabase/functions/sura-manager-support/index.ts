@@ -2,8 +2,8 @@
 const BASE=Deno.env.get("SUPABASE_URL")||"";
 const ANON=Deno.env.get("SUPABASE_ANON_KEY")||"";
 const SERVICE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
-const ADMIN="eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc";
-const EMAIL="hossean787@gmail.com";
+const ADMIN="b652c55e-27e3-4110-87d5-995f265d7d78";
+const EMAIL="hossean787+suramanager@gmail.com";
 const states=["open","in_progress","answered","closed"];
 const cors={"access-control-allow-origin":"https://appassets.androidplatform.net","access-control-allow-methods":"POST,OPTIONS","access-control-allow-headers":"authorization,apikey,content-type","cache-control":"no-store","vary":"Origin","x-content-type-options":"nosniff"};
 const id=v=>typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);

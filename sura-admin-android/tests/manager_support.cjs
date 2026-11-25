@@ -1,11 +1,11 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const src=fs.readFileSync(path.resolve(__dirname,'../../supabase/functions/sura-manager-support/index.ts'),'utf8');
-let handler,actor='eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc',role='admin',calls=[];
+let handler,actor='b652c55e-27e3-4110-87d5-995f265d7d78',role='admin',calls=[];
 const ticket='550e8400-e29b-41d4-a716-446655440000';
 const ok=x=>new Response(JSON.stringify(x),{status:200});
 async function mock(url,opts={}){
  calls.push({url,body:opts.body&&JSON.parse(opts.body)});
- if(url.includes('/auth/v1/user'))return ok({id:actor,email:'hossean787@gmail.com',email_confirmed_at:'yes'});
+ if(url.includes('/auth/v1/user'))return ok({id:actor,email:'hossean787+suramanager@gmail.com',email_confirmed_at:'yes'});
  if(url.includes('sura_admin_roles?'))return ok([{role}]);
  if(url.includes('rpc/sura_support_manager_list'))return ok([]);
  if(url.includes('rpc/sura_support_manager_act'))return ok({status:'applied',request_id:JSON.parse(opts.body).p_request});
@@ -15,7 +15,7 @@ vm.runInNewContext(src,{Deno:{env:{get:()=> 'https://test.invalid'},serve:f=>han
 async function call(route,body,auth=true){const r=await handler(new Request('https://test.invalid/'+route,{method:'POST',headers:auth?{authorization:'Bearer test'}:{},body:JSON.stringify(body)}));return r.status;}
 (async()=>{
  assert.equal(await call('list',{},false),401);
- actor=ticket;assert.equal(await call('list',{}),403);actor='eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc';
+ actor=ticket;assert.equal(await call('list',{}),403);actor='b652c55e-27e3-4110-87d5-995f265d7d78';
  role='editor';assert.equal(await call('list',{}),403);role='admin';
  assert.equal(await call('list',{page:0}),400);
  assert.equal(await call('list',{status:'bad'}),400);

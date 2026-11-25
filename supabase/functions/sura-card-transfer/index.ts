@@ -1,6 +1,6 @@
 // Bank transfer receipt workflow. No public settlement endpoint.
 const base=Deno.env.get("SUPABASE_URL")??"",anon=Deno.env.get("SUPABASE_ANON_KEY")??"",service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const admin="eb80ffa2-c2b4-4857-b23a-f7f61f6c1fdc",email="hossean787@gmail.com";
+const admin="b652c55e-27e3-4110-87d5-995f265d7d78",email="hossean787+suramanager@gmail.com";
 const cors={"access-control-allow-origin":"https://appassets.androidplatform.net","access-control-allow-methods":"POST,OPTIONS","access-control-allow-headers":"authorization,apikey,content-type","cache-control":"no-store","x-content-type-options":"nosniff"};
 const reply=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:{...cors,"content-type":"application/json"}});
 const uuid=(v:unknown):v is string=>typeof v==="string"&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(v);
