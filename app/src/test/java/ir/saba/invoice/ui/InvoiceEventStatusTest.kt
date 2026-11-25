@@ -55,6 +55,19 @@ class InvoiceEventStatusTest {
         assertFalse(canStartCorrection(invoice.copy(subject="CORRECTION"),accepted))
         assertFalse(canStartCorrection(invoice.copy(status="DRAFT"),accepted))
     }
+    @Test fun correctionLinkReflectsRegistrationWithoutInventingLegalCancellation() {
+        val parent=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_BOUND)
+        val child=invoice.copy(id=5,subject="CORRECTION",referenceTaxId=parent.taxId,invoiceNumber="2000000001")
+        val childReceipt=parent.copy(invoiceId=5,requestId="child",taxId="childTax",referenceNumber="childRef")
+        val all=listOf(invoice,child)
+        assertEquals("اصلاحیه ارسال نشده؛ مرجع تغییر نکرده",correctionLink(invoice,all,mapOf(1L to parent))?.label)
+        assertEquals("اصلاحیه در انتظار نتیجه؛ ابطال تأیید نشده",correctionLink(invoice,all,mapOf(1L to parent,5L to childReceipt.copy(state="SUBMITTED")))?.label)
+        assertEquals("اصلاحیه ناموفق؛ مرجع تغییر نکرده",correctionLink(invoice,all,mapOf(1L to parent,5L to childReceipt.copy(state="REJECTED")))?.label)
+        assertEquals("اصلاحیه ثبت شده؛ تعیین تکلیف مرجع در کارپوشه",correctionLink(invoice,all,mapOf(1L to parent,5L to childReceipt))?.label)
+        assertNull(correctionLink(invoice,listOf(invoice,child.copy(companyId=99)),mapOf(1L to parent)))
+        assertNull(correctionLink(invoice,listOf(invoice,child.copy(referenceTaxId="wrong")),mapOf(1L to parent)))
+        assertEquals(InvoiceEventStatus.SUCCESS,invoiceEventStatus(invoice,parent))
+    }
     @Test fun titleUsesOnlyMatchingCustomer() {
         assertEquals("صورتحساب مشتری آزمایشی",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=2,name="مشتری آزمایشی"))))
         assertEquals("صورتحساب مشتری نامشخص",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=99,name="نام دیگر"))))

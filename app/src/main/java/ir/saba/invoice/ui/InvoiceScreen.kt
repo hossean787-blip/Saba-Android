@@ -734,7 +734,10 @@ private fun InvoiceScreenContent(
                             { editExisting(loaded) }
                         } else null,
                         onDetails = if(directPreview) { { mode = "details" } } else null,
-                        onCorrection = if(canStartCorrection(loaded.invoice,officialRecord)) { { startCorrection(loaded) } } else null)
+                        onCorrection = if(canStartCorrection(loaded.invoice,officialRecord) &&
+                            correctionLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded) } } else null,
+                        correction = correctionLink(loaded.invoice,invoices,officialByInvoice),
+                        onOpenCorrection = { id -> invoiceId=id;mode="event_open" })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -855,6 +858,12 @@ private fun InvoiceScreenContent(
                                 }
                                 receipt?.taxId?.let { Text("شماره مالیاتی: $it",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A)) }
                                 receipt?.referenceNumber?.let { Text("شماره پیگیری: $it",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A)) }
+                                correctionLink(invoice,invoices,officialByInvoice)?.let { link ->
+                                    Text(link.label,color=Color(0xFF986217),style=MaterialTheme.typography.labelSmall)
+                                    TextButton(enabled=!busy,onClick={invoiceId=link.invoice.id;mode="event_open"}) {
+                                        Text("مشاهده اصلاحیه ${link.invoice.invoiceNumber}")
+                                    }
+                                }
                                 OutlinedButton(enabled=!busy,onClick={invoiceId=invoice.id;error="";mode="details"},
                                     modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),
                                     border=BorderStroke(1.dp,Color(0xFFBBD7DF)),
@@ -951,7 +960,12 @@ private fun InvoiceScreenContent(
                                 mode = "template"
                             }
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
-                        if(canStartCorrection(invoice,officialRecord)) {
+                        val linkedCorrection=correctionLink(invoice,invoices,officialByInvoice)
+                        if(linkedCorrection!=null) {
+                            Text(linkedCorrection.label,style=MaterialTheme.typography.bodySmall)
+                            OutlinedButton(enabled=!busy,onClick={invoiceId=linkedCorrection.invoice.id;mode="event_open"},
+                                modifier=Modifier.fillMaxWidth()) { Text("مشاهده اصلاحیه") }
+                        } else if(canStartCorrection(invoice,officialRecord)) {
                             OutlinedButton(enabled=!busy,onClick={startCorrection(loaded)},modifier=Modifier.fillMaxWidth()) {
                                 Text("صورتحساب اصلاحی")
                             }

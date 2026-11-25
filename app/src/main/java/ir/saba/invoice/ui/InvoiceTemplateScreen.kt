@@ -239,7 +239,8 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           onBack: () -> Unit, onSend: () -> Unit, official: OfficialSubmission? = null,
                           db: SabaDatabase? = null, directPreview: Boolean = false,
                           busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
-                          onCorrection:(() -> Unit)? = null) {
+                          onCorrection:(() -> Unit)? = null, correction:CorrectionLink? = null,
+                          onOpenCorrection:(Long)->Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -303,6 +304,17 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         Button(enabled = bytes != null && !busy, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
+        if(correction!=null) {
+            Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),
+                modifier=Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text(correction.label,style=MaterialTheme.typography.bodySmall)
+                    TextButton(enabled=!busy,onClick={onOpenCorrection(correction.invoice.id)}) {
+                        Text("مشاهده اصلاحیه ${correction.invoice.invoiceNumber}")
+                    }
+                }
+            }
+        }
         if(onCorrection!=null) OutlinedButton(enabled=!busy,onClick=onCorrection,modifier=Modifier.fillMaxWidth().testTag("startInvoiceCorrection"),
             shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
             Text("صورتحساب اصلاحی")

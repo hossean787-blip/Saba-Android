@@ -68,6 +68,31 @@ internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?):
 }
 internal fun invoiceEventOpensPreview(status: InvoiceEventStatus): Boolean = true
 
+/** The posting API reports registration, NOT buyer reaction or statutory cancellation.
+ * Compute the link from persisted invoice/reference identity; never overwrite the original receipt. */
+data class CorrectionLink(val invoice:Invoice,val label:String)
+internal fun correctionLink(original:Invoice, invoices:List<Invoice>, receipts:Map<Long,OfficialSubmission>):CorrectionLink? {
+    val parent=receipts[original.id]?.takeIf {
+        it.invoiceId==original.id && it.companyId==original.companyId &&
+            it.state=="ACCEPTED" && it.taxId.isNotBlank()
+    } ?: return null
+    val child=invoices.firstOrNull {
+        it.id!=original.id && it.companyId==original.companyId && it.customerId==original.customerId &&
+            it.subject=="CORRECTION" && it.referenceTaxId==parent.taxId && it.status!="CANCELLED"
+    } ?: return null
+    val row=receipts[child.id]?.takeIf {
+        it.invoiceId==child.id && it.companyId==child.companyId && it.ownerId==parent.ownerId &&
+            it.fiscalId==parent.fiscalId
+    }
+    val label=when(invoiceEventStatus(child,row)) {
+        InvoiceEventStatus.SUCCESS -> "اصلاحیه ثبت شده؛ تعیین تکلیف مرجع در کارپوشه"
+        InvoiceEventStatus.REJECTED -> "اصلاحیه ناموفق؛ مرجع تغییر نکرده"
+        InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK -> "اصلاحیه در انتظار نتیجه؛ ابطال تأیید نشده"
+        else -> "اصلاحیه ارسال نشده؛ مرجع تغییر نکرده"
+    }
+    return CorrectionLink(child,label)
+}
+
 /** Only never-posted documents or a definitively rejected attempt may enter editing. */
 /** A correction is a NEW referred invoice, not an edit or resend of the original. */
 internal fun canStartCorrection(invoice:Invoice, receipt:OfficialSubmission?):Boolean =
@@ -168,6 +193,9 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                                 overflow = TextOverflow.Ellipsis)
                             Text("${invoice.issueDate} • شماره ${invoice.invoiceNumber}", color = Color(0xFF75899B),
                                 style = MaterialTheme.typography.labelSmall)
+                            correctionLink(invoice,invoices,receipts)?.let { link ->
+                                Text(link.label,color=Color(0xFFAD792A),style=MaterialTheme.typography.labelSmall)
+                            }
                         }
                         Column(horizontalAlignment = Alignment.End,
                             verticalArrangement = Arrangement.spacedBy(5.dp)) {

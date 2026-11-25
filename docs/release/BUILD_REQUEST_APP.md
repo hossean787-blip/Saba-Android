@@ -45,3 +45,5 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.79.0: start correction from accepted original PDF/details; verify unbound legacy reference without POST, open existing referred document instead of duplicate, prefill buyer/lines/settlement and independent serial without debit until save. Preserve original. Simulated direct submission regression; update old unknown fixture to LEGACY for certificate-free inquiry. Real correction acceptance pending. Request signed APK.
 
 0.79.0 rebuild: fix Kotlin local function declaration order; place exact «صورتحساب اصلاحی» action directly beneath PDF export. Preserve verified parent and no certificate route.
+
+0.81.0: link original to correction in event/list/PDF/details; distinguish draft, pending, rejected and registered correction. Do not issue separate cancellation or assert buyer reaction/cancellation from posting success. Existing direct inquiry API does not provide verified buyer reaction; confirm legal status in portal. Add link regression tests. Signed build requested.
