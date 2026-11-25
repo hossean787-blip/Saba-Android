@@ -110,7 +110,11 @@ internal fun CardTransferPanel(token:String){
             Text("سفارش: "+order.getString("id"))
             Text("مبلغ: "+order.getLong("amount_rial")+" ریال")
             if(order.optString("state")=="draft"){
-                Text("شماره کارت مقصد: "+order.getString("destination_card"))
+                Text("شماره کارت مقصد:")
+                CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                    Text(order.getString("destination_card").chunked(4).joinToString("-"),
+                        style=MaterialTheme.typography.titleMedium.copy(textDirection=androidx.compose.ui.text.style.TextDirection.Ltr))
+                }
                 Text("صاحب کارت: "+order.getString("holder"))
                 Text("فقط مبلغ دقیق همین سفارش را واریز کنید. اطلاعات محرمانه کارت را در رسید ارسال نکنید.")
                 OutlinedTextField(tracking,{tracking=it.filter{c->c in '0'..'9'}.take(32)},label={Text("شماره پیگیری")},singleLine=true,enabled=!busy)
