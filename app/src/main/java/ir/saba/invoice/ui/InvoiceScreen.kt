@@ -14,6 +14,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -680,38 +693,129 @@ private fun InvoiceScreenContent(
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
-                Text("فاکتورهای شرکت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining", style = MaterialTheme.typography.bodySmall)
-                TextButton(enabled = !busy, onClick = { perform { onChanged() } }) { Text("تازه‌کردن فهرست") }
-                if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.")
-                Button(enabled = !busy, onClick = { perform { beginInvoice() } }) { Text("صدور فاکتور جدید") }
-                if (customers.isEmpty()) Text("فعلاً مشتری ثبت نشده است؛ می‌توانید اسکلت فاکتور را آماده کنید، اما برای ذخیره باید مشتری داشته باشید.")
-                if (usableCharge <= 0 && !promoLoading && !paidLoading) Text("برای ذخیره فاکتور جدید به اعتبار تأییدشده نیاز است؛ تکمیل فرم بدون مصرف اعتبار ممکن است.")
-                OutlinedTextField(search, { search = it }, label = { Text("جستجوی شماره فاکتور یا مشتری") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("ALL" to "همه", "DRAFT" to "پیش‌نویس", "FINALIZED" to "نهایی").forEach { (value, title) ->
-                        FilterChip(selected = status == value, onClick = { status = value }, label = { Text(title) })
-                    }
-                }
                 val needle = InvoiceInput.digits(search.trim())
                 val filtered = invoices.filter { invoice ->
                     (status == "ALL" || invoice.status == status) &&
                         (needle.isEmpty() || InvoiceInput.digits(invoice.invoiceNumber).contains(needle, true) ||
                             customers.firstOrNull { it.id == invoice.customerId }?.name?.contains(search.trim(), true) == true)
                 }
-                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    if (filtered.isEmpty()) item { Text(if (invoices.isEmpty()) "هنوز فاکتوری ثبت نشده است." else "فاکتوری مطابق جستجو پیدا نشد.") }
-                    items(filtered, key = { it.id }) { invoice ->
-                        ElevatedCard(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("فاکتور ${invoice.invoiceNumber}", fontWeight = FontWeight.Bold)
-                                Text(customers.firstOrNull { it.id == invoice.customerId }?.name ?: "مشتری شماره ${invoice.customerId}")
-                                val receipt = officialByInvoice[invoice.id]
-                                Text("${invoice.issueDate} • ${invoiceReceiptLabel(invoice, receipt)}")
-                                receipt?.taxId?.let { Text("شماره مالیاتی: $it", style = MaterialTheme.typography.bodySmall) }
-                                receipt?.referenceNumber?.let { Text("شماره پیگیری: $it", style = MaterialTheme.typography.bodySmall) }
-                                Text(rial(invoice.totalAmountRial), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                                OutlinedButton(enabled = !busy, onClick = { invoiceId = invoice.id; error = ""; mode = "details" }) { Text("مشاهده جزئیات") }
+                val navy=Color(0xFF12354B)
+                val teal=Color(0xFF087D8A)
+                LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("invoiceListScroll"),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)) {
+                    item(key="invoiceHeader") {
+                        Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                                horizontalArrangement=Arrangement.SpaceBetween) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("فاکتورهای شرکت",style=MaterialTheme.typography.titleLarge,
+                                        fontWeight=FontWeight.ExtraBold,color=navy)
+                                    Text("${invoices.size} صورتحساب ثبت‌شده",style=MaterialTheme.typography.labelSmall,
+                                        color=Color(0xFF647D8A))
+                                }
+                                IconButton(enabled=!busy,onClick={perform { onChanged() }}) {
+                                    Icon(Icons.Default.Refresh,contentDescription="تازه‌کردن فهرست",tint=teal)
+                                }
+                            }
+                            Card(shape=RoundedCornerShape(17.dp),modifier=Modifier.fillMaxWidth()) {
+                                Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(navy,Color(0xFF17616D))))
+                                    .padding(horizontal=12.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                                    Text("اعتبار صدور صورتحساب",color=Color(0xFFB8DCE5),style=MaterialTheme.typography.labelSmall)
+                                    Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining",
+                                        color=Color.White,fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            Button(enabled=!busy,onClick={perform { beginInvoice() }},
+                                modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),
+                                colors=ButtonDefaults.buttonColors(containerColor=teal)) {
+                                Icon(Icons.Default.Add,contentDescription=null,modifier=Modifier.size(19.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("صدور فاکتور جدید")
+                            }
+                            if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.",
+                                color=Color(0xFF8F5C23),style=MaterialTheme.typography.bodySmall)
+                            if(customers.isEmpty()) Text("فعلاً مشتری ثبت نشده است؛ می‌توانید اسکلت فاکتور را آماده کنید، اما برای ذخیره باید مشتری داشته باشید.",
+                                style=MaterialTheme.typography.bodySmall)
+                            if(usableCharge<=0 && !promoLoading && !paidLoading) Text("برای ذخیره فاکتور جدید به اعتبار تأییدشده نیاز است؛ تکمیل فرم بدون مصرف اعتبار ممکن است.",
+                                style=MaterialTheme.typography.bodySmall,color=Color(0xFF8F5C23))
+                            OutlinedTextField(search,{search=it},singleLine=true,
+                                modifier=Modifier.fillMaxWidth().testTag("invoiceListSearch"),
+                                shape=RoundedCornerShape(16.dp),
+                                placeholder={Text("جستجوی شماره فاکتور یا مشتری",style=MaterialTheme.typography.bodyMedium)},
+                                leadingIcon={Icon(Icons.Default.Search,contentDescription=null,tint=teal)},
+                                trailingIcon={if(search.isNotBlank()) IconButton(onClick={search=""}){
+                                    Icon(Icons.Default.Close,contentDescription="پاک کردن جستجو")
+                                }},
+                                colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=teal,unfocusedBorderColor=Color(0xFFCFDFE6),
+                                    focusedContainerColor=Color.White,unfocusedContainerColor=Color.White,cursorColor=teal))
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                                listOf("ALL" to "همه","DRAFT" to "پیش‌نویس","FINALIZED" to "نهایی").forEach { (value,title) ->
+                                    val count=if(value=="ALL") invoices.size else invoices.count{it.status==value}
+                                    FilterChip(selected=status==value,onClick={status=value},modifier=Modifier.weight(1f),
+                                        label={Text("$title · $count",maxLines=1,style=MaterialTheme.typography.labelSmall)},
+                                        colors=FilterChipDefaults.filterChipColors(selectedContainerColor=navy,selectedLabelColor=Color.White,
+                                            containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
+                                }
+                            }
+                        }
+                    }
+                    if(filtered.isEmpty()) item(key="emptyInvoices") {
+                        Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(16.dp)) {
+                            Text(if(invoices.isEmpty()) "هنوز فاکتوری ثبت نشده است." else "فاکتوری مطابق جستجو پیدا نشد.",
+                                modifier=Modifier.fillMaxWidth().padding(16.dp),color=navy)
+                        }
+                    }
+                    items(filtered,key={it.id}) { invoice ->
+                        val receipt=officialByInvoice[invoice.id]
+                        val event=invoiceEventStatus(invoice,receipt)
+                        val stateColor=when(event){
+                            InvoiceEventStatus.SUCCESS -> Color(0xFF127A55)
+                            InvoiceEventStatus.REJECTED,InvoiceEventStatus.CANCELLED -> Color(0xFFAA343D)
+                            InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK -> Color(0xFF986217)
+                            else -> Color(0xFF526C80)
+                        }
+                        val stateBackground=when(event){
+                            InvoiceEventStatus.SUCCESS -> Color(0xFFE4F5EB)
+                            InvoiceEventStatus.REJECTED,InvoiceEventStatus.CANCELLED -> Color(0xFFFCE8E9)
+                            InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK -> Color(0xFFFFF2D9)
+                            else -> Color(0xFFEAF1F6)
+                        }
+                        Card(Modifier.fillMaxWidth().testTag("invoiceListCard_${invoice.id}"),
+                            shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Color.White),
+                            border=BorderStroke(1.dp,Color(0xFFE0E9EE))) {
+                            Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)){
+                                    Surface(shape=RoundedCornerShape(12.dp),color=Color(0xFFE3F2F4)){
+                                        Icon(Icons.AutoMirrored.Filled.List,contentDescription=null,tint=teal,
+                                            modifier=Modifier.padding(9.dp).size(21.dp))
+                                    }
+                                    Column(Modifier.weight(1f)){
+                                        Text(customers.firstOrNull{it.id==invoice.customerId && it.companyId==invoice.companyId}?.name
+                                            ?: "مشتری نامشخص",fontWeight=FontWeight.Bold,color=navy,
+                                            maxLines=2,overflow=TextOverflow.Ellipsis)
+                                        Text("فاکتور ${invoice.invoiceNumber}",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A))
+                                    }
+                                    Surface(shape=RoundedCornerShape(10.dp),color=stateBackground){
+                                        Text(event.label,Modifier.padding(horizontal=8.dp,vertical=5.dp),color=stateColor,
+                                            fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                HorizontalDivider(color=Color(0xFFEDF2F5))
+                                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                                    horizontalArrangement=Arrangement.SpaceBetween){
+                                    Text(invoice.issueDate,style=MaterialTheme.typography.bodySmall,color=Color(0xFF647D8A))
+                                    Text(rial(invoice.totalAmountRial),fontWeight=FontWeight.Bold,
+                                        style=MaterialTheme.typography.titleSmall,color=teal)
+                                }
+                                receipt?.taxId?.let { Text("شماره مالیاتی: $it",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A)) }
+                                receipt?.referenceNumber?.let { Text("شماره پیگیری: $it",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A)) }
+                                OutlinedButton(enabled=!busy,onClick={invoiceId=invoice.id;error="";mode="details"},
+                                    modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),
+                                    border=BorderStroke(1.dp,Color(0xFFBBD7DF)),
+                                    colors=ButtonDefaults.outlinedButtonColors(contentColor=teal)) {
+                                    Text("مشاهده جزئیات",style=MaterialTheme.typography.labelLarge)
+                                }
                             }
                         }
                     }
