@@ -7,7 +7,8 @@ class InvoicePdfLayoutTest {
     @Test fun everySupportedRowCountKeepsTableTotalsAndSignatureInsideA4() {
         for(count in 1..14) {
             val layout=InvoicePdfLayout(count)
-            assertTrue(layout.rowsBottom < layout.totalsTop)
+            assertTrue(layout.rowsBottom + 12f <= layout.totalsTop)
+            assertTrue(layout.rowTop >= 300f)
             assertTrue(layout.totalsBottom < layout.signatureTop)
             assertTrue(layout.signatureTop + 28 <= layout.footerTop)
             assertTrue(layout.footerTop + 30 < layout.pageHeight)

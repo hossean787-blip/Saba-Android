@@ -37,10 +37,23 @@ object SuraInvoicePdf {
     private const val H = 842
     private fun fmt(n: Long) = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(n)
     private val navy = Color.rgb(12, 50, 78)
-    private val blue = Color.rgb(218, 232, 246)
     private val ink = Color.rgb(26, 48, 66)
     private fun rect(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
         c.drawRoundRect(l, t, r, b, 7f, 7f, Paint(3).apply { this.color = color })
+    }
+    private data class Palette(val accent: Int, val soft: Int, val line: Int, val muted: Int)
+    private fun palette(template: String): Palette = when (template) {
+        "ساده" -> Palette(Color.rgb(38, 38, 38), Color.rgb(247, 247, 247), Color.rgb(210, 210, 210), Color.rgb(90, 90, 90))
+        "شرکتی" -> Palette(Color.rgb(21, 55, 85), Color.rgb(235, 242, 249), Color.rgb(195, 210, 224), Color.rgb(76, 98, 115))
+        else -> Palette(Color.rgb(19, 87, 83), Color.rgb(236, 246, 244), Color.rgb(198, 219, 215), Color.rgb(81, 103, 103))
+    }
+    private fun rule(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, color: Int) {
+        c.drawLine(x1,y1,x2,y2,Paint(3).apply { this.color=color; strokeWidth=0.65f })
+    }
+    private fun outline(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
+        c.drawRoundRect(l,t,r,b,5f,5f,Paint(3).apply {
+            this.color=color; style=Paint.Style.STROKE; strokeWidth=0.75f
+        })
     }
     /** Android StaticLayout handles Persian BiDi and glyph shaping, unlike naïve Canvas.drawText. */
     private fun text(c: Canvas, value: String, right: Float, top: Float, width: Int = 230,
@@ -52,7 +65,7 @@ object SuraInvoicePdf {
         val layout = StaticLayout.Builder.obtain(value, 0, value.length, p, width)
             .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
             .setTextDirection(android.text.TextDirectionHeuristics.RTL)
-            .setMaxLines(maxLines).setIncludePad(includePad).build()
+            .setMaxLines(maxLines).setEllipsize(android.text.TextUtils.TruncateAt.END).setIncludePad(includePad).build()
         c.save(); c.translate(right - width, top); layout.draw(c); c.restore()
     }
     fun generate(company: Company, customer: Customer, invoice: Invoice,
@@ -78,84 +91,98 @@ object SuraInvoicePdf {
                 val page = pdf.startPage(PdfDocument.PageInfo.Builder(W, H, pageIndex + 1).create())
             val c = page.canvas
             c.drawColor(Color.WHITE)
-            rect(c, 21f, 20f, 574f, 84f, navy)
-            text(c, if (logo) "SURA | سورا" else "صورتحساب", 557f, 32f, 250, 22f, true, Color.WHITE)
-            text(c, when (invoice.subject) {
-                InvoiceSubject.CORRECTION -> "صورتحساب اصلاحی — اعتبار رسمی منوط به رسید سامانه"
-                InvoiceSubject.RETURN -> "برگشت از فروش — اعتبار رسمی منوط به رسید سامانه"
-                InvoiceSubject.CANCELLATION -> "ابطالی — اعتبار رسمی منوط به رسید سامانه"
+            val p = palette(template)
+            val subject = when (invoice.subject) {
+                InvoiceSubject.CORRECTION -> "صورتحساب اصلاحی"
+                InvoiceSubject.RETURN -> "صورتحساب برگشت از فروش"
+                InvoiceSubject.CANCELLATION -> "صورتحساب ابطالی"
                 else -> "صورتحساب فروش کالا و خدمات"
-            },
-                555f, 60f, 400, 12f, false, Color.WHITE)
-            rect(c, 22f, 95f, 574f, 128f, blue)
-            text(c, "شماره صورتحساب: ${invoice.invoiceNumber}", 559f, 103f, 235, 11f, true)
-            text(c, "تاریخ: ${invoice.issueDate}", 305f, 103f, 200)
-            text(c, "قالب: $template", 112f, 103f, 85, 9f)
-            val taxLabel = official?.taxId?.let { "شماره مالیاتی: $it" } ?: "شماره مالیاتی: ثبت نشده"
-            text(c, "${invoiceReceiptLabel(invoice, official)} | $taxLabel", 559f, 116f,
-                525, 9f, true, navy, maxLines=1, includePad=false)
-            rect(c, 306f, 140f, 574f, 259f, Color.rgb(241, 248, 253))
-            rect(c, 22f, 140f, 290f, 259f, Color.rgb(241, 248, 253))
-            text(c, "اطلاعات فروشنده", 560f, 149f, 240, 13f, true, navy)
-            text(c, "نام: ${company.name}", 561f, 174f, 242)
-            text(c, "شناسه ملی: ${company.nationalId}", 561f, 195f, 242)
-            text(c, "اقتصادی: ${company.economicId}", 561f, 215f, 242)
-            text(c, "تلفن: ${company.phone}", 561f, 235f, 242)
-            text(c, "اطلاعات خریدار", 277f, 149f, 242, 13f, true, navy)
-            text(c, "نام: ${customer.name}", 277f, 174f, 242)
-            text(c, "شناسه ملی: ${customer.nationalId}", 277f, 195f, 242)
-            text(c, "اقتصادی: ${customer.economicId}", 277f, 215f, 242)
-            text(c, "تلفن: ${customer.phone}", 277f, 235f, 242)
-            val headers = listOf("شرح کالا / خدمت", "تعداد", "قیمت واحد (ریال)", "جمع (ریال)")
-            val right = floatArrayOf(560f, 330f, 248f, 112f)
-            val widths = intArrayOf(215, 75, 128, 95)
-            var y = 275f
-            rect(c, 22f, y, 574f, y + 31f, blue)
-            headers.forEachIndexed { i, h -> text(c, h, right[i], y + 8, widths[i], 10f, true, navy) }
-            y += 34f
+            }
+            // Print-friendly masthead, with clear hierarchy and restrained branding.
+            rect(c, 24f, 24f, 571f, 28f, p.accent)
+            text(c, subject, 571f, 39f, 405, 20f, true, p.accent, 1)
+            text(c, company.name, 571f, 67f, 385, 12f, true, ink, 1)
+            if (logo) {
+                text(c, "SURA", 139f, 39f, 110, 19f, true, p.accent, 1)
+                text(c, "سورا", 139f, 64f, 110, 10f, false, p.muted, 1)
+            }
+            rule(c,24f,87f,571f,87f,p.line)
+            text(c, "شماره: ${invoice.invoiceNumber}", 571f, 96f, 265, 11f, true, ink, 1)
+            text(c, "تاریخ: ${invoice.issueDate}", 293f, 96f, 268, 11f, true, ink, 1)
+            rect(c,24f,120f,571f,166f,p.soft)
+            text(c, invoiceReceiptLabel(invoice, official), 560f, 125f, 525, 10f, true, p.accent, 2, false)
+            text(c, "شماره مالیاتی: " + (official?.taxId ?: "دریافت نشده"), 560f, 146f, 525, 9f, false, ink, 1, false)
+            // Two equally sized bordered identity panels.
+            outline(c, 301f, 177f, 571f, 260f, p.line)
+            outline(c, 24f, 177f, 294f, 260f, p.line)
+            rect(c, 301f, 177f, 571f, 197f, p.soft)
+            rect(c, 24f, 177f, 294f, 197f, p.soft)
+            text(c, "فروشنده", 562f, 179f, 248, 11f, true, p.accent, 1)
+            text(c, "خریدار", 285f, 179f, 248, 11f, true, p.accent, 1)
+            fun identity(right: Float, name: String, national: String, economic: String, phone: String) {
+                text(c, name, right, 201f, 248, 10f, true, ink, 1, false)
+                text(c, "شناسه ملی: " + national.ifBlank { "—" }, right, 215f, 248, 9f, false, ink, 1, false)
+                text(c, "شماره اقتصادی: " + economic.ifBlank { "—" }, right, 229f, 248, 9f, false, ink, 1, false)
+                text(c, "تلفن: " + phone.ifBlank { "—" }, right, 243f, 248, 9f, false, ink, 1, false)
+            }
+            identity(562f, company.name, company.nationalId, company.economicId, company.phone)
+            identity(285f, customer.name, customer.nationalId, customer.economicId, customer.phone)
+            val headers = listOf("ردیف","شرح کالا / خدمت","مقدار","بهای واحد","تخفیف","ارزش افزوده","مبلغ کل")
+            val right = floatArrayOf(567f, 539f, 354f, 292f, 220f, 153f, 86f)
+            val widths = intArrayOf(23, 176, 57, 67, 62, 62, 59)
+            val edges = floatArrayOf(24f,90f,157f,224f,296f,358f,543f,571f)
+            rect(c,24f,273f,571f,geometry.rowTop-2f,p.accent)
+            headers.forEachIndexed { i, label ->
+                text(c,label,right[i],280f,widths[i],8f,true,Color.WHITE,2,false)
+            }
+            var y = geometry.rowTop
             pageLines.forEachIndexed { index, line ->
-                if (index % 2 == 0) rect(c, 22f, y, 574f, y + geometry.rowHeight - 1, Color.rgb(245, 250, 254))
-                val sum = Math.subtractExact(InvoiceLineAmounts.grossRial(line), line.discountRial)
+                val rowTotal = InvoiceCalculator.calculate(listOf(line))
+                if(index%2==0) rect(c,24f,y,571f,y+geometry.rowHeight,p.soft)
                 val quantityLabel = InvoiceLineAmounts.quantityText(line) +
-                    (if (line.unitCode.isNotBlank()) " " +
-                        (MoadianMeasurementUnits.nameOf(line.unitCode) ?: line.unitCode) else "")
-                listOf(line.description, quantityLabel, fmt(line.unitPriceRial), fmt(sum))
-                    .forEachIndexed { i, v -> text(c, v, right[i], y + 2, widths[i], 8f,maxLines=2,includePad=false) }
+                    (if(line.unitCode.isNotBlank()) " " + (MoadianMeasurementUnits.nameOf(line.unitCode) ?: line.unitCode) else "")
+                val rowNumber = pageIndex * InvoicePdfPagination.ROWS_PER_PAGE + index + 1
+                val cells = listOf(rowNumber.toString(),line.description,quantityLabel,
+                    fmt(line.unitPriceRial),fmt(line.discountRial),
+                    InvoiceLineAmounts.vatText(line)+"٪\n"+fmt(rowTotal.taxAmountRial),
+                    fmt(rowTotal.totalAmountRial))
+                cells.forEachIndexed { i,v -> text(c,v,right[i],y+3f,widths[i],
+                    if(i==1) 9f else 7.5f,i==6,ink,if(i==1) 2 else 2,false) }
                 y += geometry.rowHeight
+                rule(c,24f,y,571f,y,p.line)
             }
-            if (pageIndex == pages.lastIndex) {
-            val ty = geometry.totalsTop
-            rect(c, 22f, ty, 574f, ty + 105f, Color.rgb(239, 247, 253))
-            text(c, "جمع کل: ${fmt(Math.subtractExact(invoice.totalAmountRial, invoice.taxAmountRial))} ریال",
-                557f, ty + 13, 510, 12f, true)
-            text(c, "مالیات: ${fmt(invoice.taxAmountRial)} ریال", 557f, ty + 42, 510)
-            text(c, "مبلغ نهایی: ${fmt(invoice.totalAmountRial)} ریال",
-                557f, ty + 70, 510, 16f, true, navy)
-            if (invoice.settlementMode != InvoiceSettlement.CASH) {
-                val shares = InvoiceSettlement.amounts(invoice)
-                text(c, "تسویه: " + InvoiceSettlement.label(invoice.settlementMode) +
-                    " | نقدی: " + fmt(shares.cashRial) + " | نسیه: " + fmt(shares.creditRial) + " ریال",
-                    557f, ty + 93, 510, 8f, false, navy, maxLines=1, includePad=false)
+            edges.forEach { x -> rule(c,x,geometry.rowTop,x,y,p.line) }
+            text(c,"تمام مبالغ به ریال",571f,y+4f,300,8f,false,p.muted,1,false)
+            if(pageIndex==pages.lastIndex) {
+                val ty=geometry.totalsTop
+                outline(c,24f,ty,571f,ty+105f,p.line)
+                val gross=lines.fold(0L) { sum, line -> Math.addExact(sum,InvoiceLineAmounts.grossRial(line)) }
+                val discount=lines.fold(0L) { sum, line -> Math.addExact(sum,line.discountRial) }
+                text(c,"جمع قبل از تخفیف: "+fmt(gross),558f,ty+7f,520,10f,false,ink,1,false)
+                text(c,"جمع تخفیف: "+fmt(discount),558f,ty+21f,520,10f,false,ink,1,false)
+                text(c,"خالص: "+fmt(totals.netAmountRial),558f,ty+35f,520,10f,false,ink,1,false)
+                text(c,"ارزش افزوده: "+fmt(invoice.taxAmountRial),558f,ty+49f,520,10f,false,ink,1,false)
+                rect(c,24f,ty+65f,571f,ty+90f,p.accent)
+                text(c,"مبلغ قابل پرداخت",558f,ty+70f,250,12f,true,Color.WHITE,1,false)
+                text(c,fmt(invoice.totalAmountRial)+" ریال",292f,ty+68f,255,15f,true,Color.WHITE,1,false)
+                val shares=InvoiceSettlement.amounts(invoice)
+                text(c,"تسویه: "+InvoiceSettlement.label(invoice.settlementMode)+" | نقدی: "+fmt(shares.cashRial)+" | نسیه: "+fmt(shares.creditRial),
+                    558f,ty+93f,520,8f,false,ink,1,false)
+                if(stamp) {
+                    outline(c,326f,geometry.signatureTop,571f,geometry.signatureTop+27f,p.line)
+                    text(c,"محل مهر و امضا",560f,geometry.signatureTop+5f,220,9f,false,p.muted,1,false)
+                }
+                if(official!=null || qr) {
+                    val trackingLabel=official?.referenceNumber?.let { "شماره پیگیری رسمی: $it" }
+                        ?: invoice.trackingCode?.let { "کد پیگیری سابقه: $it" } ?: "شماره پیگیری: دریافت نشده"
+                    text(c,trackingLabel,315f,geometry.signatureTop,285,8f,false,ink,2,false)
+                }
             }
-            if (stamp) text(c, "محل مهر و امضا", 550f, geometry.signatureTop, 200, 12f, true,maxLines=1)
-            val reference = official?.referenceNumber
-            if (official != null || qr) {
-                val trackingLabel = if (reference != null) "شماره پیگیری رسمی: $reference"
-                    else if (invoice.trackingCode != null) "کد پیگیری سابقه: ${invoice.trackingCode}"
-                    else "شماره پیگیری: دریافت نشده"
-                text(c, trackingLabel, 290f, geometry.signatureTop, 252, 10f,maxLines=2)
-            }
-            }
-            if (invoice.subject in setOf(InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
-                text(c, "مرجع سند ارجاعی: " + invoice.referenceTaxId.orEmpty() +
-                    " • صفحه " + (pageIndex + 1) + " از " + pages.size,
-                    558f, 781f, 522, 9f, true, navy, maxLines=1, includePad=false)
-            } else {
-                // Approved print layout for original invoices stays exactly unchanged.
-                text(c, "صفحه " + (pageIndex + 1) + " از " + pages.size, 150f, 781f, 125, 9f)
-            }
-            text(c, "این نسخه چاپی به‌تنهایی نشانه ارسال یا پذیرش در سامانه مؤدیان نیست.",
-                565f, geometry.footerTop, 533, 9f)
+            rule(c,24f,779f,571f,779f,p.line)
+            if(invoice.subject in setOf(InvoiceSubject.CORRECTION,InvoiceSubject.CANCELLATION,InvoiceSubject.RETURN))
+                text(c,"مرجع: "+invoice.referenceTaxId.orEmpty(),571f,784f,400,8f,false,p.muted,1,false)
+            text(c,"صفحه ${pageIndex+1} از ${pages.size}",145f,784f,120,8f,false,p.muted,1,false)
+            text(c,"اعتبار مالیاتی بر اساس نتیجه استعلام سامانه مؤدیان تعیین می‌شود.",571f,geometry.footerTop,547,8f,false,p.muted,1,false)
             pdf.finishPage(page)
             }
             return ByteArrayOutputStream().use { out -> pdf.writeTo(out); out.toByteArray() }
@@ -195,13 +222,13 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
             .onFailure { error = it.message }.getOrNull()
     }
     var previewPage by remember(invoice.id) { mutableIntStateOf(0) }
-    val pageCount = (lines.size + 13).div(14).coerceAtLeast(1)
+    val pageCount = (lines.size + InvoicePdfPagination.ROWS_PER_PAGE - 1).div(InvoicePdfPagination.ROWS_PER_PAGE).coerceAtLeast(1)
     val preview = remember(bytes, previewPage) {
         bytes?.let { runCatching { SuraInvoicePdf.preview(context, it, previewPage) }.getOrNull() }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("الگوی فاکتور", style = MaterialTheme.typography.headlineSmall)
+        Text("پیش‌نمایش و خروجی صورتحساب", style = MaterialTheme.typography.headlineSmall)
         if (preview != null) Image(preview.asImageBitmap(), "پیش‌نمایش واقعی PDF",
             modifier = Modifier.fillMaxWidth().heightIn(max = 570.dp))
         else Text(error ?: "پیش‌نمایش در دسترس نیست", color = MaterialTheme.colorScheme.error)
