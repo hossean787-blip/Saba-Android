@@ -34,7 +34,7 @@ class InvoicePdfMultiPageInstrumentedTest {
             )
             val bytes = SuraInvoicePdf.generate(
                 company, customer, invoice, List(count) { item },
-                "پیش‌فرض", logo = true, stamp = false, qr = false
+                "پیش‌فرض", logo = true, stamp = false, showLegacyTracking = false
             )
             assertTrue(bytes.size > 1000)
             val tmp = File.createTempFile("sura-page-regression-", ".pdf", context.cacheDir)
@@ -42,16 +42,16 @@ class InvoicePdfMultiPageInstrumentedTest {
                 tmp.writeBytes(bytes)
                 ParcelFileDescriptor.open(tmp, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                     PdfRenderer(descriptor).use { renderer ->
-                        assertEquals((count + 13) / 14, renderer.pageCount)
+                        assertEquals((count + InvoicePdfPagination.ROWS_PER_PAGE - 1) / InvoicePdfPagination.ROWS_PER_PAGE, renderer.pageCount)
                         for (index in listOf(0, renderer.pageCount - 1)) {
                             renderer.openPage(index).use { page ->
-                                assertEquals(595, page.width)
-                                assertEquals(842, page.height)
-                                val bitmap = Bitmap.createBitmap(595, 842, Bitmap.Config.ARGB_8888)
+                                assertEquals(842, page.width)
+                                assertEquals(595, page.height)
+                                val bitmap = Bitmap.createBitmap(842, 595, Bitmap.Config.ARGB_8888)
                                 try {
                                     bitmap.eraseColor(Color.WHITE)
                                     page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                                    assertNotEquals(Color.WHITE, bitmap.getPixel(40, 40))
+                                    assertNotEquals(Color.WHITE, bitmap.getPixel(40, 100))
                                 } finally {
                                     bitmap.recycle()
                                 }

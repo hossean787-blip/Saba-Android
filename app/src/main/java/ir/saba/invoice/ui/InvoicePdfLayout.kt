@@ -3,14 +3,14 @@ package ir.saba.invoice.ui
 /** A4 geometry shared by drawing and bounds tests; coordinates are PDF points. */
 internal data class InvoicePdfLayout(val rows: Int) {
     init { require(rows in 1..InvoicePdfPagination.ROWS_PER_PAGE) }
-    val rowTop = 298f
-    val rowHeight = 24f
+    val rowTop = 303f
+    fun rowHeightAt(index:Int):Float { require(index in 0 until displayRows); return if(index==0) 30f else 22.5f }
     val displayRows get() = InvoicePdfPagination.ROWS_PER_PAGE
-    val rowsBottom get() = rowTop + displayRows * rowHeight
+    val rowsBottom get() = rowTop + (0 until displayRows).sumOf { rowHeightAt(it).toDouble() }.toFloat()
     val totalsTop get() = rowsBottom
-    val totalsBottom get() = totalsTop + 30f
+    val totalsBottom get() = totalsTop + 34f
     val signatureTop get() = totalsBottom + 34f
-    val footerTop = 556f
+    val footerTop = 562f
     val pageHeight = 595f
 }
 

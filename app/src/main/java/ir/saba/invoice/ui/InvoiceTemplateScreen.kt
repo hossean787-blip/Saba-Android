@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.RectF
+import android.graphics.Typeface
+import androidx.core.content.res.ResourcesCompat
 import ir.saba.invoice.R
 import android.graphics.Canvas
 import android.graphics.Color
@@ -38,9 +40,10 @@ import java.util.Locale
 object SuraInvoicePdf {
     private const val W = 842
     private const val H = 595
-    private fun fmt(n: Long) = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(n)
+    private fun fmt(n: Long) = persianDigits(NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(n))
+    private fun persianDigits(value:String) = value.map { if(it in '0'..'9') '۰'+(it-'0') else it }.joinToString("")
     private val navy = Color.rgb(12, 50, 78)
-    private val ink = Color.rgb(26, 48, 66)
+    private val ink = Color.rgb(22, 43, 55)
     private fun rect(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
         c.drawRoundRect(l, t, r, b, 7f, 7f, Paint(3).apply { this.color = color })
     }
@@ -48,7 +51,7 @@ object SuraInvoicePdf {
     private fun palette(template: String): Palette = when (template) {
         "ساده" -> Palette(Color.rgb(38, 38, 38), Color.rgb(247, 247, 247), Color.rgb(210, 210, 210), Color.rgb(90, 90, 90))
         "شرکتی" -> Palette(Color.rgb(21, 55, 85), Color.rgb(235, 242, 249), Color.rgb(195, 210, 224), Color.rgb(76, 98, 115))
-        else -> Palette(Color.rgb(19, 87, 83), Color.rgb(236, 246, 244), Color.rgb(198, 219, 215), Color.rgb(81, 103, 103))
+        else -> Palette(Color.rgb(19, 87, 83), Color.rgb(230, 239, 238), Color.rgb(145, 164, 164), Color.rgb(79, 101, 105))
     }
     private fun rule(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, color: Int) {
         c.drawLine(x1,y1,x2,y2,Paint(3).apply { this.color=color; strokeWidth=0.65f })
@@ -61,21 +64,36 @@ object SuraInvoicePdf {
     /** Android StaticLayout handles Persian BiDi and glyph shaping, unlike naïve Canvas.drawText. */
     private fun text(c: Canvas, value: String, right: Float, top: Float, width: Int = 230,
                      size: Float = 11f, bold: Boolean = false, color: Int = ink,
-                     maxLines: Int = 3, includePad: Boolean = true, center: Boolean = false) {
-        val p = TextPaint(3).apply { this.color = color; textSize = size
-            typeface = if (bold) android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-                       else android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL) }
-        val layout = StaticLayout.Builder.obtain(value, 0, value.length, p, width)
-            .setAlignment(if(center) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL)
-            .setTextDirection(android.text.TextDirectionHeuristics.RTL)
-            .setMaxLines(maxLines).setEllipsize(android.text.TextUtils.TruncateAt.END).setIncludePad(includePad).build()
-        c.save(); c.translate(right - width, top); layout.draw(c); c.restore()
+                     maxLines: Int = 3, includePad: Boolean = true, center: Boolean = false,
+                     fonts: Pair<Typeface,Typeface>? = null, height: Float = Float.MAX_VALUE) {
+        val p=TextPaint(3).apply {
+            this.color=color
+            typeface=if(bold) fonts?.second ?: Typeface.create("sans-serif",Typeface.BOLD)
+                else fonts?.first ?: Typeface.create("sans-serif",Typeface.NORMAL)
+        }
+        fun build(fs:Float,ellipsize:Boolean):StaticLayout {
+            p.textSize=fs
+            val builder=StaticLayout.Builder.obtain(value,0,value.length,p,width)
+                .setAlignment(if(center) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL)
+                .setTextDirection(android.text.TextDirectionHeuristics.RTL)
+                .setMaxLines(if(ellipsize) maxLines else Int.MAX_VALUE).setIncludePad(includePad)
+            if(ellipsize)builder.setEllipsize(android.text.TextUtils.TruncateAt.END)
+            return builder.build()
+        }
+        var fs=size
+        var measured=build(fs,false)
+        while((measured.lineCount>maxLines || measured.height>height) && fs>6.5f) {
+            fs=(fs-0.5f).coerceAtLeast(6.5f)
+            measured=build(fs,false)
+        }
+        val layout=build(fs,true)
+        c.save();c.translate(right-width,top);layout.draw(c);c.restore()
     }
     fun generate(company: Company, customer: Customer, invoice: Invoice,
                  lines: List<InvoiceLine>, template: String, logo: Boolean,
                  stamp: Boolean, showLegacyTracking: Boolean, official: OfficialSubmission? = null,
                  sellerProfile: MoadianDetails? = null, buyerProfile: CustomerProfile? = null,
-                 brandLogo: Bitmap? = null): ByteArray {
+                 brandLogo: Bitmap? = null, fonts: Pair<Typeface,Typeface>? = null): ByteArray {
         require(invoice.companyId == company.id && customer.companyId == company.id &&
                 invoice.customerId == customer.id) { "Invoice ownership mismatch" }
         require(official == null || (official.invoiceId == invoice.id &&
@@ -102,14 +120,20 @@ object SuraInvoicePdf {
             val p=palette(template)
             val local=InvoiceLocalDetails.fromJson(invoice.localDetailsJson)
             val left=20f; val right=822f
+            fun text(c:Canvas,value:String,right:Float,top:Float,width:Int,size:Float,bold:Boolean,color:Int,
+                     maxLines:Int,includePad:Boolean,center:Boolean=false,height:Float=Float.MAX_VALUE) =
+                SuraInvoicePdf.text(c,value,right,top,width,size,bold,color,maxLines,includePad,center,fonts,height)
             fun cell(value:String,l:Float,t:Float,r:Float,b:Float,size:Float=9f,bold:Boolean=false,center:Boolean=false,shade:Boolean=false) {
-                if(shade)c.drawRect(l,t,r,b,Paint(3).apply{color=p.soft})
-                c.drawRect(l,t,r,b,Paint(3).apply{color=p.line;style=Paint.Style.STROKE;strokeWidth=0.7f})
+                if(shade)c.drawRect(l,t,r,b,Paint(3).apply{color=if(t==geometry.totalsTop && template=="پیش‌فرض")Color.rgb(237,244,243) else p.soft})
+                c.drawRect(l,t,r,b,Paint(3).apply{color=p.line;style=Paint.Style.STROKE;strokeWidth=0.55f})
                 c.save();c.clipRect(l+2,t+1,r-2,b-1)
-                text(c,value,r-4,t+3,(r-l-8).toInt(),size,bold,ink,2,false,center)
+                text(c,value,r-4,t+3,(r-l-8).toInt(),size,bold,ink,2,false,center,b-t-5f)
                 c.restore()
             }
-            fun heading(value:String,top:Float,bottom:Float)=cell(value,left,top,right,bottom,10f,true,true,true)
+            fun heading(value:String,top:Float,bottom:Float) {
+                cell("",left,top,right,bottom,10f,true,true,true)
+                text(c,value,right-4,top+3,(right-left-8).toInt(),10f,true,p.accent,1,false,true,bottom-top-5f)
+            }
             val subject=when(invoice.subject) {
                 InvoiceSubject.CORRECTION->"صورتحساب اصلاحی فروش کالا و خدمات"
                 InvoiceSubject.RETURN->"صورتحساب برگشت از فروش"
@@ -117,18 +141,18 @@ object SuraInvoicePdf {
                 else->"صورتحساب فروش کالا و خدمات"
             }
             if(logo && brandLogo!=null) {
-                val scale=minOf(45f/brandLogo.width,45f/brandLogo.height)
+                val scale=minOf(43f/brandLogo.width,43f/brandLogo.height)
                 val w=brandLogo.width*scale;val h=brandLogo.height*scale
-                c.drawBitmap(brandLogo,null,RectF(759f-w/2,18f,759f+w/2,18f+h),Paint(3))
+                c.drawBitmap(brandLogo,null,RectF(742f-w/2,21f,742f+w/2,21f+h),Paint(3))
             }
-            text(c,"صورتحساب الکترونیک سورا",822f,65f,126,10f,true,p.accent,1,false,true)
-            text(c,subject,691f,38f,420,19f,true,p.accent,2,false,true)
-            text(c,"تاریخ: ${invoice.issueDate}",266f,20f,240,10f,true,ink,1,false)
-            text(c,"شماره مالیاتی: "+(official?.taxId?:"دریافت نشده"),266f,36f,240,9f,false,ink,2,false)
-            text(c,"شماره فاکتور: ${invoice.invoiceNumber}",266f,61f,240,10f,true,ink,1,false)
+            text(c,"صورتحساب الکترونیک سورا",822f,66f,160,9f,true,p.accent,1,false,true)
+            text(c,subject,670f,39f,401,18f,true,p.accent,2,false,true)
+            text(c,"تاریخ: "+persianDigits(invoice.issueDate),266f,28f,240,9f,true,ink,1,false)
+            text(c,"شماره مالیاتی: "+(official?.taxId?:"صادر نشده"),266f,44f,240,9f,false,ink,2,false)
+            text(c,"شماره فاکتور: "+persianDigits(invoice.invoiceNumber),266f,60f,240,9f,true,ink,1,false)
             rule(c,left,82f,right,82f,p.accent)
             fun kind(type:String?)=when(type){"NATURAL"->"شخص حقیقی";"LEGAL"->"شخص حقوقی";"PARTNERSHIP"->"مشارکت مدنی";"FOREIGN"->"اتباع غیرایرانی";else->"شخص حقیقی / حقوقی"}
-            fun show(value:String?)=value.orEmpty().ifBlank{"—"}
+            fun show(value:String?)=value.orEmpty().ifBlank{"ثبت نشده"}
             fun party(top:Float,title:String,name:String,type:String?,registration:String?,economic:String,national:String,province:String?,county:String?,address:String,phone:String,postal:String?) {
                 heading(title,top,top+18)
                 val y=top+18
@@ -141,24 +165,25 @@ object SuraInvoicePdf {
                 cell("نشانی: "+show(address),213f,y+42,right,y+65)
                 cell("کدپستی: "+show(postal),left,y+42,213f,y+65)
             }
-            party(88f,"مشخصات فروشنده",company.name,sellerProfile?.taxpayerType,sellerProfile?.registrationNumber,company.economicId,company.nationalId,sellerProfile?.province,sellerProfile?.county,company.address,company.phone.ifBlank{sellerProfile?.mobile.orEmpty()},sellerProfile?.postalCode)
-            party(171f,"مشخصات خریدار",customer.name,buyerProfile?.accountType,buyerProfile?.registrationNumber,customer.economicId,customer.nationalId,buyerProfile?.province,buyerProfile?.county,customer.address,customer.phone.ifBlank{buyerProfile?.mobile.orEmpty()},customer.postalCode)
-            heading("مشخصات کالا یا خدمات",254f,272f)
+            party(92f,"مشخصات فروشنده",company.name,sellerProfile?.taxpayerType,sellerProfile?.registrationNumber,company.economicId,company.nationalId,sellerProfile?.province,sellerProfile?.county,company.address,company.phone.ifBlank{sellerProfile?.mobile.orEmpty()},sellerProfile?.postalCode)
+            party(175f,"مشخصات خریدار",customer.name,buyerProfile?.accountType,buyerProfile?.registrationNumber,customer.economicId,customer.nationalId,buyerProfile?.province,buyerProfile?.county,customer.address,customer.phone.ifBlank{buyerProfile?.mobile.orEmpty()},customer.postalCode)
+            heading("مشخصات کالا یا خدمات",258f,276f)
             val headers=listOf("ردیف","شرح کالا یا خدمات","تعداد","مبلغ واحد\n(ریال)","قبل از تخفیف\n(ریال)","مبلغ تخفیف\n(ریال)","پس از تخفیف\n(ریال)","مالیات و عوارض\n(ریال)","مبلغ نهایی\n(ریال)")
             val edges=mutableListOf(right)
             listOf(30f,240f,58f,78f,80f,75f,80f,82f,79f).forEach{edges.add(edges.last()-it)}
-            headers.forEachIndexed{idx,value->cell(value,edges[idx+1],272f,edges[idx],geometry.rowTop,8.5f,true,true,true)}
+            headers.forEachIndexed{idx,value->cell(value,edges[idx+1],276f,edges[idx],geometry.rowTop,8.5f,true,true,true)}
             var y=geometry.rowTop
             for(index in 0 until geometry.displayRows){
                 val line=pageLines.getOrNull(index)
                 val rowNumber=pageIndex*InvoicePdfPagination.ROWS_PER_PAGE+index+1
-                val cells=if(line==null) listOf(rowNumber.toString(),"","","","","","","","") else {
+                val cells=if(line==null) listOf(persianDigits(rowNumber.toString()),"","","","","","","","") else {
                     val amounts=rowAmounts[rowNumber-1]
-                    val qty=InvoiceLineAmounts.quantityText(line)+"\n"+(MoadianMeasurementUnits.nameOf(line.unitCode)?:"")
-                    listOf(rowNumber.toString(),line.description,qty,fmt(line.unitPriceRial),fmt(InvoiceLineAmounts.grossRial(line)),fmt(line.discountRial),fmt(amounts.netAmountRial),InvoiceLineAmounts.vatText(line)+"٪\n"+fmt(amounts.taxAmountRial),fmt(amounts.totalAmountRial))
+                    val qty=persianDigits(InvoiceLineAmounts.quantityText(line))+"\n"+(MoadianMeasurementUnits.nameOf(line.unitCode)?:"")
+                    listOf(persianDigits(rowNumber.toString()),line.description,qty,fmt(line.unitPriceRial),fmt(InvoiceLineAmounts.grossRial(line)),fmt(line.discountRial),fmt(amounts.netAmountRial),persianDigits(InvoiceLineAmounts.vatText(line))+"٪\n"+fmt(amounts.taxAmountRial),fmt(amounts.totalAmountRial))
                 }
-                cells.forEachIndexed{idx,value->cell(value,edges[idx+1],y,edges[idx],y+geometry.rowHeight,if(idx==1)9f else 8.5f,idx==8,idx!=1)}
-                y+=geometry.rowHeight
+                val rowHeight=geometry.rowHeightAt(index)
+                cells.forEachIndexed{idx,value->cell(value,edges[idx+1],y,edges[idx],y+rowHeight,if(idx==1)9f else 8.5f,idx==8,idx!=1)}
+                y+=rowHeight
             }
             if(pageIndex==pages.lastIndex){
                 val ty=geometry.totalsTop
@@ -168,17 +193,20 @@ object SuraInvoicePdf {
                 listOf(gross,discount,totals.netAmountRial,invoice.taxAmountRial,invoice.totalAmountRial).forEachIndexed{n,amount->val idx=n+4;cell(fmt(amount),edges[idx+1],ty,edges[idx],geometry.totalsBottom,9f,true,true,true)}
                 val pay=geometry.totalsBottom
                 cell("روش تسویه: "+InvoiceSettlement.label(invoice.settlementMode)+"\nروش پرداخت: "+show(local.paymentMethod)+"   تاریخ پرداخت: "+show(local.paymentDate),421f,pay,right,pay+34)
-                cell("نوع: نوع یک   موضوع: "+subject+"\n"+invoiceReceiptLabel(invoice,official),left,pay,421f,pay+34)
+                cell("",left,pay,421f,pay+34)
+                val shortSubject=when(invoice.subject){InvoiceSubject.CORRECTION->"اصلاحی";InvoiceSubject.RETURN->"برگشت از فروش";InvoiceSubject.CANCELLATION->"ابطالی";else->"اصلی"}
+                text(c,"نوع: نوع یک   |   موضوع: "+shortSubject,417f,pay+3f,393,9f,true,ink,1,false)
+                text(c,invoiceReceiptLabel(invoice,official),417f,pay+17f,393,9f,true,if(official?.state=="ACCEPTED")p.accent else Color.rgb(135,83,23),1,false)
                 val signature=geometry.signatureTop
-                cell(if(stamp)"مهر و امضای فروشنده:" else "امضای فروشنده:",421f,signature,right,signature+38)
-                cell(if(stamp)"مهر و امضای خریدار:" else "امضای خریدار:",left,signature,421f,signature+38)
+                cell(if(stamp)"مهر و امضای فروشنده:" else "امضای فروشنده:",421f,signature,right,signature+40)
+                cell(if(stamp)"مهر و امضای خریدار:" else "امضای خریدار:",left,signature,421f,signature+40)
                 val notes=listOf(local.notes,local.invoiceDescription,local.note1,local.note2).filter{it.isNotBlank()}.joinToString(" | ")
-                cell("توضیحات: "+show(notes),left,signature+38,right,signature+62,8.5f)
+                cell("توضیحات: "+show(notes),left,signature+40,right,signature+63,8.5f)
             }
             val tracking=official?.referenceNumber?.let{"شماره پیگیری رسمی: $it"}
                 ?: if(showLegacyTracking && invoice.trackingCode!=null)"کد پیگیری سابقه: ${invoice.trackingCode}" else "شماره پیگیری: دریافت نشده"
             text(c,tracking,822f,geometry.footerTop,590,8f,false,p.muted,1,false)
-            text(c,"صفحه ${pageIndex+1} از ${pages.size}",220f,geometry.footerTop,200,8f,false,p.muted,1,false)
+            text(c,"صفحه "+persianDigits("${pageIndex+1} از ${pages.size}"),220f,geometry.footerTop,200,8f,false,p.muted,1,false)
             if(invoice.referenceTaxId!=null)text(c,"مرجع: "+invoice.referenceTaxId,822f,geometry.footerTop+11,600,8f,false,p.muted,1,false)
             pdf.finishPage(page)
             }
@@ -219,12 +247,13 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         catch(_:Exception){profileError=true;null}
     }
     val brandLogo=remember(context){BitmapFactory.decodeResource(context.resources,R.drawable.sura_brand_icon)}
+    val fonts=remember(context){ val normal=ResourcesCompat.getFont(context,R.font.vazirmatn_regular);val bold=ResourcesCompat.getFont(context,R.font.vazirmatn_bold);if(normal!=null && bold!=null) Pair(normal,bold) else null }
     var template by remember { mutableStateOf("پیش‌فرض") }
     var logo by remember { mutableStateOf(true) }
     var stamp by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, official, profiles, brandLogo) {
-        profiles?.let { profile -> runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, true, official, profile.first, profile.second, brandLogo) }
+    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, official, profiles, brandLogo, fonts) {
+        profiles?.let { profile -> runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, true, official, profile.first, profile.second, brandLogo, fonts) }
             .onFailure { error = it.message }.getOrNull() }
     }
     var previewPage by remember(invoice.id) { mutableIntStateOf(0) }

@@ -123,7 +123,7 @@ class InvoiceEndToEndInstrumentedTest {
                 saved.invoice.trackingCode != null)
 
             val pdf = SuraInvoicePdf.generate(seller, buyer, saved.invoice,
-                saved.lines, "پیش‌فرض", logo = true, stamp = false, qr = true)
+                saved.lines, "پیش‌فرض", logo = true, stamp = false, showLegacyTracking = true)
             assertTrue(pdf.size > 1000)
             val file = File.createTempFile("sura-offline-invoice-", ".pdf", context.cacheDir)
             try {
@@ -132,14 +132,14 @@ class InvoiceEndToEndInstrumentedTest {
                     PdfRenderer(fd).use { renderer ->
                         assertEquals(1, renderer.pageCount)
                         renderer.openPage(0).use { page ->
-                            assertEquals(595, page.width)
-                            assertEquals(842, page.height)
-                            val bitmap = Bitmap.createBitmap(595, 842, Bitmap.Config.ARGB_8888)
+                            assertEquals(842, page.width)
+                            assertEquals(595, page.height)
+                            val bitmap = Bitmap.createBitmap(842, 595, Bitmap.Config.ARGB_8888)
                             try {
                                 bitmap.eraseColor(Color.WHITE)
                                 page.render(bitmap, null, null,
                                     PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                                assertNotEquals(Color.WHITE, bitmap.getPixel(40, 40))
+                                assertNotEquals(Color.WHITE, bitmap.getPixel(40, 100))
                             } finally {
                                 bitmap.recycle()
                             }

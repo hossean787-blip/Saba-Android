@@ -9,8 +9,11 @@ class InvoicePdfLayoutTest {
             val layout=InvoicePdfLayout(count)
             assertEquals(layout.rowsBottom,layout.totalsTop,0f)
             assertEquals(5,layout.displayRows)
+            assertEquals(303f,layout.rowTop,0f)
+            assertEquals(423f,layout.rowsBottom,0f)
+            assertEquals(457f,layout.totalsBottom,0f)
             assertTrue(layout.totalsBottom < layout.signatureTop)
-            assertTrue(layout.signatureTop + 62 < layout.footerTop)
+            assertTrue(layout.signatureTop + 63 < layout.footerTop)
             assertTrue(layout.footerTop + 22 < layout.pageHeight)
         }
     }
