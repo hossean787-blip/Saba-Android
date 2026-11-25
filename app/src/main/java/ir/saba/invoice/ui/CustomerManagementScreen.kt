@@ -38,16 +38,19 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
     var profiles by remember(companyId) { mutableStateOf<List<CustomerProfile>>(emptyList()) }
     var busy by remember(companyId) { mutableStateOf(false) }
     var profilesReady by remember(companyId) { mutableStateOf(false) }
+    var profileLoadError by remember(companyId) { mutableStateOf(false) }
+    var loadAttempt by remember(companyId) { mutableIntStateOf(0) }
     var selectedId by remember(companyId) { mutableStateOf<Long?>(null) }
     var deleteTarget by remember(companyId) { mutableStateOf<Long?>(null) }
     var editorId by remember(companyId) { mutableStateOf<Long?>(null) }
     var editorOpen by remember(companyId) { mutableStateOf(false) }
     var search by remember(companyId) { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
-    LaunchedEffect(companyId, customers) {
+    LaunchedEffect(companyId, customers, loadAttempt) {
+        profilesReady=false;profileLoadError=false
         try { profiles = db.customerProfileDao().forCompany(companyId); profilesReady = true }
         catch (e: CancellationException) { throw e }
-        catch (e: Exception) { profilesReady = false; onNotice(SuraErrors.describe(e,"بارگذاری اطلاعات تکمیلی مشتری انجام نشد. [CUSTOMER-LOAD]")) }
+        catch (e: Exception) { profilesReady = false; profileLoadError=true; onNotice(SuraErrors.describe(e,"بارگذاری اطلاعات تکمیلی مشتری انجام نشد. [CUSTOMER-LOAD]")) }
     }
     DisposableEffect(editorOpen) { onEditing(editorOpen); onDispose { onEditing(false) } }
     val current = customers.firstOrNull { it.id == editorId }
@@ -71,7 +74,8 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
     var birthCertificate by remember(editorOpen, editorId) { mutableStateOf(oldProfile?.birthCertificateNumber.orEmpty()) }
     if (!editorOpen) {
         Column(Modifier.fillMaxSize().background(Color(0xFFF2F9FF)), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (busy || !profilesReady) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (busy || (!profilesReady && !profileLoadError)) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(profileLoadError) OutlinedButton(onClick={loadAttempt++},modifier=Modifier.fillMaxWidth()){Text("بارگذاری دوباره مشتریان")}
             val selected = customers.firstOrNull { it.id == selectedId && it.companyId == companyId }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { error=""; editorId=null; editorOpen=true }, enabled = !busy && profilesReady, modifier = Modifier.weight(1f)) {
@@ -117,7 +121,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
                             }
                             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)){
                                 Text(item.name,fontWeight=FontWeight.Bold,color=Color(0xFF193F55))
-                                val role=if(profile?.isSupplier==true&&profile.isCustomer)"مشتری / تأمین‌کننده" else if(profile?.isSupplier==true)"تأمین‌کننده" else "مشتری"
+                                val role=if(profile?.isSupplier==true&&profile?.isCustomer==true)"مشتری / تأمین‌کننده" else if(profile?.isSupplier==true)"تأمین‌کننده" else "مشتری"
                                 Text("$role • $typeLabel",style=MaterialTheme.typography.labelSmall,color=Color(0xFF667F91))
                                 Text("شناسه: ${item.nationalId.ifBlank{"ثبت نشده"}}",style=MaterialTheme.typography.labelSmall,color=Color(0xFF667F91))
                             }

@@ -195,7 +195,9 @@ private fun InvoiceScreenContent(
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var inactiveBuyers by remember(companyId) { mutableStateOf<Set<Long>>(emptySet()) }
     LaunchedEffect(companyId, customers, mode) {
-        inactiveBuyers=db.customerProfileDao().forCompany(companyId).filter{!it.active}.map{it.customerId}.toSet()
+        try{inactiveBuyers=db.customerProfileDao().forCompany(companyId).filter{!it.active}.map{it.customerId}.toSet()}
+        catch(e:kotlinx.coroutines.CancellationException){throw e}
+        catch(e:Exception){onNotice(SuraErrors.describe(e,"بازیابی وضعیت مشتریان انجام نشد. [CUSTOMER-STATUS]"))}
     }
     var lines by rememberSaveable(stateSaver = LinesSaver) { mutableStateOf(emptyList<InvoiceLine>()) }
     var search by rememberSaveable { mutableStateOf("") }
@@ -336,7 +338,7 @@ private fun InvoiceScreenContent(
                                 settlementMode, InvoiceCalculator.calculate(lines).totalAmountRial, cashPortionInput
                             )
                             val savedId = if(invoiceId==null) {
-                                if(pendingCreation==null)require(db.customerProfileDao().byCustomer(selectedCustomer)?.active!=false) { "مشتری غیرفعال است؛ مشتری دیگری انتخاب کنید." }
+                                if(pendingCreation==null && db.customerProfileDao().byCustomer(selectedCustomer)?.active==false)throw IllegalStateException("مشتری غیرفعال است؛ مشتری دیگری انتخاب کنید.")
                                 val kind=pendingCreation?.let{InvoiceCreditKind.valueOf(it.creditKind)} ?: run {
                                     val verifiedPaid = runCatching { refreshPaidBalance() }.getOrDefault(0L)
                                     val verifiedGift = runCatching { activeGateway.giftBalance(accessToken) }.getOrDefault(0)
