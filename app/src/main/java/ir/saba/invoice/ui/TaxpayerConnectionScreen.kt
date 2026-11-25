@@ -93,9 +93,6 @@ private fun TaxpayerConnectionContent(
             color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.bodySmall
         )
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        Text("تطبیق محلی کلید و گواهی انجام شده است.")
-            Text("اثر انگشت گواهی: ${profile!!.certificateSha256.take(16)}…",style=MaterialTheme.typography.bodySmall)
-        }
         Text("تطبیق محلی، تأیید سازمان امور مالیاتی نیست. این بررسی هیچ صورتحسابی ارسال نمی‌کند.",style=MaterialTheme.typography.bodySmall)
         if (error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
         val memoryReady = memoryId.matches(Regex("[A-Z0-9]{6}"))
