@@ -55,6 +55,17 @@ class InvoiceEventStatusTest {
         assertFalse(canStartCorrection(invoice.copy(subject="CORRECTION"),accepted))
         assertFalse(canStartCorrection(invoice.copy(status="DRAFT"),accepted))
     }
+    @Test fun correctionPickerIncludesAcceptedUnboundAndExcludesOtherBuyersOwnersAndPending() {
+        val accepted=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_UNBOUND)
+        val foreignBuyer=invoice.copy(id=2,customerId=4)
+        val foreignOwner=invoice.copy(id=3)
+        val pending=invoice.copy(id=4)
+        val all=listOf(invoice,foreignBuyer,foreignOwner,pending)
+        val receipts=mapOf(1L to accepted,2L to accepted.copy(invoiceId=2),
+            3L to accepted.copy(invoiceId=3,ownerId="other"),4L to accepted.copy(invoiceId=4,state="SUBMITTED"))
+        assertEquals(listOf(invoice),correctionCandidates(all,receipts,"owner",2,3))
+        assertTrue(correctionCandidates(all,receipts,"owner",99,3).isEmpty())
+    }
     @Test fun correctionLinkReflectsRegistrationWithoutInventingLegalCancellation() {
         val parent=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_BOUND)
         val child=invoice.copy(id=5,subject="CORRECTION",referenceTaxId=parent.taxId,invoiceNumber="2000000001")

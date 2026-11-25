@@ -88,6 +88,13 @@ private val LinesSaver = listSaver<List<InvoiceLine>, String>(
     }
 )
 
+internal fun correctionCandidates(invoices: List<Invoice>, receipts: Map<Long, OfficialSubmission>,
+    ownerId: String, companyId: Long, customerId: Long?): List<Invoice> =
+    invoices.filter { invoice ->
+        invoice.companyId == companyId && (customerId == null || invoice.customerId == customerId) &&
+            receipts[invoice.id]?.ownerId == ownerId && canStartCorrection(invoice, receipts[invoice.id])
+    }.sortedByDescending { it.id }
+
 internal fun rial(amount: Long): String = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(amount) + " ریال"
 internal fun invoiceStatus(status: String) = when (status) {
     "DRAFT" -> "پیش‌نویس"
@@ -249,6 +256,7 @@ private fun InvoiceScreenContent(
     var referenceTaxId by rememberSaveable(companyId) { mutableStateOf("") }
     var localDetailsJson by rememberSaveable(companyId) { mutableStateOf("") }
     var previewDialog by rememberSaveable { mutableStateOf(false) }
+    var correctionPicker by rememberSaveable { mutableStateOf(false) }
     var acceptedOriginals by remember(companyId) { mutableStateOf(emptyList<Pair<String, Long>>()) }
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var inactiveBuyers by remember(companyId) { mutableStateOf<Set<Long>>(emptySet()) }
@@ -465,9 +473,9 @@ private fun InvoiceScreenContent(
         onChanged()
     }
 
-    fun startCorrection(loaded: InvoiceDetails) {
+    fun startCorrection(originalId: Long) {
         perform {
-            val original=repository.detailsForCompany(companyId,loaded.invoice.id)
+            val original=repository.detailsForCompany(companyId,originalId)
             val parent=requireNotNull(db.officialSubmissionDao().forInvoice(original.invoice.id))
             require(parent.ownerId==ownerId && canStartCorrection(original.invoice,parent)) {
                 "فقط فاکتور اصلی پذیرفته‌شده همین مؤدی قابل اصلاح است."
@@ -735,7 +743,7 @@ private fun InvoiceScreenContent(
                         } else null,
                         onDetails = if(directPreview) { { mode = "details" } } else null,
                         onCorrection = if(canStartCorrection(loaded.invoice,officialRecord) &&
-                            correctionLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded) } } else null,
+                            correctionLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded.invoice.id) } } else null,
                         correction = correctionLink(loaded.invoice,invoices,officialByInvoice),
                         onOpenCorrection = { id -> invoiceId=id;mode="event_open" })
                 } else Text("در حال بارگذاری اطلاعات الگو…")
@@ -966,7 +974,7 @@ private fun InvoiceScreenContent(
                             OutlinedButton(enabled=!busy,onClick={invoiceId=linkedCorrection.invoice.id;mode="event_open"},
                                 modifier=Modifier.fillMaxWidth()) { Text("مشاهده اصلاحیه") }
                         } else if(canStartCorrection(invoice,officialRecord)) {
-                            OutlinedButton(enabled=!busy,onClick={startCorrection(loaded)},modifier=Modifier.fillMaxWidth()) {
+                            OutlinedButton(enabled=!busy,onClick={startCorrection(loaded.invoice.id)},modifier=Modifier.fillMaxWidth()) {
                                 Text("صورتحساب اصلاحی")
                             }
                         }
@@ -1117,9 +1125,10 @@ private fun InvoiceScreenContent(
                             onClick = { subject = InvoiceSubject.ORIGINAL;referenceTaxId = "" },
                             label = { Text("اصلی") })
                         FilterChip(selected = subject == InvoiceSubject.CORRECTION,
-                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
-                            onClick = { subject = InvoiceSubject.CORRECTION;referenceTaxId = "";lines = emptyList() },
-                            label = { Text("اصلاحی (آزمایشی)") })
+                            enabled = !busy && !editorLocked && invoiceId == null,
+                            onClick = { correctionPicker = true },
+                            modifier = Modifier.testTag("chooseCorrectionReference"),
+                            label = { Text("اصلاحی") })
                         FilterChip(selected = subject == InvoiceSubject.RETURN,
                             enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
                             onClick = { subject = InvoiceSubject.RETURN; referenceTaxId = ""; lines = emptyList() },
@@ -1189,7 +1198,7 @@ private fun InvoiceScreenContent(
                                 }) }
                         }
                     } else if (acceptedOriginals.isEmpty()) {
-                        Text("صورتحساب ارجاعی پس از پذیرش صورتحساب اصلی و ثبت رسید معتبر در دسترس می‌شود.",
+                        Text("برای اصلاحیه، گزینه اصلاحی را بزنید و فاکتور اصلی را انتخاب کنید؛ تطبیق رسید پیش از ایجاد انجام می‌شود.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     }
@@ -1422,6 +1431,35 @@ private fun InvoiceScreenContent(
                 onPreview = { previewDialog = true }
             )
         }
+    }
+
+    if (correctionPicker && mode == "edit") {
+        val candidates = correctionCandidates(invoices, officialByInvoice, ownerId, companyId, customerId)
+        AlertDialog(
+            onDismissRequest = { correctionPicker = false },
+            title = { Text("انتخاب فاکتور اصلی برای اصلاح") },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("فاکتورهای همین مشتری؛ انتخاب مرجع، اطلاعات فرم ذخیره‌نشده را جایگزین می‌کند. یک اعتبار هنگام اولین ذخیره مصرف می‌شود.")
+                    if (candidates.isEmpty()) Text("برای مشتری انتخاب‌شده فاکتور اصلی با پذیرش گزارش‌شده وجود ندارد. ابتدا وضعیت ارسال فاکتور اصلی را استعلام کنید یا مشتری دیگری انتخاب کنید.")
+                    candidates.forEach { original ->
+                        val receipt = officialByInvoice[original.id]
+                        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = {
+                            correctionPicker = false
+                            startCorrection(original.id)
+                        }) {
+                            Column {
+                                Text("فاکتور ${original.invoiceNumber} • ${original.issueDate}")
+                                Text(if (needsLegacyReferenceCheck(receipt)) "نیازمند تطبیق رسید مرجع" else "مرجع تأییدشده",
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { correctionPicker = false }) { Text("بستن") } }
+        )
     }
 
     if (previewDialog && mode == "edit") {
