@@ -606,6 +606,39 @@ class OfficialSubmissionServiceTest {
         assertEquals(0,api.posts)
     }
 
+    @Test fun documentedLegacySuccessWithoutTaxIdCanBindExistingReference()=runBlocking {
+        val parent=legacyReferralParent(false)
+        assertFalse(OfficialReferenceEvidence.eligible(parent))
+        var response=LegacyInvoiceInquiry(parent.requestId,null,"legacy-reference","SUCCESS",emptyList(),parent.fiscalId,
+            confirmationReferenceId="confirmation-id")
+        var inquiries=0
+        service.legacyGateway=object:LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String):LegacyPreparedInvoice = error("unexpected prepare")
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement = error("unexpected POST")
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String):LegacyInvoiceInquiry {
+                inquiries++; return response
+            }
+        }
+        val valid=response
+        for (invalid in listOf(valid.copy(confirmationReferenceId=null),valid.copy(referenceNumber="other"),
+            valid.copy(uid="other"),valid.copy(fiscalId=null),valid.copy(taxId="wrong"),valid.copy(status="PENDING"))) {
+            response=invalid
+            reject { service.verifyLegacyReference(parent.requestId) }
+            assertFalse(OfficialReferenceEvidence.eligible(db.officialSubmissionDao().byId(parent.requestId)!!))
+        }
+        response=valid
+        val verified=service.verifyLegacyReference(parent.requestId)
+        assertTrue(OfficialReferenceEvidence.eligible(verified))
+        assertNull(verified.signedReceipt)
+        assertEquals(parent.taxId,verified.taxId)
+        assertEquals(7,inquiries)
+        assertEquals(0,api.posts)
+        val id=createReferredDocument("CORRECTION","13",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+86_400_000}
+        val prepared=next.prepare(company,id,"2026-11-04T12:00:00+03:30","164","LEGACY")
+        assertEquals(parent.taxId,JSONObject(prepared.payload).getJSONObject("header").getString("irtaxid"))
+    }
+
     @Test fun legacyMissingFiscalEvidenceCannotUnlockReferredInvoice()=runBlocking {
         val parent=legacyReferralParent(false)
         assertEquals("ACCEPTED",parent.state)

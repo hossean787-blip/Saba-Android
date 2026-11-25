@@ -47,3 +47,5 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.79.0 rebuild: fix Kotlin local function declaration order; place exact «صورتحساب اصلاحی» action directly beneath PDF export. Preserve verified parent and no certificate route.
 
 0.81.0: link original to correction in event/list/PDF/details; distinguish draft, pending, rejected and registered correction. Do not issue separate cancellation or assert buyer reaction/cancellation from posting success. Existing direct inquiry API does not provide verified buyer reaction; confirm legal status in portal. Add link regression tests. Signed build requested.
+
+0.83.0: bind documented certificate-free SUCCESS inquiry without returned taxId using matching existing reference, fiscalId, UID, confirmation ID and immutable payload hash/header. Reject conflicting or missing evidence; no original resubmission. Signed build requested; live correction remains unverified.

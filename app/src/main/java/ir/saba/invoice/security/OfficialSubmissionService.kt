@@ -422,21 +422,28 @@ class OfficialSubmissionService(
         return requireNotNull(db.officialSubmissionDao().byId(id))
     }
 
-    private fun legacyIdentityBound(row: OfficialSubmission, result: LegacyInvoiceInquiry): Boolean =
-        result.status == "SUCCESS" && result.uid == row.requestId &&
-            result.fiscalId == row.fiscalId && result.taxId == row.taxId &&
-            !result.referenceNumber.isNullOrBlank() &&
-            (row.referenceNumber == null || row.referenceNumber == result.referenceNumber)
+    private fun legacyIdentityBound(row: OfficialSubmission, result: LegacyInvoiceInquiry): Boolean {
+        if (result.status != "SUCCESS" || result.uid != row.requestId ||
+            result.fiscalId != row.fiscalId || result.referenceNumber.isNullOrBlank() ||
+            (row.referenceNumber != null && row.referenceNumber != result.referenceNumber)) return false
+        if (result.taxId != null) return result.taxId == row.taxId
+        // The documented self-TSP SUCCESS receipt can omit taxId. Bind it to the
+        // original durable request using its existing tracking reference, explicit
+        // fiscal memory, UID, confirmation ID and the unchanged original payload.
+        if (row.referenceNumber.isNullOrBlank() || result.confirmationReferenceId.isNullOrBlank()) return false
+        return SubmissionPreparation.sha256Hex(row.payload.toByteArray(Charsets.UTF_8)) == row.payloadHash &&
+            runCatching { JSONObject(row.payload).getJSONObject("header").getString("taxid") == row.taxId }.getOrDefault(false)
+    }
 
     /** Read-only recheck for older accepted legacy records; no new invoice POST.
-     * A missing identifier is not replaced with the request's identifier. */
+     * A missing taxId is not invented; independently bind documented receipt fields to the immutable request. */
     suspend fun verifyLegacyReference(id: String): OfficialSubmission {
         sessionCheck()
         val initial = row(id)
         require(initial.protocol == "LEGACY" && initial.state == "ACCEPTED")
         val result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
         require(legacyIdentityBound(initial, result)) {
-            "تطبیق کامل شماره مالیاتی، حافظه و پیگیری مرجع در پاسخ استعلام ممکن نشد؛ سند ارجاعی فعلاً مجاز نیست. این نتیجه به معنی رد فاکتور نیست؛ ارسال مجدد نکنید."
+            "تطبیق رسید مرجع ممکن نشد؛ شناسه درخواست، حافظه، پیگیری و شواهد پذیرش باید معتبر باشند. فاکتور اصلی را مجدداً ارسال نکنید."
         }
         db.withTransaction {
             sessionCheck()
