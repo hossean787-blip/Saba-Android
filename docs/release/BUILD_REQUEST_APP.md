@@ -71,3 +71,5 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.101.0 final build request: durable audit timeline for future send claims/acks/inquiries/reference checks and local cancellations; Room migration 16->17, archive schema 15/16 backwards compatibility, restore historical audit without accepting old receipts. UI displays up to 100 recent events; old events cannot be reconstructed. Added archive, action-gate and service regression tests. No live financial posting performed.
 
 0.101.0: fix compilation of management cancel callback by targeting concrete transactional InvoiceRepository rather than draft-gateway interface; re-request signed build.
+
+0.101.0: update explicit Room migration test chains to include 16->17, ensuring legacy schema migration tests reach current version. Signed build requested for final commit.

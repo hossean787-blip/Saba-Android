@@ -49,7 +49,7 @@ class OfficialSubmissionProtocolMigrationTest {
             sql.version=14
         }
         db=Room.databaseBuilder(context,SabaDatabase::class.java,name)
-            .addMigrations(SabaDatabase.MIGRATION_14_15,SabaDatabase.MIGRATION_15_16).build()
+            .addMigrations(SabaDatabase.MIGRATION_14_15,SabaDatabase.MIGRATION_15_16,SabaDatabase.MIGRATION_16_17).build()
         try {
             val persisted=db.officialSubmissionDao().byId(original.requestId)!!
             assertEquals("V2",persisted.protocol)
