@@ -39,6 +39,7 @@ public final class AdminActivity extends Activity {
     private static final int MAX_EXPORT_BYTES = 10 * 1024 * 1024;
     private WebView web;
     private byte[] pendingBytes;
+    private ManagerLoginVault loginVault;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,6 +52,9 @@ public final class AdminActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setSavePassword(false);
+        settings.setSaveFormData(false);
+        if (Build.VERSION.SDK_INT >= 26) web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setAllowFileAccessFromFileURLs(false);
@@ -64,6 +68,18 @@ public final class AdminActivity extends Activity {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         boolean isDebuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         WebView.setWebContentsDebuggingEnabled(isDebuggable);
+        loginVault = new ManagerLoginVault(this, new ManagerLoginVault.Listener() {
+            @Override public void state(String email, boolean saved, boolean available) {
+                localScript("window.suraVaultState(" + org.json.JSONObject.quote(email) + "," + saved + "," + available + ")");
+            }
+            @Override public void unlocked(String email, String password) {
+                localScript("window.suraVaultUnlocked(" + org.json.JSONObject.quote(email) + "," + org.json.JSONObject.quote(password) + ")");
+            }
+            @Override public void notice(String message) {
+                localScript("window.suraVaultNotice(" + org.json.JSONObject.quote(message) + ")");
+                alert(message);
+            }
+        });
         web.addJavascriptInterface(new ExportBridge(), "SuraNative");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new SecureClient());
@@ -124,7 +140,15 @@ public final class AdminActivity extends Activity {
         return "https".equals(uri.getScheme()) && APP_HOST.equals(uri.getHost()) && uri.getPort() == -1;
     }
 
+    private boolean trustedPage() { return web != null && !isFinishing() && ENTRY.equals(web.getUrl()); }
+    private void localScript(String script) { if (trustedPage()) web.evaluateJavascript(script, null); }
     public final class ExportBridge {
+        @JavascriptInterface public void loginState() { runOnUiThread(() -> { if (trustedPage()) loginVault.state(); }); }
+        @JavascriptInterface public void rememberEmail(String email) { runOnUiThread(() -> { if (trustedPage()) loginVault.rememberEmail(email); }); }
+        @JavascriptInterface public void enrollLogin(String email, String password) { runOnUiThread(() -> { if (trustedPage()) loginVault.enroll(email, password); }); }
+        @JavascriptInterface public void unlockLogin() { runOnUiThread(() -> { if (trustedPage()) loginVault.unlock(); }); }
+        @JavascriptInterface public void forgetLogin() { runOnUiThread(() -> { if (trustedPage()) loginVault.forget(); }); }
+        @JavascriptInterface public void forgetPassword() { runOnUiThread(() -> { if (trustedPage()) loginVault.clearPassword(); }); }
         @JavascriptInterface public void saveFile(String name, String mime, String contentBase64) {
             if (name == null || mime == null || contentBase64 == null) return;
             if (!name.matches("sura-report-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.(csv|xlsx)")) return;
@@ -170,7 +194,9 @@ public final class AdminActivity extends Activity {
     }
     @Override protected void onPause() { if (web != null) web.onPause(); super.onPause(); }
     @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+    @Override protected void onStop() { if (loginVault != null) loginVault.cancel(); super.onStop(); }
     @Override protected void onDestroy() {
+        if (loginVault != null) loginVault.cancel();
         if (web != null) { web.removeJavascriptInterface("SuraNative"); web.destroy(); web = null; }
         pendingBytes = null;
         super.onDestroy();
