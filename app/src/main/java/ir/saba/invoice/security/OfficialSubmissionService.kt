@@ -418,7 +418,7 @@ class OfficialSubmissionService(
         require(initial.protocol == "LEGACY" && initial.state == "ACCEPTED")
         val result = legacyGateway.inquire(initial.companyId, initial.fiscalId, initial.requestId, initial.taxId)
         require(legacyIdentityBound(initial, result)) {
-            "پاسخ استعلام شماره مالیاتی، حافظه و پیگیری مرجع را صریحاً تأیید نکرد؛ صدور سند ارجاعی مجاز نیست."
+            "تطبیق کامل شماره مالیاتی، حافظه و پیگیری مرجع در پاسخ استعلام ممکن نشد؛ سند ارجاعی فعلاً مجاز نیست. این نتیجه به معنی رد فاکتور نیست؛ ارسال مجدد نکنید."
         }
         db.withTransaction {
             sessionCheck()

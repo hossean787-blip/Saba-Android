@@ -287,9 +287,11 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         Button(enabled = bytes != null, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("ذخیره PDF") }
         if (invoice.status in setOf("DRAFT", "FINALIZED") &&
-            (official == null || official.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED"))) {
+            (official == null || official.state in setOf("PREPARED", "SENDING", "UNKNOWN", "SUBMITTED") ||
+                needsLegacyReferenceCheck(official))) {
             OutlinedButton(onClick = onSend, modifier = Modifier.fillMaxWidth()) {
-                Text(if (official?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
+                Text(if (needsLegacyReferenceCheck(official)) "استعلام و تطبیق مرجع"
+                    else if (official?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED"))
                     "استعلام وضعیت ارسال" else "ارسال به سامانه مؤدیان")
             }
         }

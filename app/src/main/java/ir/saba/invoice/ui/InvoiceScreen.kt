@@ -84,6 +84,15 @@ internal fun invoiceStatus(status: String) = when (status) {
     else -> status
 }
 
+/** SUCCESS from authenticated direct inquiry is distinct from eligibility as a reference. */
+internal fun needsLegacyReferenceCheck(row: OfficialSubmission?): Boolean =
+    row?.protocol == "LEGACY" && row.state == "ACCEPTED" &&
+        !row.referenceNumber.isNullOrBlank() && !OfficialReferenceEvidence.eligible(row)
+
+internal fun isLegacyEvidenceMessage(row: OfficialSubmission): Boolean =
+    row.protocol == "LEGACY" && row.state == "ACCEPTED" &&
+        row.lastError in setOf(OfficialReferenceEvidence.LEGACY_BOUND, OfficialReferenceEvidence.LEGACY_UNBOUND)
+
 /** Compact status for the list, details and PDF; never infer acceptance from a tax ID. */
 internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): String = when (row?.state) {
     null -> if (!invoice.trackingCode.isNullOrBlank() || invoice.status == "RESTORED")
@@ -92,6 +101,7 @@ internal fun invoiceReceiptLabel(invoice: Invoice, row: OfficialSubmission?): St
     "SENDING", "UNKNOWN" -> "وضعیت نامشخص؛ نیازمند استعلام"
     "SUBMITTED" -> "ارسال شده؛ در انتظار پذیرش"
     "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row)) "پذیرفته شده در سامانه"
+        else if (needsLegacyReferenceCheck(row)) "پذیرش گزارش‌شده؛ تطبیق مرجع لازم است"
         else "پاسخ موفق؛ پذیرش نیازمند بررسی"
     "REJECTED" -> "رد شده در سامانه"
     "RESTORED" -> "سابقه نیازمند استعلام"
@@ -105,7 +115,9 @@ internal fun invoiceTaxStatus(row: OfficialSubmission?): String = when (row?.sta
     "SENDING", "UNKNOWN" -> "وضعیت ارسال قطعی نیست؛ تنها استعلام کنید و صورتحساب را مجدداً ارسال نکنید."
     "SUBMITTED" -> "در سامانه ارسال شده؛ پذیرش نهایی هنوز تأیید نشده و استعلام لازم است."
     "ACCEPTED" -> if (row.protocol == "LEGACY")
-        "سامانه در مسیر بدون گواهی نتیجه موفق گزارش کرده است؛ رسید امضاشده نسخه ۲ موجود نیست."
+        if (OfficialReferenceEvidence.eligible(row))
+            "پذیرفته شده در سامانه؛ شناسه‌های مرجع با استعلام تطبیق داده شده‌اند."
+        else "استعلام مستقیم سامانه موفق گزارش شده است. برای صدور سند ارجاعی، تطبیق کامل مرجع لازم است؛ ارسال مجدد نکنید."
         else if (row.signedReceipt.isNullOrBlank())
         "وضعیت پذیرش نیازمند بررسی رسید سازمان است."
         else "صورتحساب در سامانه مؤدیان پذیرفته شده و رسید امضاشده بررسی شده است."
@@ -381,6 +393,20 @@ private fun InvoiceScreenContent(
         if (busy) return
         val invoice = loaded.invoice
         val record = officialRecord
+        if (needsLegacyReferenceCheck(record)) {
+            perform {
+                try {
+                    sendProgress = "در حال تطبیق مرجع همان صورتحساب…"
+                    officialService.verifyLegacyReference(requireNotNull(record).requestId)
+                    onNotice("تطبیق مرجع موفق بود؛ هیچ صورتحساب جدیدی ارسال نشد.")
+                } finally {
+                    sendProgress = ""
+                    reloadOfficial(invoice.id)
+                    mode = "details"
+                }
+            }
+            return
+        }
         if (record?.state in setOf("SENDING", "UNKNOWN", "SUBMITTED")) {
             perform {
                 try {
@@ -625,6 +651,12 @@ private fun InvoiceScreenContent(
                                         MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                                 officialRecord?.taxId?.let { Text("شماره مالیاتی: $it") }
                                 officialRecord?.referenceNumber?.let { Text("شماره پیگیری رسمی: $it") }
+                                if (needsLegacyReferenceCheck(officialRecord)) {
+                                    OutlinedButton(enabled = !busy, onClick = { requestOfficialSend(loaded) },
+                                        modifier = Modifier.fillMaxWidth().testTag("invoiceVerifyLegacyReference")) {
+                                        Text("استعلام و تطبیق مرجع")
+                                    }
+                                }
                                 if (officialRecord == null && !invoice.trackingCode.isNullOrBlank())
                                     Text("کد پیگیری سابقه: ${invoice.trackingCode}؛ نیازمند استعلام")
                             }
@@ -689,11 +721,10 @@ private fun InvoiceScreenContent(
                         }) { Text("پیش‌نمایش و PDF فاکتور") }
                         Text(invoiceTaxStatus(officialRecord),
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (officialRecord?.state == "ACCEPTED" &&
-                                !officialRecord?.signedReceipt.isNullOrBlank())
+                            color = if (officialRecord?.let(OfficialReferenceEvidence::eligible) == true)
                                 MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant)
-                        officialRecord?.lastError?.takeIf { it.isNotBlank() }?.let {
+                        officialRecord?.takeUnless(::isLegacyEvidenceMessage)?.lastError?.takeIf { it.isNotBlank() }?.let {
                             Text(it.take(300), color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)
                         }

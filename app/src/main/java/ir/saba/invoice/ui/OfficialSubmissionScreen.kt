@@ -141,13 +141,16 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
                     Text(when(row.state) {
                         "PREPARED" -> "آماده؛ ارسال نشده"
                         "SUBMITTED" -> "در سامانه در انتظار اعتبارسنجی؛ نتیجه نهایی نشده"
-                        "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row)) "پذیرفته‌شده در سامانه" else "پاسخ موفق؛ پذیرش نیازمند بررسی"
+                        "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row)) "پذیرفته‌شده در سامانه"
+                            else if (needsLegacyReferenceCheck(row)) "پذیرش گزارش‌شده؛ تطبیق مرجع لازم است"
+                            else "پاسخ موفق؛ پذیرش نیازمند بررسی"
                         "REJECTED" -> "ردشده در سامانه"
                         "RESTORED" -> "سابقه بازیابی‌شده؛ بدون امکان ارسال مجدد"
                         else -> "نتیجه نامشخص؛ استعلام لازم است"
                     })
                     row.referenceNumber?.let { Text("شماره پیگیری: $it") }
-                    row.lastError?.let { Text(it) }
+                    if (isLegacyEvidenceMessage(row)) Text(invoiceTaxStatus(row))
+                    else row.lastError?.let { Text(it) }
                     if(row.state=="PREPARED") {
                         val related = invoiceRows.firstOrNull { it.id == row.invoiceId }
                         // Invalid or unavailable metadata must not make the send action appear safe.
@@ -194,7 +197,7 @@ private fun OfficialSubmissionContent(db: SabaDatabase, account: AccountScope, c
         AlertDialog(
             onDismissRequest = { sendOutcome = null },
             title = { Text(when (result.state) {
-                "ACCEPTED" -> "نتیجه پذیرش ثبت شد"
+                "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(result)) "نتیجه پذیرش ثبت شد" else "پاسخ موفق سامانه"
                 "REJECTED" -> "صورتحساب رد شد"
                 else -> "نتیجه نهایی هنوز دریافت نشده"
             }) },

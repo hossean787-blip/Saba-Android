@@ -207,6 +207,16 @@ class InvoiceScreenTest {
         assertEquals("پاسخ موفق؛ پذیرش نیازمند بررسی", invoiceReceiptLabel(invoice, row.copy(state = "ACCEPTED", referenceNumber = "ref")))
         assertEquals("پذیرفته شده در سامانه", invoiceReceiptLabel(invoice, row.copy(state = "ACCEPTED", referenceNumber = "ref", signedReceipt = "signed", protocol = "V2")))
         assertEquals("پذیرفته شده در سامانه", invoiceReceiptLabel(invoice, row.copy(state = "ACCEPTED", referenceNumber = "ref", protocol = "LEGACY", lastError = OfficialReferenceEvidence.LEGACY_BOUND)))
+        val reported = row.copy(state = "ACCEPTED", referenceNumber = "ref", protocol = "LEGACY",
+            lastError = OfficialReferenceEvidence.LEGACY_UNBOUND)
+        assertEquals("پذیرش گزارش‌شده؛ تطبیق مرجع لازم است", invoiceReceiptLabel(invoice, reported))
+        check(ir.saba.invoice.ui.needsLegacyReferenceCheck(reported))
+        check(!ir.saba.invoice.ui.needsLegacyReferenceCheck(reported.copy(lastError = OfficialReferenceEvidence.LEGACY_BOUND)))
+        check(!ir.saba.invoice.ui.needsLegacyReferenceCheck(reported.copy(state = "REJECTED")))
+        check(!ir.saba.invoice.ui.needsLegacyReferenceCheck(reported.copy(referenceNumber = null)))
+        check(ir.saba.invoice.ui.isLegacyEvidenceMessage(reported))
+        check(!OfficialReferenceEvidence.eligible(reported))
+        check(!invoiceTaxStatus(reported).contains("نسخه ۲"))
         assertEquals("رد شده در سامانه", invoiceReceiptLabel(invoice, row.copy(state = "REJECTED")))
     }
 

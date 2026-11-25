@@ -15,3 +15,5 @@ Confirmed Maven Central HTTP 429 in CI 45628748312 and release 45628747686. Rest
 Version 0.59.0: match approved landscape invoice sample, use bundled Vazirmatn and SURA logo, preserve exact financial amounts and official evidence, no QR. Update PDF Android regression tests and request signed build.
 
 0.59.0 retry: preserve itemTitle through durable invoice creation payload, including recovery; retain optional backward-compatible decoding for old claims. Update starter fallback regression to verify reported VAT and unverified provenance instead of obsolete blank-rate expectation. All original tests remain enabled.
+
+0.61.0: clarify direct inquiry SUCCESS vs reference identity verification; expose read-only reference recheck in details and PDF, suppress misleading V2 receipt evidence warnings from visible error text, preserve strict reference eligibility and prohibit resending. Regression test status and request eligibility. Request signed APK.
