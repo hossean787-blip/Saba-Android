@@ -167,6 +167,31 @@ class OfficialSubmissionServiceTest {
         assertEquals(result,db.officialSubmissionDao().byId(prepared.requestId))
     }
 
+    @Test fun legacyPreflightFailurePersistsSafeStageAndNeverPostsInvoice()=runBlocking {
+        credentials.stagePrivateKey(company,TestCertificates.pem(customerKey))
+        val prepared=service.prepare(company,invoice,"2026-11-03T12:00:00+03:30","164","LEGACY")
+        var sends=0
+        service.legacyGateway=object:LegacyInvoiceGateway {
+            override suspend fun prepare(companyId:Long,fiscalId:String,uid:String,payload:String):LegacyPreparedInvoice {
+                throw LegacyPreflightFailure("دریافت توکن مؤدی (GET_TOKEN)", java.net.SocketTimeoutException("secret"))
+            }
+            override suspend fun send(prepared:LegacyPreparedInvoice,expectedUid:String):LegacyInvoiceAcknowledgement {
+                sends++
+                error("unexpected invoice POST")
+            }
+            override suspend fun inquire(companyId:Long,fiscalId:String,uid:String,taxId:String):LegacyInvoiceInquiry =
+                error("unexpected inquiry")
+        }
+        reject { service.submitAndInquire(prepared.requestId) }
+        val row=requireNotNull(db.officialSubmissionDao().byId(prepared.requestId))
+        assertEquals("PREPARED", row.state)
+        assertEquals(0,sends)
+        assertNull(row.referenceNumber)
+        assertTrue(row.lastError.orEmpty().contains("GET_TOKEN"))
+        assertTrue(row.lastError.orEmpty().contains("NET-TIMEOUT"))
+        assertFalse(row.lastError.orEmpty().contains("secret"))
+    }
+
     @Test fun futureSelectedTimeBlocksSubmissionBeforeAnyTaxNetworkOrQuotaChange()=runBlocking {
         val original = requireNotNull(db.invoiceDao().byId(invoice))
         val future = InvoiceLocalDetails(

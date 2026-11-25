@@ -52,6 +52,8 @@ object OfficialReferenceEvidence {
     @Query("DELETE FROM official_submissions WHERE requestId=:id AND state='PREPARED'") suspend fun discardPrepared(id: String): Int
     @Query("UPDATE official_submissions SET state='SENDING', lastError=NULL WHERE requestId=:id AND state='PREPARED'")
     suspend fun claim(id: String): Int
+    @Query("UPDATE official_submissions SET lastError=:message WHERE requestId=:id AND ownerId=:ownerId AND state='PREPARED'")
+    suspend fun recordPreflightError(id: String, ownerId: String, message: String): Int
     @Query("UPDATE official_submissions SET state=:state, referenceNumber=COALESCE(:reference,referenceNumber), lastError=:error, signedReceipt=:receipt WHERE requestId=:id AND state IN ('SENDING','UNKNOWN','SUBMITTED')")
     suspend fun resolve(id: String, state: String, reference: String?, error: String?, receipt: String? = null): Int
 }

@@ -23,6 +23,26 @@ class LegacyPreparedInvoice(val envelope: String, val headers: Map<String, Strin
 data class LegacyInvoiceAcknowledgement(val uid: String, val referenceNumber: String?)
 data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>, val fiscalId: String? = null)
 
+/** Safe diagnostic: do not include raw server messages or credentials. */
+internal class LegacyPreflightFailure(stage: String, cause: Exception) : IllegalStateException(
+    "ارسال انجام نشد؛ مرحله " + stage + " ناموفق بود. " + when (cause) {
+        is java.net.UnknownHostException -> "[NET-DNS]"
+        is java.net.SocketTimeoutException -> "[NET-TIMEOUT]"
+        is javax.net.ssl.SSLException -> "[NET-TLS]"
+        is java.net.ConnectException -> "[NET-CONNECT]"
+        is org.json.JSONException -> "[TAX-RESPONSE-FORMAT]"
+        is java.security.GeneralSecurityException -> "[TAX-CRYPTO]"
+        is java.io.IOException -> "[NET-IO]"
+        else -> {
+            val status = Regex("HTTP ([1-5][0-9]{2})").find(cause.message.orEmpty())?.groupValues?.get(1)
+            if (status != null) "[HTTP-" + status + "]" else "[TAX-PREFLIGHT]"
+        }
+    }, cause
+)
+private suspend fun <T> legacyStage(stage: String, action: suspend () -> T): T =
+    try { action() } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+    catch (e: Exception) { throw LegacyPreflightFailure(stage, e) }
+
 /** Injection seam: preflight finishes before the durable SENDING claim and HTTP invoice POST. */
 interface LegacyInvoiceGateway {
     suspend fun prepare(companyId: Long, fiscalId: String, uid: String, payload: String): LegacyPreparedInvoice
@@ -204,11 +224,14 @@ internal class LegacyMoadianInvoiceGateway(
                 !header.has("bid") && !header.has("tbill") && !header.has("setm"))
         } else require(invoice.getJSONArray("body").length() > 0)
         require(!invoice.has("__suraProtocol"))
-        val auth = token(companyId, fiscalId)
-        val meta = result(sync(companyId, fiscalId, "GET_SERVER_INFORMATION", null)) as? JSONObject
-            ?: error("اطلاعات کلید سازمان معتبر نیست.")
-        val keys = MoadianSignedReceipt.keys(meta.getJSONObject("data").toString())
-        val key = keys.firstOrNull { it.purpose == 1 } ?: error("کلید رمزگذاری سازمان دریافت نشد.")
+        val auth = legacyStage("دریافت توکن مؤدی (GET_TOKEN)") { token(companyId, fiscalId) }
+        val key = legacyStage("دریافت کلید سازمان (GET_SERVER_INFORMATION)") {
+            val meta = result(sync(companyId, fiscalId, "GET_SERVER_INFORMATION", null)) as? JSONObject
+                ?: error("اطلاعات کلید سازمان معتبر نیست.")
+            val keys = MoadianSignedReceipt.keys(meta.getJSONObject("data").toString())
+            keys.firstOrNull { it.purpose == 1 } ?: error("کلید رمزگذاری سازمان دریافت نشد.")
+        }
+        return legacyStage("امضا و رمزگذاری صورتحساب") {
         val cipher = LegacyMoadianEncryption.wrap(invoice, key, rng)
         val row = packet("INVOICE.V01", cipher.first, fiscalId, uid)
             .put("dataSignature", sign(companyId, fiscalId, LegacyMoadianCanonical.normalize(invoice)))
@@ -220,7 +243,8 @@ internal class LegacyMoadianInvoiceGateway(
         val envelope = JSONObject().put("packets", JSONArray().put(row))
             .put("signature", signature).put("signatureKeyId", JSONObject.NULL)
         require(envelope.toString().length <= 4_000_000)
-        return LegacyPreparedInvoice(envelope.toString(), hs)
+        LegacyPreparedInvoice(envelope.toString(), hs)
+        }
     }
 
     override suspend fun send(prepared: LegacyPreparedInvoice, expectedUid: String): LegacyInvoiceAcknowledgement {

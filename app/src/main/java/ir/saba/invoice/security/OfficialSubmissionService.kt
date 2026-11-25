@@ -335,8 +335,16 @@ class OfficialSubmissionService(
         val invoice = requireNotNull(db.invoiceDao().byId(initial.invoiceId))
         InvoiceSendSchedule.requireDueForManualSubmission(
             InvoiceLocalDetails.fromJson(invoice.localDetailsJson), Instant.ofEpochMilli(clock()))
-        checkLegacySigningReadiness(initial.companyId)
-        val prepared = legacyGateway.prepare(initial.companyId, initial.fiscalId, initial.requestId, initial.payload)
+        val prepared = try {
+            checkLegacySigningReadiness(initial.companyId)
+            legacyGateway.prepare(initial.companyId, initial.fiscalId, initial.requestId, initial.payload)
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            val safe = if (e is LegacyPreflightFailure) e
+                else LegacyPreflightFailure("بررسی کلید و آماده‌سازی اتصال", e)
+            db.officialSubmissionDao().recordPreflightError(id, account.ownerId, requireNotNull(safe.message))
+            throw safe
+        }
         db.withTransaction {
             sessionCheck()
             require(row(id).protocol == "LEGACY")
