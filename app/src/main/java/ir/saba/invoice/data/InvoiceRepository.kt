@@ -238,9 +238,30 @@ class InvoiceRepository(private val db: SabaDatabase) {
         InvoiceDetails(invoice, db.invoiceLineDao().forInvoice(invoiceId))
     }
 
+    /** Cancel only an unposted document; retain financial identity and consumed credit. */
+    suspend fun cancelNeverSent(companyId:Long,invoiceId:Long,ownerId:String)=db.withTransaction {
+        require(db.companyDao().byId(companyId)?.purchaserId==ownerId)
+        val invoice=requireNotNull(db.invoiceDao().byId(invoiceId))
+        require(invoice.companyId==companyId && invoice.status in setOf("DRAFT","FINALIZED") && invoice.trackingCode.isNullOrBlank()) {
+            "فقط سند ارسال‌نشده قابل لغو محلی است."
+        }
+        require(db.moadianSimulationDao().latestForInvoice(invoiceId)==null)
+        val receipt=db.officialSubmissionDao().forInvoice(invoiceId)
+        if(receipt!=null) {
+            require(receipt.ownerId==ownerId && receipt.companyId==companyId &&
+                receipt.state in setOf("PREPARED","RESERVED") && receipt.referenceNumber.isNullOrBlank() && receipt.signedReceipt.isNullOrBlank()) {
+                "وضعیت ارسال قطعی نیست؛ لغو ممنوع است."
+            }
+            if(receipt.state=="PREPARED") check(db.officialSubmissionDao().reservePreparedIdentity(receipt.requestId)==1)
+        }
+        db.invoiceDao().update(invoice.copy(status="CANCELLED"))
+    }
+
     suspend fun deleteDraft(companyId: Long, invoiceId: Long) = db.withTransaction {
         val details = detailsForCompany(companyId, invoiceId)
         require(details.invoice.status == "DRAFT") { "فقط پیش‌نویس قابل حذف است؛ فاکتور نهایی قابل حذف نیست." }
+        require(db.officialSubmissionDao().forInvoice(invoiceId)==null) { "سند دارای شماره مالیاتی محفوظ است؛ از مدیریت ارسال لغو محلی کنید." }
+        require(details.invoice.trackingCode.isNullOrBlank())
         require(db.moadianSimulationDao().latestForInvoice(invoiceId) == null) { "فاکتور دارای سابقه آزمایش قابل حذف نیست." }
         if (db.quotaDao().useForInvoice(invoiceId) != null || db.legacyQuotaExemptionDao().contains(invoiceId) == 1) {
             // Keep a permanent invoice and consumption record; creating it already used one unit.

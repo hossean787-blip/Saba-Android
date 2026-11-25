@@ -46,6 +46,7 @@ internal enum class InvoiceEventStatus(val label: String) {
 /** A successful direct inquiry is not buyer approval or permission to create a referred invoice. */
 internal fun invoiceEventStatus(invoice: Invoice, receipt: OfficialSubmission?): InvoiceEventStatus {
     val row = receipt?.takeIf { it.invoiceId == invoice.id && it.companyId == invoice.companyId }
+    if(invoice.status=="CANCELLED" && (row==null || row.state=="RESERVED") && invoice.trackingCode.isNullOrBlank()) return InvoiceEventStatus.CANCELLED
     return when (row?.state) {
         "ACCEPTED" -> if (OfficialReferenceEvidence.eligible(row) ||
             (row.protocol == "LEGACY" && !row.referenceNumber.isNullOrBlank() &&

@@ -90,6 +90,27 @@ class OfficialSubmissionServiceTest {
                 .put("data",JSONObject().put("error",JSONArray().put(JSONObject().put("code","E123"))))).toString()
         }
     }
+    @Test fun managementCancellationPreservesReservedIdentityAndBlocksPosting()=runBlocking {
+        val row=prepare()
+        InvoiceRepository(db).cancelNeverSent(company,invoice,account.ownerId)
+        assertEquals("CANCELLED",db.invoiceDao().byId(invoice)?.status)
+        assertEquals("RESERVED",db.officialSubmissionDao().byId(row.requestId)?.state)
+        reject { service.submitAndInquire(row.requestId) }
+        assertEquals(0,api.posts)
+    }
+
+    @Test fun managementCannotCancelPendingOrAcceptedDocument()=runBlocking {
+        val row=prepare()
+        service.submit(row.requestId)
+        reject { InvoiceRepository(db).cancelNeverSent(company,invoice,account.ownerId) }
+        assertEquals("SUBMITTED",db.officialSubmissionDao().byId(row.requestId)?.state)
+        assertEquals("FINALIZED",db.invoiceDao().byId(invoice)?.status)
+        service.inquire(row.requestId)
+        reject { InvoiceRepository(db).cancelNeverSent(company,invoice,account.ownerId) }
+        assertEquals("ACCEPTED",db.officialSubmissionDao().byId(row.requestId)?.state)
+        assertEquals(1,api.posts)
+    }
+
     @Test fun oneClickSendImmediatelyInquiresAndPersistsSignedAcceptance()=runBlocking {
         val prepared=prepare()
         val states=mutableListOf<String>()
