@@ -13,3 +13,5 @@ Fix Kotlin DSL java extension shadowing: import ZipFile explicitly. Preserve dep
 Confirmed Maven Central HTTP 429 in CI 45628748312 and release 45628747686. Restrict documented Google-hosted Central mirrors to the pinned Android test SDK artifact, use artifact-only resolution, and reuse prepared local jars across retry and test invocation. Fall back to EU mirror and then Central. Full test and signing gates unchanged.
 
 Version 0.59.0: match approved landscape invoice sample, use bundled Vazirmatn and SURA logo, preserve exact financial amounts and official evidence, no QR. Update PDF Android regression tests and request signed build.
+
+0.59.0 retry: preserve itemTitle through durable invoice creation payload, including recovery; retain optional backward-compatible decoding for old claims. Update starter fallback regression to verify reported VAT and unverified provenance instead of obsolete blank-rate expectation. All original tests remain enabled.

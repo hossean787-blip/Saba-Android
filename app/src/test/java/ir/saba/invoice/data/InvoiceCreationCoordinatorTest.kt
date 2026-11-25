@@ -161,7 +161,7 @@ class InvoiceCreationCoordinatorTest {
             val item = InvoiceLineAmounts.fromUserInput(
                 "2710000138624", "فروش نیم کیلو",
                 "۰٫۵", 1000, 0, "۹٫۵", "164"
-            )
+            ).copy(itemTitle = "عنوان رسمی کالا")
             val original = InvoiceCreationSnapshot(customer, "101", "1405/08/12", listOf(item))
             val claim = coordinator.prepare(
                 company, original, UUID.randomUUID().toString(), InvoiceCreditKind.PAID
@@ -173,6 +173,8 @@ class InvoiceCreationCoordinatorTest {
             assertEquals("164", actual.unitCode)
             assertEquals("0.5", actual.quantityExact)
             assertEquals("9.5", actual.vatRateExact)
+            assertEquals("عنوان رسمی کالا", actual.itemTitle)
+            assertEquals("فروش نیم کیلو", actual.description)
             assertEquals(547L, db.invoiceDao().byId(invoiceId)!!.totalAmountRial)
             InvoiceRepository(db).finalizeDraft(company, invoiceId)
             assertEquals("FINALIZED", db.invoiceDao().byId(invoiceId)!!.status)

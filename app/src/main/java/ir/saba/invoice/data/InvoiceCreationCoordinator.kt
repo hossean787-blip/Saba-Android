@@ -45,7 +45,7 @@ class InvoiceCreationCoordinator(
                 quantity=item.getString("quantity").toLong(),unitPriceRial=item.getString("price").toLong(),
                 discountRial=item.getString("discount").toLong(),taxRatePercent=item.getString("tax").toInt(),
                 unitCode=item.optString("unitCode"), quantityExact=item.optString("quantityExact"),
-                vatRateExact=item.optString("vatRateExact"))
+                vatRateExact=item.optString("vatRateExact"), itemTitle=item.optString("itemTitle"))
         }
         val mode = root.optString("settlementMode", InvoiceSettlement.CASH)
         val cash = if (root.has("cashPaidRial") && !root.isNull("cashPaidRial"))
@@ -60,7 +60,7 @@ class InvoiceCreationCoordinator(
             .put("quantity",it.quantity.toString()).put("price",it.unitPriceRial.toString())
             .put("discount",it.discountRial.toString()).put("tax",it.taxRatePercent.toString())
             .put("unitCode",it.unitCode).put("quantityExact",it.quantityExact)
-            .put("vatRateExact",it.vatRateExact)) }
+            .put("vatRateExact",it.vatRateExact).put("itemTitle",it.itemTitle)) }
         val root = JSONObject().put("customer",snapshot.customerId.toString()).put("number",snapshot.number)
             .put("date",snapshot.date).put("lines",rows).put("settlementMode",snapshot.settlementMode)
         snapshot.cashPaidRial?.let { root.put("cashPaidRial", it) }

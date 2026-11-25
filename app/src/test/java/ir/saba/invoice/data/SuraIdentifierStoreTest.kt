@@ -84,7 +84,12 @@ class SuraIdentifierStoreTest {
             assertEquals("1234567890123", catalog.search("حمل", "خدمت", "عمومی").single().id)
             assertTrue(catalog.search("حمل", "کالا", null).isEmpty())
             // Unverified starter entries remain available when the installed catalog has no match.
-            assertTrue(catalog.search("2330001115075", "خدمت", null).any { it.id=="2330001115075" && it.vat.isEmpty() })
+            val candidate = catalog.search("2330001115075", "خدمت", null).single { it.id == "2330001115075" }
+            val bundled = catalog.starterEntries().single { it.id == candidate.id }
+            assertEquals(bundled.vat, candidate.vat)
+            assertTrue(candidate.vat in setOf("0", "10"))
+            assertEquals("Mohsensoft (pending)", candidate.source)
+            assertTrue(ir.saba.invoice.domain.InvoiceIdentifierPrefill.from(candidate).requiresVatReview)
         } finally {
             file.delete()
         }
