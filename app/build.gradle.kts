@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.zip.ZipFile
 
 plugins {
@@ -100,23 +101,33 @@ val sdkJars = declaredTestSdks.sorted().map { api ->
     }
     // Separate configurations prevent Gradle from choosing only the highest version.
     configurations.detachedConfiguration(
-        dependencies.create("org.robolectric:android-all-instrumented:$version")
+        dependencies.create("org.robolectric:android-all-instrumented:$version@jar")
     ).apply { isTransitive = false }
 }
 val robolectricSdkDir = layout.buildDirectory.dir("robolectric-sdk-jars")
-val prepareRobolectricSdks = tasks.register<Sync>("prepareRobolectricSdks") {
+val prepareRobolectricSdks = tasks.register("prepareRobolectricSdks") {
     group = "verification"
     description = "Resolve and stage all pinned Robolectric Android SDK jars."
-    sdkJars.forEach { from(it) }
-    into(robolectricSdkDir)
+    // Resolve lazily only when a local jar is absent or structurally invalid.
+    // A successful preparation from any approved mirror can be reused by tests.
     doLast {
-        val expected = declaredTestSdks.map { "android-all-instrumented-${robolectricSdkVersions.getValue(it)}.jar" }
-        expected.forEach { name ->
-            val jar = robolectricSdkDir.get().file(name).asFile
-            check(jar.isFile && jar.length() > 0) { "Missing Robolectric SDK: $name" }
-            ZipFile(jar).use { archive ->
-                check(archive.size() > 0) { "Empty Robolectric SDK: $name" }
+        val directory = robolectricSdkDir.get().asFile
+        directory.mkdirs()
+        fun valid(jar: File): Boolean = jar.isFile && jar.length() > 0 &&
+            runCatching { ZipFile(jar).use { it.size() > 0 } }.getOrDefault(false)
+        declaredTestSdks.sorted().forEachIndexed { index, api ->
+            val name = "android-all-instrumented-${robolectricSdkVersions.getValue(api)}.jar"
+            val jar = directory.resolve(name)
+            if (!valid(jar)) {
+                val source = sdkJars[index].singleFile
+                check(source.name == name && valid(source)) { "Invalid Robolectric SDK: $name" }
+                val temporary = directory.resolve("$name.tmp")
+                source.copyTo(temporary, overwrite = true)
+                check(valid(temporary)) { "Invalid staged Robolectric SDK: $name" }
+                temporary.copyTo(jar, overwrite = true)
+                temporary.delete()
             }
+            check(valid(jar)) { "Missing Robolectric SDK: $name" }
         }
         logger.lifecycle("ROBOLECTRIC_SDK_READY APIs=${declaredTestSdks.sorted()}")
     }

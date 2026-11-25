@@ -9,3 +9,5 @@ Retry after CI 45610216054: 459/460 passed; preserve pending-credit retry and sh
 CI dependency stabilization (same application version 0.57.0): stage pinned Robolectric SDK jars using Gradle dependency cache before running tests; retry preparation only; tests use local SDK jars, never download from Maven during test execution. Rebuild with all existing signing and test gates intact. No app behavior or signing identity changes.
 
 Fix Kotlin DSL java extension shadowing: import ZipFile explicitly. Preserve dependency preparation, tests and signed build gates.
+
+Confirmed Maven Central HTTP 429 in CI 45628748312 and release 45628747686. Restrict documented Google-hosted Central mirrors to the pinned Android test SDK artifact, use artifact-only resolution, and reuse prepared local jars across retry and test invocation. Fall back to EU mirror and then Central. Full test and signing gates unchanged.

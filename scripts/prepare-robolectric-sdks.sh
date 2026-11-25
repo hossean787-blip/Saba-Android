@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Retry dependency preparation only. Never mask a failed application test.
-for attempt in 1 2 3; do
-  if bash ./gradlew --no-daemon :app:prepareRobolectricSdks; then
+# Retry dependency preparation only. Use documented HTTPS Central mirrors.
+for repository in mirror eu central; do
+  if bash ./gradlew --no-daemon "-PsuraRobolectricRepository=$repository" :app:prepareRobolectricSdks; then
     exit 0
   fi
-  if [[ "$attempt" == 3 ]]; then
-    echo "::error::Robolectric SDK preparation failed after three attempts; tests were not started."
-    exit 1
-  fi
-  echo "::warning::SDK preparation failed (attempt $attempt); retrying Maven resolution."
-  sleep "$((attempt * 10))"
+  echo "::warning::SDK preparation failed via $repository."
+  if [[ "$repository" != central ]]; then sleep 15; fi
 done
+echo "::error::Robolectric SDK preparation failed on all configured repositories; tests were not started."
+exit 1
