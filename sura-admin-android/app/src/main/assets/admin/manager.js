@@ -368,3 +368,39 @@ async function starterPublish(){
  try{const d=await supportFetch('catalog-publish',starterDraft);if(d.status!=='published')throw Error('انتشار تأیید نشد');toast('نسخه '+d.version+' منتشر شد');showPage('starter');}
  catch(e){toast('انتشار تأیید نشد؛ نسخه جاری را دوباره بررسی کنید. '+String(e.message),'error');showPage('starter');}
 }
+
+
+/* Card receipts: admin-only; receipt is evidence, not proof of bank credit. */
+let cardPage=1,cardSelected="";
+async function cardFetch(route,body){
+ const response=await fetch(SB_URL+'/functions/v1/sura-card-transfer/'+route,{method:'POST',headers:{apikey:SB_ANON,authorization:'Bearer '+USER_JWT,'content-type':'application/json'},body:JSON.stringify(body)});
+ const data=await response.json();if(!response.ok||data.error)throw Error(data.error||'card_unavailable');return data;
+}
+function cardOpen(id){if(validUUID(id)){cardSelected=id;showPage('card-transfer');}}
+function cardBack(){cardSelected="";showPage('card-transfer');}
+function cardGo(page){cardPage=Math.max(1,page);cardBack();}
+async function renderCardTransfers(c){
+ if(!cardSelected){
+  const d=await cardFetch('admin-list',{page:cardPage}),rows=d.requests||[];
+  c.innerHTML='<div class="section-hero"><h2>رسیدهای کارت‌به‌کارت</h2><p>تنها پس از مشاهده واریز در گردش حساب بانکی تأیید کنید.</p></div>'+
+   rows.map(r=>'<div class="panel"><b>'+html(String(r.amount_rial))+' ریال</b><p>'+html(r.kind==='monthly'?'اشتراک ماهانه':'اعتبار تکی')+' | '+html(r.tracking)+'</p><p>'+html(r.owner_id)+'</p><button class="action-btn" onclick="cardOpen(\''+html(r.id)+'\')">بررسی رسید</button></div>').join('')+
+   (rows.length?'':'<div class="empty-note">درخواست در انتظار وجود ندارد.</div>')+
+   '<button class="action-btn" '+(cardPage===1?'disabled':'')+' onclick="cardGo('+(cardPage-1)+')">قبلی</button> <button class="action-btn" '+(rows.length<30?'disabled':'')+' onclick="cardGo('+(cardPage+1)+')">بعدی</button>';
+  return;
+ }
+ const d=await cardFetch('admin-detail',{id:cardSelected}),r=d.request;
+ c.innerHTML='<div class="section-hero"><h2>تطبیق بانکی</h2><button class="action-btn" onclick="cardBack()">بازگشت</button></div><div class="panel"><p>مبلغ سفارش: '+html(String(r.amount_rial))+' ریال</p><p>شماره پیگیری اعلامی: '+html(r.tracking)+'</p><p>تاریخ: '+html(r.transfer_date)+'</p><p>کارت مقصد: '+html(r.destination_card)+'</p>'+
+  (typeof r.receipt==='string'&&/^[A-Za-z0-9+/=]+$/.test(r.receipt)?'<img alt="تصویر رسید" style="width:100%;max-width:600px" src="data:image/jpeg;base64,'+r.receipt+'">':'<p>تصویر قابل نمایش نیست.</p>')+
+  (r.state==='pending'?'<div class="field-row"><label>مبلغ واقعی واریز (ریال)</label><input id="card-amount" inputmode="numeric"></div><div class="field-row"><label>شماره مرجع واقعی گردش حساب</label><input id="card-ref" inputmode="numeric" maxlength="40"></div><div class="field-row"><label>دلیل و توضیح بررسی</label><textarea id="card-reason" maxlength="500"></textarea></div><label><input type="checkbox" id="card-checked"> واریز واقعی را در حساب بانک بررسی کردم.</label><div><button class="action-btn" id="card-approve" onclick="cardReview(true)">تأیید و شارژ</button> <button class="action-btn" id="card-reject" onclick="cardReview(false)">رد رسید</button></div>':'<p>نتیجه: '+html(r.state)+'</p>')+'</div>';
+}
+async function cardReview(approve){
+ const reason=document.getElementById('card-reason').value.trim();
+ const amount=Number(document.getElementById('card-amount').value);
+ const reference=document.getElementById('card-ref').value.trim();
+ const checked=document.getElementById('card-checked').checked;
+ if(reason.length<3||approve&&(!checked||!Number.isSafeInteger(amount)||amount<=0||!/^\d{4,40}$/.test(reference)))return toast('مشخصات تطبیق بانکی یا دلیل کامل نیست','error');
+ if(!confirm(approve?'واریز واقعی بررسی شده و اعتبار شارژ شود؟':'درخواست رد شود؟'))return;
+ document.getElementById('card-approve').disabled=true;document.getElementById('card-reject').disabled=true;
+ try{await cardFetch('admin-review',{id:cardSelected,decision:approve?'approved':'rejected',amount:approve?amount:null,reference:approve?reference:null,bankChecked:checked,reason:reason});toast('نتیجه ثبت شد');cardBack();}
+ catch(e){toast('نتیجه تأیید نشد؛ مجدداً استعلام کنید','error');showPage('card-transfer');}
+}

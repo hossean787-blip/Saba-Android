@@ -102,6 +102,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     val cardShape = RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
         .padding(horizontal = 12.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        CardTransferPanel(accessToken)
         Text("خرید اعتبار", fontWeight = FontWeight.ExtraBold, color = deepBlue,
             style = MaterialTheme.typography.headlineSmall)
         Text("با خرید اعتبار، صورتحساب‌های خود را مدیریت کنید.",
