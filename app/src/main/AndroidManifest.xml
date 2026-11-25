@@ -11,6 +11,11 @@
         android:label="صورتحساب سورا"
         android:supportsRtl="true"
         android:theme="@style/Theme.Sura">
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.archivefiles"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/archive_file_paths" />
+        </provider>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

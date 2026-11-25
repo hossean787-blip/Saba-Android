@@ -19,7 +19,7 @@ import javax.crypto.spec.SecretKeySpec
 
 /** Deliberately scoped logical archive; never a copy of login keys or live balances. */
 internal object AccountArchiveCrypto {
-    const val LIMIT = 16 * 1024 * 1024
+    const val LIMIT = 32 * 1024 * 1024
     private val magic = "SURA-BACKUP-1".toByteArray(Charsets.US_ASCII)
     private const val SALT_SIZE = 16
     private const val IV_SIZE = 12
@@ -32,7 +32,7 @@ internal object AccountArchiveCrypto {
         finally { spec.clearPassword() }
     }
     fun seal(plain: ByteArray, password: CharArray): ByteArray {
-        require(plain.size in 1..LIMIT) { "حجم داده از سقف ۱۶ مگابایت بیشتر است." }
+        require(plain.size in 1..LIMIT) { "حجم داده از سقف ۳۲ مگابایت بیشتر است." }
         val random=SecureRandom()
         val salt=ByteArray(SALT_SIZE).also(random::nextBytes)
         val iv=ByteArray(IV_SIZE).also(random::nextBytes)
@@ -90,7 +90,8 @@ internal data class ArchiveRestoreResult(val added:ArchiveCounts,val credit:Arch
 internal class AccountArchive(
     private val db:SabaDatabase, private val account:AccountScope,
     private val checkSession:()->Unit,
-    private val reserveTaxpayerIds:(Long)->Unit
+    private val reserveTaxpayerIds:(Long)->Unit,
+    private val portable:AccountArchivePortable?=null
 ) {
     private val tables=listOf("companies","moadian_details","customers","customer_profiles",
         "invoices","invoice_lines","official_submissions")
@@ -103,14 +104,14 @@ internal class AccountArchive(
             row.put("encryptedPrivateKey",JSONObject.NULL)
             row.put("keyCheckStatus","UNCHECKED")
             row.put("logoUri","")
-            row.put("certificateExpiry","")
+            // Preserve expiration metadata.
             // A stale fiscal sequence must be reconciled before new issuance.
             if(restore) row.put("inactive",1)
         }
         if(table=="invoices" && restore) {
             row.put("status","RESTORED")
             val details=InvoiceLocalDetails.fromJson(row.getString("localDetailsJson"))
-            row.put("localDetailsJson",details.copy(documents=emptyList()).toJson())
+            if(portable==null) row.put("localDetailsJson",details.copy(documents=emptyList()).toJson())
         }
         if(table=="official_submissions" && restore) {
             val historicalState=row.getString("state")
@@ -126,6 +127,7 @@ internal class AccountArchive(
             checkSession()
             val sql=db.openHelper.writableDatabase
             val data=JSONObject()
+            val assets=JSONObject()
             var count=0
             var estimated=0L
             for(table in tables) {
@@ -146,6 +148,7 @@ internal class AccountArchive(
                             estimated+=name.length.toLong()*3+value.toString().length.toLong()*6+16
                             require(estimated<=AccountArchiveCrypto.LIMIT.toLong()*2) { "حجم پشتیبان از سقف مجاز بیشتر است." }
                         }
+                        portable?.captureRow(table,row,assets)
                         sanitize(table,row,false)
                         rows.put(row)
                     }
@@ -154,10 +157,36 @@ internal class AccountArchive(
             }
             val ids=data.getJSONArray("companies").let { a -> (0 until a.length()).map { a.getJSONObject(it).getLong("id") }.toSet() }
             if(credit!=null) require(credit.taxpayers.keys==ids) { "فهرست مؤدیان تغییر کرده است؛ دوباره پشتیبان بگیرید." }
-            JSONObject().put("format",2).put("schema",sql.version)
+            val root=JSONObject().put("format",if(portable==null) 2 else 3).put("schema",sql.version)
                 .put("owner",account.ownerId).put("createdAt",System.currentTimeMillis())
-                .put("creditSnapshot",credit?.toJson() ?: JSONObject.NULL)
-                .put("tables",data).toString().toByteArray(Charsets.UTF_8)
+                .put("creditSnapshot",credit?.toJson() ?: JSONObject.NULL).put("tables",data)
+            if(portable!=null) {
+                val journals=JSONObject()
+                for(table in listOf("quota_wallets","company_quotas","quota_transfers","invoice_quota_uses",
+                    "invoice_creation_claims","credit_transfer_claims","legacy_import_receipts",
+                    "legacy_quota_exemptions","moadian_simulations")) {
+                    val rows=JSONArray()
+                    sql.query("SELECT * FROM `$table`").use { c ->
+                        while(c.moveToNext()) {
+                            require(++count<=100_000)
+                            val row=JSONObject()
+                            for(i in 0 until c.columnCount) {
+                                val v=when(c.getType(i)) {
+                                    Cursor.FIELD_TYPE_NULL->JSONObject.NULL
+                                    Cursor.FIELD_TYPE_INTEGER->c.getLong(i)
+                                    Cursor.FIELD_TYPE_STRING->c.getString(i)
+                                    else->error("Unsupported journal value")
+                                }
+                                row.put(c.getColumnName(i),v)
+                            }
+                            rows.put(row)
+                        }
+                    }
+                    journals.put(table,rows)
+                }
+                root.put("portable",portable.captureAccount(ids,assets,journals))
+            }
+            root.toString().toByteArray(Charsets.UTF_8)
         }
         return try { AccountArchiveCrypto.seal(plain,password) } finally { plain.fill(0) }
     }
@@ -165,7 +194,7 @@ internal class AccountArchive(
         checkSession()
         val plain=AccountArchiveCrypto.open(blob,password)
         val root=try { JSONObject(String(plain,Charsets.UTF_8)) } finally { plain.fill(0) }
-        require(root.getInt("format") in 1..2 && root.getString("owner")==account.ownerId) { "فایل یا مالک پشتیبان معتبر نیست." }
+        require(root.getInt("format") in 1..3 && root.getString("owner")==account.ownerId) { "فایل یا مالک پشتیبان معتبر نیست." }
         val data=root.getJSONObject("tables")
         require(data.keys().asSequence().toSet()==tables.toSet()) { "ساختار فایل پشتیبان معتبر نیست." }
         require(tables.sumOf { data.getJSONArray(it).length() }<=100_000) { "تعداد ردیف‌ها بیش از سقف مجاز است." }
@@ -191,7 +220,9 @@ internal class AccountArchive(
         val credit=readCredit(ids+local)
         require(credit.taxpayers.keys==ids+local) { "استعلام تمام مؤدیان از سرور کامل نشد." }
         checkSession()
-        return ArchiveRestoreResult(merge(root),credit)
+        val added=merge(root)
+        if(root.getInt("format")==3) requireNotNull(portable).restoreAccount(root.getJSONObject("portable"),db,ids)
+        return ArchiveRestoreResult(added,credit)
     }
     // Compatibility entry for isolated archive unit tests; production restore always uses restoreWithCredit.
     internal suspend fun restore(blob:ByteArray,password:CharArray):ArchiveCounts=merge(decode(blob,password))
@@ -212,6 +243,8 @@ internal class AccountArchive(
     private suspend fun merge(root:JSONObject):ArchiveCounts {
         val data=root.getJSONObject("tables")
         val ids=archivedIds(data)
+        val extras=if(root.getInt("format")==3) root.getJSONObject("portable") else null
+        if(extras!=null) requireNotNull(portable).validate(extras,ids)
         return db.withTransaction {
             checkSession()
             val sql=db.openHelper.writableDatabase
@@ -274,6 +307,11 @@ internal class AccountArchive(
                         sql.execSQL("UPDATE invoices SET status='RESTORED' WHERE id=?",arrayOf(invoiceId))
                     }
                     sanitize(table,row,true)
+                    if(extras!=null) requireNotNull(portable).restoreRow(table,row,extras)
+                    else if(table=="invoices") {
+                        val details=InvoiceLocalDetails.fromJson(row.getString("localDetailsJson"))
+                        row.put("localDetailsJson",details.copy(documents=emptyList()).toJson())
+                    }
                     val values=ContentValues()
                     for(col in cols) when(val v=row.get(col)) {
                         JSONObject.NULL -> values.putNull(col)

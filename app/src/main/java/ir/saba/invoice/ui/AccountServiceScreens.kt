@@ -59,9 +59,9 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val archive=remember(db,account,accessToken) {
-        AccountArchive(db,account,{AccountSession.requireOwner(accessToken,account)}) {
-            TaxpayerIdAllocator(context.applicationContext).use { allocator -> allocator.advancePast(it) }
-        }
+        AccountArchive(db,account,{AccountSession.requireOwner(accessToken,account)},
+            { TaxpayerIdAllocator(context.applicationContext).use { allocator -> allocator.advancePast(it) } },
+            AccountArchivePortable(context.applicationContext,account))
     }
     var password by remember { mutableStateOf("") }
     var repeatPassword by remember { mutableStateOf("") }
@@ -103,7 +103,7 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
             } catch(e:CancellationException) { throw e }
             catch(e:Exception) {
                 status=if(e is IllegalArgumentException) e.message.orEmpty().take(220)
-                    else if(importing) "بازیابی انجام نشد؛ رمز، سلامت و سازگاری فایل را بررسی کنید. اطلاعات مقصد بازنویسی نشد."
+                    else if(importing) "بازیابی انجام نشد؛ رمز، سلامت و سازگاری فایل را بررسی کنید. اطلاعات فعلی بازنویسی نشد؛ اگر مرحله فایل‌ها یا کلیدها ناقص مانده، همان فایل را دوباره وارد کنید."
                     else "ساخت فایل پشتیبان ناموفق بود؛ فضای ذخیره‌سازی و مجوز فایل را بررسی کنید."
             } finally { secret.fill(' ');running=false;onBusy(false) }
         }
@@ -116,9 +116,9 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
         .padding(16.dp).testTag(if(restore) "restoreScreen" else "backupScreen"),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         ServiceHeader(if(restore) "بازیابی اطلاعات" else "پشتیبان‌گیری",
             if(restore) "بازیابی امن سوابق همان حساب" else "نسخه رمزگذاری‌شده اطلاعات حساب شما")
-        ServicePanel("محتوای فایل","تمام مؤدیان، مشتریان، صورتحساب‌ها و اقلام، شماره‌های مالیاتی، سوابق ارسال و گزارش مانده اعتبار مالک، تک‌تک مؤدیان و هدیه هنگام ذخیره. اعتبار ذخیره‌شده صرفاً گزارش است. رمز ورود، کلید خصوصی، فایل پیوست و لوگو منتقل نمی‌شوند.")
+        ServicePanel("محتوای فایل","تمام مؤدیان، مشتریان، فاکتورها و اقلام، سوابق مالی و ارسال، کلیدهای مالیاتی و گواهی، لوگوها، پیوست‌ها، شناسه‌های اختصاصی و مشخصات مالک. اعتبار ذخیره‌شده صرفاً گزارش است؛ رمز ورود، نشست و اثر انگشت منتقل نمی‌شوند.")
         if(restore) ServicePanel("شرایط بازیابی امن","فقط همان مالک و نسخه پایگاه داده؛ اطلاعات جدیدتر حذف یا بازنویسی نمی‌شود. صورتحساب‌های مفقود به صورت سوابق فقط‌خواندنی و مؤدیان جدیدِ بازیابی‌شده غیرفعال هستند تا سریال و وضعیت مالیاتی تطبیق داده شوند. مانده اعتبار فقط از سرور استعلام می‌شود؛ بازیابی در صورت اختلال استعلام متوقف می‌شود.")
-        else ServicePanel("حفاظت از نسخه پشتیبان","رمز مستقل حداقل ۱۲ نویسه انتخاب کنید. بدون رمز، بازیابی ممکن نیست. فایل را در محل امن نگه دارید. پشتیبان خودکار ابری نیست؛ سقف فایل داده ۱۶ مگابایت است.")
+        else ServicePanel("حفاظت از نسخه پشتیبان","رمز مستقل حداقل ۱۲ نویسه انتخاب کنید. بدون رمز، بازیابی ممکن نیست. فایل را در محل امن نگه دارید. پشتیبان خودکار ابری نیست؛ سقف داده ۳۲ مگابایت و مجموع پیوست‌ها ۲۰ مگابایت است؛ فایل ناقص ذخیره نمی‌شود.")
         OutlinedTextField(value=password,onValueChange={password=it.take(128)},label={Text("رمز فایل پشتیبان")},singleLine=true,
             visualTransformation=PasswordVisualTransformation(),enabled=!running,modifier=Modifier.fillMaxWidth().testTag("archivePassword"))
         if(!restore) OutlinedTextField(value=repeatPassword,onValueChange={repeatPassword=it.take(128)},label={Text("تکرار رمز")},singleLine=true,
@@ -135,6 +135,7 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
                 modifier=Modifier.fillMaxWidth().testTag("archiveRestore")) { Text("بازیابی اطلاعات") }
             TextButton(onClick=onLegacyRecovery,enabled=!running) { Text("بازیابی سوابق نسخه قدیمی سورا") }
             ArchiveHistoryBrowser(db,account,enabled=!running,refreshKey=status)
+            ArchiveJournalBrowser(account,status,!running)
         } else Button(onClick={save.launch("SURA-backup-${System.currentTimeMillis()}.sura")},
             enabled=!running && password.length>=12 && password==repeatPassword,
             modifier=Modifier.fillMaxWidth().testTag("archiveExport")) { Text("ساخت و ذخیره فایل پشتیبان") }
@@ -197,9 +198,9 @@ internal fun SuraServiceScreen(kind:String,onBack:()->Unit,onSupport:(()->Unit)?
             }
             "privacy" -> {
                 ServicePanel("وضعیت سیاست","پیش‌نویس اطلاع‌رسانی؛ اطلاعات متولی داده، راه درخواست حذف، مدت نگهداری و تاریخ اجرای رسمی باید قبل از انتشار تجاری تکمیل شود.")
-                ServicePanel("اطلاعات روی دستگاه","اطلاعات مؤدی، مشتری و صورتحساب در پایگاه داده محلی نگهداری می‌شود؛ کل پایگاه لزوماً رمزگذاری‌شده نیست. کلید خصوصی با سازوکار Android Keystore محافظت می‌شود و در فایل پشتیبان وارد نمی‌شود.")
+                ServicePanel("اطلاعات روی دستگاه","اطلاعات مؤدی، مشتری و صورتحساب در پایگاه داده محلی نگهداری می‌شود؛ کل پایگاه لزوماً رمزگذاری‌شده نیست. کلید خصوصی با Android Keystore محافظت می‌شود؛ در پشتیبان رمزدار به صورت قابل انتقال نگهداری و در مقصد دوباره محافظت می‌شود.")
                 ServicePanel("سرویس‌های آنلاین","ورود، حساب، اعتبار و سفارش‌ها در Supabase پردازش می‌شوند؛ میزبانی خارج از ایران ممکن است. ارسال مالیاتی به سامانه مؤدیان با تأیید کاربر است. پرداخت نسخه مستقیم از زرین‌پال عبور می‌کند.")
-                ServicePanel("فایل‌ها و پشتیبان","پشتیبان دستی رمزگذاری‌شده است و در محل انتخابی شما ذخیره می‌شود. فایل PDF و اکسل ممکن است محرمانه باشد. فایل پیوست، کلید مالیاتی و اطلاعات ورود در پشتیبان نیستند.")
+                ServicePanel("فایل‌ها و پشتیبان","پشتیبان دستی رمزگذاری‌شده است و در محل انتخابی شما ذخیره می‌شود. فایل PDF و اکسل ممکن است محرمانه باشد. پیوست و کلید مالیاتی در فایل رمزدار نگهداری می‌شوند؛ رمز ورود، نشست و داده بیومتریک وارد پشتیبان نمی‌شوند.")
                 ServicePanel("پشتیبانی و حقوق کاربران","درخواست‌های پشتیبانی ثبت‌شده و متن پیام در سرور نگهداری می‌شوند و برای پاسخ‌گویی در دسترس مدیر مجاز زیرساخت هستند. برای درخواست اصلاح یا حذف اطلاعات حساب از تیکت استفاده کنید؛ رویه اجرایی حذف و زمان نگهداری هنوز باید تأیید شوند.")
             }
             "terms" -> {
@@ -301,6 +302,53 @@ private fun ArchiveHistoryBrowser(db:SabaDatabase,account:AccountScope,enabled:B
         if(invoices.size>20) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             TextButton(onClick={page--;selectedInvoice=null},enabled=page>0){Text("قبلی")}
             TextButton(onClick={page++;selectedInvoice=null},enabled=(page+1)*20<invoices.size){Text("بعدی")}
+        }
+    }
+}
+
+@Composable private fun ArchiveJournalBrowser(account:AccountScope,refreshKey:String,enabled:Boolean) {
+    val ctx=LocalContext.current
+    var opened by remember {mutableStateOf(false)}
+    var files by remember {mutableStateOf<List<java.io.File>>(emptyList())}
+    var selected by remember {mutableStateOf<java.io.File?>(null)}
+    var record by remember {mutableStateOf<org.json.JSONObject?>(null)}
+    var table by remember {mutableStateOf("")}
+    var page by remember {mutableIntStateOf(0)}
+    LaunchedEffect(opened,refreshKey) {
+        if(opened) files=withContext(Dispatchers.IO){AccountArchivePortable(ctx.applicationContext,account).history()}
+    }
+    LaunchedEffect(selected) {
+        record=null;page=0;table=""
+        selected?.let { f -> record=withContext(Dispatchers.IO){runCatching {org.json.JSONObject(f.readText())}.getOrNull()} }
+    }
+    OutlinedButton(onClick={opened=!opened},enabled=enabled,modifier=Modifier.fillMaxWidth()){
+        Text(if(opened)"بستن سوابق مالی" else "مشاهده سوابق مالی و ارسال پشتیبان")
+    }
+    if(!opened)return
+    if(files.isEmpty()) Text("هنوز گزارش تاریخی بازیابی نشده است.")
+    files.take(20).forEach {f->TextButton(onClick={selected=f}){
+        Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(f.lastModified()))+" | "+f.name.take(8))
+    }}
+    record?.let {root->
+        val journals=root.getJSONObject("journals")
+        val names=mapOf("quota_wallets" to "کیف پول تاریخی","company_quotas" to "اعتبار مؤدیان",
+            "quota_transfers" to "انتقال‌های اعتبار","invoice_quota_uses" to "مصرف اعتبار",
+            "invoice_creation_claims" to "درخواست‌های ثبت فاکتور","credit_transfer_claims" to "درخواست‌های انتقال",
+            "legacy_import_receipts" to "سوابق بازیابی","legacy_quota_exemptions" to "معافیت‌های قدیمی",
+            "moadian_simulations" to "آزمون محلی")
+        Text("سوابق تاریخی؛ موجودی قابل مصرف نیست",fontWeight=FontWeight.Bold)
+        names.forEach { (k,v)->FilterChip(selected=table==k,onClick={table=k;page=0},label={Text(v)})}
+        val rows=journals.optJSONArray(table)
+        if(rows!=null){
+            Text("تعداد: ${rows.length()}")
+            for(i in page*10 until minOf((page+1)*10,rows.length())){
+                val row=rows.getJSONObject(i)
+                ServicePanel("ردیف ${i+1}",row.keys().asSequence().filter {it !in setOf("payloadJson","receiptJson")}.joinToString("\n"){k->"$k: ${row.opt(k)}"})
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+                TextButton(onClick={page--},enabled=page>0){Text("قبلی")}
+                TextButton(onClick={page++},enabled=(page+1)*10<rows.length()){Text("بعدی")}
+            }
         }
     }
 }
