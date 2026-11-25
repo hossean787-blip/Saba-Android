@@ -806,7 +806,7 @@ class MainActivity : ComponentActivity() {
                             Page.CONTACT -> SuraServiceScreen("contact", onBack = { page = Page.DASHBOARD }, onSupport={page=Page.SUPPORT})
                             Page.PRIVACY -> SuraServiceScreen("privacy", onBack = { page = Page.DASHBOARD })
                             Page.TERMS -> SuraServiceScreen("terms", onBack = { page = Page.DASHBOARD })
-                            Page.ABOUT -> SuraServiceScreen("about", onBack = { page = Page.DASHBOARD })
+                            Page.ABOUT -> SuraAboutScreen(onBack = { page = Page.DASHBOARD }, onSupport = { page = Page.SUPPORT })
                             Page.APP_SETTINGS -> AppSettingsScreen(
                                 fontScale = fontScale,
                                 busy = busy,
