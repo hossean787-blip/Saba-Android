@@ -8,7 +8,7 @@ const safeNum=(v:unknown):v is number=>typeof v==="number"&&Number.isSafeInteger
 const sh={apikey:service,authorization:"Bearer "+service,"content-type":"application/json"};
 async function rest(path:string,method="GET",body?:unknown){const r=await fetch(base+"/rest/v1/"+path,{method,headers:sh,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error("database_failed");return r.json();}
 async function rpc(name:string,body:unknown){return rest("rpc/"+name,"POST",body);}
-const fields="id,owner_id,kind,units,amount_rial,state,tracking,transfer_date,created_at,submitted_at,review_reason,reviewed_at";
+const fields="id,owner_id,kind,units,amount_rial,state,tracking,transfer_date,created_at,submitted_at,review_reason,reviewed_at,cancelled_at";
 async function bounded(req:Request){const reader=req.body?.getReader();if(!reader)throw Error("invalid_request");let total=0;const dec=new TextDecoder();let raw="";try{while(true){const r=await reader.read();if(r.done)break;total+=r.value.byteLength;if(total>680000){await reader.cancel();throw Error("too_large");}raw+=dec.decode(r.value,{stream:true});}return JSON.parse(raw+dec.decode());}finally{reader.releaseLock();}}
 async function handler(req:Request){
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
@@ -24,6 +24,7 @@ async function handler(req:Request){
  const route=new URL(req.url).pathname.split("/").pop();
  if(route==="quote"||route==="reserve"){
   if(!["single","monthly"].includes(b.kind)||!safeNum(b.units)||b.units>999999)return reply({error:"invalid_plan"},400);
+  if(b.kind==="monthly"&&b.checkoutVersion!==2)return reply({error:"monthly_upgrade_required"},409);
   if(route==="reserve"&&!safeNum(b.total))return reply({error:"invalid_total"},400);
   const r=route==="quote"?await rpc("sura_card_quote",{p_kind:b.kind,p_units:b.units}):await rpc("sura_card_reserve",{p_owner:u.id,p_kind:b.kind,p_units:b.units,p_total:b.total});
   return reply(r,r.error?409:200);
@@ -31,6 +32,11 @@ async function handler(req:Request){
  if(route==="mine"){
   const rows=await rest("sura_card_requests?select="+fields+",destination_card,holder&owner_id=eq."+u.id+"&order=created_at.desc&limit=30");
   return reply({requests:rows});
+ }
+ if(route==="cancel"){
+  if(!uuid(b.id)||b.notPaid!==true)return reply({error:"invalid_request"},400);
+  const r=await rpc("sura_card_cancel",{p_owner:u.id,p_id:b.id});
+  return reply(r,r.error?409:200);
  }
  if(route==="submit"){
   if(!uuid(b.id)||typeof b.tracking!=="string"||typeof b.date!=="string"||typeof b.receipt!=="string")return reply({error:"invalid_receipt"},400);
