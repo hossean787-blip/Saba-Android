@@ -21,7 +21,7 @@ class LegacyPreparedInvoice(val envelope: String, val headers: Map<String, Strin
     override fun toString() = "LegacyPreparedInvoice([redacted])"
 }
 data class LegacyInvoiceAcknowledgement(val uid: String, val referenceNumber: String?)
-data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>, val fiscalId: String? = null, val errorDetails: List<String> = emptyList(), val confirmationReferenceId: String? = null)
+data class LegacyInvoiceInquiry(val uid: String, val taxId: String?, val referenceNumber: String?, val status: String, val errorCodes: List<String>, val fiscalId: String? = null, val errorDetails: List<String> = emptyList(), val confirmationReferenceId: String? = null, val taxResult: String? = null, val packetType: String? = null)
 
 /** Safe diagnostic: do not include raw server messages or credentials. */
 internal class LegacyPreflightFailure(stage: String, cause: Exception) : IllegalStateException(
@@ -305,7 +305,11 @@ internal class LegacyMoadianInvoiceGateway(
             .mapNotNull { codes.optJSONObject(it)?.optString("code")?.takeIf { c -> c.matches(Regex("[A-Za-z0-9_-]{1,40}")) } }
         val confirmation = row.optJSONObject("data")?.optString("confirmationReferenceId")
             ?.takeIf { it.isNotBlank() && it != "null" && it.length <= 200 && it.none(Char::isISOControl) }
-        return LegacyInvoiceInquiry(uid, returnedTaxId, ref, row.getString("status"), errors, returnedFiscalId, taxErrorDetails(codes), confirmation)
+        // Only protocol tokens are retained; never retain raw response, credentials or free-form data.
+        fun protocolToken(value: String): String? = value.takeIf { it.matches(Regex("[A-Za-z0-9_.-]{1,80}")) && it != "null" }
+        val taxResult = protocolToken(row.optJSONObject("data")?.optString("taxResult").orEmpty())
+        val packetType = protocolToken(row.optString("packetType"))
+        return LegacyInvoiceInquiry(uid, returnedTaxId, ref, row.getString("status"), errors, returnedFiscalId, taxErrorDetails(codes), confirmation, taxResult, packetType)
     }
 }
 

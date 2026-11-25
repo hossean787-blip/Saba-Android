@@ -403,7 +403,13 @@ class OfficialSubmissionService(
             }
             validateInquiry(result)
             val pending = setOf("PENDING", "IN_PROGRESS")
+            fun inquirySummary(value: LegacyInvoiceInquiry): String =
+                listOfNotNull(value.status.takeIf { it.matches(Regex("[A-Z_]{1,30}")) } ?: "نامشخص",
+                    value.taxResult?.takeIf { it.matches(Regex("[A-Za-z0-9_.-]{1,80}")) }?.let { "taxResult=$it" },
+                    value.packetType?.takeIf { it.matches(Regex("[A-Za-z0-9_.-]{1,80}")) }?.let { "packetType=$it" })
+                    .joinToString(" / ")
             val uidStatus = result.status
+            val uidSummary = inquirySummary(result)
             var referenceStatus = ""
             // Manual inquiry may independently check the same tracking receipt.
             // Never enqueue another document or debit credit.
@@ -417,7 +423,7 @@ class OfficialSubmissionService(
                 else {
                     validateInquiry(second)
                     require(second.referenceNumber == reference)
-                    referenceStatus = second.status.takeIf { it.matches(Regex("[A-Z_]{1,30}")) } ?: "نامشخص"
+                    referenceStatus = inquirySummary(second)
                     if (second.status in setOf("SUCCESS", "FAILED")) result = second
                 }
             }
@@ -430,12 +436,12 @@ class OfficialSubmissionService(
                     resolve(id, "ACCEPTED", result.referenceNumber, evidence)
                 }
                 "FAILED" -> resolve(id, "REJECTED", result.referenceNumber,
-                    taxRejectionMessage(result.errorDetails.ifEmpty { result.errorCodes }))
+                    taxRejectionMessage(result.errorDetails.ifEmpty { result.errorCodes.ifEmpty { listOfNotNull(result.taxResult) } }))
                 "PENDING", "IN_PROGRESS" -> {
                     val checkedAt = Instant.ofEpochMilli(clock()).atZone(java.time.ZoneId.of("Asia/Tehran"))
                     val time = ir.saba.invoice.domain.JalaliCalendar.fromGregorian(checkedAt.toLocalDate()) +
                         " " + checkedAt.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
-                    val details = "استعلام شناسه ارسال: " + uidStatus +
+                    val details = "استعلام شناسه ارسال: " + uidSummary +
                         (if (referenceStatus.isNotBlank()) " | استعلام شماره پیگیری: " + referenceStatus else "")
                     resolve(id, "SUBMITTED", result.referenceNumber,
                         "صورتحساب در صف اعتبارسنجی سامانه است.\nآخرین استعلام: $time\n$details")

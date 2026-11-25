@@ -722,8 +722,9 @@ private fun InvoiceScreenContent(
     }
 
     if (previewDialog && mode == "edit") {
-        val company by produceState<Company?>(null, db, companyId, ownerId) {
-            value = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
+        var company by remember(db, companyId, ownerId) { mutableStateOf<Company?>(null) }
+        LaunchedEffect(db, companyId, ownerId) {
+            company = db.companyDao().byId(companyId)?.takeIf { it.purchaserId == ownerId }
         }
         val buyer = customers.firstOrNull { it.id == customerId && it.companyId == companyId }
         val snapshot = remember(companyId, customerId, number, date, lines, subject, referenceTaxId,
