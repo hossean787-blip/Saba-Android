@@ -24,3 +24,4 @@ jobs:
           node sura-admin-android/tests/manager_support.cjs
           node sura-admin-android/tests/report_zip_test.cjs
           node sura-admin-android/tests/manager_filters.cjs
+          node sura-admin-android/tests/manager_gift.cjs
