@@ -124,4 +124,12 @@ class LegacyMoadianInvoiceGatewayTest {
                 "GET_TOKEN","INQUIRY_BY_UID"),calls)
         } finally { db.close() }
     }
+    @org.junit.Test fun taxErrorRenderingRetainsActualCodesAndDescriptions() {
+        val errors=org.json.JSONArray().put(org.json.JSONObject().put("code","E123").put("message","شناسه کالا نامعتبر است"))
+        val actual=taxErrorDetails(errors)
+        org.junit.Assert.assertEquals(listOf("E123 — شناسه کالا نامعتبر است"),actual)
+        org.junit.Assert.assertTrue(taxRejectionMessage(actual).contains("E123"))
+        org.junit.Assert.assertTrue(taxRejectionMessage(emptyList()).contains("ارائه نکرده"))
+    }
+
 }

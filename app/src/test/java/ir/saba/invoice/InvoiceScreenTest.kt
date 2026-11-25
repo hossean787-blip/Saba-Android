@@ -311,7 +311,23 @@ class InvoiceScreenTest {
         runBlocking { check(db.invoiceDao().forCompany(company).isEmpty()) }
     }
 
-    @Test fun finalizedInvoiceHasDetailsWithoutEditOrDeleteActions() {
+    @Test fun acceptedInvoiceHasDetailsWithoutEditOrDeleteActions() {
+        runBlocking {
+            val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))
+            InvoiceRepository(db).finalizeDraft(company, id)
+            db.officialSubmissionDao().insert(OfficialSubmission("accepted",ownerId,company,id,"ABC123","tax","{}","hash",1,
+                state="ACCEPTED",referenceNumber="ref",signedReceipt="receipt",protocol="V2"))
+            invoices = db.invoiceDao().forCompany(company)
+        }
+        compose.setContent { Screen() }
+        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("سند ارسال‌شده قابل ویرایش یا حذف نیست.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("ویرایش پیش‌نویس").assertDoesNotExist()
+        compose.onNodeWithText("ویرایش فاکتور").assertDoesNotExist()
+        compose.onNodeWithText("اصلاح و ویرایش همین فاکتور").assertDoesNotExist()
+        compose.onNodeWithText("حذف پیش‌نویس").assertDoesNotExist()
+    }
+    @Test fun finalizedUnsentInvoiceOffersEditButNotDelete() {
         runBlocking {
             val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))
             InvoiceRepository(db).finalizeDraft(company, id)
@@ -319,8 +335,8 @@ class InvoiceScreenTest {
         }
         compose.setContent { Screen() }
         compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("سند نهایی‌شده قابل ویرایش یا حذف نیست.").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("ویرایش پیش‌نویس").assertDoesNotExist()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("ویرایش فاکتور").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("ویرایش فاکتور").assertExists()
         compose.onNodeWithText("حذف پیش‌نویس").assertDoesNotExist()
     }
     @Test fun invoiceFormOpensWithoutRegisteredCustomerToAllowScaffolding() {
