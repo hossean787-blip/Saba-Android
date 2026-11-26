@@ -353,9 +353,10 @@ class MainActivity : ComponentActivity() {
             try {
                 withContext(Dispatchers.IO) {
                     FinancialStorage.prepareExisting(applicationContext)
-                    SabaDatabase.openAccount(applicationContext,account).use { opened ->
+                    val opened=SabaDatabase.openAccount(applicationContext,account)
+                    try {
                         opened.openHelper.writableDatabase.query("SELECT count(*) FROM companies").use { check(it.moveToFirst()) }
-                    }
+                    } finally {opened.close()}
                 }
                 storageReady=true
             } catch(e:CancellationException) { throw e }
