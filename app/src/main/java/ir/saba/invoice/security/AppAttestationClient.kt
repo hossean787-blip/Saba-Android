@@ -7,6 +7,10 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import android.os.SystemClock
+import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -21,14 +25,25 @@ import java.util.UUID
 internal object AppAttestationClient {
     private const val BASE = "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-app-integrity"
     private fun encode(b: ByteArray) = Base64.encodeToString(b, Base64.NO_WRAP)
-    suspend fun observe(token: String): Boolean = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || token.isBlank()) return@withContext false
-        try { perform(token) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-        catch (_: Exception) { false }
+    private val lock=Mutex()
+    private val state=IntegrityObservationState()
+    private data class HttpResult(val code:Int,val body:JSONObject)
+    suspend fun observe(token: String): IntegrityReport = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || token.isBlank())
+            return@withContext IntegrityReport(IntegrityOutcome.UNSUPPORTED,System.currentTimeMillis())
+        val session=encode(MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8)))
+        lock.withLock {
+            state.recent(session,SystemClock.elapsedRealtime())?.let { return@withLock it }
+            val outcome=try { perform(token) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (_: Exception) { IntegrityOutcome.UNAVAILABLE }
+            state.record(session,outcome,SystemClock.elapsedRealtime(),System.currentTimeMillis())
+        }
     }
     @TargetApi(Build.VERSION_CODES.N)
-    private fun perform(token: String): Boolean {
-        val raw = post("/challenge", token, JSONObject()).getString("nonce")
+    private fun perform(token: String): IntegrityOutcome {
+        val challenge=post("/challenge",token,JSONObject())
+        if(challenge.code!=200) return integrityHttpOutcome(challenge.code,"")
+        val raw = challenge.body.getString("nonce")
         val nonce = Base64.decode(raw, Base64.NO_WRAP)
         require(nonce.size == 32 && encode(nonce) == raw)
         val alias = "sura.integrity.ephemeral." + UUID.randomUUID()
@@ -48,11 +63,12 @@ internal object AppAttestationClient {
             }.sign()
             val certs = JSONArray()
             chain.forEach { certs.put(encode(it.encoded)) }
-            return post("/verify", token, JSONObject().put("nonce", raw).put("chain", certs)
-                .put("signature", encode(sig))).optString("status") == "verified"
+            val result=post("/verify", token, JSONObject().put("nonce", raw).put("chain", certs)
+                .put("signature", encode(sig)))
+            return integrityHttpOutcome(result.code,result.body.optString("status"))
         } finally { runCatching { store.deleteEntry(alias) } }
     }
-    private fun post(path: String, token: String, body: JSONObject): JSONObject {
+    private fun post(path: String, token: String, body: JSONObject): HttpResult {
         require(path == "/challenge" || path == "/verify")
         val c = URL(BASE + path).openConnection() as HttpURLConnection
         try {
@@ -68,8 +84,10 @@ internal object AppAttestationClient {
             require(bytes.size <= 96000)
             c.setFixedLengthStreamingMode(bytes.size)
             c.outputStream.use { it.write(bytes) }
-            if (c.responseCode !in 200..299) return JSONObject()
-            val text = c.inputStream.use { input ->
+            val code=c.responseCode
+            val stream=if(code in 200..299) c.inputStream else c.errorStream
+            if(stream==null) return HttpResult(code,JSONObject())
+            val text = stream.use { input ->
                 val out = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(2048)
                 while (true) {
@@ -80,7 +98,7 @@ internal object AppAttestationClient {
                 }
                 out.toString("UTF-8")
             }
-            return JSONObject(text)
+            return HttpResult(code,runCatching {JSONObject(text)}.getOrElse {JSONObject()})
         } finally { c.disconnect() }
     }
 }

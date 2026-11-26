@@ -928,9 +928,7 @@ class MainActivity : ComponentActivity() {
                                                 Build.VERSION.SDK_INT < Build.VERSION_CODES.N -> "این نسخه اندروید از آزمون فعلی پشتیبانی نمی‌کند."
                                                 else -> {
                                                     integrityResult="در حال بررسی با سرور…"
-                                                    if(ir.saba.invoice.security.AppAttestationClient.observe(accessToken))
-                                                        "سرور اصالت برنامه و دستگاه را در این آزمون تأیید کرد."
-                                                    else "اصالت تأیید نشد؛ این نتیجه ممکن است ناشی از شبکه، محدودیت دستگاه یا فاصله کم از آزمون قبلی باشد. بعد از ۳۰ ثانیه دوباره امتحان کنید."
+                                                    ir.saba.invoice.security.AppAttestationClient.observe(accessToken).displayText()
                                                 }
                                             }
                                         }

@@ -306,7 +306,7 @@ fun AppSettingsScreen(
                     OutlinedButton(onClick=checkIntegrity,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("settingsIntegrityCheck")) {
                         Text("بررسی اصالت نسخه نصب‌شده")
                     }
-                    Text("نتیجه از سرور دریافت می‌شود. در مرحله آزمایشی، عدم تأیید موجب قطع دسترسی حساب نمی‌شود.",
+                    Text("نتیجه معتبر اخیر تا ۳۰ ثانیه نمایش داده می‌شود. اختلال یا محدودیت زمانی به معنی جعلی بودن برنامه نیست. این بررسی فعلاً دسترسی حساب را مسدود نمی‌کند.",
                         style=MaterialTheme.typography.labelSmall,color=settingsMuted)
                 }
                 SettingsLink("اطلاعات حساب کاربری","مشخصات و گزینه‌های حساب",Icons.Default.Person,!busy) { controls.onNavigate(SettingsDestination.ACCOUNT) }
