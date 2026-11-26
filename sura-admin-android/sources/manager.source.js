@@ -344,6 +344,7 @@ async function starterPublish(){
 /* Card receipts: admin-only; receipt is evidence, not proof of bank credit. */
 let cardPage=1,cardSelected="";
 async function cardFetch(route,body){
+ await ensureFreshToken();
  const response=await fetch(SB_URL+'/functions/v1/sura-card-transfer/'+route,{method:'POST',headers:{apikey:SB_ANON,authorization:'Bearer '+USER_JWT,'content-type':'application/json'},body:JSON.stringify(body)});
  const data=await response.json();if(!response.ok||data.error)throw Error(data.error||'card_unavailable');return data;
 }
