@@ -746,8 +746,8 @@ class MainActivity : ComponentActivity() {
                                 onTaxpayerSelected = { selectTaxpayer(it) },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; newInvoiceRequest++ } } },
                                 onTaxKeys = { page = Page.TAX_KEYS },
-                                onInvoices = { page = Page.INVOICES },
-                                onDrafts = { if(!loading && !busy) { openDraftsRequested=true; page=Page.INVOICES } },
+                                onInvoices = { page = Page.EVENTS },
+                                onDrafts = { if(!loading && !busy) { page = Page.EVENTS } },
                                 onCharge = { page = Page.QUOTA },
                                 onIdentifiers = { page = Page.IDENTIFIERS }
                             )
