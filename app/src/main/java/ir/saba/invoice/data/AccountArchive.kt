@@ -222,6 +222,8 @@ internal class AccountArchive(
         readCredit:suspend(Set<Long>)->ArchiveCreditSnapshot):ArchiveRestoreResult {
         val root=decode(blob,password)
         val ids=archivedIds(root.getJSONObject("tables"))
+        // Reject malformed portable metadata before remote credit reads or local writes.
+        if(root.getInt("format")==3) requireNotNull(portable).validate(root.getJSONObject("portable"),ids)
         val local=db.companyDao().all().also { require(it.all { c->c.purchaserId==account.ownerId }) }.map { it.id }.toSet()
         val credit=readCredit(ids+local)
         require(credit.taxpayers.keys==ids+local) { "استعلام تمام مؤدیان از سرور کامل نشد." }

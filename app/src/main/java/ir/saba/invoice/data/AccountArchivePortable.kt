@@ -174,13 +174,27 @@ internal class AccountArchivePortable(private val context:Context,private val ac
             }
         }
         val rows=a.getJSONArray("identifiers");require(rows.length()<=100_000)
+        val seen=HashSet<Pair<Long,String>>()
         for(i in 0 until rows.length()) {
             val v=rows.getJSONObject(i)
             require(v.getLong("company") in ids && v.getString("id").matches(Regex("[0-9]{13,14}")))
+            require(seen.add(v.getLong("company") to v.getString("id"))) { "شناسه کالای تکراری در پشتیبان وجود دارد." }
             require(listOf("description","vat","taxable","kind","expiry","source").all {v.getString(it).length<=4096})
         }
         val profile=a.getJSONObject("profile")
         require(profile.keys().asSequence().all {it in setOf("name","mobile") && profile.getString(it).length<=256})
+        // These are read after the Room merge; validate their shapes and bounds now.
+        a.getJSONObject("journals")
+        for(k in listOf("invoiceStatus","submissionEvidence")) if(a.has(k)) a.getJSONObject(k)
+        if(a.has("priorHistory")) {
+            val prior=a.getJSONArray("priorHistory")
+            require(prior.length()<=100_000)
+            var bytes=0L
+            for(i in 0 until prior.length()) {
+                bytes+=prior.getJSONObject(i).toString().toByteArray(Charsets.UTF_8).size
+                require(bytes<=AccountArchiveCrypto.LIMIT/2) { "حجم سوابق تاریخی بیش از سقف پشتیبان است." }
+            }
+        }
     }
     fun restoreRow(table:String,row:JSONObject,a:JSONObject) {
         if(table=="moadian_details") {

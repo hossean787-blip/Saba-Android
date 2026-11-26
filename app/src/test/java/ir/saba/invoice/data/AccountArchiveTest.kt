@@ -74,6 +74,13 @@ class AccountArchiveTest {
             assertEquals(60L,dest.quotaDao().wallet(account.ownerId)?.available)
             try { AccountArchive(foreign,other,{},{}).restore(blob,pass);fail("foreign account") } catch(_:IllegalArgumentException) {}
             assertTrue(foreign.companyDao().all().isEmpty())
+            val wrong="incorrect-test-password".toCharArray()
+            try {
+                AccountArchive(foreign,account,{},{}).restoreWithCredit(blob,wrong) { error("must not query credit") }
+                fail("wrong password")
+            } catch(_:java.security.GeneralSecurityException) {
+            } finally { wrong.fill(' ') }
+            assertTrue(foreign.companyDao().all().isEmpty())
             val corrupt=blob.copyOf().apply { this[lastIndex]=(this[lastIndex].toInt() xor 1).toByte() }
             try { AccountArchiveCrypto.open(corrupt,pass);fail("tamper") } catch(_:java.security.GeneralSecurityException) {}
         } finally { source.close();dest.close();foreign.close() }

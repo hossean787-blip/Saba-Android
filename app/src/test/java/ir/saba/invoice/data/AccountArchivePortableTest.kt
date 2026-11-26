@@ -100,6 +100,48 @@ class AccountArchivePortableTest {
             password.fill(' ');source.close();target.close()
         }
     }
+    @Test fun malformedPortableHistoryAndDuplicateIdentifiersFailBeforeCreditAndDatabaseWrites()=runBlocking {
+        val ctx=ApplicationProvider.getApplicationContext<Context>()
+        val owner=AccountScope.of("11111111-1111-4111-8111-666666666666")
+        val source=Room.inMemoryDatabaseBuilder(ctx,SabaDatabase::class.java).build()
+        val target=Room.inMemoryDatabaseBuilder(ctx,SabaDatabase::class.java).build()
+        val password="restore-validation-test-123".toCharArray()
+        try {
+            source.companyDao().insert(Company(id=7,purchaserId=owner.ownerId,name="Synthetic",nationalId="123"))
+            val blob=AccountArchive(source,owner,{},{},AccountArchivePortable(ctx,owner)).export(password)
+            val root=JSONObject(String(AccountArchiveCrypto.open(blob,password),Charsets.UTF_8))
+            val portable=root.getJSONObject("portable")
+            val row=JSONObject().put("company",7).put("id","1234567890123").put("description","test")
+                .put("vat","0").put("taxable","").put("kind","").put("expiry","").put("source","manual")
+            val mutations=listOf<(JSONObject)->Unit>(
+                { it.put("identifiers",JSONArray().put(row).put(row)) },
+                { it.put("priorHistory",JSONArray().put("not a JSON object")) },
+                { it.remove("journals") }
+            )
+            for(mutate in mutations) {
+                val candidate=JSONObject(root.toString())
+                mutate(candidate.getJSONObject("portable"))
+                val invalid=AccountArchiveCrypto.seal(candidate.toString().toByteArray(Charsets.UTF_8),password)
+                var queried=false
+                var reserved=false
+                try {
+                    AccountArchive(target,owner,{},{reserved=true},AccountArchivePortable(ctx,owner))
+                        .restoreWithCredit(invalid,password) {
+                            queried=true
+                            error("invalid archive must not query credit")
+                        }
+                    fail("malformed portable archive must be rejected")
+                } catch(_:IllegalArgumentException) {
+                } catch(_:org.json.JSONException) {}
+                assertFalse(queried)
+                assertFalse(reserved)
+                assertTrue(target.companyDao().all().isEmpty())
+                assertNull(target.quotaDao().wallet(owner.ownerId))
+            }
+            assertTrue(portable.has("journals"))
+        } finally {password.fill(' ');source.close();target.close()}
+    }
+
     @Test fun unreadableLogoRejectsInsteadOfDroppingData() {
         val ctx=ApplicationProvider.getApplicationContext<Context>()
         val account=AccountScope.of("11111111-1111-4111-8111-333333333333")
