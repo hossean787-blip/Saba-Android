@@ -51,7 +51,8 @@ fun HomeDashboard(
     onCharge: () -> Unit,
     onIdentifiers: () -> Unit = {},
     taxpayerOptions: List<Pair<Long, String>> = emptyList(),
-    onTaxpayerSelected: (Long) -> Unit = {}
+    onTaxpayerSelected: (Long) -> Unit = {},
+    onDrafts: () -> Unit = onInvoices
 ) {
     var selectorOpen by remember { mutableStateOf(false) }
     LazyColumn(
@@ -109,7 +110,7 @@ fun HomeDashboard(
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PremiumMetric("پیش‌نویس", draftCount.toLong(), Icons.AutoMirrored.Filled.List,
-                    Color(0xFFFFF0F2), Color(0xFFC45471), Modifier.weight(1f), onInvoices)
+                    Color(0xFFEAF4FA), Color(0xFF176D86), Modifier.weight(1f), onDrafts)
                 PremiumMetric("در صف ارسال", queueCount.toLong(), Icons.AutoMirrored.Filled.List,
                     Color(0xFFFFF3E2), Color(0xFFB88033), Modifier.weight(1f), onInvoices)
                 PremiumMetric("شارژ باقی‌مانده", remainingCharge, Icons.Default.AccountCircle,

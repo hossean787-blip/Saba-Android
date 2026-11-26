@@ -170,11 +170,13 @@ fun InvoiceScreen(
     creditGateway: InvoiceCreditGateway? = null,
     openEventInvoiceId: Long? = null,
     onEventInvoiceHandled: () -> Unit = {},
-    onBackToEvents: () -> Unit = {}
+    onBackToEvents: () -> Unit = {},
+    openDraftsRequested:Boolean=false,
+    onDraftsRequestHandled:()->Unit={}
 ) {
     val states = rememberSaveableStateHolder()
     states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
-        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents) }
+        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents, openDraftsRequested, onDraftsRequestHandled) }
     }
 }
 
@@ -197,7 +199,9 @@ private fun InvoiceScreenContent(
     creditGateway: InvoiceCreditGateway? = null,
     openEventInvoiceId: Long? = null,
     onEventInvoiceHandled: () -> Unit = {},
-    onBackToEvents: () -> Unit = {}
+    onBackToEvents: () -> Unit = {},
+    openDraftsRequested:Boolean=false,
+    onDraftsRequestHandled:()->Unit={}
 ) {
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
     val activeGateway = remember(account,creditGateway) { creditGateway ?: ServerInvoiceCreditGateway(account) }
@@ -405,6 +409,12 @@ private fun InvoiceScreenContent(
         mode = "event_open"
         onEventInvoiceHandled()
     }
+    LaunchedEffect(openDraftsRequested) {
+        if(openDraftsRequested) {
+            fromEvents=false;unifiedPreview=false;mode="list";status="DRAFT";search="";error=""
+            onDraftsRequestHandled()
+        }
+    }
     LaunchedEffect(newInvoiceRequest) {
         if(newInvoiceRequest>lastHandledNewInvoiceRequest) {
             lastHandledNewInvoiceRequest=newInvoiceRequest;onNewInvoiceRequestHandled();fromEvents=false;unifiedPreview=false
@@ -447,13 +457,14 @@ private fun InvoiceScreenContent(
         lines = loaded.lines.map { it.copy(id = 0, invoiceId = 0) }
         error = ""; mode = "edit"
     }
-    fun editExisting(loaded: InvoiceDetails) {
+    fun editExistingById(id:Long, draftOnly:Boolean=false) {
         perform {
-            val inv = loaded.invoice
             require(db.companyDao().byId(companyId)?.purchaserId == ownerId)
-            val current = repository.detailsForCompany(companyId, inv.id)
+            val current = repository.detailsForCompany(companyId, id)
+            val inv=current.invoice
             val receipt = db.officialSubmissionDao().forInvoice(inv.id)
             require(receipt == null || (receipt.ownerId == ownerId && receipt.companyId == companyId))
+            if(draftOnly) require(inv.status=="DRAFT" && canEditInvoicePreview(inv,receipt)) { "وضعیت پیش‌نویس تغییر کرده است؛ ابتدا جزئیات را بررسی کنید." }
             when {
                 receipt?.state == "REJECTED" -> {
                     InvoiceRepository(db).reopenRejectedForEdit(companyId,inv.id,ownerId)
@@ -475,6 +486,8 @@ private fun InvoiceScreenContent(
             }
         }
     }
+
+    fun editExisting(loaded: InvoiceDetails) = editExistingById(loaded.invoice.id)
 
     suspend fun reloadOfficial(id: Long) {
         details = repository.detailsForCompany(companyId, id)
@@ -838,6 +851,8 @@ private fun InvoiceScreenContent(
                         (needle.isEmpty() || InvoiceInput.digits(invoice.invoiceNumber).contains(needle, true) ||
                             customers.firstOrNull { it.id == invoice.customerId }?.name?.contains(search.trim(), true) == true)
                 }
+                val drafts=invoices.filter{it.status=="DRAFT" && it.companyId==companyId}
+                val displayed=if(status=="DRAFT") filtered.sortedByDescending{it.id} else filtered
                 val navy=Color(0xFF12354B)
                 val teal=Color(0xFF087D8A)
                 LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("invoiceListScroll"),
@@ -848,16 +863,17 @@ private fun InvoiceScreenContent(
                             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
                                 horizontalArrangement=Arrangement.SpaceBetween) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("فاکتورهای شرکت",style=MaterialTheme.typography.titleLarge,
+                                    Text(if(status=="DRAFT") "پیش‌نویس‌ها" else "فاکتورهای شرکت",style=MaterialTheme.typography.titleLarge,
                                         fontWeight=FontWeight.ExtraBold,color=navy)
-                                    Text("${invoices.size} صورتحساب ثبت‌شده",style=MaterialTheme.typography.labelSmall,
+                                    Text(if(status=="DRAFT") "پیش‌نویس‌های محفوظ مودی فعال" else "${invoices.size} صورتحساب ثبت‌شده",style=MaterialTheme.typography.labelSmall,
                                         color=Color(0xFF647D8A))
                                 }
                                 IconButton(enabled=!busy,onClick={perform { onChanged() }}) {
                                     Icon(Icons.Default.Refresh,contentDescription="تازه‌کردن فهرست",tint=teal)
                                 }
                             }
-                            Card(shape=RoundedCornerShape(17.dp),modifier=Modifier.fillMaxWidth()) {
+                            if(status=="DRAFT") DraftsSummary(drafts,displayed.size)
+                            else Card(shape=RoundedCornerShape(17.dp),modifier=Modifier.fillMaxWidth()) {
                                 Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(navy,Color(0xFF17616D))))
                                     .padding(horizontal=12.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
                                     Text("اعتبار صدور صورتحساب",color=Color(0xFFB8DCE5),style=MaterialTheme.typography.labelSmall)
@@ -910,14 +926,21 @@ private fun InvoiceScreenContent(
                                     containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
                         }
                     }
-                    if(filtered.isEmpty()) item(key="emptyInvoices") {
-                        Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(16.dp)) {
+                    if(displayed.isEmpty()) item(key="emptyInvoices") {
+                        if(status=="DRAFT") DraftsEmpty(search.isNotBlank(),onClear={search=""},onNew={unifiedPreview=false;fromEvents=false;perform{beginInvoice()}},busy=busy)
+                        else Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(16.dp)) {
                             Text(if(invoices.isEmpty()) "هنوز فاکتوری ثبت نشده است." else "فاکتوری مطابق جستجو پیدا نشد.",
                                 modifier=Modifier.fillMaxWidth().padding(16.dp),color=navy)
                         }
                     }
-                    items(filtered,key={it.id}) { invoice ->
+                    items(displayed,key={it.id}) { invoice ->
                         val receipt=officialByInvoice[invoice.id]
+                        if(invoice.status=="DRAFT") {
+                            DraftInvoiceCard(invoice,customers.firstOrNull{it.id==invoice.customerId && it.companyId==invoice.companyId}?.name,
+                                receipt,busy,
+                                onEdit={fromEvents=false;unifiedPreview=true;editExistingById(invoice.id,draftOnly=true)},
+                                onPreview={fromEvents=false;unifiedPreview=true;invoiceId=invoice.id;error="";mode="event_open"})
+                        } else {
                         val event=invoiceEventStatus(invoice,receipt)
                         val stateColor=when(event){
                             InvoiceEventStatus.SUCCESS -> Color(0xFF127A55)
@@ -973,6 +996,7 @@ private fun InvoiceScreenContent(
                                     Text("مشاهده جزئیات",style=MaterialTheme.typography.labelLarge)
                                 }
                             }
+                        }
                         }
                     }
                 }

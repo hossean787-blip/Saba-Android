@@ -408,6 +408,7 @@ class MainActivity : ComponentActivity() {
         var allocation by rememberSaveable { mutableStateOf("10") }
         var transferOperationId by rememberSaveable(selectedCompanyId, allocation) { mutableStateOf("") }
         var newInvoiceRequest by rememberSaveable { mutableIntStateOf(0) }
+        var openDraftsRequested by rememberSaveable { mutableStateOf(false) }
         var openEventInvoiceId by rememberSaveable(selectedCompanyId) { mutableStateOf<Long?>(null) }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
@@ -539,7 +540,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(page) {
-            if (page != Page.INVOICES) { newInvoiceRequest = 0; openEventInvoiceId = null }
+            if (page != Page.INVOICES) { newInvoiceRequest = 0; openEventInvoiceId = null; openDraftsRequested = false }
         }
         BackHandler(enabled = page != Page.DASHBOARD && !editing) {
             if (!busy) page = if (page == Page.APP_SETTINGS) Page.SETTINGS else Page.DASHBOARD
@@ -732,6 +733,7 @@ class MainActivity : ComponentActivity() {
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; newInvoiceRequest++ } } },
                                 onTaxKeys = { page = Page.TAX_KEYS },
                                 onInvoices = { page = Page.INVOICES },
+                                onDrafts = { if(!loading && !busy) { openDraftsRequested=true; page=Page.INVOICES } },
                                 onCharge = { page = Page.QUOTA },
                                 onIdentifiers = { page = Page.IDENTIFIERS }
                             )
@@ -769,7 +771,8 @@ class MainActivity : ComponentActivity() {
                             }
                             Page.INVOICES -> if (current != null) key(current.companyId) {
                                 InvoiceScreen(db, account.ownerId, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, accessToken = accessToken, onNeedCharge = { page = Page.CREDIT_PURCHASE }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 }, onOpenOfficialSubmission = { page = Page.OFFICIAL_SUBMISSION }, openEventInvoiceId = openEventInvoiceId,
-                                    onEventInvoiceHandled = { openEventInvoiceId = null }, onBackToEvents = { page = Page.EVENTS })
+                                    onEventInvoiceHandled = { openEventInvoiceId = null }, onBackToEvents = { page = Page.EVENTS },
+                                    openDraftsRequested=openDraftsRequested,onDraftsRequestHandled={openDraftsRequested=false})
                             } else CompanyPlaceholder(loading)
                             Page.CREDIT_PURCHASE -> CreditPurchaseScreen(account.ownerId,accessToken)
                             Page.QUOTA -> if (current != null && company != null) {
