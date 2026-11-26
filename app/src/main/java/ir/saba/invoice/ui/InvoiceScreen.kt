@@ -278,7 +278,7 @@ private fun InvoiceScreenContent(
     var acceptedOriginals by remember(companyId) { mutableStateOf(emptyList<Pair<String, Long>>()) }
     var customerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var inactiveBuyers by remember(companyId) { mutableStateOf<Set<Long>>(emptySet()) }
-    LaunchedEffect(companyId, customers, mode) {
+    LaunchedEffect(companyId, mode) {
         try{inactiveBuyers=db.customerProfileDao().forCompany(companyId).filter{!it.active}.map{it.customerId}.toSet()}
         catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(e:Exception){onNotice(SuraErrors.describe(e,"بازیابی وضعیت مشتریان انجام نشد. [CUSTOMER-STATUS]"))}
