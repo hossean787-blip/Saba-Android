@@ -31,20 +31,22 @@ fun OwnerLoginScreen(
     var selectedSavedAccount by rememberSaveable { mutableStateOf("") }
     var accountMenuExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(autofillCredentials) {
+    LaunchedEffect(savedAccountEmails, autofillCredentials) {
+        if (selectedSavedAccount !in savedAccountEmails) {
+            selectedSavedAccount = savedAccountEmails.firstOrNull().orEmpty()
+        }
         autofillCredentials?.let {
+            selectedSavedAccount = it.email
             email = it.email
             password = it.password
             visible = false
             onAutofillConsumed()
-        }
-    }
-    LaunchedEffect(savedAccountEmails) {
-        if (selectedSavedAccount !in savedAccountEmails) {
-            selectedSavedAccount = savedAccountEmails.firstOrNull().orEmpty()
-            email = selectedSavedAccount.takeUnless {
-                it == BiometricLoginVault.LEGACY_ACCOUNT_ID
-            }.orEmpty()
+        } ?: run {
+            if (email.isBlank()) {
+                email = selectedSavedAccount.takeUnless {
+                    it == BiometricLoginVault.LEGACY_ACCOUNT_ID
+                }.orEmpty()
+            }
         }
     }
 
