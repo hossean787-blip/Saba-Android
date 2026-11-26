@@ -206,7 +206,7 @@ class InvoiceScreenTest {
         }
         compose.setContent {
             MaterialTheme {
-                EventsScreen(invoices, onInvoices = {},
+                EventsScreen(invoices,
                     customers = listOf(Customer(id = customer, companyId = company, name = "خریدار")))
             }
         }
