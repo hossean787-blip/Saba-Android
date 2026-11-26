@@ -95,3 +95,5 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.121.0: draft/local/saved preview uses the exact exported A4 PDF bytes with 3x raster rendering, bounded pinch/double-tap/pan, zoom buttons and expanded viewer. All PDF painted digits normalized to Persian (Latin and Arabic-Indic), including identifiers in display only; existing bundled Vazirmatn used for both. Payload and storage unchanged. Added zoom bounds and digit regression tests. Signed build requested. Device visual and pinch validation remains required.
 
 0.121.0 QA follow-up: exact identity at fit scale even after negative pan; Compose UI test exercises zoom controls and expanded view.
+
+Stabilization pass: fix experimental transformable API compile error; cancellable off-main PDF generation/rendering with per-document/page fresh state; cache invoice list lookup/count/filter and draft total. Keep fiscal transport, storage, payments, and credit unchanged. Rebuild and run regression tests.

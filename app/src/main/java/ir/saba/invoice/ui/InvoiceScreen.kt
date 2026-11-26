@@ -849,14 +849,23 @@ private fun InvoiceScreenContent(
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
-                val needle = InvoiceInput.digits(search.trim())
-                val filtered = invoices.filter { invoice ->
-                    (status == "ALL" || if(status=="MANAGEMENT") needsSubmissionManagement(invoice,officialByInvoice[invoice.id]) else invoice.status == status) &&
-                        (needle.isEmpty() || InvoiceInput.digits(invoice.invoiceNumber).contains(needle, true) ||
-                            customers.firstOrNull { it.id == invoice.customerId }?.name?.contains(search.trim(), true) == true)
+                val customerById=remember(customers,companyId){customers.filter{it.companyId==companyId}.associateBy{it.id}}
+                val localInvoices=remember(invoices,companyId){invoices.filter{it.companyId==companyId}}
+                val statusCounts=remember(localInvoices){localInvoices.groupingBy{it.status}.eachCount()}
+                val managementIds=remember(localInvoices,officialByInvoice){
+                    localInvoices.filter{needsSubmissionManagement(it,officialByInvoice[it.id])}.map{it.id}.toSet()
                 }
-                val drafts=invoices.filter{it.status=="DRAFT" && it.companyId==companyId}
-                val displayed=if(status=="DRAFT") filtered.sortedByDescending{it.id} else filtered
+                val drafts=remember(localInvoices){localInvoices.filter{it.status=="DRAFT"}}
+                val displayed=remember(localInvoices,status,search,customerById,managementIds){
+                    val query=search.trim()
+                    val needle=InvoiceInput.digits(query)
+                    val filtered=localInvoices.filter{invoice->
+                        (status=="ALL" || if(status=="MANAGEMENT") invoice.id in managementIds else invoice.status==status) &&
+                            (query.isEmpty() || InvoiceInput.digits(invoice.invoiceNumber).contains(needle,true) ||
+                                customerById[invoice.customerId]?.name?.contains(query,true)==true)
+                    }
+                    if(status=="DRAFT") filtered.sortedByDescending{it.id} else filtered
+                }
                 val navy=Color(0xFF12354B)
                 val teal=Color(0xFF087D8A)
                 LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("invoiceListScroll"),
@@ -916,7 +925,7 @@ private fun InvoiceScreenContent(
                                     focusedContainerColor=Color.White,unfocusedContainerColor=Color.White,cursorColor=teal))
                             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                                 listOf("ALL" to "همه","DRAFT" to "پیش‌نویس","FINALIZED" to "نهایی").forEach { (value,title) ->
-                                    val count=if(value=="ALL") invoices.size else invoices.count{it.status==value}
+                                    val count=if(value=="ALL") localInvoices.size else statusCounts[value]?:0
                                     FilterChip(selected=status==value,onClick={status=value},modifier=Modifier.weight(1f),
                                         label={Text("$title · $count",maxLines=1,style=MaterialTheme.typography.labelSmall)},
                                         colors=FilterChipDefaults.filterChipColors(selectedContainerColor=navy,selectedLabelColor=Color.White,
@@ -925,7 +934,7 @@ private fun InvoiceScreenContent(
                             }
                             FilterChip(selected=status=="MANAGEMENT",onClick={status="MANAGEMENT"},
                                 modifier=Modifier.fillMaxWidth().testTag("needsSubmissionManagement"),
-                                label={Text("نیازمند تعیین تکلیف · "+invoices.count{needsSubmissionManagement(it,officialByInvoice[it.id])})},
+                                label={Text("نیازمند تعیین تکلیف · "+managementIds.size)},
                                 colors=FilterChipDefaults.filterChipColors(selectedContainerColor=navy,selectedLabelColor=Color.White,
                                     containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
                         }
@@ -940,7 +949,7 @@ private fun InvoiceScreenContent(
                     items(displayed,key={it.id}) { invoice ->
                         val receipt=officialByInvoice[invoice.id]
                         if(invoice.status=="DRAFT") {
-                            DraftInvoiceCard(invoice,customers.firstOrNull{it.id==invoice.customerId && it.companyId==invoice.companyId}?.name,
+                            DraftInvoiceCard(invoice,customerById[invoice.customerId]?.name,
                                 receipt,busy,
                                 onEdit={fromEvents=false;unifiedPreview=true;editExistingById(invoice.id,draftOnly=true)},
                                 onPreview={fromEvents=false;unifiedPreview=true;invoiceId=invoice.id;error="";mode="event_open"})
@@ -968,7 +977,7 @@ private fun InvoiceScreenContent(
                                             modifier=Modifier.padding(9.dp).size(21.dp))
                                     }
                                     Column(Modifier.weight(1f)){
-                                        Text(customers.firstOrNull{it.id==invoice.customerId && it.companyId==invoice.companyId}?.name
+                                        Text(customerById[invoice.customerId]?.name
                                             ?: "مشتری نامشخص",fontWeight=FontWeight.Bold,color=navy,
                                             maxLines=2,overflow=TextOverflow.Ellipsis)
                                         Text("فاکتور ${invoice.invoiceNumber}",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A))

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -40,6 +41,7 @@ private fun draftMoney(value:Number):String =
 @Composable
 internal fun DraftsSummary(drafts:List<Invoice>,visibleCount:Int) {
     val shape=RoundedCornerShape(22.dp)
+    val total=remember(drafts){draftTotal(drafts)}
     Card(Modifier.fillMaxWidth().testTag("draftSummary"),shape=shape,
         colors=CardDefaults.cardColors(containerColor=ink)) {
         Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(ink,Color(0xFF116773))))
@@ -61,7 +63,7 @@ internal fun DraftsSummary(drafts:List<Invoice>,visibleCount:Int) {
             }
             HorizontalDivider(color=Color(0xFF497885))
             Text("جمع مبلغ پیش‌نویس‌ها",color=Color(0xFFCEE6EB),style=MaterialTheme.typography.labelMedium)
-            Text(draftMoney(draftTotal(drafts)),color=Color.White,fontWeight=FontWeight.ExtraBold,
+            Text(draftMoney(total),color=Color.White,fontWeight=FontWeight.ExtraBold,
                 style=MaterialTheme.typography.titleLarge)
             if(visibleCount!=drafts.size) Text("نمایش $visibleCount از ${drafts.size} پیش‌نویس",
                 color=Color(0xFFCEE6EB),style=MaterialTheme.typography.labelSmall)

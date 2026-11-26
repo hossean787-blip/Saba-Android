@@ -30,6 +30,9 @@ import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.invoice.domain.InvoiceSettlement
 import ir.saba.invoice.domain.InvoiceSubject
 import ir.saba.moadian.MoadianMeasurementUnits
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.NumberFormat
@@ -256,23 +259,38 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
     var template by remember { mutableStateOf("پیش‌فرض") }
     var logo by remember { mutableStateOf(true) }
     var stamp by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val bytes = remember(company, customer, invoice, lines, template, logo, stamp, official, profiles, brandLogo, fonts) {
-        profiles?.let { profile -> runCatching { SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, true, official, profile.first, profile.second, brandLogo, fonts) }
-            .onFailure { error = it.message }.getOrNull() }
+    // New inputs get fresh state immediately: export can never reuse a previous invoice's bytes.
+    val documentKeys=arrayOf(company, customer, invoice, lines, template, logo, stamp, official, profiles, brandLogo, fonts)
+    val document=remember(*documentKeys){mutableStateOf<Result<ByteArray>?>(null)}
+    LaunchedEffect(document) {
+        val profile=profiles ?: return@LaunchedEffect
+        try {
+            document.value=Result.success(withContext(Dispatchers.Default) {
+                SuraInvoicePdf.generate(company, customer, invoice, lines, template, logo, stamp, true, official, profile.first, profile.second, brandLogo, fonts)
+            })
+        } catch(e:CancellationException){throw e}
+        catch(e:Exception){document.value=Result.failure(e)}
     }
-    var previewPage by remember(invoice.id) { mutableIntStateOf(0) }
+    val bytes=document.value?.getOrNull()
     val pageCount = (lines.size + InvoicePdfPagination.ROWS_PER_PAGE - 1).div(InvoicePdfPagination.ROWS_PER_PAGE).coerceAtLeast(1)
-    val preview = remember(bytes, previewPage) {
-        bytes?.let { runCatching { SuraInvoicePdf.preview(context, it, previewPage) }.getOrNull() }
+    var previewPage by remember(invoice.id,pageCount) { mutableIntStateOf(0) }
+    val rendered=remember(bytes,previewPage){mutableStateOf<Result<Bitmap>?>(null)}
+    LaunchedEffect(rendered) {
+        val pdf=bytes ?: return@LaunchedEffect
+        try {
+            rendered.value=Result.success(withContext(Dispatchers.IO){SuraInvoicePdf.preview(context.applicationContext,pdf,previewPage)})
+        }catch(e:CancellationException){throw e}
+        catch(e:Exception){rendered.value=Result.failure(e)}
     }
+    val preview=rendered.value?.getOrNull()
+    val error=document.value?.exceptionOrNull()?.message ?: rendered.value?.exceptionOrNull()?.message
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("پیش‌نمایش و خروجی صورتحساب", style = MaterialTheme.typography.headlineSmall)
         if(localPreview) Text("پیش‌نمایش محلی • ذخیره و ارسال نشده",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
         if (preview != null) ZoomableInvoicePdf(preview)
         else Text(if(profileError) "خواندن مشخصات طرفین ناموفق بود." else error ?: "در حال آماده‌سازی پیش‌نمایش PDF", color = MaterialTheme.colorScheme.error)
-        if (preview != null && pageCount > 1) {
+        if (bytes != null && pageCount > 1) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(enabled = previewPage > 0, onClick = { previewPage-- }) { Text("صفحه قبل") }
                 Text(invoicePdfDisplayDigits("صفحه ${previewPage + 1} از ${pageCount}"), style = MaterialTheme.typography.bodyMedium)

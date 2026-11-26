@@ -60,6 +60,7 @@ internal fun ZoomableInvoicePdf(bitmap:Bitmap) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PdfZoomPanel(bitmap:Bitmap,onExpand:(()->Unit)?) {
     var zoom by remember(bitmap){mutableStateOf(PdfZoom())}
