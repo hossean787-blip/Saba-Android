@@ -13,9 +13,6 @@ create table if not exists public.sura_sales_offers(
  updated_at timestamptz not null default now()
 );
 create index if not exists sura_sales_offers_public_idx on public.sura_sales_offers(active,sort_order,created_at desc);
-create index if not exists sura_card_requests_offer_id_idx on public.sura_card_requests(offer_id);
-create index if not exists sura_sales_offer_audit_actor_idx on public.sura_sales_offer_audit(actor_id,created_at desc);
-create index if not exists sura_sales_offer_audit_offer_idx on public.sura_sales_offer_audit(offer_id,created_at desc);
 create table if not exists public.sura_sales_offer_audit(
  request_id uuid primary key,
  actor_id uuid not null references auth.users(id),
@@ -38,6 +35,9 @@ grant select,insert,update on public.sura_sales_offers,public.sura_sales_offer_a
 
 alter table public.sura_card_requests add column if not exists offer_id uuid references public.sura_sales_offers(id);
 alter table public.sura_card_requests add column if not exists offer_title text;
+create index if not exists sura_card_requests_offer_id_idx on public.sura_card_requests(offer_id);
+create index if not exists sura_sales_offer_audit_actor_idx on public.sura_sales_offer_audit(actor_id,created_at desc);
+create index if not exists sura_sales_offer_audit_offer_idx on public.sura_sales_offer_audit(offer_id,created_at desc);
 alter table public.sura_card_requests drop constraint if exists sura_card_requests_kind_check;
 alter table public.sura_card_requests add constraint sura_card_requests_kind_check check(kind in ('single','monthly','offer'));
 alter table public.sura_card_requests add constraint sura_card_offer_snapshot_check check((kind='offer' and offer_id is not null and offer_title is not null) or (kind<>'offer' and offer_id is null and offer_title is null));
