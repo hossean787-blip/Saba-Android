@@ -760,7 +760,7 @@ class MainActivity : ComponentActivity() {
                                     onSelectTaxpayer = { page = Page.COMPANIES }
                                 )
                             }
-                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES },
+                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(),
                                 customers = current?.customers.orEmpty(), receipts = current?.officialReceipts.orEmpty(),
                                 onOpenInvoice = { id -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { openEventInvoiceId = id; page = Page.INVOICES } },
                                 onQuickAction = { id, action -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { eventQuickAction=action.name;copyEventInvoiceId=id;page=Page.INVOICES } })
