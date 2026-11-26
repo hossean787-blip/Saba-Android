@@ -37,7 +37,7 @@ import java.net.URL
 
 internal object CardTransferApi {
     suspend fun call(token:String,route:String,body:JSONObject=JSONObject()):JSONObject=withContext(Dispatchers.IO){
-        require(route in setOf("quote","reserve","mine","submit","cancel") && token.isNotBlank())
+        require(route in setOf("offers","quote","reserve","mine","submit","cancel") && token.isNotBlank())
         val c=URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-card-transfer/$route").openConnection() as HttpURLConnection
         try {
             c.requestMethod="POST";c.instanceFollowRedirects=false;c.useCaches=false;c.doOutput=true
