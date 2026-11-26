@@ -650,6 +650,9 @@ button{touch-action:manipulation}
 @media(min-width:641px){.mobile-bottom-nav{display:none!important}}
 @media(prefers-reduced-motion:no-preference){.panel,.stat-card,.setting-card{transition:transform .18s ease,box-shadow .18s ease}.stat-card:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(0,0,0,.10)}}
 
+
+/* Older Android WebView fallbacks and narrow-screen toolbar fit */
+@media(max-width:640px){.main{padding-bottom:68px;padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}.mobile-bottom-nav{padding:7px;padding-bottom:calc(7px + env(safe-area-inset-bottom,0px))}.topbar>button:nth-of-type(3){font-size:0;width:36px;justify-content:center}.topbar>button:nth-of-type(3) svg{width:17px;height:17px}}
 </style>
 </head>
 <body>
