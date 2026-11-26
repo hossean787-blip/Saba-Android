@@ -417,8 +417,9 @@ private fun InvoiceScreenContent(
     }
     LaunchedEffect(openDraftsRequested) {
         if(openDraftsRequested) {
-            fromEvents=false;unifiedPreview=false;mode="list";status="DRAFT";search="";error=""
+            fromEvents=false;unifiedPreview=false;error=""
             onDraftsRequestHandled()
+            onBackToEvents()
         }
     }
     LaunchedEffect(newInvoiceRequest) {
