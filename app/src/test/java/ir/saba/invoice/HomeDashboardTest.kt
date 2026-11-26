@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import ir.saba.invoice.ui.HomeDashboard
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -16,6 +17,33 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class HomeDashboardTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun suraPromotionShowsAndStartsNewInvoice() {
+        var invoiceActionCount = 0
+        compose.setContent {
+            MaterialTheme {
+                HomeDashboard(
+                    taxpayerName = "مودی نمونه",
+                    remainingCharge = 0,
+                    draftCount = 0,
+                    queueCount = 0,
+                    customerCount = 0,
+                    invoices = emptyList(),
+                    onSelectTaxpayer = {},
+                    onNewInvoice = { invoiceActionCount++ },
+                    onTaxKeys = {},
+                    onInvoices = {},
+                    onCharge = {},
+                    taxpayerOptions = listOf(1L to "مودی نمونه")
+                )
+            }
+        }
+        compose.onNodeWithText("مدیریت صورتحساب، ساده‌تر از همیشه")
+            .performScrollTo().assertExists()
+        compose.onNodeWithText("ثبت صورتحساب جدید")
+            .performScrollTo().performClick()
+        assertEquals(1, invoiceActionCount)
+    }
 
     @Test fun taxKeysShortcutIsClearlyForKeyGenerationAndCallsOnlyKeyAction() {
         var keyActionCount = 0
