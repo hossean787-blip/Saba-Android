@@ -1,0 +1,120 @@
+name: SURA re-signed APK rejection gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sura-resigned-apk-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  rejection:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Retrieve exact previously verified owner-test APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sura-authenticity" evidence
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45844007954" | jq -e --arg repo "$GITHUB_REPOSITORY" '.conclusion == "success" and .head_branch == "main" and .head_sha == "0cf2ecc381c997c847818a00f7647b8291578269" and .head_repository.full_name == $repo and .path == ".github/workflows/android-signed-release.yml"' >/dev/null
+          gh run download 45844007954 -n sura-signed-release-apk -D "$RUNNER_TEMP/sura-authenticity" --repo "$GITHUB_REPOSITORY"
+          test -s "$RUNNER_TEMP/sura-authenticity/app-release.apk"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [[ ! -x "$SDK/build-tools/34.0.0/apksigner" ]]; then
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;34.0.0"
+          fi
+          export SIGNER="$SDK/build-tools/34.0.0/apksigner"
+          export AAPT="$SDK/build-tools/34.0.0/aapt"
+          cd "$RUNNER_TEMP/sura-authenticity"
+          "$AAPT" dump badging app-release.apk > badging.txt
+          grep -F "package: name='ir.saba.invoice' versionCode='139'" badging.txt
+          "$SIGNER" verify --verbose --print-certs app-release.apk > original-cert.txt
+          grep -F 'Signer #1 certificate SHA-256 digest: 55a5c9f677f899630bc792330606161560a8dea94b7fe0eabe11d47a013d7b0b' original-cert.txt
+          # Disposable synthetic certificate; never use or export the production signing key.
+          keytool -genkeypair -keystore synthetic.jks -storepass disposable-test-only -keypass disposable-test-only -alias synthetic -keyalg RSA -keysize 2048 -validity 2 -dname 'CN=SURA isolated CI test'
+          "$SIGNER" sign --ks synthetic.jks --ks-key-alias synthetic --ks-pass pass:disposable-test-only --key-pass pass:disposable-test-only --out resigned.apk app-release.apk
+          "$SIGNER" verify --verbose --print-certs resigned.apk > synthetic-cert.txt
+          original=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' original-cert.txt)
+          synthetic=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' synthetic-cert.txt)
+          [[ -n "$synthetic" && "$synthetic" != "$original" ]]
+          "$AAPT" dump badging resigned.apk > resigned-badging.txt
+          grep -F "package: name='ir.saba.invoice' versionCode='139'" resigned-badging.txt
+          sha256sum app-release.apk resigned.apk > apk-hashes.txt
+          cp original-cert.txt synthetic-cert.txt apk-hashes.txt "$GITHUB_WORKSPACE/evidence/"
+          # The re-signed APK and test keystore remain in runner temp; never publish them.
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Verify actual installation and startup rejection
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            bash -euo pipefail <<'BASH'
+            pkg=ir.saba.invoice
+            dir="$RUNNER_TEMP/sura-authenticity"
+            sdk=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
+            [[ "$sdk" == 29 || "$sdk" == 36 ]]
+            # Fresh disposable emulator only. No account sign-in or financial request.
+            for i in $(seq 1 50); do
+              if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]] && adb shell cmd package list packages >/dev/null 2>&1; then break; fi
+              sleep 3
+            done
+            if adb shell pm path "$pkg" | grep -q '^package:'; then echo "Unexpected existing app on emulator"; exit 1; fi
+            adb install --no-streaming "$dir/app-release.apk"
+            adb shell am start -W -n "$pkg/.MainActivity" | tee evidence/official-start.txt
+            # Require actual positive login UI, not just process existence.
+            wait_ui() {
+              local expected="$1" name="$2"
+              for i in $(seq 1 20); do
+                adb shell uiautomator dump /sdcard/sura-gate.xml >/dev/null 2>&1 || true
+                if adb pull /sdcard/sura-gate.xml "evidence/$name.xml" >/dev/null 2>&1 && grep -Fq "$expected" "evidence/$name.xml"; then
+                  return 0
+                fi
+                sleep 2
+              done
+              echo "Expected UI not found: $name" >&2
+              return 1
+            }
+            wait_ui 'ورود با رمز ثابت' official-login
+            ! grep -Fq 'نسخه نامعتبر سورا' evidence/official-login.xml
+            # Android must reject an in-place update signed by another certificate.
+            if adb install --no-streaming -r "$dir/resigned.apk" > evidence/update-rejection.txt 2>&1; then
+              echo "Unexpected re-signed update success"; exit 1
+            fi
+            grep -F 'INSTALL_FAILED_UPDATE_INCOMPATIBLE' evidence/update-rejection.txt
+            # Uninstall only the synthetic clean test installation, then try fresh install.
+            adb uninstall "$pkg"
+            adb install --no-streaming "$dir/resigned.apk"
+            adb shell am start -W -n "$pkg/.MainActivity" | tee evidence/resigned-start.txt
+            wait_ui 'نسخه نامعتبر سورا' resigned-block
+            grep -F 'امضای این نسخه با نسخه رسمی سورا مطابقت ندارد' evidence/resigned-block.xml
+            ! grep -Fq 'ورود با رمز ثابت' evidence/resigned-block.xml
+            printf 'api=%s\nofficial_login=PASS\nwrong_signer_upgrade=REJECTED\nfresh_resigned_start=BLOCKED\nremote_attestation=NOT_TESTED\n' "$sdk" | tee evidence/result.txt
+            BASH
+      - name: Upload evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sura-resigned-rejection-api${{ matrix.api }}
+          path: evidence/
+          if-no-files-found: error
