@@ -86,10 +86,10 @@ internal suspend fun cardPurchaseHistory(token:String):List<JSONObject>{
     return (0 until rows.length()).map{rows.getJSONObject(it)}
 }
 
-private val bankNavy=Color(0xFF092D48)
-private val bankBlue=Color(0xFF096488)
-private val bankGold=Color(0xFFF3D28A)
-private val bankMuted=Color(0xFF587286)
+private val bankNavy=SuraPalette.Navy
+private val bankBlue=SuraPalette.Teal
+private val bankGold=SuraPalette.Gold
+private val bankMuted=SuraPalette.Muted
 private fun cardMoney(value:Long)=java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(value)
 private fun receiptDigits(value:String)=value.map{c->when(c){in '۰'..'۹'->'0'+(c-'۰');in '٠'..'٩'->'0'+(c-'٠');else->c}}.filter{it in '0'..'9'}.joinToString("")
 internal fun formatReceiptDate(value:String):String{
@@ -171,7 +171,7 @@ internal fun CardTransferPanel(token:String,order:JSONObject,onRefresh:suspend (
                         Image(bitmap=preview,contentDescription="پیش‌نمایش رسید انتخاب‌شده",modifier=Modifier.fillMaxWidth().heightIn(max=220.dp),contentScale=ContentScale.Fit)
                         Text("✓ تصویر آماده ارسال است",color=Color(0xFF137D62),fontWeight=FontWeight.Medium)
                     }else{
-                        Column(Modifier.fillMaxWidth().background(Color(0xFFEFF7FC),RoundedCornerShape(16.dp)).padding(16.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                        Column(Modifier.fillMaxWidth().background(SuraPalette.Canvas,RoundedCornerShape(16.dp)).padding(16.dp),horizontalAlignment=Alignment.CenterHorizontally){
                             Text("تصویر رسید بانکی",color=bankNavy,fontWeight=FontWeight.Bold)
                             Text("تصویر واضح و خوانا",color=bankMuted,style=MaterialTheme.typography.bodySmall)
                         }

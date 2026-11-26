@@ -26,11 +26,11 @@ import java.math.BigInteger
 import java.text.NumberFormat
 import java.util.Locale
 
-private val ink=Color(0xFF12354B)
-private val accent=Color(0xFF087D8A)
-private val muted=Color(0xFF536D7D)
-private val pale=Color(0xFFF0F7FA)
-private val border=Color(0xFFD8E6EC)
+private val ink=SuraPalette.Navy
+private val accent=SuraPalette.Teal
+private val muted=SuraPalette.Muted
+private val pale=SuraPalette.Soft
+private val border=SuraPalette.Edge
 
 internal fun draftTotal(invoices:List<Invoice>):BigInteger =
     invoices.filter{it.status=="DRAFT"}.fold(BigInteger.ZERO){sum,invoice->sum+BigInteger.valueOf(invoice.totalAmountRial)}
@@ -53,7 +53,7 @@ internal fun DraftsSummary(drafts:List<Invoice>,visibleCount:Int) {
                 Column(Modifier.weight(1f)) {
                     Text("میز کار پیش‌نویس‌ها",color=Color.White,fontWeight=FontWeight.Bold,
                         style=MaterialTheme.typography.titleMedium)
-                    Text("ثبت محفوظ؛ قبل از ارسال قابل بررسی",color=Color(0xFFCEE6EB),
+                    Text("ثبت محفوظ؛ قبل از ارسال قابل بررسی",color=SuraPalette.OnDark,
                         style=MaterialTheme.typography.labelSmall)
                 }
                 Surface(color=Color(0xFFE5F5F4),shape=RoundedCornerShape(12.dp)) {
@@ -62,11 +62,11 @@ internal fun DraftsSummary(drafts:List<Invoice>,visibleCount:Int) {
                 }
             }
             HorizontalDivider(color=Color(0xFF497885))
-            Text("جمع مبلغ پیش‌نویس‌ها",color=Color(0xFFCEE6EB),style=MaterialTheme.typography.labelMedium)
+            Text("جمع مبلغ پیش‌نویس‌ها",color=SuraPalette.OnDark,style=MaterialTheme.typography.labelMedium)
             Text(draftMoney(total),color=Color.White,fontWeight=FontWeight.ExtraBold,
                 style=MaterialTheme.typography.titleLarge)
             if(visibleCount!=drafts.size) Text("نمایش $visibleCount از ${drafts.size} پیش‌نویس",
-                color=Color(0xFFCEE6EB),style=MaterialTheme.typography.labelSmall)
+                color=SuraPalette.OnDark,style=MaterialTheme.typography.labelSmall)
         }
     }
 }

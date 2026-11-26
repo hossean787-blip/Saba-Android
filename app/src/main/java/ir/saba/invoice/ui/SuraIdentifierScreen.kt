@@ -65,9 +65,9 @@ import ir.saba.invoice.data.identifiers.SuraSavedIdentifierStore
 import ir.saba.invoice.security.AccountScope
 import kotlinx.coroutines.launch
 
-private val catalogNavy = Color(0xFF12354B)
-private val catalogTeal = Color(0xFF087D8A)
-private val catalogIvory = Color(0xFFF4F9FC)
+private val catalogNavy = SuraPalette.Navy
+private val catalogTeal = SuraPalette.Teal
+private val catalogIvory = SuraPalette.Canvas
 
 /** A standalone page; financial invoice state and its approved PDF remain unchanged. */
 @Composable
@@ -167,25 +167,25 @@ fun SuraIdentifierScreen(
                 TextButton(onClick = onBack) { Text("بازگشت", color=catalogTeal) }
             }
             Card(shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().testTag("identifierTaxpayerCard")) {
-                Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(catalogNavy,Color(0xFF17616D))))
+                Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(catalogNavy,SuraPalette.Ocean)))
                     .padding(horizontal=12.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                     Surface(shape=RoundedCornerShape(12.dp),color=Color.White.copy(alpha=.13f)) {
-                        Icon(Icons.Default.AccountCircle,contentDescription=null,tint=Color(0xFFE7CB92),
+                        Icon(Icons.Default.AccountCircle,contentDescription=null,tint=SuraPalette.Gold,
                             modifier=Modifier.padding(9.dp).size(24.dp))
                     }
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                        Text("پرونده مؤدی",color=Color(0xFFBADDE4),style=MaterialTheme.typography.labelSmall)
+                        Text("پرونده مؤدی",color=SuraPalette.OnDark,style=MaterialTheme.typography.labelSmall)
                         Text(taxpayerName ?: "مؤدی انتخاب نشده",color=Color.White,fontWeight=FontWeight.Bold,
                             style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
                         if(taxpayerId==null) TextButton(onClick=onSelectTaxpayer) {
-                            Text("انتخاب مؤدی",color=Color(0xFFE7CB92))
+                            Text("انتخاب مؤدی",color=SuraPalette.Gold)
                         }
                     }
                     Column(horizontalAlignment=Alignment.CenterHorizontally) {
                         Text(catalogCount?.toString() ?: "…",color=Color.White,fontWeight=FontWeight.Bold,
                             style=MaterialTheme.typography.titleMedium)
-                        Text("شناسه بانک",color=Color(0xFFDDEDF1),style=MaterialTheme.typography.labelSmall)
+                        Text("شناسه بانک",color=SuraPalette.OnDark,style=MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -302,7 +302,7 @@ fun SuraIdentifierScreen(
             color = catalogNavy, fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleSmall
         )
-        HorizontalDivider(color = Color(0xFFDBE7EC))
+        HorizontalDivider(color = SuraPalette.Edge)
         if (entries.isEmpty()) Text(
             if(tab=="saved" && taxpayerId!=null) "برای این مؤدی هنوز شناسه‌ای ذخیره نشده است."
             else if(tab=="starter" && starterQuery.isNotBlank()) "شناسه مطابق جستجو پیدا نشد."
@@ -345,7 +345,7 @@ fun SuraIdentifierScreen(
                             maxLines = 3, overflow = TextOverflow.Ellipsis)
                         Text(entry.kind + "  •  نرخ ثبت‌شده: " +
                                 if (entry.vat.isBlank()) "نامشخص" else entry.vat + "٪",
-                            color = Color(0xFF617B8A), style = MaterialTheme.typography.bodySmall)
+                            color = SuraPalette.Muted, style = MaterialTheme.typography.bodySmall)
                         if (entry.source == "Mohsensoft (pending)") Text(
                             "نرخ گزارش‌شده؛ اعتبار رسمی هنوز تأیید نشده است.",
                             color = Color(0xFFB05D38), style = MaterialTheme.typography.labelSmall
@@ -373,7 +373,7 @@ fun SuraIdentifierScreen(
             }
             item(key="footer") {
                 Text("بانک آفلاین و داده‌های دستی باید پیش از ارسال صورتحساب با مرجع رسمی تطبیق داده شوند.",
-                    color = Color(0xFF657D89), style = MaterialTheme.typography.labelSmall)
+                    color = SuraPalette.Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
         }
@@ -385,11 +385,11 @@ private fun CatalogTab(label:String,count:String?,image:ImageVector,selected:Boo
     Surface(modifier=modifier.heightIn(min=76.dp).selectable(selected=selected,onClick=onClick,role=Role.Tab),
         shape=RoundedCornerShape(13.dp),
         color=if(selected) catalogNavy else Color.White,
-        border=androidx.compose.foundation.BorderStroke(1.dp,if(selected) catalogNavy else Color(0xFFDCE8ED))) {
+        border=androidx.compose.foundation.BorderStroke(1.dp,if(selected) catalogNavy else SuraPalette.Edge)) {
         Column(Modifier.padding(horizontal=3.dp,vertical=9.dp),horizontalAlignment=Alignment.CenterHorizontally,
             verticalArrangement=Arrangement.spacedBy(3.dp)) {
             val ink=if(selected) Color.White else catalogNavy
-            Icon(image,contentDescription=null,tint=if(selected) Color(0xFFE7CB92) else catalogTeal,
+            Icon(image,contentDescription=null,tint=if(selected) SuraPalette.Gold else catalogTeal,
                 modifier=Modifier.size(22.dp))
             Text(label,color=ink,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.SemiBold,
                 textAlign=TextAlign.Center,maxLines=2)
@@ -408,7 +408,7 @@ private fun CatalogSearchField(value:String,onChange:(String)->Unit,label:String
         trailingIcon={ if(value.isNotEmpty()) IconButton(onClick={onChange("")}) {
             Icon(Icons.Default.Close,contentDescription="پاک کردن جستجو")
         } },
-        colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=catalogTeal,unfocusedBorderColor=Color(0xFFCEDFE5),
+        colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=catalogTeal,unfocusedBorderColor=SuraPalette.Edge,
             focusedContainerColor=Color.White,unfocusedContainerColor=Color.White,cursorColor=catalogTeal))
 }
 

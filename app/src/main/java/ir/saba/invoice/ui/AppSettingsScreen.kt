@@ -33,12 +33,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
-private val settingsInk = Color(0xFF102F49)
-private val settingsMuted = Color(0xFF647E94)
-private val settingsBlue = Color(0xFF155F99)
-private val settingsTeal = Color(0xFF137C89)
-private val settingsCanvas = Color(0xFFF3F8FD)
-private val settingsBorder = Color(0xFFE3EDF5)
+private val settingsInk = SuraPalette.Navy
+private val settingsMuted = SuraPalette.Muted
+private val settingsBlue = SuraPalette.Teal
+private val settingsTeal = SuraPalette.Teal
+private val settingsCanvas = SuraPalette.Canvas
+private val settingsBorder = SuraPalette.Edge
 
 enum class SettingsDestination { TAXPAYERS, TAX_CONNECTION, BACKUP, RESTORE, SUPPORT, PRIVACY, TERMS, ABOUT, ACCOUNT }
 
@@ -86,7 +86,7 @@ fun AppSettingsScreen(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF09263F), Color(0xFF155A83), Color(0xFF16869A))
+                        listOf(SuraPalette.Midnight, SuraPalette.Ocean, Color(0xFF16869A))
                     )
                 ).testTag("settingsHero")
         ) {
@@ -110,7 +110,7 @@ fun AppSettingsScreen(
                 ) {
                     Icon(
                         Icons.Default.Settings, contentDescription = null,
-                        tint = Color(0xFFF2DAA5), modifier = Modifier.size(32.dp)
+                        tint = SuraPalette.Gold, modifier = Modifier.size(32.dp)
                     )
                 }
                 Column(
@@ -125,7 +125,7 @@ fun AppSettingsScreen(
                     Text(
                         "ظاهر و امنیت سورا، مطابق نیاز شما",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFCFEBF6)
+                        color = SuraPalette.OnDark
                     )
                 }
             }
@@ -156,7 +156,7 @@ fun AppSettingsScreen(
                 )
                 Surface(
                     shape = RoundedCornerShape(13.dp),
-                    color = Color(0xFFE8F2FF)
+                    color = SuraPalette.Soft
                 ) {
                     Text(
                         "$percentage٪",
@@ -176,7 +176,7 @@ fun AppSettingsScreen(
                 colors = SliderDefaults.colors(
                     thumbColor = settingsBlue,
                     activeTrackColor = settingsBlue,
-                    inactiveTrackColor = Color(0xFFD8E5F0)
+                    inactiveTrackColor = SuraPalette.Edge
                 )
             )
             Row(

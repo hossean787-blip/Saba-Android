@@ -30,10 +30,10 @@ import androidx.compose.ui.unit.dp
 import java.text.NumberFormat
 import java.util.Locale
 
-private val accountNavy = Color(0xFF071F32)
-private val accountTeal = Color(0xFF0C7484)
-private val accountGold = Color(0xFFEAD19C)
-private val accountText = Color(0xFF16364E)
+private val accountNavy = SuraPalette.Midnight
+private val accountTeal = SuraPalette.Teal
+private val accountGold = SuraPalette.Gold
+private val accountText = SuraPalette.Navy
 private val accountNumber = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR"))
 
 /**
@@ -83,7 +83,7 @@ private fun AccountContent(
         editingProfile = true
     }
     Column(
-        Modifier.fillMaxSize().background(Color(0xFFF2F9FF))
+        Modifier.fillMaxSize().background(SuraPalette.Canvas)
             .verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -96,30 +96,30 @@ private fun AccountContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(60.dp).clip(CircleShape)
-                    .background(Color(0xFFD9E8F7)), contentAlignment = Alignment.Center) {
+                    .background(SuraPalette.Soft), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.AccountCircle, contentDescription = null,
                         tint = Color(0xFF39739A), modifier = Modifier.size(42.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(displayName, color = accountText, fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium)
-                    Text(ownerEmail ?: "ایمیل ثبت نشده", color = Color(0xFF657C97),
+                    Text(ownerEmail ?: "ایمیل ثبت نشده", color = SuraPalette.Muted,
                         style = MaterialTheme.typography.bodySmall, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
-                    Text(localMobile.ifBlank { "موبایل ثبت نشده" }, color = Color(0xFF657C97),
+                    Text(localMobile.ifBlank { "موبایل ثبت نشده" }, color = SuraPalette.Muted,
                         style = MaterialTheme.typography.bodySmall)
                 }
                 TextButton(onClick = ::openProfile, enabled = !busy && profileKey != null,
                     modifier = Modifier.testTag("personalInfo")) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF075F91))
+                    Icon(Icons.Default.Person, contentDescription = null, tint = SuraPalette.Teal)
                     Spacer(Modifier.width(4.dp))
                     Text("اطلاعات شخصی", style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF075F91))
+                        color = SuraPalette.Teal)
                 }
             }
         }
         Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp),
-            colors=CardDefaults.cardColors(containerColor=Color(0xFF103D59))) {
+            colors=CardDefaults.cardColors(containerColor=SuraPalette.Ocean)) {
             Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 AccountBalance("اعتبار کیف پول مالک",ownerCharge,Modifier.weight(1f))
                 AccountBalance("اعتبار مؤدی انتخاب‌شده",taxpayerCharge,Modifier.weight(1f))
@@ -130,7 +130,7 @@ private fun AccountContent(
                 Icons.Default.Edit, Color(0xFFE8EDFB), Color(0xFF515FAD),
                 Modifier.weight(1f), !busy, "changePassword") { selected = AccountAction.PASSWORD }
             AccountActionTile("تغییر شماره موبایل", "",
-                Icons.Default.AccountCircle, Color(0xFFE5F2FA), Color(0xFF146C92),
+                Icons.Default.AccountCircle, SuraPalette.Soft, SuraPalette.Teal,
                 Modifier.weight(1f), !busy, "changeMobile") { selected = AccountAction.MOBILE }
         }
         Row(Modifier.fillMaxWidth()) {
@@ -149,7 +149,7 @@ private fun AccountContent(
                         color = accountText, fontWeight = FontWeight.Bold)
                 }
                 ExcelActionRow("ورود اطلاعات", Icons.Default.Add,
-                    Color(0xFFEAF3FF), Color(0xFF155DA8),
+                    SuraPalette.Soft, SuraPalette.Teal,
                     !busy, "excelImport", onTaxpayers = { onExcelAction("import", "taxpayers") },
                     onCustomers = { onExcelAction("import", "customers") })
                 ExcelActionRow("خروجی اطلاعات", Icons.AutoMirrored.Filled.List,
@@ -250,7 +250,7 @@ private fun AccountContent(
         AlertDialog(
             onDismissRequest = { selected = null },
             shape = RoundedCornerShape(26.dp),
-            containerColor = Color(0xFFF9FCFF),
+            containerColor = SuraPalette.Canvas,
             title = { Text(title, color = accountText, fontWeight = FontWeight.Bold) },
             text = {
                 when (action) {
@@ -259,7 +259,7 @@ private fun AccountContent(
                         Text("ایمیل حساب: " + (ownerEmail ?: "از سرور دریافت نشده"))
                         Text("شماره موبایل: از سرور دریافت نشده")
                         Text("اطلاعات این بخش صرفاً از ورود تأییدشده همین نشست نمایش داده می‌شود.",
-                            color = Color(0xFF6B8093), style = MaterialTheme.typography.bodySmall)
+                            color = SuraPalette.Muted, style = MaterialTheme.typography.bodySmall)
                     }
                     AccountAction.PASSWORD ->
                         Text("برای تغییر ایمن رمز، سرویس احراز هویت باید رمز فعلی را بررسی و تغییر رمز جدید را در سرور ثبت کند. این خدمت هنوز در سرور متصل نشده است؛ رمز فعلی شما تغییر نکرده است.")
@@ -310,7 +310,7 @@ private fun ExcelActionRow(
 @Composable
 private fun AccountBalance(label: String, value: Long?, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, color = Color(0xFFACCED9), style = MaterialTheme.typography.labelSmall)
+        Text(label, color = SuraPalette.OnDark, style = MaterialTheme.typography.labelSmall)
         Text(value?.let { accountNumber.format(it) } ?: "—", color = accountGold,
             fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
     }

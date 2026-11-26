@@ -24,8 +24,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 
-private val deepBlue = Color(0xFF073B66)
-private val sky = Color(0xFFDAEEFF)
+private val deepBlue = SuraPalette.Navy
+private val sky = SuraPalette.Soft
 private val violet = Color(0xFF8046CE)
 
 @Composable
@@ -101,7 +101,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     val q=quote?.takeIf{it.matches(plan,selectedQuantity)}
     val canPurchase=historyReady&&onlineReady&&active==null&&pendingOnlineId==null&&!checkoutBusy
     val cardShape=RoundedCornerShape(22.dp)
-    Column(Modifier.fillMaxSize().background(Color(0xFFF4F9FF)).verticalScroll(rememberScrollState())
+    Column(Modifier.fillMaxSize().background(SuraPalette.Canvas).verticalScroll(rememberScrollState())
         .padding(horizontal=12.dp,vertical=14.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
         Text("خرید اعتبار",fontWeight=FontWeight.ExtraBold,color=deepBlue,style=MaterialTheme.typography.headlineSmall)
         if(displayedOrder!=null){
@@ -112,7 +112,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                     Text("انتخاب روش پرداخت",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleLarge)
                     Text("${q.units} اعتبار تکی",color=deepBlue)
                     Text("مبلغ قابل پرداخت: ${money(q.total)} ریال",fontWeight=FontWeight.Bold,color=deepBlue)
-                    Card(shape=RoundedCornerShape(16.dp),border=androidx.compose.foundation.BorderStroke(2.dp,Color(0xFF356DF0)),colors=CardDefaults.cardColors(containerColor=Color(0xFFE8F4FF))){
+                    Card(shape=RoundedCornerShape(16.dp),border=androidx.compose.foundation.BorderStroke(2.dp,SuraPalette.Teal),colors=CardDefaults.cardColors(containerColor=SuraPalette.Soft)){
                         Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
                             RadioButton(selected=true,onClick=null)
                             Column(Modifier.padding(start=8.dp)){
@@ -146,9 +146,9 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 }
             }
         }else{
-            Text("تعداد اعتبار یا گزینه هدیه را انتخاب کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFF5F7391))
+            Text("تعداد اعتبار یا گزینه هدیه را انتخاب کنید.",style=MaterialTheme.typography.bodySmall,color=SuraPalette.Muted)
             if(active!=null){
-                Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color(0xFFE8F4FF))){
+                Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=SuraPalette.Soft)){
                     Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                         Text("سفارش پرداخت قبلی",fontWeight=FontWeight.Bold,color=deepBlue)
                         Text(if(active.optString("state")=="pending")"رسید در انتظار بررسی است؛ دوباره واریز نکنید." else "یک سفارش ثبت شده هنوز رسید ندارد.")
@@ -170,20 +170,20 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 OutlinedButton(onClick={payAction{refreshOrders()}},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بررسی وضعیت سفارش‌های قبلی")}
             }
             Card(onClick={freeSelected=false;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),shape=cardShape,
-                border=androidx.compose.foundation.BorderStroke(if(!freeSelected)2.dp else 1.dp,if(!freeSelected)Color(0xFF356DF0) else Color(0xFFE4EAF3)),
-                colors=CardDefaults.cardColors(containerColor=if(!freeSelected)Color(0xFFE8F4FF) else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                border=androidx.compose.foundation.BorderStroke(if(!freeSelected)2.dp else 1.dp,if(!freeSelected)SuraPalette.Teal else SuraPalette.Edge),
+                colors=CardDefaults.cardColors(containerColor=if(!freeSelected)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
                     RadioButton(selected=!freeSelected,onClick=null)
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)){
                         Text("اعتبار تکی",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleMedium)
-                        Text("هر صورتحساب یک اعتبار • خرید به تعداد دلخواه",color=Color(0xFF526D8F),style=MaterialTheme.typography.bodySmall)
+                        Text("هر صورتحساب یک اعتبار • خرید به تعداد دلخواه",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
                     }
                 }
             }
             if(plan!="free")Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
                     Text("تعداد اعتبار موردنیاز",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=deepBlue)
-                    Text("قیمت هر اعتبار: ${money(q?.let{it.subtotal/it.units})} ریال",color=Color(0xFF60768B),style=MaterialTheme.typography.bodySmall)
+                    Text("قیمت هر اعتبار: ${money(q?.let{it.subtotal/it.units})} ریال",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
                         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
                             OutlinedButton(onClick={quantity=((quantity.toIntOrNull()?:1)-1).coerceAtLeast(1).toString()}){Text("−")}
                             OutlinedTextField(quantity,{quantity=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{c->c in '0'..'9'}.take(6)},modifier=Modifier.weight(1f),singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),label={Text("تعداد اعتبار")},shape=RoundedCornerShape(14.dp))
@@ -241,7 +241,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                     if (promoMessage.isNotBlank()) Text(promoMessage, color = deepBlue,
                         style = MaterialTheme.typography.bodySmall)
                     Text("شناسه دستگاه برای جلوگیری از دریافت تکراری بررسی می‌شود. IP به‌تنهایی معیار مسدودسازی نیست.",
-                        style = MaterialTheme.typography.labelSmall, color = Color(0xFF687A89))
+                        style = MaterialTheme.typography.labelSmall, color = SuraPalette.Muted)
                     Text("مصرف اعتبار برای هر فاکتور جدید نیازمند تأیید سرور است.",
                         style = MaterialTheme.typography.labelSmall, color = Color(0xFF977425))
                 }
@@ -260,7 +260,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         }
         if(checkoutBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
         if(paymentMessage.isNotBlank())Text(paymentMessage,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
-        Text("مبالغ به ریال هستند؛ اعتبار فقط پس از تأیید سرور شارژ می‌شود.",color=Color(0xFF5F7391),style=MaterialTheme.typography.bodySmall)
+        Text("مبالغ به ریال هستند؛ اعتبار فقط پس از تأیید سرور شارژ می‌شود.",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
     }
     cancelId?.let{id->
