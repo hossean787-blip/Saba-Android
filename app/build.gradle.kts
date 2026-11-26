@@ -169,7 +169,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
-    implementation("net.zetetic:sqlcipher-android:4.16.0")
+    // Explicit AAR and its published POM runtime dependency (Maven Central 4.16.0).
+    implementation("net.zetetic:sqlcipher-android:4.16.0@aar") { isTransitive = false }
+    implementation("androidx.sqlite:sqlite:2.6.2")
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
