@@ -12,7 +12,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.ui.platform.testTag
 import ir.saba.invoice.domain.InvoiceSubject
 import androidx.compose.material3.*
@@ -154,7 +153,7 @@ internal fun canCopyAsNewInvoice(invoice:Invoice):Boolean =
 internal fun CopyInvoiceButton(id:Long,enabled:Boolean=true,onClick:()->Unit) {
     OutlinedButton(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("copyInvoice_$id"),
         shape=RoundedCornerShape(13.dp)) {
-        Icon(Icons.Default.ContentCopy,null,Modifier.size(18.dp))
+        Icon(Icons.AutoMirrored.Filled.List,null,Modifier.size(18.dp))
         Spacer(Modifier.width(7.dp));Text("کپی و صدور فاکتور جدید")
     }
 }

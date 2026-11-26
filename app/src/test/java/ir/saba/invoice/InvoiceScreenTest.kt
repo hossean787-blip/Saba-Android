@@ -92,6 +92,61 @@ class InvoiceScreenTest {
         }
     }
 
+    @Test fun copyRegisteredInvoiceOpensNewFormAndCanSaveForAnotherBuyer() {
+        val fixture=runBlocking {
+            val other=db.customerDao().insert(Customer(companyId=company,name="خریدار دوم"))
+            val repo=InvoiceRepository(db)
+            val metadata=InvoiceLocalDetails(paymentTrackingNumber="OLD-RECEIPT",paymentDate="1405/07/02",
+                buyerBranchCode="OLD-BRANCH",invoiceDescription="شرح مشترک").toJson()
+            val id=repo.saveDraft(company,customer,"12","1405/07/02",
+                listOf(InvoiceLine(invoiceId=0,description="خدمت قابل تکرار",quantity=2,unitPriceRial=1000,taxRatePercent=10)),
+                localDetailsJson=metadata)
+            repo.finalizeDraft(company,id)
+            invoices=db.invoiceDao().forCompany(company)
+            Triple(id,other,repo.detailsForCompany(company,id))
+        }
+        compose.setContent {
+            var request by remember { mutableStateOf<Long?>(fixture.first) }
+            MaterialTheme {
+                InvoiceScreen(db,ownerId,company,listOf(
+                    Customer(id=customer,companyId=company,name="خریدار"),
+                    Customer(id=fixture.second,companyId=company,name="خریدار دوم")),invoices,
+                    onChanged={invoices=db.invoiceDao().forCompany(company)},onNotice={surfacedNotices.add(it)},
+                    onEditorActive={},creditGateway=creditGateway,copyEventInvoiceId=request,onCopyEventHandled={request=null})
+            }
+        }
+        compose.waitUntil(15000){compose.onAllNodesWithTag("invoiceProfessionalHeader").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText("مشتری: خریدار").performScrollTo().assertExists().performClick()
+        compose.onNodeWithText("خریدار دوم").performClick()
+        compose.onNodeWithTag("invoiceItemRow0").assertExists()
+        assertEquals(10L,creditGateway.remaining)
+        assertEquals(0,creditGateway.requestedKeys.size)
+        compose.onNodeWithText("ذخیره پیش‌نویس").performClick()
+        compose.waitUntil(15000){invoices.size==2}
+        runBlocking {
+            val repo=InvoiceRepository(db)
+            val original=repo.detailsForCompany(company,fixture.first)
+            assertEquals(fixture.third.invoice,original.invoice)
+            assertEquals(fixture.third.lines,original.lines)
+            val copy=repo.detailsForCompany(company,invoices.single{it.id!=fixture.first}.id)
+            assertEquals(fixture.second,copy.invoice.customerId)
+            assertEquals("DRAFT",copy.invoice.status)
+            assertEquals("ORIGINAL",copy.invoice.subject)
+            assertEquals(null,copy.invoice.referenceTaxId)
+            assertEquals("13",copy.invoice.invoiceNumber)
+            assertEquals(fixture.third.invoice.totalAmountRial,copy.invoice.totalAmountRial)
+            assertEquals(fixture.third.lines.single().copy(id=0,invoiceId=0),copy.lines.single().copy(id=0,invoiceId=0))
+            val meta=InvoiceLocalDetails.fromJson(copy.invoice.localDetailsJson)
+            assertEquals("",meta.paymentTrackingNumber)
+            assertEquals("",meta.paymentDate)
+            assertEquals("",meta.buyerBranchCode)
+            assertEquals("شرح مشترک",meta.invoiceDescription)
+            assertEquals(0,db.officialSubmissionDao().forCompany(company).size)
+        }
+        assertEquals(9L,creditGateway.remaining)
+        assertEquals(1,creditGateway.consumedKeys.size)
+    }
+
     @Test fun draftDashboardEntryFiltersAndDirectEditPreservesIdentityAndCredit() {
         val draft=runBlocking {
             val repo=InvoiceRepository(db)
