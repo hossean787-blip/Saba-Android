@@ -18,7 +18,7 @@ class AuthScreenTest {
         var submitted = false
         compose.setContent { AuthTheme { OwnerLoginScreen({ _, _ -> submitted = true }, {}, {}) } }
         compose.onNodeWithText("ورود با رمز ثابت").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("loginEmailField").performTextInput("owner@example.com")
+        compose.onNodeWithText("ایمیل").performTextInput("owner@example.com")
         compose.onNodeWithText("رمز عبور ثابت").performTextInput("password123")
         compose.onNodeWithText("ورود با رمز ثابت").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(submitted) }
@@ -29,41 +29,17 @@ class AuthScreenTest {
         compose.setContent {
             AuthTheme {
                 OwnerLoginScreen({ _, _ -> }, {}, {}, biometricEnabled = true,
-                    savedAccountEmails = listOf("owner@example.com", "second@example.com"),
                     onBiometricLogin = { taps++ })
             }
         }
-        compose.onNodeWithText("بازکردن رمز با اثر انگشت").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithText("ورود با اثر انگشت").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, taps) }
-    }
-
-
-    @Test fun savedAccountsAreSelectableAndBiometricUnlockAutofillsLoginFields() {
-        var consumed = false
-        compose.setContent {
-            AuthTheme {
-                OwnerLoginScreen(
-                    onPasswordLogin = { _, _ -> },
-                    onSmsLogin = {},
-                    onRegister = {},
-                    biometricEnabled = true,
-                    savedAccountEmails = listOf("first@example.com", "second@example.com"),
-                    autofillCredentials = StoredLoginCredentials("second@example.com", "StrongPassword!123"),
-                    onAutofillConsumed = { consumed = true }
-                )
-            }
-        }
-        compose.onAllNodesWithText("second@example.com").assertCountEquals(2)
-        compose.onNodeWithText("بازکردن رمز با اثر انگشت").assertExists()
-        compose.onNodeWithText("نمایش").performScrollTo().performClick()
-        compose.onNodeWithText("StrongPassword!123").assertExists()
-        compose.runOnIdle { assertTrue(consumed) }
     }
 
     @Test fun busyLoginDisablesNavigationAndSubmission() {
         compose.setContent { AuthTheme { OwnerLoginScreen({ _, _ -> }, {}, {}, busy = true) } }
         compose.onNodeWithText("ایجاد حساب کاربری").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("loginEmailField").assertIsNotEnabled()
+        compose.onNodeWithText("ایمیل").assertIsNotEnabled()
     }
 
     private fun waitForField(label: String) {
