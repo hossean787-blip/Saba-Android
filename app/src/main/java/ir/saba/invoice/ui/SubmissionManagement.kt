@@ -29,7 +29,7 @@ internal fun canCancelNeverSent(invoice:Invoice,row:OfficialSubmission?):Boolean
             row.state in setOf("PREPARED","RESERVED") && row.referenceNumber.isNullOrBlank() && row.signedReceipt.isNullOrBlank())
 
 internal fun canDraftOriginalCancellation(invoice:Invoice,row:OfficialSubmission?,invoices:List<Invoice>):Boolean =
-    invoice.status=="FINALIZED" && invoice.subject==InvoiceSubject.ORIGINAL &&
+    invoice.status=="FINALIZED" && invoice.subject in setOf(InvoiceSubject.ORIGINAL,InvoiceSubject.CORRECTION) &&
         row?.invoiceId==invoice.id && row.companyId==invoice.companyId && row.protocol=="LEGACY" &&
         OfficialReferenceEvidence.eligible(row) && invoices.none {
             it.companyId==invoice.companyId && it.referenceTaxId==row.taxId && it.status!="CANCELLED"
@@ -66,8 +66,8 @@ private fun managementTime(ms:Long):String {
 @Composable
 internal fun SubmissionManagementDialog(invoice:Invoice,row:OfficialSubmission?,db:SabaDatabase,
     ownerId:String,invoices:List<Invoice>,busy:Boolean,onDismiss:()->Unit,onInquiry:()->Unit,
-    onCancel:()->Unit,onEdit:()->Unit,onCancellation:()->Unit) {
-    var confirm by remember(invoice.id){mutableStateOf("")}
+    onCancel:()->Unit,onEdit:()->Unit,onCancellation:()->Unit,initialCancellation:Boolean=false) {
+    var confirm by remember(invoice.id){mutableStateOf(if(initialCancellation) "abtal" else "")}
     var checks by remember(invoice.id,row){mutableStateOf<List<SubmissionCheck>?>(null)}
     var history by remember(invoice.id,row){mutableStateOf<List<RejectedSubmissionHistory>?>(null)}
     var loadError by remember(invoice.id,row){mutableStateOf(false)}
@@ -110,7 +110,7 @@ internal fun SubmissionManagementDialog(invoice:Invoice,row:OfficialSubmission?,
                 OutlinedButton(enabled=!busy && canCancel && !loadError,onClick={confirm="cancel"},modifier=Modifier.fillMaxWidth().testTag("manageCancel")){Text("لغو محلی سند ارسال‌نشده")}
                 OutlinedButton(enabled=!busy && row?.state=="REJECTED" && canEditInvoicePreview(invoice,row) && !loadError,onClick={confirm="edit"},modifier=Modifier.fillMaxWidth().testTag("manageRetry")){Text("رفع خطا و ویرایش برای ارسال مجدد")}
                 OutlinedButton(enabled=!busy && canAbtal && !loadError,onClick={confirm="abtal"},modifier=Modifier.fillMaxWidth().testTag("manageCancellation")){Text("آماده‌سازی صورتحساب ابطالی")}
-                if(row?.state=="ACCEPTED" && !canAbtal) Text("ابطال از این صفحه فقط برای مرجع اصلی معتبر و بدون سند ارجاعی فعال فراهم است. وضعیت مرجع و واکنش خریدار را در کارپوشه بررسی کنید.",style=MaterialTheme.typography.bodySmall)
+                if(row?.state=="ACCEPTED" && !canAbtal) Text("ابطال فقط برای مرجع اصلی یا اصلاحی معتبر و بدون سند ارجاعی فعال فراهم است. وضعیت مرجع و واکنش خریدار را در کارپوشه بررسی کنید.",style=MaterialTheme.typography.bodySmall)
                 HorizontalDivider()
                 Text("عیب‌یابی محلی بسته ارسالی",style=MaterialTheme.typography.titleMedium)
                 if(loadError) Text("بازیابی اطلاعات معتبر انجام نشد؛ عملیات متوقف است.",color=MaterialTheme.colorScheme.error)
@@ -164,8 +164,8 @@ internal fun SubmissionManagementDialog(invoice:Invoice,row:OfficialSubmission?,
         text={Text(when(confirm){
             "cancel"->"فقط سند ارسال‌نشده لغو محلی می‌شود. شماره مالیاتی و سابقه اعتبار محفوظ می‌ماند؛ اعتبار بازگردانده نمی‌شود."
             "edit"->"تلاش ردشده بایگانی می‌شود و همین فاکتور برای اصلاح باز می‌شود. ارسال بعدی نیازمند تأیید جداگانه است."
-            else->"با بررسی کارپوشه تأیید می‌کنم شرایط قانونی ابطال، از جمله عدم استفاده در امور تجاری و پرونده مالیاتی و تأیید لازم طرفین، برقرار است. فقط پیش‌نویس جدید آماده می‌شود؛ ذخیره یک اعتبار مصرف می‌کند و ارسال نیازمند تأیید جداگانه است."
-        })},confirmButton={TextButton(enabled=!busy,onClick={
+            else->"با بررسی کارپوشه تأیید می‌کنم شرایط قانونی ابطال این مرجع و تأییدهای لازم برقرار است. فقط پیش‌نویس جدید آماده می‌شود؛ ذخیره یک اعتبار مصرف می‌کند و ارسال نیازمند تأیید جداگانه است. ثبت ابطالی به معنی تأیید نهایی خریدار نیست."
+        })},confirmButton={TextButton(enabled=!busy && !loadError && (confirm!="abtal" || canAbtal),onClick={
             val action=confirm;confirm=""
             when(action){"cancel"->onCancel();"edit"->onEdit();"abtal"->onCancellation()}
         }){Text("تأیید")}},dismissButton={TextButton(onClick={confirm=""}){Text("انصراف")}})

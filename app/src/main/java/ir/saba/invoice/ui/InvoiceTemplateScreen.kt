@@ -241,7 +241,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
                           onCorrection:(() -> Unit)? = null, correction:CorrectionLink? = null,
                           onOpenCorrection:(Long)->Unit = {}, localPreview:Boolean = false,
-                          onManage:(()->Unit)?=null) {
+                          onManage:(()->Unit)?=null, onCancellation:(()->Unit)?=null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -330,6 +330,11 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         if(onCorrection!=null) OutlinedButton(enabled=!busy,onClick=onCorrection,modifier=Modifier.fillMaxWidth().testTag("startInvoiceCorrection"),
             shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
             Text("صورتحساب اصلاحی")
+        }
+        if(onCancellation!=null) OutlinedButton(enabled=!busy,onClick=onCancellation,
+            modifier=Modifier.fillMaxWidth().testTag("startInvoiceCancellation"),
+            shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
+            Text("صورتحساب ابطالی",color=MaterialTheme.colorScheme.error)
         }
         val action=invoicePreviewAction(invoice,official)
         if(action!=null) OutlinedButton(enabled=!busy,onClick=onSend,modifier=Modifier.fillMaxWidth().testTag("invoiceDirectSend")) { Text(action) }

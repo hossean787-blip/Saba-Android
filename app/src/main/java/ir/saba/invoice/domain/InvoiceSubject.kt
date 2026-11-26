@@ -54,12 +54,13 @@ object InvoiceSubject {
             ?: throw IllegalArgumentException("صورتحساب مرجع در پرونده همین مؤدی پیدا نشد.")
         require(reference.ownerId == ownerId && reference.companyId == companyId &&
             OfficialReferenceEvidence.eligible(reference)) {
-            "فقط صورتحساب اصلی پذیرفته‌شده در سامانه، با رسید معتبر، قابل ارجاع است."
+            "فقط صورتحساب مرجع پذیرفته‌شده در سامانه، با رسید معتبر، قابل ارجاع است."
         }
         val original = db.invoiceDao().byId(reference.invoiceId)
             ?: throw IllegalArgumentException("صورتحساب مرجع محلی پیدا نشد.")
         require(original.companyId == companyId && original.status == "FINALIZED" &&
-            original.customerId == customerId && original.subject == ORIGINAL) {
+            original.customerId == customerId && (original.subject == ORIGINAL ||
+                subject == CANCELLATION && original.subject == CORRECTION)) {
             "موضوع، مشتری یا مؤدی صورتحساب مرجع معتبر نیست."
         }
         if (newIssueDate != null) require(InvoiceInput.date(newIssueDate) >= InvoiceInput.date(original.issueDate)) {

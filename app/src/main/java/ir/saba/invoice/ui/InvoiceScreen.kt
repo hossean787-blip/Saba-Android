@@ -296,6 +296,7 @@ private fun InvoiceScreenContent(
     }
     var sendConfirm by rememberSaveable { mutableStateOf(false) }
     var managementOpen by rememberSaveable(companyId, ownerId) { mutableStateOf(false) }
+    var cancellationFromPreview by rememberSaveable(companyId,ownerId){mutableStateOf(false)}
     var issueClock by rememberSaveable { mutableStateOf("") }
     var sendProgress by remember { mutableStateOf("") }
     val tehran = remember { ZoneId.of("Asia/Tehran") }
@@ -488,11 +489,13 @@ private fun InvoiceScreenContent(
             val original=repository.detailsForCompany(companyId,originalId)
             val parent=requireNotNull(db.officialSubmissionDao().forInvoice(original.invoice.id))
             require(targetSubject in setOf(InvoiceSubject.CORRECTION,InvoiceSubject.CANCELLATION))
-            require(parent.ownerId==ownerId && canStartCorrection(original.invoice,parent)) {
-                "فقط فاکتور اصلی پذیرفته‌شده همین مؤدی قابل ارجاع است."
-            }
-            if(targetSubject==InvoiceSubject.CANCELLATION) require(canDraftOriginalCancellation(original.invoice,parent,db.invoiceDao().forCompany(companyId))) {
-                "مرجع ابطال باید معتبر و بدون سند ارجاعی فعال باشد."
+            require(parent.ownerId==ownerId)
+            if(targetSubject==InvoiceSubject.CANCELLATION) {
+                require(canDraftOriginalCancellation(original.invoice,parent,db.invoiceDao().forCompany(companyId))) {
+                    "مرجع ابطال باید معتبر و بدون سند ارجاعی فعال باشد."
+                }
+            } else require(canStartCorrection(original.invoice,parent)) {
+                "فقط فاکتور اصلی پذیرفته‌شده همین مؤدی قابل اصلاح است."
             }
             require(creation.pending(companyId)==null) { "ابتدا صدور ناتمام قبلی را تکمیل کنید." }
             val existing=db.invoiceDao().forCompany(companyId).firstOrNull {
@@ -819,7 +822,10 @@ private fun InvoiceScreenContent(
                             correctionLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded.invoice.id) } } else null,
                         correction = correctionLink(loaded.invoice,invoices,officialByInvoice),
                         onOpenCorrection = { id -> invoiceId=id;mode="event_open" },
-                        onManage = { managementOpen=true })
+                        onManage = { cancellationFromPreview=false; managementOpen=true },
+                        onCancellation = if(canDraftOriginalCancellation(loaded.invoice,officialRecord,invoices)) {
+                            { cancellationFromPreview=true; managementOpen=true }
+                        } else null)
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
@@ -1213,9 +1219,9 @@ private fun InvoiceScreenContent(
                             onClick = { subject = InvoiceSubject.RETURN; referenceTaxId = ""; lines = emptyList() },
                             label = { Text("برگشت از فروش (آزمایشی)") })
                         FilterChip(selected = subject == InvoiceSubject.CANCELLATION,
-                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
-                            onClick = { subject = InvoiceSubject.CANCELLATION; referenceTaxId = ""; lines = emptyList() },
-                            label = { Text("ابطالی (آزمایشی)") })
+                            enabled = false,
+                            onClick = {},
+                            label = { Text("ابطالی (از فاکتور مرجع)") })
                     }
                     if (subject in setOf(InvoiceSubject.CORRECTION, InvoiceSubject.CANCELLATION, InvoiceSubject.RETURN)) {
                         Text(when (subject) {
@@ -1544,7 +1550,7 @@ private fun InvoiceScreenContent(
     if(managementOpen && mode=="template" && details!=null) {
         val loaded=requireNotNull(details)
         SubmissionManagementDialog(loaded.invoice,officialRecord,db,ownerId,invoices,busy,
-            onDismiss={managementOpen=false},
+            onDismiss={managementOpen=false;cancellationFromPreview=false},
             onInquiry={requestOfficialSend(loaded)},
             onCancel={
                 managementOpen=false
@@ -1555,7 +1561,8 @@ private fun InvoiceScreenContent(
                 }
             },
             onEdit={managementOpen=false;editExisting(loaded)},
-            onCancellation={managementOpen=false;startCorrection(loaded.invoice.id,InvoiceSubject.CANCELLATION)})
+            onCancellation={managementOpen=false;startCorrection(loaded.invoice.id,InvoiceSubject.CANCELLATION)},
+            initialCancellation=cancellationFromPreview)
     }
 
     if (sendConfirm && details != null) {
