@@ -366,6 +366,7 @@ class MainActivity : ComponentActivity() {
         DisposableEffect(db) { onDispose { db.close() } }
         var confirmLogout by remember { mutableStateOf(false) }
         var diagnosticResult by remember(account) { mutableStateOf("هنوز بررسی نشده") }
+        var integrityResult by remember(account,accessToken) { mutableStateOf("هنوز بررسی نشده") }
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         var confirmDisableBiometrics by remember { mutableStateOf(false) }
         if (confirmDisableBiometrics) AlertDialog(
@@ -918,7 +919,22 @@ class MainActivity : ComponentActivity() {
                                             else notify("اندازه متن بازنشانی شد؛ ذخیره لوگوموشن ناموفق بود.")
                                         }
                                     },
-                                    onLogout={confirmLogout=true}
+                                    onLogout={confirmLogout=true},
+                                    integrityResult=integrityResult,
+                                    onIntegrityCheck={
+                                        act {
+                                            integrityResult=when {
+                                                BuildConfig.DEBUG -> "برای آزمون اصالت، نسخه رسمی امضاشده لازم است."
+                                                Build.VERSION.SDK_INT < Build.VERSION_CODES.N -> "این نسخه اندروید از آزمون فعلی پشتیبانی نمی‌کند."
+                                                else -> {
+                                                    integrityResult="در حال بررسی با سرور…"
+                                                    if(ir.saba.invoice.security.AppAttestationClient.observe(accessToken))
+                                                        "سرور اصالت برنامه و دستگاه را در این آزمون تأیید کرد."
+                                                    else "اصالت تأیید نشد؛ این نتیجه ممکن است ناشی از شبکه، محدودیت دستگاه یا فاصله کم از آزمون قبلی باشد. بعد از ۳۰ ثانیه دوباره امتحان کنید."
+                                                }
+                                            }
+                                        }
+                                    }
                                 )
                             )
                         }

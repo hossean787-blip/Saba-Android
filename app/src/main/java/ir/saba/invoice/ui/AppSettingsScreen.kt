@@ -46,7 +46,8 @@ data class SettingsControls(
     val protectScreen:Boolean,val playIntro:Boolean,val biometricAvailable:Boolean,
     val onProtectScreen:(Boolean)->Unit,val onPlayIntro:(Boolean)->Unit,val onBiometricSetup:()->Unit,
     val onNavigate:(SettingsDestination)->Unit,val onSystemSettings:()->Unit,
-    val diagnosticResult:String,val onDiagnostic:()->Unit,val onResetAppearance:()->Unit,val onLogout:()->Unit
+    val diagnosticResult:String,val onDiagnostic:()->Unit,val onResetAppearance:()->Unit,val onLogout:()->Unit,
+    val integrityResult:String="هنوز بررسی نشده",val onIntegrityCheck:(()->Unit)?=null
 )
 
 /** Device appearance and security settings. No financial or account data is cleared here. */
@@ -297,6 +298,17 @@ fun AppSettingsScreen(
                 SettingsSwitch("محافظت از صفحه","جلوگیری از ثبت اسکرین‌شات و ضبط صفحه سورا؛ پیش‌نمایش برنامه در پس‌زمینه همیشه محافظت می‌شود.",
                     controls.protectScreen,!busy,controls.onProtectScreen,"settingsProtectScreen")
                 Text("این تنظیمات مخصوص همین دستگاه است.",style=MaterialTheme.typography.bodySmall,color=settingsMuted)
+                controls.onIntegrityCheck?.let { checkIntegrity ->
+                    HorizontalDivider(color=settingsBorder)
+                    Text("احراز اصالت برنامه و دستگاه",fontWeight=FontWeight.SemiBold,color=settingsInk)
+                    Text(controls.integrityResult,style=MaterialTheme.typography.bodySmall,color=settingsMuted,
+                        modifier=Modifier.testTag("settingsIntegrityResult"))
+                    OutlinedButton(onClick=checkIntegrity,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("settingsIntegrityCheck")) {
+                        Text("بررسی اصالت نسخه نصب‌شده")
+                    }
+                    Text("نتیجه از سرور دریافت می‌شود. در مرحله آزمایشی، عدم تأیید موجب قطع دسترسی حساب نمی‌شود.",
+                        style=MaterialTheme.typography.labelSmall,color=settingsMuted)
+                }
                 SettingsLink("اطلاعات حساب کاربری","مشخصات و گزینه‌های حساب",Icons.Default.Person,!busy) { controls.onNavigate(SettingsDestination.ACCOUNT) }
                 SettingsLink("تنظیمات برنامه در گوشی","مدیریت مجوزها و فضای ذخیره‌سازی در اندروید",Icons.Default.Settings,!busy,controls.onSystemSettings)
             }
