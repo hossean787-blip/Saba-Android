@@ -91,7 +91,8 @@ internal class AccountArchive(
     private val db:SabaDatabase, private val account:AccountScope,
     private val checkSession:()->Unit,
     private val reserveTaxpayerIds:(Long)->Unit,
-    private val portable:AccountArchivePortable?=null
+    private val portable:AccountArchivePortable?=null,
+    private val checkpoint:ArchiveRestoreCheckpoint?=null
 ) {
     private val tables=listOf("companies","moadian_details","customers","customer_profiles",
         "invoices","invoice_lines","official_submissions","rejected_submission_history","submission_audit")
@@ -228,11 +229,15 @@ internal class AccountArchive(
         val credit=readCredit(ids+local)
         require(credit.taxpayers.keys==ids+local) { "استعلام تمام مؤدیان از سرور کامل نشد." }
         checkSession()
+        checkpoint?.stage(blob)
+        checkSession()
         val added=merge(root)
         if(root.getInt("format")==3) {
             checkSession()
             requireNotNull(portable).restoreAccount(root.getJSONObject("portable"),db,ids)
         }
+        checkSession()
+        checkpoint?.complete()
         return ArchiveRestoreResult(added,credit)
     }
     // Compatibility entry for isolated archive unit tests; production restore always uses restoreWithCredit.

@@ -19,6 +19,33 @@ class AccountArchiveTest {
     private val other=AccountScope.of("22222222-2222-4222-8222-222222222222")
     private val pass="Sura-test-only-1234".toCharArray()
     private fun db()=Room.inMemoryDatabaseBuilder(ctx,SabaDatabase::class.java).build()
+    @Test fun interruptedRestoreKeepsEncryptedCheckpointAndResumesWithoutCreditReplay()=runBlocking {
+        val source=db();val target=db()
+        val checkpoint=ArchiveRestoreCheckpoint(ctx,account)
+        val foreignCheckpoint=ArchiveRestoreCheckpoint(ctx,other)
+        try {
+            checkpoint.complete()
+            val id=source.companyDao().insert(Company(id=7,purchaserId=account.ownerId,name="Synthetic",nationalId="123"))
+            val blob=AccountArchive(source,account,{},{}).export(pass,ArchiveCreditSnapshot(80,0,mapOf(id to 80L),1))
+            try {
+                AccountArchive(target,account,{}, { error("simulated interruption") },checkpoint=checkpoint)
+                    .restoreWithCredit(blob,pass) { ArchiveCreditSnapshot(60,0,mapOf(id to 60L),2) }
+                fail("interruption expected")
+            } catch(_:IllegalStateException) {}
+            assertTrue(checkpoint.exists())
+            assertFalse(foreignCheckpoint.exists())
+            assertArrayEquals(blob,checkpoint.read())
+            assertTrue(target.companyDao().all().isEmpty())
+            assertNull(target.quotaDao().wallet(account.ownerId))
+            val resumed=AccountArchive(target,account,{}, {},checkpoint=ArchiveRestoreCheckpoint(ctx,account))
+                .restoreWithCredit(checkpoint.read(),pass) { ArchiveCreditSnapshot(60,0,mapOf(id to 60L),3) }
+            assertEquals(ArchiveCounts(1,0,0),resumed.added)
+            assertEquals(60L,resumed.credit.owner)
+            assertNull(target.quotaDao().wallet(account.ownerId))
+            assertFalse(checkpoint.exists())
+        } finally { checkpoint.complete();source.close();target.close() }
+    }
+
     @Test fun encryptedRoundTripAndNoOverwriteOrCrossAccount()=runBlocking {
         val source=db();val dest=db();val foreign=db()
         try {

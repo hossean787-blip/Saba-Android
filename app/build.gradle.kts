@@ -19,8 +19,8 @@ android {
         minSdk = 23
         targetSdk = 35
         // Keep upgrade order above BOTH previously shipped variants (25 standard, 26 full).
-        versionCode = if (suraEmbeddedFull) 134 else 133
-        versionName = if (suraEmbeddedFull) "0.134.0" else "0.133.0"
+        versionCode = if (suraEmbeddedFull) 136 else 135
+        versionName = if (suraEmbeddedFull) "0.136.0" else "0.135.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing is opt-in and never uses the ephemeral Android debug key.
@@ -145,6 +145,9 @@ tasks.withType<Test>().configureEach {
     systemProperty("robolectric.offline", "true")
     systemProperty("robolectric.usePreinstrumentedJars", "true")
     maxHeapSize = "1536m"
+    // Bound cross-class Robolectric state and memory retention; never skip or retry a failed test.
+    maxParallelForks = 1
+    forkEvery = 8
 }
 
 dependencies {

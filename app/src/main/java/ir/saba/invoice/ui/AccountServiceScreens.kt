@@ -58,10 +58,11 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
     onLegacyRecovery:()->Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
-    val archive=remember(db,account,accessToken) {
+    val checkpoint=remember(account) { ArchiveRestoreCheckpoint(context.applicationContext,account) }
+    val archive=remember(db,account,accessToken,checkpoint) {
         AccountArchive(db,account,{AccountSession.requireOwner(accessToken,account)},
             { TaxpayerIdAllocator(context.applicationContext).use { allocator -> allocator.advancePast(it) } },
-            AccountArchivePortable(context.applicationContext,account))
+            AccountArchivePortable(context.applicationContext,account),checkpoint)
     }
     var password by remember { mutableStateOf("") }
     var repeatPassword by remember { mutableStateOf("") }
@@ -71,7 +72,10 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
     var running by remember { mutableStateOf(false) }
     var confirmed by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<Uri?>(null) }
-    fun execute(uri:Uri,importing:Boolean) {
+    var pending by remember(account) { mutableStateOf(false) }
+    var discardPending by remember(account) { mutableStateOf(false) }
+    LaunchedEffect(checkpoint) { pending=withContext(Dispatchers.IO) { checkpoint.exists() } }
+    fun execute(uri:Uri?,importing:Boolean) {
         if(running || password.length !in 12..128 || (!importing && password!=repeatPassword)) return
         val secret=password.toCharArray()
         password="";repeatPassword="";confirmed=false
@@ -80,7 +84,7 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
             try {
                 val outcome=withContext(Dispatchers.IO) {
                     if(importing) {
-                        val bytes=requireNotNull(context.contentResolver.openInputStream(uri)).use { AccountArchiveCrypto.read(it) }
+                        val bytes=if(uri==null) checkpoint.read() else requireNotNull(context.contentResolver.openInputStream(uri)).use { AccountArchiveCrypto.read(it) }
                         val result=archive.restoreWithCredit(bytes,secret) { ids -> AccountArchiveCreditClient.read(account,accessToken,ids) }
                         val c=result.added
                         "بازیابی انجام شد: ${c.taxpayers} مؤدی، ${c.customers} مشتری و ${c.invoices} سابقه جدید. اطلاعات فعلی حفظ شد." to result.credit
@@ -88,9 +92,9 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
                         val ids=db.companyDao().all().map { it.id }.toSet()
                         val credit=AccountArchiveCreditClient.read(account,accessToken,ids)
                         val bytes=archive.export(secret,credit)
-                        requireNotNull(context.contentResolver.openOutputStream(uri,"w")).use { it.write(bytes);it.flush() }
+                        requireNotNull(context.contentResolver.openOutputStream(requireNotNull(uri),"w")).use { it.write(bytes);it.flush() }
                         // Reopen the actual selected file, not just the in-memory archive.
-                        val saved=requireNotNull(context.contentResolver.openInputStream(uri)).use { AccountArchiveCrypto.read(it) }
+                        val saved=requireNotNull(context.contentResolver.openInputStream(requireNotNull(uri))).use { AccountArchiveCrypto.read(it) }
                         check(java.security.MessageDigest.isEqual(bytes,saved)) { "فایل ذخیره‌شده با نسخه تولیدشده یکسان نیست." }
                         "فایل پشتیبان رمزگذاری‌شده ذخیره و صحت فایل بررسی شد." to credit
                     }
@@ -105,7 +109,7 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
                 status=if(e is IllegalArgumentException) e.message.orEmpty().take(220)
                     else if(importing) "بازیابی انجام نشد؛ رمز، سلامت و سازگاری فایل را بررسی کنید. اطلاعات فعلی بازنویسی نشد؛ اگر مرحله فایل‌ها یا کلیدها ناقص مانده، همان فایل را دوباره وارد کنید."
                     else "ساخت فایل پشتیبان ناموفق بود؛ فضای ذخیره‌سازی و مجوز فایل را بررسی کنید."
-            } finally { secret.fill(' ');running=false;onBusy(false) }
+            } finally { secret.fill(' ');pending=checkpoint.exists();running=false;onBusy(false) }
         }
     }
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -124,14 +128,35 @@ internal fun AccountBackupScreen(db:SabaDatabase,account:AccountScope,accessToke
         if(!restore) OutlinedTextField(value=repeatPassword,onValueChange={repeatPassword=it.take(128)},label={Text("تکرار رمز")},singleLine=true,
             visualTransformation=PasswordVisualTransformation(),enabled=!running,modifier=Modifier.fillMaxWidth())
         if(restore) {
-            OutlinedButton(onClick={open.launch(arrayOf("application/octet-stream","*/*"))},enabled=!running,modifier=Modifier.fillMaxWidth()) {
+            if(pending) {
+                ServicePanel("بازیابی ناتمام","فایل رمزگذاری‌شده قبلی محفوظ است. با همان رمز و حساب، بازیابی را ادامه دهید. اطلاعات و اعتبار فعلی بازنویسی نمی‌شود.")
+                Button(onClick={execute(null,true)},enabled=!running && confirmed && password.length>=12,
+                    modifier=Modifier.fillMaxWidth().testTag("archiveResume")) { Text("ادامه بازیابی ناتمام") }
+                TextButton(onClick={discardPending=true},enabled=!running) { Text("حذف فایل موقت بازیابی") }
+            }
+            if(discardPending) AlertDialog(
+                onDismissRequest={discardPending=false},
+                title={Text("حذف فایل موقت؟")},
+                text={Text("فقط نسخه موقت رمزگذاری‌شده حذف می‌شود. داده‌های قبلاً بازیابی‌شده به حالت قبل برنمی‌گردند. فایل اصلی خود را نگه دارید.")},
+                confirmButton={TextButton(onClick={
+                    discardPending=false
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) { checkpoint.complete() }
+                            pending=checkpoint.exists()
+                        } catch(e:CancellationException) { throw e }
+                        catch(_:Exception) { status="حذف فایل موقت ناموفق بود." }
+                    }
+                }) { Text("حذف فایل موقت") }},
+                dismissButton={TextButton(onClick={discardPending=false}) { Text("انصراف") }})
+            OutlinedButton(onClick={open.launch(arrayOf("application/octet-stream","*/*"))},enabled=!running && !pending,modifier=Modifier.fillMaxWidth()) {
                 Text(if(picked==null) "انتخاب فایل پشتیبان" else "فایل انتخاب شده؛ تغییر فایل")
             }
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                 Checkbox(checked=confirmed,onCheckedChange={confirmed=it},enabled=!running)
                 Text("شرایط بازیابی سوابق و عدم ارسال مجدد را مطالعه کردم.",modifier=Modifier.padding(top=12.dp))
             }
-            Button(onClick={picked?.let { execute(it,true) }},enabled=!running && picked!=null && confirmed && password.length>=12,
+            Button(onClick={picked?.let { execute(it,true) }},enabled=!running && !pending && picked!=null && confirmed && password.length>=12,
                 modifier=Modifier.fillMaxWidth().testTag("archiveRestore")) { Text("بازیابی اطلاعات") }
             TextButton(onClick=onLegacyRecovery,enabled=!running) { Text("بازیابی سوابق نسخه قدیمی سورا") }
             ArchiveHistoryBrowser(db,account,enabled=!running,refreshKey=status)
