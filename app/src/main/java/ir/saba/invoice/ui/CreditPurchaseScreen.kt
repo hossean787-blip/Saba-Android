@@ -93,6 +93,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             refreshOrders()
             val response=CardTransferApi.call(accessToken,"offers")
             salesOffers=SalesOffer.parseAll(response.getJSONArray("offers"))
+            if(selectedOfferId!=null&&salesOffers.none{it.id==selectedOfferId})selectedOfferId=null
         }catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(e:Exception){paymentMessage=SuraErrors.describe(e,"دریافت طرح‌های فروش انجام نشد؛ برای تازه‌سازی دوباره تلاش کنید. [OFFERS-LOAD]")}
         finally{offersLoading=false}
