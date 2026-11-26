@@ -530,37 +530,36 @@ internal fun InvoiceEditorDock(
         shadowElevation = 9.dp,
         border = BorderStroke(1.dp, edge)
     ) {
-        Column(Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("جمع فاکتور (ریال)", color = muted,
-                    style = MaterialTheme.typography.bodySmall)
+                    style = MaterialTheme.typography.labelSmall)
                 Text(total?.let(::rial) ?: "—", color = sea,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium)
+                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 OutlinedButton(onClick = onPreview, enabled = !saving && canSave,
-                    modifier = Modifier.weight(0.42f).testTag("invoiceQuickPreview"),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp)) {
-                    Text("پیش‌نمایش", style = MaterialTheme.typography.bodySmall)
+                    modifier = Modifier.weight(0.30f).testTag("invoiceQuickPreview"),
+                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(10.dp)) {
+                    Text("پیش‌نمایش", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
                 Button(onClick = onSave, enabled = !saving && canSave,
-                    modifier = Modifier.weight(0.58f),
-                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(0.48f),
+                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = sea)) {
                     Text(if (saving) "در حال ذخیره…" else "ذخیره پیش‌نویس",
-                        fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                        fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
-            }
-            TextButton(onClick = onCancel, enabled = !saving,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 1.dp)) {
-                Text("انصراف از ویرایش", style = MaterialTheme.typography.labelSmall,
-                    color = muted)
+                TextButton(onClick = onCancel, enabled = !saving,
+                    modifier = Modifier.weight(0.22f),
+                    contentPadding = PaddingValues(horizontal = 1.dp, vertical = 4.dp)) {
+                    Text("انصراف", style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1)
+                }
             }
         }
     }
