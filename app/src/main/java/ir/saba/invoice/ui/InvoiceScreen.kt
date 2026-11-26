@@ -865,14 +865,19 @@ private fun InvoiceScreenContent(
                                         color=Color.White,fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.bodyMedium)
                                 }
                             }
-                            Button(enabled=!busy,onClick={unifiedPreview=false;fromEvents=false;perform { beginInvoice() }},
-                                modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),
-                                colors=ButtonDefaults.buttonColors(containerColor=teal)) {
-                                Icon(Icons.Default.Add,contentDescription=null,modifier=Modifier.size(19.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("صدور فاکتور جدید")
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                Button(enabled=!busy,onClick={unifiedPreview=false;fromEvents=false;perform { beginInvoice() }},
+                                    modifier=Modifier.weight(1f),shape=RoundedCornerShape(14.dp),
+                                    contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp),
+                                    colors=ButtonDefaults.buttonColors(containerColor=teal)) {
+                                    Text("صدور فاکتور جدید",maxLines=1,style=MaterialTheme.typography.labelMedium)
+                                }
+                                OutlinedButton(enabled=!busy,onClick={mode="excel"},
+                                    modifier=Modifier.weight(1f).testTag("invoiceExcelEntry"),shape=RoundedCornerShape(14.dp),
+                                    contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp)) {
+                                    Text("ثبت با اکسل",maxLines=1,style=MaterialTheme.typography.labelMedium)
+                                }
                             }
-                            OutlinedButton(enabled=!busy,onClick={mode="excel"},modifier=Modifier.fillMaxWidth().testTag("invoiceExcelEntry"),shape=RoundedCornerShape(14.dp)) { Text("ثبت صورتحساب با اکسل") }
                             if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.",
                                 color=Color(0xFF8F5C23),style=MaterialTheme.typography.bodySmall)
                             if(customers.isEmpty()) Text("فعلاً مشتری ثبت نشده است؛ می‌توانید اسکلت فاکتور را آماده کنید، اما برای ذخیره باید مشتری داشته باشید.",
