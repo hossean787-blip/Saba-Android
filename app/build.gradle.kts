@@ -177,5 +177,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    // Laboratory only: never included in the distributable application.
+    androidTestImplementation("net.zetetic:sqlcipher-android:4.16.0")
 }
 

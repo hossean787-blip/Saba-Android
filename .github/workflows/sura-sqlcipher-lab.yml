@@ -1,0 +1,44 @@
+name: SURA isolated SQLCipher migration laboratory
+on:
+  push:
+    branches: ['security/sqlcipher-migration-lab']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cipher-lab:
+    if: github.ref == 'refs/heads/security/sqlcipher-migration-lab'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Test synthetic SQLCipher export and reopen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.SqlCipherMigrationLabTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sqlcipher-lab-api${{ matrix.api }}
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
