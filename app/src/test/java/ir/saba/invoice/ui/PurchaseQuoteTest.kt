@@ -14,4 +14,15 @@ class PurchaseQuoteTest {
    assertTrue(runCatching{PurchaseQuote.validate("single",2,200000,10000,210000,true)}.isFailure)
    assertTrue(runCatching{PurchaseQuote.validate("monthly",19,100000,10000,110000,true)}.isFailure)
  }
+
+ @Test fun offerQuoteIsBoundToOfferAndCredits(){
+   val q=PurchaseQuote.validate("offer",25,2000000,200000,2200000,true)
+   assertTrue(q.matches("offer",25L))
+   assertFalse(q.matches("offer",20L))
+   assertFalse(q.matches("single",25L))
+ }
+ @Test fun offerQuoteRejectsInvalidVatAndUnitCount(){
+   assertTrue(runCatching{PurchaseQuote.validate("offer",0,100000,10000,110000,true)}.isFailure)
+   assertTrue(runCatching{PurchaseQuote.validate("offer",10,100000,5000,105000,true)}.isFailure)
+ }
 }
