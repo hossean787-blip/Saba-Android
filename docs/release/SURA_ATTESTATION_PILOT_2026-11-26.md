@@ -1,0 +1,5 @@
+# SURA attestation observation pilot 2026-11-26
+Baseline 9de54c81524ac6c99b237aeb570555f789548b56. API 24+ ephemeral Keystore EC challenge. No device IDs or certificate chains persisted. Google trust roots and revocation list, PKIX, proof of possession, hardware level, locked verified boot, signer and package/version are checked on server. No requirement to install via Play. Existing services remain accessible, including API 23 and unsupported devices. No access token issued by this feature. Do not trust client-reported results. Strict cert validity may reject legacy legitimate hardware.
+Migration 20261126101944 applied and verified: RLS, service-role-only, nonce/session mismatch, 30s cooldown, expiration, one-time consume; test rolled back.
+Before enforcement: dependency lock, independent verifier audit, positive/negative physical-device tests, R8 signed upgrade, compatibility including Iran, request-bound short-lived proof, replay/relay testing, staged opt-in rollout and rollback. No real invoice/payment. No store publication. Existing auth/credit endpoints untouched.
+Reference: https://developer.android.com/privacy-and-security/security-key-attestation .

@@ -240,6 +240,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Always play once per cold Activity creation, not after a rotation.
             var showStartupMotion by remember { mutableStateOf(savedInstanceState == null && playIntro) }
+            LaunchedEffect(auth.session?.accessToken) {
+                if (!BuildConfig.DEBUG) auth.session?.accessToken?.let { token ->
+                    ir.saba.invoice.security.AppAttestationClient.observe(token)
+                }
+            }
             LaunchedEffect(auth.biometricEnrollment, auth.session, biometricEnabled) {
                 if (auth.session != null && auth.biometricEnrollment != null &&
                     (!biometricVault.canOffer() || biometricEnabled)
