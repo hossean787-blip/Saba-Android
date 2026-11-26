@@ -154,11 +154,11 @@ internal class SupportOperationJournal(context:Context,account:AccountScope) {
         require(edit.commit())
     }
 }
-private val navy=Color(0xFF12354C)
-private val teal=Color(0xFF087A83)
-private val supportGold=Color(0xFFE9C77D)
-private val supportMuted=Color(0xFF607A89)
-private val supportBorder=Color(0xFFD7E6ED)
+private val navy=SuraPalette.Navy
+private val teal=SuraPalette.Teal
+private val supportGold=SuraPalette.Gold
+private val supportMuted=SuraPalette.Muted
+private val supportBorder=SuraPalette.Edge
 private fun supportDate(value:String):String = runCatching {
     val local=java.time.Instant.parse(value).atZone(java.time.ZoneId.of("Asia/Tehran"))
     ir.saba.invoice.domain.JalaliCalendar.fromGregorian(local.toLocalDate())+"  •  "+
@@ -172,7 +172,7 @@ private fun supportDate(value:String):String = runCatching {
     }
 }
 @Composable private fun SupportNotice(text:String) {
-    Surface(color=Color(0xFFE8F3F7),shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,supportBorder)){
+    Surface(color=SuraPalette.Soft,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,supportBorder)){
         Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically,
             horizontalArrangement=Arrangement.spacedBy(10.dp)){
             Icon(Icons.Default.Info,contentDescription=null,tint=teal,modifier=Modifier.size(20.dp))
@@ -190,7 +190,7 @@ private fun supportDate(value:String):String = runCatching {
 private fun supportStatus(status:String)=when(status){"open"->"ثبت‌شده";"in_progress"->"در حال بررسی";"answered"->"پاسخ داده‌شده";else->"بسته"}
 private fun supportError(e:Exception)=if(e is SupportHttpError) SuraErrors.message(e.status)+" شماره درخواست قبلی حفظ می‌شود." else SuraErrors.describe(e,"ارتباط تأیید نشد. همان متن را دوباره ارسال کنید؛ شماره درخواست قبلی حفظ می‌شود. [SUPPORT-UNKNOWN]")
 @Composable private fun SupportHeader(title:String,subtitle:String) {
-    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0B2337),navy,teal)),RoundedCornerShape(24.dp)).padding(20.dp),
+    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(SuraPalette.Midnight,navy,teal)),RoundedCornerShape(24.dp)).padding(20.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
             Box(Modifier.size(52.dp).background(Color.White.copy(alpha=.12f),RoundedCornerShape(17.dp)),contentAlignment=Alignment.Center){
@@ -201,13 +201,13 @@ private fun supportError(e:Exception)=if(e is SupportHttpError) SuraErrors.messa
                 Text(title,color=Color.White,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
             }
         }
-        Text(subtitle,color=Color(0xFFE0F0F3),style=MaterialTheme.typography.bodyMedium)
+        Text(subtitle,color=SuraPalette.Soft,style=MaterialTheme.typography.bodyMedium)
         HorizontalDivider(color=Color.White.copy(alpha=.17f))
-        Text("ثبت درخواست  •  دریافت پاسخ  •  پیگیری گفتگو",color=Color(0xFFE0F0F3),style=MaterialTheme.typography.labelSmall)
+        Text("ثبت درخواست  •  دریافت پاسخ  •  پیگیری گفتگو",color=SuraPalette.Soft,style=MaterialTheme.typography.labelSmall)
     }
 }
 @Composable private fun TicketStatus(status:String) {
-    val color=when(status){"open"->Color(0xFF245DA6);"in_progress"->Color(0xFF9A6312);"answered"->Color(0xFF147A59);else->Color(0xFF64748B)}
+    val color=when(status){"open"->SuraPalette.Teal;"in_progress"->Color(0xFF9A6312);"answered"->Color(0xFF147A59);else->SuraPalette.Muted}
     Surface(color=color.copy(alpha=.1f),shape=RoundedCornerShape(12.dp)){
         Text(supportStatus(status),color=color,modifier=Modifier.padding(horizontal=10.dp,vertical=5.dp),style=MaterialTheme.typography.labelMedium)
     }
@@ -251,7 +251,7 @@ internal fun SuraSupportScreen(account:AccountScope,token:String,onBusy:(Boolean
     BackHandler(enabled=selected!=null) {
         if(!busy){selected=null;thread=emptyList();reply="";tab=1}
     }
-    Column(Modifier.fillMaxSize().background(Color(0xFFF2F8FC)).verticalScroll(rememberScrollState()).padding(16.dp)
+    Column(Modifier.fillMaxSize().background(SuraPalette.Canvas).verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("service-support"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         SupportHeader("مرکز پشتیبانی سورا","ثبت درخواست، پیگیری و گفتگو با پشتیبانی در حساب شما")
         if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())

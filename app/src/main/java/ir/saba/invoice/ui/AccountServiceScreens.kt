@@ -30,16 +30,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val ink=Color(0xFF12304A)
-private val muted=Color(0xFF526D80)
-private val canvas=Color(0xFFF2F8FC)
+private val ink=SuraPalette.Navy
+private val muted=SuraPalette.Muted
+private val canvas=SuraPalette.Canvas
 
 @Composable private fun ServiceHeader(title:String,subtitle:String) {
     Column(Modifier.fillMaxWidth().background(
-        Brush.linearGradient(listOf(Color(0xFF09253C),Color(0xFF126C88))),
+        Brush.linearGradient(listOf(SuraPalette.Midnight,SuraPalette.Teal)),
         RoundedCornerShape(22.dp)).padding(22.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(title,color=Color.White,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
-        Text(subtitle,color=Color(0xFFD5EAF2),style=MaterialTheme.typography.bodyMedium)
+        Text(subtitle,color=SuraPalette.Soft,style=MaterialTheme.typography.bodyMedium)
     }
 }
 @Composable private fun ServicePanel(title:String,body:String) {

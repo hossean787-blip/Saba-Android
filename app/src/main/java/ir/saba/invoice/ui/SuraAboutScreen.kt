@@ -60,8 +60,8 @@ internal fun SuraAboutScreen(onBack: () -> Unit, onSupport: () -> Unit) {
             .getOrNull().orEmpty().ifBlank { "نامشخص" }
     }
     var feedback by remember { mutableStateOf("") }
-    val navy = Color(0xFF09253C)
-    val teal = Color(0xFF126C88)
+    val navy = SuraPalette.Midnight
+    val teal = SuraPalette.Teal
     Column(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
             .verticalScroll(rememberScrollState()).padding(16.dp).testTag("service-about"),
@@ -80,7 +80,7 @@ internal fun SuraAboutScreen(onBack: () -> Unit, onSupport: () -> Unit) {
             Text("صورتحساب سورا | SURA", color = Color.White,
                 style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center)
-            Text("صبا گستر اراک", color = Color(0xFFDDEBF3),
+            Text("صبا گستر اراک", color = SuraPalette.Soft,
                 style = MaterialTheme.typography.titleMedium)
             Surface(color = Color.White.copy(alpha = 0.14f), shape = RoundedCornerShape(24.dp)) {
                 Text("نسخه " + version, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))

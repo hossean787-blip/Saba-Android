@@ -100,3 +100,5 @@ Stabilization pass: fix experimental transformable API compile error; cancellabl
 
 
 0.123.0 / 123 (full 124): SURA Security Shield, optimized R8 release minification, non-debuggable release, startup package/signer verification pinned to established signing certificate. No new key, no store publication; signed test APK only. Existing full test, lint and signer gates must pass. See SURA_SECURITY_SHIELD_2026-11-26.md.
+
+0.125.0: app-wide visual system; existing Vazirmatn, shared semantic palette/typography/shapes; align navigation, dashboard, taxpayers, customers, invoice editor, drafts, identifiers, purchase, receipt, account, settings, support, about and account services. Core status colors preserved. PDF layout, financial logic, storage, network and signer integrity untouched. Added palette contrast regression. Prior checkpoint ed81bbba3e744200a350521157c642f0120d083c. All CI and signed release gates and physical-device visual checks pending.
