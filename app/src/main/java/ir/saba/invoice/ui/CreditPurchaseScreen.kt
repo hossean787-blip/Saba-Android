@@ -200,10 +200,10 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 }
             }
             Card(onClick={freeSelected=false;selectedOfferId=null;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),shape=cardShape,
-                border=androidx.compose.foundation.BorderStroke(if(!freeSelected)2.dp else 1.dp,if(!freeSelected)SuraPalette.Teal else SuraPalette.Edge),
-                colors=CardDefaults.cardColors(containerColor=if(!freeSelected)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                border=androidx.compose.foundation.BorderStroke(if(!freeSelected&&selectedOfferId==null)2.dp else 1.dp,if(!freeSelected&&selectedOfferId==null)SuraPalette.Teal else SuraPalette.Edge),
+                colors=CardDefaults.cardColors(containerColor=if(!freeSelected&&selectedOfferId==null)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-                    RadioButton(selected=!freeSelected,onClick=null)
+                    RadioButton(selected=plan=="single",onClick=null)
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)){
                         Text("اعتبار تکی",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleMedium)
                         Text("هر صورتحساب یک اعتبار • خرید به تعداد دلخواه",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
