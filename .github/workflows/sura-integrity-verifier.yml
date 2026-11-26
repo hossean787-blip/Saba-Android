@@ -1,0 +1,20 @@
+name: SURA integrity verifier regression
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/sura-app-integrity/**'
+      - '.github/workflows/sura-integrity-verifier.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test --no-check supabase/functions/sura-app-integrity/verifier_test.ts

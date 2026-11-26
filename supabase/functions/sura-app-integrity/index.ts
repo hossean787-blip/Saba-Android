@@ -1,4 +1,4 @@
-import { b64,verifyAttestation } from "./verifier.ts";
+import { b64 } from "./encoding.ts";
 const root=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
 async function hash(x:string|Uint8Array){const b=typeof x==="string"?new TextEncoder().encode(x):x;return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",b)),n=>n.toString(16).padStart(2,"0")).join("");}
@@ -30,6 +30,10 @@ Deno.serve(async(req)=>{
   }
   let d:any,n:Uint8Array;try{d=await read(req);n=b64(d.nonce,32);if(n.length!==32)throw Error();}catch{return reply({error:"invalid_request"},400);}
   if(!await rpc("sura_integrity_consume",{p_owner:user.id,p_session:session,p_nonce:await hash(n)}))return reply({error:"challenge_invalid_or_used"},403);
+  // Dependency initialization failure is service unavailability, never a device rejection.
+  let verifyAttestation:typeof import("./verifier.ts").verifyAttestation;
+  try { ({verifyAttestation}=await import("./verifier.ts")); }
+  catch { console.error("sura_integrity_verifier_init_failed");return reply({status:"unavailable",mode:"observe"},503); }
   try{await verifyAttestation(d.chain,d.signature,n);}catch(e){return e instanceof Error&&e.message==="trust_unavailable"?reply({status:"unavailable",mode:"observe"},503):reply({status:"not_verified",mode:"observe"},422);}
   return reply({status:"verified",mode:"observe"});
  }catch{return reply({error:"integrity_unavailable"},503);}
