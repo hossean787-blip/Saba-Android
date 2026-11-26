@@ -115,3 +115,5 @@ Stabilization pass: fix experimental transformable API compile error; cancellabl
 0.131.0 compact list refinement: icon-only accessible 48dp touch targets, reduced card padding, combined subject/status, invoice number/date share same row as actions. No new workflow or submission changes. Rebuild requested.
 
 0.131.0 release recovery: CI 45808246099 on 67f6055 ran 520 JVM tests, zero failures/errors/skips; signed job 45808245963 ran same 520 with 14 AppNotIdleException failures under distinct clean/signing invocation. Exact root cause not yet proven. Match successful CI Gradle invocation before any signing environment, retain debug and release lint, compile instrumentation, full test gate, signer pin, permission and archive checks. Upload test evidence on failure. Rebuild requested; no application code or signing identity changes.
+
+0.133.0: transient app snackbar messages automatically dismiss after 5000ms per visible message, retain manual close and cancel old timers when messages change. Confirmation dialogs, inline errors, and all financial logic unchanged. Added virtual-time timeout regression. Signed build requested.

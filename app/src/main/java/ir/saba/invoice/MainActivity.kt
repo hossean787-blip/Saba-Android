@@ -429,7 +429,7 @@ class MainActivity : ComponentActivity() {
         var eventQuickAction by rememberSaveable(selectedCompanyId) { mutableStateOf("COPY") }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
-        fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
+        fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن", duration = SnackbarDuration.Indefinite) } }
         LaunchedEffect(account) {
             if (getDatabasePath("saba_local.db").exists()) notify("سوابق نسخهٔ قبلی محفوظ‌اند؛ از تنظیمات، بازیابی سوابق همین حساب را بررسی کنید.")
         }
@@ -722,7 +722,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
-                    snackbarHost = { SnackbarHost(snackbar) }
+                    snackbarHost = { SuraNoticeHost(snackbar) }
                 ) { padding ->
                     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (loading || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
