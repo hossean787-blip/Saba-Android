@@ -97,7 +97,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         catch(e:Exception){paymentMessage=SuraErrors.describe(e,"دریافت طرح‌های فروش انجام نشد؛ برای تازه‌سازی دوباره تلاش کنید. [OFFERS-LOAD]")}
         finally{offersLoading=false}
     }
-    LaunchedEffect(accessToken,plan,selectedQuantity,selectedOfferId,quoteAttempt){
+    LaunchedEffect(accessToken,plan,selectedQuantity,selectedOfferId,selectedOffer?.priceRial,quoteAttempt){
         quote=null;quoteError="";quoteBusy=false
         if(plan=="free")return@LaunchedEffect
         val units=selectedQuantity?:return@LaunchedEffect
@@ -187,7 +187,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             }
             salesOffers.forEach{offer->
                 val selected=selectedOfferId==offer.id
-                Card(onClick={freeSelected=false;selectedOfferId=offer.id;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),
+                Card(onClick={freeSelected=false;selectedOfferId=offer.id;checkout=false;quote=null;quoteError=""},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),
                     shape=cardShape,border=androidx.compose.foundation.BorderStroke(if(selected)2.dp else 1.dp,if(selected)SuraPalette.Teal else SuraPalette.Edge),
                     colors=CardDefaults.cardColors(containerColor=if(selected)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(2.dp)){
                     Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
