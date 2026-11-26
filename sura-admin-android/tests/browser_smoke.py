@@ -57,6 +57,14 @@ def handler(route):
   }
   if endpoint in ('role-assign','price-update'): requests.append((endpoint,body))
   route.fulfill(headers={'access-control-allow-origin':'*'},json=manager.get(endpoint,{'error':'not_found'}),status=200 if endpoint in manager else 404);return
+ if '/sura-card-transfer/' in path:
+  endpoint=path.split('/')[-1]
+  if endpoint=='admin-offers':
+   route.fulfill(headers={'access-control-allow-origin':'https://appassets.androidplatform.net'},json={'offers':[{'id':'410f8400-e29b-41d4-a716-446655440000','title':'بسته اقتصادی','description':'۱۰ صورتحساب با تخفیف','credits':10,'price_rial':850000,'active':True,'featured':True,'sort_order':10,'revision':1}],'audit':[]});return
+  if endpoint=='admin-offer-save':
+   requests.append((endpoint,body))
+   route.fulfill(headers={'access-control-allow-origin':'https://appassets.androidplatform.net'},json={'receipt':body.get('request'),'offer_id':body.get('id'),'revision':body.get('expected',0)+1});return
+  route.fulfill(status=404,json={'error':'missing_route'});return
  if path.endswith('/query'):
   route.fulfill(headers={'access-control-allow-origin':'*'},json=TABLES.get(body.get('table'), []));return
  if path.endswith('/wallet'):
@@ -144,6 +152,20 @@ with sync_playwright() as p:
  page.get_by_role('button',name='ذخیره قیمت').click()
  page.locator('#modal-overlay').wait_for(state='hidden')
  assert any(x[0]=='price-update' and x[1].get('price')==120000 for x in requests)
+ page.get_by_role('button',name='افزودن طرح جدید').click()
+ page.locator('#offer-title').fill('بسته آزمایشی')
+ page.locator('#offer-description').fill('بسته با تخفیف برای کاربران')
+ page.locator('#offer-credits').fill('25')
+ page.locator('#offer-price').fill('1900000')
+ page.locator('#offer-sort').fill('5')
+ page.locator('#offer-active').check()
+ page.locator('#offer-featured').check()
+ page.locator('#offer-reason').fill('ایجاد بسته آزمایشی برای آزمون')
+ page.get_by_role('button',name='ذخیره طرح').click()
+ page.locator('#modal-overlay').wait_for(state='hidden')
+ assert any(x[0]=='admin-offer-save' and x[1].get('credits')==25 and x[1].get('active') is True for x in requests)
+ page.evaluate("showPage('packages')")
+ page.get_by_text('بسته اقتصادی').wait_for()
  page.evaluate("showPage('credits')")
  page.get_by_text('دفتر ممیزی اصلاحات مدیرکل').wait_for()
  assert page.get_by_text('اعتبار هدیه تست').count()==1
