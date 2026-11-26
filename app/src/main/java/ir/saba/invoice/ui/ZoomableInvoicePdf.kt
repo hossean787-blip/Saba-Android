@@ -38,6 +38,7 @@ internal fun invoicePdfDisplayDigits(value:String):String = value.map { c ->
 internal data class PdfZoom(val scale:Float=1f,val x:Float=0f,val y:Float=0f) {
     fun change(factor:Float,pan:Offset,viewport:IntSize):PdfZoom {
         val next=(scale*factor).coerceIn(1f,5f)
+        if(next<=1f) return PdfZoom()
         val ratio=next/scale
         val maxX=viewport.width*(next-1f)/2f
         val maxY=viewport.height*(next-1f)/2f
