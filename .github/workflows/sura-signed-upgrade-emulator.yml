@@ -2,6 +2,21 @@ name: SURA signed release upgrade on Android emulator
 
 on:
   workflow_dispatch:
+    inputs:
+      previous_run_id:
+        description: 'Successful standard signed APK baseline run ID'
+        required: true
+        default: '45813818399'
+        type: string
+      current_run_id:
+        description: 'Successful standard signed APK candidate run ID'
+        required: true
+        default: '45817843347'
+        type: string
+  workflow_run:
+    workflows: ['SURA signed APK (manual)']
+    branches: [main]
+    types: [completed]
 
 permissions:
   contents: read
@@ -9,6 +24,8 @@ permissions:
 
 jobs:
   signed-upgrade:
+    # Automatically validate this authorized 0.133 candidate once. Future pairs are manual.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.id == 45817843347 && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
@@ -21,16 +38,23 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          PREVIOUS_RUN_ID: ${{ inputs.previous_run_id || '45813818399' }}
+          CURRENT_RUN_ID: ${{ inputs.current_run_id || github.event.workflow_run.id }}
         run: |
           set -euo pipefail
           mkdir -p app/build/upgrade/previous app/build/upgrade/current
-          # Compare tested signed 0.33.0 with verified signed 0.39.0
-          # directly; no uninstall and no ephemeral debug signing key.
-          # Never use a debug APK, change signing keys, or uninstall existing data.
-          gh run download 42685768067 -n SURA-signed-release-apk-257 \
-            -D app/build/upgrade/previous --repo ${{ github.repository }}
-          gh run download 43137456907 -n SURA-signed-release-apk-306 \
-            -D app/build/upgrade/current --repo ${{ github.repository }}
+          # Only accept successful standard release workflow runs on this repository's main branch.
+          [[ "$PREVIOUS_RUN_ID" =~ ^[0-9]+$ && "$CURRENT_RUN_ID" =~ ^[0-9]+$ && "$PREVIOUS_RUN_ID" != "$CURRENT_RUN_ID" ]]
+          for run_id in "$PREVIOUS_RUN_ID" "$CURRENT_RUN_ID"; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" | jq -e \
+              --arg repo "$GITHUB_REPOSITORY" \
+              '.conclusion == "success" and .head_branch == "main" and .head_repository.full_name == $repo and .path == ".github/workflows/android-signed-release.yml"' >/dev/null
+          done
+          gh run download "$PREVIOUS_RUN_ID" -n sura-signed-release-apk \
+            -D app/build/upgrade/previous --repo "$GITHUB_REPOSITORY"
+          gh run download "$CURRENT_RUN_ID" -n sura-signed-release-apk \
+            -D app/build/upgrade/current --repo "$GITHUB_REPOSITORY"
+          printf 'previous_run_id=%s\ncurrent_run_id=%s\n' "$PREVIOUS_RUN_ID" "$CURRENT_RUN_ID" > app/build/upgrade/source-runs.txt
           test -s app/build/upgrade/previous/app-release.apk
           test -s app/build/upgrade/current/app-release.apk
           echo "Both signed release archives were retrieved."
@@ -55,8 +79,13 @@ jobs:
           NEW_BADGING="$("$AAPT" dump badging "$CURRENT" | head -n 1)"
           echo "$OLD_BADGING"
           echo "$NEW_BADGING"
-          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$OLD_BADGING" == *"versionCode='33'"* ]]
-          [[ "$NEW_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"versionCode='39'"* ]]
+          [[ "$OLD_BADGING" == *"name='ir.saba.invoice'"* && "$NEW_BADGING" == *"name='ir.saba.invoice'"* ]]
+          old_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\1/p" <<< "$OLD_BADGING")"
+          new_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\1/p" <<< "$NEW_BADGING")"
+          [[ "$old_code" =~ ^[0-9]+$ && "$new_code" =~ ^[0-9]+$ ]]
+          (( new_code > old_code ))
+          echo "PREVIOUS_VERSION_CODE=$old_code" >> "$GITHUB_ENV"
+          echo "CURRENT_VERSION_CODE=$new_code" >> "$GITHUB_ENV"
           old_cert="$("$SIGNER" verify --print-certs "$PREVIOUS" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           new_cert="$("$SIGNER" verify --print-certs "$CURRENT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           [[ -n "$old_cert" && "$old_cert" == "$new_cert" ]]
@@ -75,7 +104,7 @@ jobs:
           else
             echo "KVM not available; software emulation fallback."
           fi
-      - name: Boot emulator and verify in-place signed upgrade (API 29)
+      - name: Boot emulator and verify in-place signed upgrade (API ${{ matrix.api-level }})
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}

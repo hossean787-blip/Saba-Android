@@ -9,6 +9,10 @@ current="app/build/upgrade/current/app-release.apk"
 package="ir.saba.invoice"
 component="$package/.MainActivity"
 test -s "$previous" && test -s "$current"
+: "${PREVIOUS_VERSION_CODE:?Missing verified baseline version}"
+: "${CURRENT_VERSION_CODE:?Missing verified candidate version}"
+[[ "$PREVIOUS_VERSION_CODE" =~ ^[0-9]+$ && "$CURRENT_VERSION_CODE" =~ ^[0-9]+$ ]]
+(( CURRENT_VERSION_CODE > PREVIOUS_VERSION_CODE ))
 adb wait-for-device
 sdk_api="$(adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')"
 [[ "$sdk_api" == "29" || "$sdk_api" == "36" ]] || { echo "Unexpected test API: $sdk_api" >&2; exit 1; }
@@ -45,6 +49,7 @@ before="$(adb shell pm list packages -U "$package" | tr -d '\r')"
   exit 1
 }
 echo "Before update: $before"
+adb shell dumpsys package "$package" | grep -E "versionCode=${PREVIOUS_VERSION_CODE}([[:space:]]|$)" > app/build/upgrade/baseline-version.txt
 adb shell am start -W -n "$component" | tee app/build/upgrade/start-before.txt
 # Reinstall without clearing app data or removing the old package.
 install_safely "$current"
@@ -54,7 +59,7 @@ after="$(adb shell pm list packages -U "$package" | tr -d '\r')"
   exit 1
 }
 echo "After update: $after"
-adb shell dumpsys package "$package" | grep 'versionCode=39' > app/build/upgrade/installed-version.txt
+adb shell dumpsys package "$package" | grep -E "versionCode=${CURRENT_VERSION_CODE}([[:space:]]|$)" > app/build/upgrade/installed-version.txt
 adb shell pm path "$package" | grep -q 'package:'
 adb logcat -c
 adb shell am force-stop "$package"
@@ -81,8 +86,8 @@ fi
   echo "SURA APK signed upgrade verified in Android emulator, API $sdk_api"
   echo "before_uid=$before"
   echo "after_uid=$after"
-  echo "previous_versionCode=33"
-  echo "current_versionCode=39"
+  echo "previous_versionCode=$PREVIOUS_VERSION_CODE"
+  echo "current_versionCode=$CURRENT_VERSION_CODE"
   echo "installation_mode=adb install -r (without uninstall/pm clear)"
   echo "release_process_running=yes"
   echo "crash_buffer=clear"
