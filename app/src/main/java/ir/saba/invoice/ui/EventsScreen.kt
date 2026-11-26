@@ -12,6 +12,9 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.ui.platform.testTag
+import ir.saba.invoice.domain.InvoiceSubject
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -144,10 +147,23 @@ internal fun invoiceEventTitle(invoice: Invoice, customers: List<Customer>): Str
     "صورتحساب " + (customers.firstOrNull { it.id == invoice.customerId && it.companyId == invoice.companyId }
         ?.name?.takeIf { it.isNotBlank() } ?: "مشتری نامشخص")
 
+internal fun canCopyAsNewInvoice(invoice:Invoice):Boolean =
+    invoice.status=="FINALIZED" && invoice.subject in setOf(InvoiceSubject.ORIGINAL,InvoiceSubject.CORRECTION)
+
+@Composable
+internal fun CopyInvoiceButton(id:Long,enabled:Boolean=true,onClick:()->Unit) {
+    OutlinedButton(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("copyInvoice_$id"),
+        shape=RoundedCornerShape(13.dp)) {
+        Icon(Icons.Default.ContentCopy,null,Modifier.size(18.dp))
+        Spacer(Modifier.width(7.dp));Text("کپی و صدور فاکتور جدید")
+    }
+}
+
 @Composable
 fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                  customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap(),
-                 onOpenInvoice: (Long) -> Unit = { onInvoices() }) {
+                 onOpenInvoice: (Long) -> Unit = { onInvoices() },
+                 onCopyInvoice: ((Long) -> Unit)? = null) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(SuraPalette.Canvas),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -194,12 +210,12 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                     else -> SuraPalette.Muted
                 }
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onOpenInvoice(invoice.id) },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(19.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically,
+                    Row(Modifier.fillMaxWidth().clickable { onOpenInvoice(invoice.id) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(Modifier.size(43.dp).clip(RoundedCornerShape(14.dp))
                             .background(SuraPalette.Soft), contentAlignment = Alignment.Center) {
@@ -222,6 +238,11 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                                 fontWeight = FontWeight.Bold)
                             Text(statusText, color = statusColor,
                                 style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    if(onCopyInvoice!=null && canCopyAsNewInvoice(invoice)) {
+                        Box(Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=10.dp)) {
+                            CopyInvoiceButton(invoice.id){onCopyInvoice(invoice.id)}
                         }
                     }
                 }

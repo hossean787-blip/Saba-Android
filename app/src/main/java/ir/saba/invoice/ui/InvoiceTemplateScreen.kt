@@ -244,7 +244,8 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
                           onCorrection:(() -> Unit)? = null, correction:CorrectionLink? = null,
                           onOpenCorrection:(Long)->Unit = {}, localPreview:Boolean = false,
-                          onManage:(()->Unit)?=null, onCancellation:(()->Unit)?=null, cancellation:CorrectionLink?=null) {
+                          onManage:(()->Unit)?=null, onCancellation:(()->Unit)?=null, cancellation:CorrectionLink?=null,
+                          onCopy:(()->Unit)?=null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -333,6 +334,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         }
         Button(enabled = bytes != null && !busy, onClick = { bytes?.let(onExport) },
             modifier = Modifier.fillMaxWidth()) { Text("دریافت خروجی PDF") }
+        if(onCopy!=null) CopyInvoiceButton(invoice.id,!busy,onCopy)
         if(correction!=null) {
             Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),
                 modifier=Modifier.fillMaxWidth()) {

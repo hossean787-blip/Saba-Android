@@ -172,11 +172,13 @@ fun InvoiceScreen(
     onEventInvoiceHandled: () -> Unit = {},
     onBackToEvents: () -> Unit = {},
     openDraftsRequested:Boolean=false,
-    onDraftsRequestHandled:()->Unit={}
+    onDraftsRequestHandled:()->Unit={},
+    copyEventInvoiceId:Long?=null,
+    onCopyEventHandled:()->Unit={}
 ) {
     val states = rememberSaveableStateHolder()
     states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
-        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents, openDraftsRequested, onDraftsRequestHandled) }
+        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents, openDraftsRequested, onDraftsRequestHandled,copyEventInvoiceId,onCopyEventHandled) }
     }
 }
 
@@ -201,7 +203,9 @@ private fun InvoiceScreenContent(
     onEventInvoiceHandled: () -> Unit = {},
     onBackToEvents: () -> Unit = {},
     openDraftsRequested:Boolean=false,
-    onDraftsRequestHandled:()->Unit={}
+    onDraftsRequestHandled:()->Unit={},
+    copyEventInvoiceId:Long?=null,
+    onCopyEventHandled:()->Unit={}
 ) {
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
     val activeGateway = remember(account,creditGateway) { creditGateway ?: ServerInvoiceCreditGateway(account) }
@@ -499,6 +503,40 @@ private fun InvoiceScreenContent(
             ?.takeIf { it.companyId == companyId && it.ownerId == ownerId }
         officialRecord?.let { officialByInvoice = officialByInvoice + (id to it) }
         onChanged()
+    }
+
+    fun copyAsNew(id:Long,returnToEvents:Boolean=fromEvents) {
+        perform {
+            require(db.companyDao().byId(companyId)?.purchaserId==ownerId)
+            require(creation.pending(companyId)==null) { "ابتدا صدور ناتمام قبلی را تکمیل کنید." }
+            val source=repository.detailsForCompany(companyId,id)
+            require(canCopyAsNewInvoice(source.invoice)) { "فقط فاکتور اصلی یا اصلاحی ثبت‌شده قابل کپی است." }
+            val copied=source.lines.map{it.copy(id=0,invoiceId=0)}
+            InvoiceCalculator.calculate(copied)
+            val metadata=InvoiceLocalDetails.fromJson(source.invoice.localDetailsJson).copy(
+                documents=emptyList(),sendLaterDate="",sendLaterTime="",paymentSwitchNumber="",
+                paymentTrackingNumber="",paymentDate="",buyerBranchCode=""
+            ).toJson(preserveInput=true)
+            beginInvoice()
+            if(pendingCreation!=null) return@perform
+            fromEvents=returnToEvents;unifiedPreview=true
+            officialRecord=null;details=null
+            customerId=source.invoice.customerId.takeIf { originalBuyer ->
+                customers.any{it.id==originalBuyer && it.companyId==companyId} && originalBuyer !in inactiveBuyers
+            }
+            lines=copied
+            settlementMode=source.invoice.settlementMode
+            cashPortionInput=if(settlementMode==InvoiceSettlement.MIXED) source.invoice.cashPaidRial?.toString().orEmpty() else ""
+            localDetailsJson=metadata
+            // beginInvoice already assigns a new operation key, date, suggested original serial and no reference.
+            onNotice("کپی به‌صورت فاکتور اصلی جدید آماده است؛ مشتری و اطلاعات را بررسی کنید. اعتبار فقط هنگام ذخیره مصرف می‌شود.")
+        }
+    }
+
+    LaunchedEffect(copyEventInvoiceId) {
+        val id=copyEventInvoiceId ?: return@LaunchedEffect
+        onCopyEventHandled()
+        copyAsNew(id,returnToEvents=true)
     }
 
     fun startCorrection(originalId: Long, targetSubject:String=InvoiceSubject.CORRECTION) {
@@ -836,6 +874,7 @@ private fun InvoiceScreenContent(
                             { editExisting(loaded) }
                         } else null,
                         onDetails = if(directPreview) { { mode = "details" } } else null,
+                        onCopy = if(canCopyAsNewInvoice(loaded.invoice)) { { copyAsNew(loaded.invoice.id) } } else null,
                         onCorrection = if(canStartCorrection(loaded.invoice,officialRecord) &&
                             correctionLink(loaded.invoice,invoices,officialByInvoice)==null &&
                             cancellationLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded.invoice.id) } } else null,
@@ -1008,6 +1047,7 @@ private fun InvoiceScreenContent(
                                     colors=ButtonDefaults.outlinedButtonColors(contentColor=teal)) {
                                     Text("مشاهده جزئیات",style=MaterialTheme.typography.labelLarge)
                                 }
+                                if(canCopyAsNewInvoice(invoice)) CopyInvoiceButton(invoice.id,!busy){copyAsNew(invoice.id,false)}
                             }
                         }
                         }
