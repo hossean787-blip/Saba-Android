@@ -434,16 +434,20 @@ class MainActivity : ComponentActivity() {
             if (next != null) refreshCompany(next)
         }
         val excelService = remember(db, account) { ExcelTransferService(db, account.ownerId) { TaxpayerIdAllocator(applicationContext).use { it.reserve() } } }
-        var excelScope by remember { mutableStateOf("taxpayers") }
-        var excelMode by remember { mutableStateOf("template") }
+        var excelScope by rememberSaveable(account.storageKey) { mutableStateOf("taxpayers") }
+        var excelMode by rememberSaveable(account.storageKey) { mutableStateOf("template") }
+        var excelCompanyId by rememberSaveable(account.storageKey) { mutableStateOf<Long?>(null) }
         val exportExcel = rememberLauncherForActivityResult(
             ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         ) { uri ->
             if (uri != null) scope.launch {
+                val target = excelScope
+                val mode = excelMode
+                val companyId = excelCompanyId
                 try {
                     val payload = withContext(Dispatchers.IO) {
-                        if (excelMode == "template") excelService.template(excelScope)
-                        else excelService.export(excelScope, selectedCompanyId)
+                        if (mode == "template") excelService.template(target)
+                        else excelService.export(target, companyId)
                     }
                     withContext(Dispatchers.IO) {
                         contentResolver.openOutputStream(uri)?.use { it.write(payload) }
@@ -457,6 +461,8 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.OpenDocument()
         ) { uri ->
             if (uri != null) scope.launch {
+                val target = excelScope
+                val companyId = excelCompanyId
                 try {
                     val bytes = withContext(Dispatchers.IO) {
                         contentResolver.openInputStream(uri)?.use { stream ->
@@ -472,7 +478,7 @@ class MainActivity : ComponentActivity() {
                         } ?: error("فایل ورودی خوانده نشد.")
                     }
                     val count = withContext(Dispatchers.IO) {
-                        excelService.import(excelScope, selectedCompanyId, bytes)
+                        excelService.import(target, companyId, bytes)
                     }
                     refresh()
                     notify("ورود اکسل انجام شد؛ $count رکورد جدید اضافه شد.")
@@ -486,10 +492,15 @@ class MainActivity : ComponentActivity() {
             }
             excelScope = target
             excelMode = action
-            if (action == "import") importExcel.launch(arrayOf(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "application/octet-stream"
-            )) else exportExcel.launch("SURA_" + target + (if (action == "template") "_template" else "_export") + ".xlsx")
+            excelCompanyId = selectedCompanyId
+            // Some Android document providers report generic/incorrect MIME for valid XLSX.
+            // The bounded workbook reader still validates the actual content.
+            try {
+                if (action == "import") importExcel.launch(arrayOf("*/*"))
+                else exportExcel.launch("SURA_" + target + (if (action == "template") "_template" else "_export") + ".xlsx")
+            } catch (e: Exception) {
+                notify("باز کردن فایل‌گیر اکسل انجام نشد: " + (e.message ?: "فایل‌گیر در دسترس نیست."))
+            }
         }
 
         fun act(action: suspend () -> Unit) {
