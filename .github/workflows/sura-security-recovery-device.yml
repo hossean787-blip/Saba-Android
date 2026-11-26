@@ -1,0 +1,52 @@
+name: SURA security and recovery device gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sura-security-recovery-device.yml'
+      - 'app/src/androidTest/java/ir/saba/invoice/data/ArchiveRecoveryDeviceTest.kt'
+      - 'app/src/main/java/ir/saba/invoice/data/ArchiveRestoreCheckpoint.kt'
+      - 'app/src/main/java/ir/saba/invoice/data/AccountArchive.kt'
+      - 'app/src/main/java/ir/saba/invoice/data/AccountArchivePortable.kt'
+      - 'app/src/androidTest/java/ir/saba/invoice/security/AttestationDeviceTest.kt'
+      - 'app/src/main/java/ir/saba/invoice/security/AppAttestationClient.kt'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-recovery:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Verify synthetic restore and local Keystore on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.ArchiveRecoveryDeviceTest,ir.saba.invoice.security.AttestationDeviceTest,ir.saba.invoice.security.TaxpayerKeyVaultInstrumentedTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sura-security-recovery-device-api${{ matrix.api }}
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
