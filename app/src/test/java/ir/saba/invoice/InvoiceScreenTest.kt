@@ -9,6 +9,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import ir.saba.invoice.data.*
 import ir.saba.invoice.ui.InvoiceScreen
+import ir.saba.invoice.ui.EventsScreen
 import ir.saba.invoice.ui.InvoiceCreditGateway
 import ir.saba.invoice.ui.invoiceTaxStatus
 import ir.saba.invoice.ui.invoiceReceiptLabel
@@ -63,10 +64,10 @@ class InvoiceScreenTest {
     // The Compose test rule disposes its composition after @After hooks.
     // Closing this in-memory DB in @After races with still-running LaunchedEffects.
     // Its lifetime is limited to this fixture; no persistent file is created.
-    @Composable private fun Screen() {
+    @Composable private fun Screen(openEventInvoiceId: Long? = null) {
         MaterialTheme {
             InvoiceScreen(db, ownerId, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
-                onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = { surfacedNotices.add(it) }, onEditorActive = {}, availableCharge = 10, creditGateway = creditGateway)
+                onChanged = { invoices = db.invoiceDao().forCompany(company) }, onNotice = { surfacedNotices.add(it) }, onEditorActive = {}, availableCharge = 10, creditGateway = creditGateway, openEventInvoiceId = openEventInvoiceId)
         }
     }
     private fun openNew() {
@@ -147,7 +148,7 @@ class InvoiceScreenTest {
         assertEquals(1,creditGateway.consumedKeys.size)
     }
 
-    @Test fun draftDashboardEntryFiltersAndDirectEditPreservesIdentityAndCredit() {
+    @Test fun draftFromInvoicesSectionQuickActionEditsWithoutChangingIdentityAndCredit() {
         val draft=runBlocking {
             val repo=InvoiceRepository(db)
             val line=listOf(InvoiceLine(invoiceId=0,description="خدمت",quantity=1,unitPriceRial=1000,taxRatePercent=10))
@@ -159,16 +160,13 @@ class InvoiceScreenTest {
         }
         val before=runBlocking{db.quotaDao().useForInvoice(draft)}
         compose.setContent {
-            var open by remember { mutableStateOf(true) }
             MaterialTheme {
                 InvoiceScreen(db,ownerId,company,listOf(Customer(id=customer,companyId=company,name="خریدار")),invoices,
                     onChanged={invoices=db.invoiceDao().forCompany(company)},onNotice={surfacedNotices.add(it)},
-                    onEditorActive={},creditGateway=creditGateway,openDraftsRequested=open,onDraftsRequestHandled={open=false})
+                    onEditorActive={},creditGateway=creditGateway,copyEventInvoiceId=draft,
+                    onCopyEventHandled={},eventQuickAction="EDIT")
             }
         }
-        compose.waitUntil(15000){compose.onAllNodesWithTag("draftSummary").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithTag("invoiceListScroll").performScrollToNode(hasTestTag("draftEdit_$draft"))
-        compose.onNodeWithTag("draftEdit_$draft").performClick()
         compose.waitUntil(15000){compose.onAllNodesWithTag("invoiceProfessionalHeader").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("invoiceItemRow0").assertExists()
         assertEquals(10L,creditGateway.remaining)
@@ -180,6 +178,40 @@ class InvoiceScreenTest {
             assertEquals(2,db.invoiceDao().forCompany(company).size)
             assertEquals(0,db.officialSubmissionDao().forCompany(company).size)
         }
+    }
+
+    @Test fun registrationSectionDoesNotDisplayPreviouslySavedInvoices() {
+        runBlocking {
+            val id = InvoiceRepository(db).saveDraft(company, customer, "SAVED", "1405/08/20",
+                listOf(InvoiceLine(invoiceId = 0, description = "خدمت ثبت‌شده", quantity = 1,
+                    unitPriceRial = 1000, taxRatePercent = 10)))
+            invoices = db.invoiceDao().forCompany(company)
+            check(invoices.any { it.id == id })
+        }
+        compose.setContent { Screen() }
+        compose.onNodeWithText("ثبت صورتحساب جدید").assertExists()
+        compose.onNodeWithTag("invoiceNewEntry").assertExists()
+        compose.onNodeWithTag("invoiceExcelEntry").assertExists()
+        compose.onNodeWithTag("invoiceListScroll").assertDoesNotExist()
+        compose.onNodeWithTag("invoiceListSearch").assertDoesNotExist()
+        compose.onNodeWithTag("invoiceListCard_${invoices.single().id}").assertDoesNotExist()
+    }
+
+    @Test fun invoicesSectionDisplaysPreviouslySavedInvoices() {
+        runBlocking {
+            InvoiceRepository(db).saveDraft(company, customer, "SAVED", "1405/08/20",
+                listOf(InvoiceLine(invoiceId = 0, description = "خدمت ثبت‌شده", quantity = 1,
+                    unitPriceRial = 1000, taxRatePercent = 10)))
+            invoices = db.invoiceDao().forCompany(company)
+        }
+        compose.setContent {
+            MaterialTheme {
+                EventsScreen(invoices, onInvoices = {},
+                    customers = listOf(Customer(id = customer, companyId = company, name = "خریدار")))
+            }
+        }
+        compose.onNodeWithText("فاکتورها").assertExists()
+        compose.onNodeWithText("صورتحساب خریدار").assertExists()
     }
 
     @Test fun professionalInvoiceEditorKeepsSectionsAndSaveVisible() {
@@ -267,15 +299,15 @@ class InvoiceScreenTest {
     }
 
     @Test fun savedDraftWithUnitOpensSingleSendConfirmationAndCancelKeepsDraft() {
-        runBlocking {
-            InvoiceRepository(db).saveDraft(company, customer, "16", "1405/07/02",
+        val draftId = runBlocking {
+            val id = InvoiceRepository(db).saveDraft(company, customer, "16", "1405/07/02",
                 listOf(InvoiceLine(invoiceId = 0, itemCode = "1234567890123",
                     description = "کالا", quantity = 1, unitPriceRial = 1000,
                     taxRatePercent = 10, unitCode = "1627")))
             invoices = db.invoiceDao().forCompany(company)
+            id
         }
-        compose.setContent { Screen() }
-        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.setContent { Screen(openEventInvoiceId = draftId) }
         compose.waitUntil(15000) {
             compose.onAllNodesWithTag("invoiceDirectSend").fetchSemanticsNodes().isNotEmpty()
         }
@@ -407,8 +439,8 @@ class InvoiceScreenTest {
         runBlocking { check(db.invoiceDao().forCompany(company).isEmpty()) }
     }
 
-    @Test fun pendingManagementFilterAndPanelDisableUnsafeActions() {
-        runBlocking {
+    @Test fun pendingInvoiceFromInvoicesSectionOpensManagementAndDisablesUnsafeActions() {
+        val pendingId = runBlocking {
             val repo=InvoiceRepository(db)
             val lines=listOf(InvoiceLine(invoiceId=0,description="کالا",quantity=1,unitPriceRial=100,taxRatePercent=10))
             val id=repo.saveDraft(company,customer,"PENDING","1405/07/02",lines)
@@ -417,11 +449,9 @@ class InvoiceScreenTest {
             db.officialSubmissionDao().insert(OfficialSubmission("pending",ownerId,company,id,"ABC123","tax","{}","hash",1,
                 state="SUBMITTED",referenceNumber="ref",protocol="LEGACY",lastError="در صف"))
             invoices=db.invoiceDao().forCompany(company)
+            id
         }
-        compose.setContent { Screen() }
-        compose.waitUntil(15000){compose.onAllNodesWithText("نیازمند تعیین تکلیف · 1").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithTag("needsSubmissionManagement").performScrollTo().performClick()
-        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.setContent { Screen(openEventInvoiceId = pendingId) }
         compose.waitUntil(15000){compose.onAllNodesWithTag("openSubmissionManagement").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("openSubmissionManagement").performScrollTo().performClick()
         compose.onNodeWithTag("manageInquiry").assertIsEnabled()
@@ -432,15 +462,15 @@ class InvoiceScreenTest {
     }
 
     @Test fun acceptedInvoiceHasDetailsWithoutEditOrDeleteActions() {
-        runBlocking {
+        val acceptedId = runBlocking {
             val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))
             InvoiceRepository(db).finalizeDraft(company, id)
             db.officialSubmissionDao().insert(OfficialSubmission("accepted",ownerId,company,id,"ABC123","tax","{}","hash",1,
                 state="ACCEPTED",referenceNumber="ref",signedReceipt="receipt",protocol="V2"))
             invoices = db.invoiceDao().forCompany(company)
+            id
         }
-        compose.setContent { Screen() }
-        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.setContent { Screen(openEventInvoiceId = acceptedId) }
         compose.waitUntil(15000) { compose.onAllNodesWithText("دریافت خروجی PDF").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("پیش‌نمایش و خروجی صورتحساب").assertExists()
         compose.onNodeWithText("ویرایش پیش‌نویس").assertDoesNotExist()
@@ -449,13 +479,13 @@ class InvoiceScreenTest {
         compose.onNodeWithText("حذف پیش‌نویس").assertDoesNotExist()
     }
     @Test fun finalizedUnsentInvoiceOffersEditButNotDelete() {
-        runBlocking {
+        val finalizedId = runBlocking {
             val id = InvoiceRepository(db).saveDraft(company, customer, "FINAL", "1405/07/02", listOf(InvoiceLine(invoiceId = 0, description = "کالا", quantity = 1, unitPriceRial = 100, taxRatePercent = 10)))
             InvoiceRepository(db).finalizeDraft(company, id)
             invoices = db.invoiceDao().forCompany(company)
+            id
         }
-        compose.setContent { Screen() }
-        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
+        compose.setContent { Screen(openEventInvoiceId = finalizedId) }
         compose.waitUntil(15000) { compose.onAllNodesWithText("ویرایش فاکتور").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("ویرایش فاکتور").assertExists()
         compose.onNodeWithText("حذف پیش‌نویس").assertDoesNotExist()
@@ -533,7 +563,7 @@ class InvoiceScreenTest {
 
 
     @Test fun legacyFinalizedInvoiceWithMissingUnitCanNavigateToRecoveryTools() {
-        runBlocking {
+        val legacyId = runBlocking {
             val id = InvoiceRepository(db).saveDraft(
                 company, customer, "15", "1405/07/02",
                 listOf(InvoiceLine(
@@ -544,16 +574,16 @@ class InvoiceScreenTest {
             )
             InvoiceRepository(db).finalizeDraft(company, id)
             invoices = db.invoiceDao().forCompany(company)
+            id
         }
         var navigations = 0
         compose.setContent { MaterialTheme {
             InvoiceScreen(db, ownerId, company,
                 listOf(Customer(id = customer, companyId = company, name = "خریدار")),
                 invoices, onChanged = {}, onNotice = {}, onEditorActive = {},
-                creditGateway = creditGateway,
+                creditGateway = creditGateway, openEventInvoiceId = legacyId,
                 onOpenOfficialSubmission = { navigations++ })
         } }
-        compose.onNodeWithText("مشاهده جزئیات").performScrollTo().performClick()
         compose.waitUntil(15000) {
             compose.onAllNodesWithText("ارسال به سامانه مؤدیان")
                 .fetchSemanticsNodes().isNotEmpty()
