@@ -24,12 +24,12 @@ import ir.saba.invoice.domain.InvoiceLineAmounts
 import ir.saba.moadian.MoadianMeasurementUnits
 
 /** Business-form components only. No database, credit, tax API or PDF mutations. */
-private val ink = Color(0xFF132D43)
-private val sea = Color(0xFF086C7D)
-private val muted = Color(0xFF667D8B)
-private val edge = Color(0xFFDCE8EF)
-private val ivory = Color(0xFFF5F9FC)
-private val gold = Color(0xFFE9C884)
+private val ink = SuraPalette.Navy
+private val sea = SuraPalette.Teal
+private val muted = SuraPalette.Muted
+private val edge = SuraPalette.Edge
+private val ivory = SuraPalette.Canvas
+private val gold = SuraPalette.Gold
 
 @Composable
 internal fun InvoiceEditorHeading(seller: String, editingDraft: Boolean, lineCount: Int) {
@@ -39,7 +39,7 @@ internal fun InvoiceEditorHeading(seller: String, editingDraft: Boolean, lineCou
         shadowElevation = 5.dp
     ) {
         Column(
-            Modifier.background(Brush.linearGradient(listOf(ink, Color(0xFF164F66), Color(0xFF087786))))
+            Modifier.background(Brush.linearGradient(listOf(ink, SuraPalette.Ocean, SuraPalette.Teal)))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -57,12 +57,12 @@ internal fun InvoiceEditorHeading(seller: String, editingDraft: Boolean, lineCou
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
                 }
             }
-            Text("صورتحساب فروش کالا و خدمات", color = Color(0xFFDFEEF4),
+            Text("صورتحساب فروش کالا و خدمات", color = SuraPalette.OnDark,
                 style = MaterialTheme.typography.bodyMedium)
             HorizontalDivider(color = Color.White.copy(alpha = 0.22f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("فروشنده / مؤدی", color = Color(0xFFB8D8E4),
+                    Text("فروشنده / مؤدی", color = SuraPalette.OnDark,
                         style = MaterialTheme.typography.labelSmall)
                     Text(seller.ifBlank { "مؤدی انتخاب‌شده" }, color = Color.White,
                         fontWeight = FontWeight.SemiBold,
@@ -70,7 +70,7 @@ internal fun InvoiceEditorHeading(seller: String, editingDraft: Boolean, lineCou
                         overflow = TextOverflow.Ellipsis)
                 }
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                    Text("تعداد ردیف", color = Color(0xFFB8D8E4),
+                    Text("تعداد ردیف", color = SuraPalette.OnDark,
                         style = MaterialTheme.typography.labelSmall)
                     Text("$lineCount", color = gold, fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge)

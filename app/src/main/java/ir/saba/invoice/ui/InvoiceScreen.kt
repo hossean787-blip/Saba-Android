@@ -866,8 +866,8 @@ private fun InvoiceScreenContent(
                     }
                     if(status=="DRAFT") filtered.sortedByDescending{it.id} else filtered
                 }
-                val navy=Color(0xFF12354B)
-                val teal=Color(0xFF087D8A)
+                val navy=SuraPalette.Navy
+                val teal=SuraPalette.Teal
                 LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("invoiceListScroll"),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -879,7 +879,7 @@ private fun InvoiceScreenContent(
                                     Text(if(status=="DRAFT") "پیش‌نویس‌ها" else "فاکتورهای شرکت",style=MaterialTheme.typography.titleLarge,
                                         fontWeight=FontWeight.ExtraBold,color=navy)
                                     Text(if(status=="DRAFT") "پیش‌نویس‌های محفوظ مودی فعال" else "${invoices.size} صورتحساب ثبت‌شده",style=MaterialTheme.typography.labelSmall,
-                                        color=Color(0xFF647D8A))
+                                        color=SuraPalette.Muted)
                                 }
                                 IconButton(enabled=!busy,onClick={perform { onChanged() }}) {
                                     Icon(Icons.Default.Refresh,contentDescription="تازه‌کردن فهرست",tint=teal)
@@ -887,9 +887,9 @@ private fun InvoiceScreenContent(
                             }
                             if(status=="DRAFT") DraftsSummary(drafts,displayed.size)
                             else Card(shape=RoundedCornerShape(17.dp),modifier=Modifier.fillMaxWidth()) {
-                                Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(navy,Color(0xFF17616D))))
+                                Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(navy,SuraPalette.Ocean)))
                                     .padding(horizontal=12.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                                    Text("اعتبار صدور صورتحساب",color=Color(0xFFB8DCE5),style=MaterialTheme.typography.labelSmall)
+                                    Text("اعتبار صدور صورتحساب",color=SuraPalette.OnDark,style=MaterialTheme.typography.labelSmall)
                                     Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining",
                                         color=Color.White,fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.bodyMedium)
                                 }
@@ -921,7 +921,7 @@ private fun InvoiceScreenContent(
                                 trailingIcon={if(search.isNotBlank()) IconButton(onClick={search=""}){
                                     Icon(Icons.Default.Close,contentDescription="پاک کردن جستجو")
                                 }},
-                                colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=teal,unfocusedBorderColor=Color(0xFFCFDFE6),
+                                colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=teal,unfocusedBorderColor=SuraPalette.Edge,
                                     focusedContainerColor=Color.White,unfocusedContainerColor=Color.White,cursorColor=teal))
                             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                                 listOf("ALL" to "همه","DRAFT" to "پیش‌نویس","FINALIZED" to "نهایی").forEach { (value,title) ->
@@ -969,10 +969,10 @@ private fun InvoiceScreenContent(
                         }
                         Card(Modifier.fillMaxWidth().testTag("invoiceListCard_${invoice.id}"),
                             shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Color.White),
-                            border=BorderStroke(1.dp,Color(0xFFE0E9EE))) {
+                            border=BorderStroke(1.dp,SuraPalette.Edge)) {
                             Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
                                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)){
-                                    Surface(shape=RoundedCornerShape(12.dp),color=Color(0xFFE3F2F4)){
+                                    Surface(shape=RoundedCornerShape(12.dp),color=SuraPalette.Soft){
                                         Icon(Icons.AutoMirrored.Filled.List,contentDescription=null,tint=teal,
                                             modifier=Modifier.padding(9.dp).size(21.dp))
                                     }
@@ -980,7 +980,7 @@ private fun InvoiceScreenContent(
                                         Text(customerById[invoice.customerId]?.name
                                             ?: "مشتری نامشخص",fontWeight=FontWeight.Bold,color=navy,
                                             maxLines=2,overflow=TextOverflow.Ellipsis)
-                                        Text("فاکتور ${invoice.invoiceNumber}",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A))
+                                        Text("فاکتور ${invoice.invoiceNumber}",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted)
                                     }
                                     Surface(shape=RoundedCornerShape(10.dp),color=stateBackground){
                                         Text(event.label,Modifier.padding(horizontal=8.dp,vertical=5.dp),color=stateColor,
@@ -990,12 +990,12 @@ private fun InvoiceScreenContent(
                                 HorizontalDivider(color=Color(0xFFEDF2F5))
                                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
                                     horizontalArrangement=Arrangement.SpaceBetween){
-                                    Text(invoice.issueDate,style=MaterialTheme.typography.bodySmall,color=Color(0xFF647D8A))
+                                    Text(invoice.issueDate,style=MaterialTheme.typography.bodySmall,color=SuraPalette.Muted)
                                     Text(rial(invoice.totalAmountRial),fontWeight=FontWeight.Bold,
                                         style=MaterialTheme.typography.titleSmall,color=teal)
                                 }
-                                receipt?.taxId?.let { Text("شماره مالیاتی: $it",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A)) }
-                                receipt?.referenceNumber?.let { Text("شماره پیگیری: $it",style=MaterialTheme.typography.labelSmall,color=Color(0xFF647D8A)) }
+                                receipt?.taxId?.let { Text("شماره مالیاتی: $it",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted) }
+                                receipt?.referenceNumber?.let { Text("شماره پیگیری: $it",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted) }
                                 correctionLink(invoice,invoices,officialByInvoice)?.let { link ->
                                     Text(link.label,color=Color(0xFF986217),style=MaterialTheme.typography.labelSmall)
                                     TextButton(enabled=!busy,onClick={invoiceId=link.invoice.id;mode="event_open"}) {
@@ -1740,7 +1740,7 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
         modifier = Modifier.fillMaxWidth().testTag("invoiceInlineLineEditor"),
         color = androidx.compose.ui.graphics.Color(0xFFF2F8FA),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFDCE8EF))
+        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.SuraPalette.Edge)
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)) {

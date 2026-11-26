@@ -244,7 +244,7 @@ fun MoadianScreen(
         }
     }
     Column(
-        Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
+        Modifier.fillMaxSize().background(SuraPalette.Canvas),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -266,7 +266,7 @@ fun MoadianScreen(
                 shape = RoundedCornerShape(17.dp),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
             Text("فهرست مودیان", fontWeight = FontWeight.Bold,
-                color = Color(0xFF153A51), style = MaterialTheme.typography.titleMedium)
+                color = SuraPalette.Navy, style = MaterialTheme.typography.titleMedium)
             fun searchText(value: String) = MoadianFieldValidation.digits(value).replace('ي', 'ی').replace('ك', 'ک')
             val needle = searchText(query)
             val rows = ownedCompanies.filter { searchText(it.name).contains(needle, ignoreCase = true) ||
@@ -281,7 +281,7 @@ fun MoadianScreen(
                                 onSelect(company.id)
                         },
                         colors = CardDefaults.cardColors(containerColor =
-                            if (selected) Color(0xFFE5F7F9) else Color.White),
+                            if (selected) SuraPalette.Soft else Color.White),
                         border = if (selected) androidx.compose.foundation.BorderStroke(
                             1.dp, Color(0xFF2DA2B1)) else null,
                         shape = RoundedCornerShape(19.dp),
@@ -307,17 +307,17 @@ fun MoadianScreen(
                         Row(Modifier.fillMaxWidth().padding(14.dp),
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE5F3F7)) {
+                            Surface(shape = RoundedCornerShape(13.dp), color = SuraPalette.Soft) {
                                 Text("${index + 1}", modifier = Modifier.padding(11.dp),
-                                    color = Color(0xFF157F96), fontWeight = FontWeight.Bold)
+                                    color = SuraPalette.Teal, fontWeight = FontWeight.Bold)
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text(company.name, fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF193F55))
+                                    color = SuraPalette.Navy)
                                 Text("نوع مودی: $type", style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF667F91))
+                                    color = SuraPalette.Muted)
                                 Text("صحت کلیدها: $check", style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF667F91))
+                                    color = SuraPalette.Muted)
                             }
                             if (d?.inactive == true)
                                 Text("غیرفعال", color = Color(0xFFB74C6D),
@@ -356,11 +356,11 @@ fun MoadianScreen(
         } else {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (mode == "new") "ثبت مودی جدید" else "ویرایش مودی",
-                style = MaterialTheme.typography.titleLarge, color = Color(0xFF173B51),
+                style = MaterialTheme.typography.titleLarge, color = SuraPalette.Navy,
                 fontWeight = FontWeight.ExtraBold)
 
             Text("نوع مودی *", fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF174256))
+                color = SuraPalette.Ocean)
             val kinds = listOf("شخص حقیقی", "شخص حقوقی", "مشارکت مدنی", "اتباع غیرایرانی")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 kinds.forEach { item ->
@@ -369,7 +369,7 @@ fun MoadianScreen(
                         modifier = Modifier.weight(1f).height(60.dp)
                             .clickable(enabled = !busy && !pending) { kind = item },
                         shape = RoundedCornerShape(12.dp),
-                        color = if (chosen) Color(0xFF0B7892) else Color(0xFFE6F1F6)
+                        color = if (chosen) SuraPalette.Teal else SuraPalette.Soft
                     ) {
                         Box(contentAlignment = androidx.compose.ui.Alignment.Center,
                             modifier = Modifier.fillMaxSize().padding(horizontal = 3.dp)) {
@@ -408,9 +408,9 @@ fun MoadianScreen(
             Text("لوگو")
             OutlinedButton(onClick = { importLogo.launch("image/*") }, enabled = !busy && !pending) { Text(if (logoPath.isBlank()) "انتخاب لوگو" else "تغییر لوگوی انتخاب‌شده") }
             logoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            ElevatedCard(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE7F5FA))) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = SuraPalette.Soft)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("دریافت شناسه یکتای حافظه مالیاتی", fontWeight = FontWeight.Bold, color = Color(0xFF16384E))
+                    Text("دریافت شناسه یکتای حافظه مالیاتی", fontWeight = FontWeight.Bold, color = SuraPalette.Navy)
                     Text("برای دریافت شناسه باید با حساب مؤدی وارد کارپوشه رسمی سازمان امور مالیاتی شوید. سورا شناسه صادر نمی‌کند. پس از صدور، شناسه را در کادر زیر وارد کنید.", style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(
                         enabled = !busy && !pending,
@@ -427,9 +427,9 @@ fun MoadianScreen(
             }
             MoadianInput("شناسه یکتا (اختیاری)", fiscalMemoryId, { fiscalMemoryId = it }, !busy && !pending, fieldErrors["fiscalMemoryId"], "پس از دریافت از کارپوشه مالیاتی می‌توانید وارد کنید.", Modifier.fillMaxWidth())
             ElevatedCard(modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE7F5FA))) {
+                colors = CardDefaults.elevatedCardColors(containerColor = SuraPalette.Soft)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("کلید خصوصی مؤدی", fontWeight = FontWeight.Bold, color = Color(0xFF16384E))
+                    Text("کلید خصوصی مؤدی", fontWeight = FontWeight.Bold, color = SuraPalette.Navy)
                     if (hasStoredPrivateKey) Text("کلید خصوصی قبلاً برای این مؤدی به‌صورت امن ذخیره شده است.", style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) },
                         enabled = !busy && !pending && credentialRepository != null,
@@ -580,7 +580,7 @@ private fun MoadianInput(
         supportingText = if (error == null) null else { { Text(error) } },
         trailingIcon = if (guidance.isBlank()) null else { {
             IconButton(onClick = { showHelp = true }) {
-                Icon(Icons.Default.Info, contentDescription = "راهنمای " + title, tint = Color(0xFF16869C))
+                Icon(Icons.Default.Info, contentDescription = "راهنمای " + title, tint = SuraPalette.Teal)
             }
         } },
         shape = RoundedCornerShape(14.dp), modifier = modifier
@@ -602,7 +602,7 @@ private fun MoadianHelpLabel(label: String, guidance: String) {
             fontWeight = FontWeight.SemiBold, color = Color(0xFF214961))
         IconButton(onClick = { visible = true }, modifier = Modifier.size(44.dp)) {
             Icon(Icons.Default.Info, contentDescription = "راهنمای " + label,
-                tint = Color(0xFF13889D), modifier = Modifier.size(19.dp))
+                tint = SuraPalette.Teal, modifier = Modifier.size(19.dp))
         }
     }
     if (visible) AlertDialog(onDismissRequest = { visible = false },

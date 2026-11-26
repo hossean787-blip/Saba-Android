@@ -30,12 +30,12 @@ import ir.saba.invoice.data.OfficialReferenceEvidence
 import java.text.NumberFormat
 import java.util.Locale
 
-private val midnight = Color(0xFF051B2D)
-private val ocean = Color(0xFF0D475A)
-private val teal = Color(0xFF0A8191)
-private val gold = Color(0xFFEBCB90)
-private val cool = Color(0xFFD8F5F8)
-private val textNavy = Color(0xFF16334B)
+private val midnight = SuraPalette.Midnight
+private val ocean = SuraPalette.Ocean
+private val teal = SuraPalette.Teal
+private val gold = SuraPalette.Gold
+private val cool = SuraPalette.OnDark
+private val textNavy = SuraPalette.Navy
 private val numberFormat = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR"))
 
 internal enum class InvoiceEventStatus(val label: String) {
@@ -149,7 +149,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                  customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap(),
                  onOpenInvoice: (Long) -> Unit = { onInvoices() }) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
+        modifier = Modifier.fillMaxSize().background(SuraPalette.Canvas),
         contentPadding = PaddingValues(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -171,14 +171,14 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFFE7F4F9)), contentAlignment = Alignment.Center) {
+                            .background(SuraPalette.Soft), contentAlignment = Alignment.Center) {
                             Icon(Icons.AutoMirrored.Filled.List, null, tint = teal)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text("هنوز صورتحسابی ثبت نشده", fontWeight = FontWeight.Bold,
                                 color = textNavy, style = MaterialTheme.typography.bodyMedium)
                             Text("برای این مودی، اولین صورتحساب را ایجاد کنید.",
-                                color = Color(0xFF74869B), style = MaterialTheme.typography.bodySmall)
+                                color = SuraPalette.Muted, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -191,7 +191,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                     InvoiceEventStatus.SUCCESS -> Color(0xFF0B806F)
                     InvoiceEventStatus.PENDING, InvoiceEventStatus.CHECK -> Color(0xFFAD792A)
                     InvoiceEventStatus.REJECTED, InvoiceEventStatus.CANCELLED -> Color(0xFFBD4A5E)
-                    else -> Color(0xFF59718F)
+                    else -> SuraPalette.Muted
                 }
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onOpenInvoice(invoice.id) },
@@ -202,14 +202,14 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                     Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(Modifier.size(43.dp).clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFE4F4F8)), contentAlignment = Alignment.Center) {
+                            .background(SuraPalette.Soft), contentAlignment = Alignment.Center) {
                             Icon(Icons.AutoMirrored.Filled.List, null, tint = teal)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(invoiceEventTitle(invoice, customers), color = textNavy,
                                 fontWeight = FontWeight.Bold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
-                            Text("${invoice.issueDate} • شماره ${invoice.invoiceNumber}", color = Color(0xFF75899B),
+                            Text("${invoice.issueDate} • شماره ${invoice.invoiceNumber}", color = SuraPalette.Muted,
                                 style = MaterialTheme.typography.labelSmall)
                             correctionLink(invoice,invoices,receipts)?.let { link ->
                                 Text(link.label,color=Color(0xFFAD792A),style=MaterialTheme.typography.labelSmall)
@@ -229,7 +229,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
         }
         item {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp))
-                .background(Color(0xFFE8F2F7)).padding(14.dp),
+                .background(SuraPalette.Soft).padding(14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("ⓘ", color = Color(0xFF42728C))

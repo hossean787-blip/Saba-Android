@@ -73,7 +73,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
     var registration by remember(editorOpen, editorId) { mutableStateOf(oldProfile?.registrationNumber.orEmpty()) }
     var birthCertificate by remember(editorOpen, editorId) { mutableStateOf(oldProfile?.birthCertificateNumber.orEmpty()) }
     if (!editorOpen) {
-        Column(Modifier.fillMaxSize().background(Color(0xFFF2F9FF)), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().background(SuraPalette.Canvas), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (busy || (!profilesReady && !profileLoadError)) LinearProgressIndicator(Modifier.fillMaxWidth())
             if(profileLoadError) OutlinedButton(onClick={loadAttempt++},modifier=Modifier.fillMaxWidth()){Text("بارگذاری دوباره مشتریان")}
             val selected = customers.firstOrNull { it.id == selectedId && it.companyId == companyId }
@@ -98,7 +98,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
             OutlinedTextField(search, { search = it }, label = { Text("جستجوی مشتریان") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "جستجو") },
                 modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(17.dp), enabled = !busy)
-            Text("فهرست مشتریان", fontWeight = FontWeight.Bold, color = Color(0xFF153A51), style = MaterialTheme.typography.titleMedium)
+            Text("فهرست مشتریان", fontWeight = FontWeight.Bold, color = SuraPalette.Navy, style = MaterialTheme.typography.titleMedium)
             fun normalized(value:String)=InvoiceInput.digits(value).replace('ي','ی').replace('ك','ک')
             val needle=normalized(search.trim())
             val rows=customers.filter { item ->
@@ -106,24 +106,24 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
             }
             if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)
             LazyColumn(Modifier.weight(1f),verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if(rows.isEmpty())item{Text("مشتری یافت نشد.",color=Color(0xFF667F91))}
+                if(rows.isEmpty())item{Text("مشتری یافت نشد.",color=SuraPalette.Muted)}
                 itemsIndexed(rows,key={_,item->item.id}){index,item->
                     val chosen=selectedId==item.id
                     val profile=profiles.firstOrNull{it.customerId==item.id}
                     val typeLabel=when(profile?.accountType){"LEGAL"->"حقوقی";"PARTNERSHIP"->"مشارکت مدنی";"FOREIGN"->"اتباع غیرایرانی";"OTHER"->"سایر";else->"حقیقی"}
                     Card(modifier=Modifier.fillMaxWidth().clickable(enabled=!busy){selectedId=item.id},
-                        colors=CardDefaults.cardColors(containerColor=if(chosen)Color(0xFFE5F7F9)else Color.White),
+                        colors=CardDefaults.cardColors(containerColor=if(chosen)SuraPalette.Softelse Color.White),
                         border=if(chosen)BorderStroke(1.dp,Color(0xFF2DA2B1))else null,
                         shape=RoundedCornerShape(19.dp),elevation=CardDefaults.cardElevation(defaultElevation=1.dp)){
                         Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                            Surface(shape=RoundedCornerShape(13.dp),color=Color(0xFFE5F3F7)){
-                                Text("${index+1}",modifier=Modifier.padding(11.dp),color=Color(0xFF157F96),fontWeight=FontWeight.Bold)
+                            Surface(shape=RoundedCornerShape(13.dp),color=SuraPalette.Soft){
+                                Text("${index+1}",modifier=Modifier.padding(11.dp),color=SuraPalette.Teal,fontWeight=FontWeight.Bold)
                             }
                             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                                Text(item.name,fontWeight=FontWeight.Bold,color=Color(0xFF193F55))
+                                Text(item.name,fontWeight=FontWeight.Bold,color=SuraPalette.Navy)
                                 val role=if(profile?.isSupplier==true&&profile?.isCustomer==true)"مشتری / تأمین‌کننده" else if(profile?.isSupplier==true)"تأمین‌کننده" else "مشتری"
-                                Text("$role • $typeLabel",style=MaterialTheme.typography.labelSmall,color=Color(0xFF667F91))
-                                Text("شناسه: ${item.nationalId.ifBlank{"ثبت نشده"}}",style=MaterialTheme.typography.labelSmall,color=Color(0xFF667F91))
+                                Text("$role • $typeLabel",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted)
+                                Text("شناسه: ${item.nationalId.ifBlank{"ثبت نشده"}}",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted)
                             }
                             if(profile?.active==false)Text("غیرفعال",color=Color(0xFFB74C6D),style=MaterialTheme.typography.labelSmall)
                             else if(chosen)Text("انتخاب‌شده",color=Color(0xFF007F71),style=MaterialTheme.typography.labelSmall)
@@ -157,7 +157,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
         }
     } else {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(if (editorId == null) "ثبت مشتری / تأمین‌کننده" else "ویرایش مشخصات", style = MaterialTheme.typography.titleLarge, color=Color(0xFF173B51), fontWeight=FontWeight.ExtraBold)
+            Text(if (editorId == null) "ثبت مشتری / تأمین‌کننده" else "ویرایش مشخصات", style = MaterialTheme.typography.titleLarge, color=SuraPalette.Navy, fontWeight=FontWeight.ExtraBold)
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             @Composable fun Toggle(label: String, value: Boolean, change: (Boolean) -> Unit) {
                 Row { Checkbox(checked = value, onCheckedChange = change, enabled = !busy); Text(label, modifier = Modifier.padding(top = 12.dp)) }
@@ -177,7 +177,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
                     placeholder = { Text(label, maxLines = 1) },
                     trailingIcon = if (help.isEmpty()) null else { {
                         IconButton(onClick = { showHelp = true }) {
-                            Icon(Icons.Default.Info, contentDescription = "راهنمای $label", tint = Color(0xFF12819B))
+                            Icon(Icons.Default.Info, contentDescription = "راهنمای $label", tint = SuraPalette.Teal)
                         }
                     } },
                     shape = RoundedCornerShape(14.dp), modifier = modifier, singleLine = true)

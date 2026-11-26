@@ -27,12 +27,12 @@ import ir.saba.invoice.data.Invoice
 import java.text.NumberFormat
 import java.util.Locale
 
-private val midnight = Color(0xFF051B2D)
-private val ocean = Color(0xFF0D475A)
-private val teal = Color(0xFF0A8191)
-private val gold = Color(0xFFEBCB90)
-private val cool = Color(0xFFD8F5F8)
-private val textNavy = Color(0xFF16334B)
+private val midnight = SuraPalette.Midnight
+private val ocean = SuraPalette.Ocean
+private val teal = SuraPalette.Teal
+private val gold = SuraPalette.Gold
+private val cool = SuraPalette.OnDark
+private val textNavy = SuraPalette.Navy
 private val numberFormat = NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR"))
 
 /** Premium home screen; all numbers and activities come from persisted app data. */
@@ -56,7 +56,7 @@ fun HomeDashboard(
 ) {
     var selectorOpen by remember { mutableStateOf(false) }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFF2F9FF)),
+        modifier = Modifier.fillMaxSize().background(SuraPalette.Canvas),
         contentPadding = PaddingValues(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
@@ -71,7 +71,7 @@ fun HomeDashboard(
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
-                    listOf(midnight, ocean, Color(0xFF0A334D))
+                    listOf(midnight, ocean, SuraPalette.Ocean)
                 ))) {
                     Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
@@ -89,7 +89,7 @@ fun HomeDashboard(
                                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             Surface(shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF174E62)) {
+                                color = SuraPalette.Ocean) {
                                 Text("تغییر مودی  ‹", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.labelSmall, color = cool)
                             }
@@ -110,7 +110,7 @@ fun HomeDashboard(
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PremiumMetric("پیش‌نویس", draftCount.toLong(), Icons.AutoMirrored.Filled.List,
-                    Color(0xFFEAF4FA), Color(0xFF176D86), Modifier.weight(1f), onDrafts)
+                    SuraPalette.Soft, SuraPalette.Teal, Modifier.weight(1f), onDrafts)
                 PremiumMetric("در صف ارسال", queueCount.toLong(), Icons.AutoMirrored.Filled.List,
                     Color(0xFFFFF3E2), Color(0xFFB88033), Modifier.weight(1f), onInvoices)
                 PremiumMetric("شارژ باقی‌مانده", remainingCharge, Icons.Default.AccountCircle,
@@ -123,7 +123,7 @@ fun HomeDashboard(
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                QuickAction("ثبت فاکتور جدید", Icons.Default.Add, Color(0xFF0B607A),
+                QuickAction("ثبت فاکتور جدید", Icons.Default.Add, SuraPalette.Teal,
                     Color.White, gold, Modifier.weight(1f), onNewInvoice)
                 QuickAction("ساخت کلید مالیاتی", Icons.Default.Person, Color(0xFFE9E9FA),
                     textNavy, Color(0xFF595DAD), Modifier.weight(1f), onTaxKeys)
