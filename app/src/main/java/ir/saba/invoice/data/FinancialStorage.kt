@@ -32,7 +32,8 @@ internal object FinancialStorage {
         return bytes.contentEquals(plainHeader)
     }
     internal fun syncDirectory(dir:File) {
-        val fd=Os.open(dir.absolutePath,OsConstants.O_RDONLY or OsConstants.O_DIRECTORY,0)
+        check(dir.isDirectory) { "Directory sync requires an existing private directory" }
+        val fd=Os.open(dir.absolutePath,OsConstants.O_RDONLY,0)
         try {Os.fsync(fd)} finally {Os.close(fd)}
     }
     private fun syncFile(file:File)=RandomAccessFile(file,"rw").use {it.fd.sync()}
