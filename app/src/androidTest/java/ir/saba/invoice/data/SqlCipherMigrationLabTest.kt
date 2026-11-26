@@ -45,7 +45,7 @@ class SqlCipherMigrationLabTest {
             } finally {source.close()}
             assertTrue(sourceFile.isFile)
             assertFalse(targetFile.exists())
-            val db=SQLiteDatabase.openDatabase(sourceFile.absolutePath,ByteArray(0),null,SQLiteDatabase.OPEN_READWRITE,null)
+            val db=SQLiteDatabase.openDatabase(sourceFile.absolutePath,ByteArray(0),null,SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.CREATE_IF_NECESSARY,null)
             try {
                 val version=db.query("PRAGMA user_version").use {check(it.moveToFirst());it.getInt(0)}
                 check(version>0)
