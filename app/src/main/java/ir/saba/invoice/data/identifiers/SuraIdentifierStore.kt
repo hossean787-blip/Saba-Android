@@ -3,7 +3,9 @@ package ir.saba.invoice.data.identifiers
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import ir.saba.invoice.data.FinancialStorage
 import android.net.Uri
 import ir.saba.invoice.security.AccountScope
 import kotlinx.coroutines.Dispatchers
@@ -203,10 +205,10 @@ class SuraIdentifierStore(private val context: Context) {
 }
 
 /** Each authenticated account uses its own SQLite file; each taxpayer has separate rows. */
-class SuraSavedIdentifierStore(context: Context, account: AccountScope) :
-    SQLiteOpenHelper(context.applicationContext, "sura_identifier_saved_" + account.storageKey + ".db", null, 1) {
-
-    override fun onCreate(db: SQLiteDatabase) {
+class SuraSavedIdentifierStore(context: Context, account: AccountScope) : java.io.Closeable {
+    private val helper=FinancialStorage.factory().create(SupportSQLiteOpenHelper.Configuration.builder(context.applicationContext)
+        .name("sura_identifier_saved_"+account.storageKey+".db").callback(object:SupportSQLiteOpenHelper.Callback(1) {
+            override fun onCreate(db:SupportSQLiteDatabase) {
         db.execSQL("""CREATE TABLE saved_identifiers (
             company_id INTEGER NOT NULL,
             id TEXT NOT NULL,
@@ -221,7 +223,11 @@ class SuraSavedIdentifierStore(context: Context, account: AccountScope) :
         )""")
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            override fun onUpgrade(db:SupportSQLiteDatabase,oldVersion:Int,newVersion:Int)=error("Unsupported identifier schema")
+        }).build())
+    private val writableDatabase get()=helper.writableDatabase
+    private val readableDatabase get()=helper.readableDatabase
+    override fun close()=helper.close()
 
     suspend fun save(companyId: Long, identifier: SuraIdentifier) = withContext(Dispatchers.IO) {
         require(companyId > 0 && identifier.id.isNotBlank())
@@ -236,8 +242,8 @@ class SuraSavedIdentifierStore(context: Context, account: AccountScope) :
             put("source", identifier.source)
             put("saved_at", System.currentTimeMillis())
         }
-        check(writableDatabase.insertWithOnConflict(
-            "saved_identifiers", null, record, SQLiteDatabase.CONFLICT_REPLACE
+        check(writableDatabase.insert(
+            "saved_identifiers", SQLiteDatabase.CONFLICT_REPLACE, record
         ) != -1L)
     }
 
@@ -265,8 +271,8 @@ class SuraSavedIdentifierStore(context: Context, account: AccountScope) :
                         put("source", identifier.source)
                         put("saved_at", System.currentTimeMillis())
                     }
-                    val row = db.insertWithOnConflict(
-                        "saved_identifiers", null, values, SQLiteDatabase.CONFLICT_IGNORE
+                    val row = db.insert(
+                        "saved_identifiers", SQLiteDatabase.CONFLICT_IGNORE, values
                     )
                     if (row != -1L) inserted++
                 }
@@ -286,10 +292,8 @@ class SuraSavedIdentifierStore(context: Context, account: AccountScope) :
     suspend fun forTaxpayer(companyId: Long): List<SuraIdentifier> = withContext(Dispatchers.IO) {
         require(companyId > 0)
         readableDatabase.query(
-            "saved_identifiers",
-            arrayOf("id", "description", "vat", "taxable", "kind", "expiration_date", "source"),
-            "company_id=?", arrayOf(companyId.toString()), null, null,
-            "saved_at DESC, id ASC"
+            "SELECT id,description,vat,taxable,kind,expiration_date,source FROM saved_identifiers WHERE company_id=? ORDER BY saved_at DESC,id ASC",
+            arrayOf(companyId)
         ).use { cursor ->
             val result = ArrayList<SuraIdentifier>()
             while (cursor.moveToNext()) {

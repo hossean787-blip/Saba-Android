@@ -344,6 +344,35 @@ class MainActivity : ComponentActivity() {
             }
             return
         }
+        // Do not expose account workflows until every existing private financial database is migrated.
+        var storageReady by remember(account) { mutableStateOf(false) }
+        var storageFailed by remember(account) { mutableStateOf(false) }
+        var storageRetry by remember(account) { mutableIntStateOf(0) }
+        LaunchedEffect(account,storageRetry) {
+            storageReady=false;storageFailed=false
+            try {
+                withContext(Dispatchers.IO) {
+                    FinancialStorage.prepareExisting(applicationContext)
+                    SabaDatabase.openAccount(applicationContext,account).use { opened ->
+                        opened.openHelper.writableDatabase.query("SELECT count(*) FROM companies").use { check(it.moveToFirst()) }
+                    }
+                }
+                storageReady=true
+            } catch(e:CancellationException) { throw e }
+            catch(_:Exception) { storageFailed=true }
+        }
+        if(!storageReady) {
+            Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center) {
+                Text(if(storageFailed) "بانک اطلاعات مالی قابل بازکردن نیست. اطلاعات قبلی حذف یا بازنشانی نمی‌شود."
+                    else "در حال آماده‌سازی امن اطلاعات مالی…")
+                if(storageFailed) {
+                    Button(onClick={storageFailed=false;storageRetry++}) { Text("تلاش مجدد") }
+                    Text("در صورت تداوم خطا، فضای آزاد گوشی و نسخه پشتیبان مستقل را بررسی کنید؛ برنامه را حذف نکنید.")
+                    TextButton(onClick=onLogout) { Text("بازگشت به ورود") }
+                } else LinearProgressIndicator(Modifier.fillMaxWidth().padding(top=12.dp))
+            }
+            return
+        }
         val accountStates = rememberSaveableStateHolder()
         accountStates.SaveableStateProvider(account.storageKey) {
             key(account.ownerId) {

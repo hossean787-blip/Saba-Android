@@ -235,6 +235,7 @@ abstract class SabaDatabase : RoomDatabase() {
         /** New commercial accounts never open or automatically claim the unowned legacy database. */
         fun openAccount(context: Context, account: ir.saba.invoice.security.AccountScope): SabaDatabase =
             Room.databaseBuilder(context.applicationContext, SabaDatabase::class.java, account.databaseName)
+                .openHelperFactory(FinancialStorage.factory())
                 .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
@@ -262,7 +263,7 @@ abstract class SabaDatabase : RoomDatabase() {
                 context.applicationContext,
                 SabaDatabase::class.java,
                 "saba_local.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17).build().also { INSTANCE = it }
+            ).openHelperFactory(FinancialStorage.factory()).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17).build().also { INSTANCE = it }
         }
     }
     abstract fun creditTransferClaimDao(): CreditTransferClaimDao

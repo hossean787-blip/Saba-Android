@@ -57,7 +57,7 @@ jobs:
       - name: Prepare cached Robolectric SDK jars
         run: bash scripts/prepare-robolectric-sdks.sh
       - name: Test and lint without APK packaging
-        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest -PsuraPlaintextJvmFixtures=true :app:compileDebugAndroidTestKotlin :app:lintDebug
       - name: Summarize executed JVM tests
         if: always()
         run: python3 scripts/summarize-tests.py
