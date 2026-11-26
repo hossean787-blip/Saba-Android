@@ -133,7 +133,80 @@ fun HomeDashboard(
             QuickAction("شناسه کالا و خدمات", Icons.AutoMirrored.Filled.List,
                 Color(0xFFE1F5F3), textNavy, teal, Modifier.fillMaxWidth(), onIdentifiers)
         }
+        item {
+            SuraOwnPromotion(onNewInvoice = onNewInvoice)
+        }
 
+    }
+}
+
+/**
+ * SURA-owned promotional placement. This first release is bundled and advertises
+ * SURA itself; it does not load third-party ads or transmit user data.
+ */
+@Composable
+private fun SuraOwnPromotion(onNewInvoice: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = midnight),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF202943), Color(0xFF37315F), Color(0xFF51448A))
+                    )
+                )
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0x33FFFFFF)
+                ) {
+                    Text(
+                        "معرفی امکانات سورا",
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
+                        color = Color(0xFFE5DFFF),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Text(
+                    "مدیریت صورتحساب، ساده‌تر از همیشه",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "ثبت، مدیریت و پیگیری صورتحساب‌های کسب‌وکارت را یک‌جا با سورا انجام بده.",
+                    color = Color(0xFFD8D8E8),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onNewInvoice,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE7C987),
+                            contentColor = Color(0xFF25233B)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 9.dp)
+                    ) {
+                        Text("ثبت صورتحساب جدید", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }
 
