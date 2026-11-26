@@ -412,7 +412,7 @@ private fun InvoiceScreenContent(
         }
     }
 
-    LaunchedEffect(mode, busy) { onEditorActive(mode == "edit" || busy) }
+    LaunchedEffect(mode, busy) { onEditorActive(mode == "edit" || mode == "excel" || busy) }
     DisposableEffect(Unit) { onDispose { onEditorActive(false) } }
 
     fun perform(action: suspend () -> Unit) {
@@ -799,6 +799,7 @@ private fun InvoiceScreenContent(
             if (sendProgress.isNotBlank()) Text(sendProgress)
         }
         when (mode) {
+            "excel" -> InvoiceExcelImportScreen(db,account,companyId,accessToken,activeGateway, onBack={ mode="list";perform { refreshPaidBalance(); onChanged() } }, onChanged=onChanged)
             "event_open" -> { if (!busy) TextButton(onClick = { backFromInvoice() }) { Text("بازگشت به فاکتورها") } }
             "template" -> {
                 val loaded = details
@@ -871,6 +872,7 @@ private fun InvoiceScreenContent(
                                 Spacer(Modifier.width(6.dp))
                                 Text("صدور فاکتور جدید")
                             }
+                            OutlinedButton(enabled=!busy,onClick={mode="excel"},modifier=Modifier.fillMaxWidth().testTag("invoiceExcelEntry"),shape=RoundedCornerShape(14.dp)) { Text("ثبت صورتحساب با اکسل") }
                             if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.",
                                 color=Color(0xFF8F5C23),style=MaterialTheme.typography.bodySmall)
                             if(customers.isEmpty()) Text("فعلاً مشتری ثبت نشده است؛ می‌توانید اسکلت فاکتور را آماده کنید، اما برای ذخیره باید مشتری داشته باشید.",
