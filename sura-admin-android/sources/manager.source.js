@@ -451,7 +451,7 @@ async function appendSalesOffers(c){
   const audit=document.createElement('div');audit.className='panel';
   audit.innerHTML='<div class="panel-head"><h3>تاریخچه تغییر طرح‌ها</h3><span>'+fmtNum((d.audit||[]).length)+' تغییر اخیر</span></div>'+
    '<div class="tbl-wrap"><table><thead><tr><th>طرح</th><th>اعتبار</th><th>قیمت</th><th>وضعیت</th><th>دلیل تغییر</th><th>زمان</th></tr></thead><tbody>'+
-   (d.audit||[]).map(a=>'<tr><td>'+html(a.title)+'</td><td>'+fmtNum(a.credits)+'</td><td>'+fmtRial(a.price_rial)+'</td><td>'+html(a.active?'فعال':'غیرفعال')+'</td><td>'+html(a.reason)+'</td><td>'+fmtDate(a.created_at)+'</td></tr>').join('')||'<tr><td colspan="6">تغییری ثبت نشده است.</td></tr>')+'</tbody></table></div>';
+   ((d.audit||[]).map(a=>'<tr><td>'+html(a.title)+'</td><td>'+fmtNum(a.credits)+'</td><td>'+fmtRial(a.price_rial)+'</td><td>'+html(a.active?'فعال':'غیرفعال')+'</td><td>'+html(a.reason)+'</td><td>'+fmtDate(a.created_at)+'</td></tr>').join('')||'<tr><td colspan="6">تغییری ثبت نشده است.</td></tr>')+'</tbody></table></div>';
   c.appendChild(audit);
  }catch(e){const note=document.createElement('div');note.className='empty-note';note.textContent='دریافت طرح‌های فروش انجام نشد: '+parseError(e);c.appendChild(note);}
 }
