@@ -12,6 +12,8 @@ html=(ROOT/'app/src/main/assets/admin/index.html').read_text(encoding='utf8')
 java=(ROOT/'app/src/main/java/ir/sabagostar/suramanager/AdminActivity.java').read_text(encoding='utf8')
 js=(ROOT/'app/src/main/assets/admin/reports.js').read_text(encoding='utf8')
 manager=(ROOT/'app/src/main/assets/admin/manager.js').read_text(encoding='utf8')
+manager_source=(ROOT/'sources/manager.source.js').read_text(encoding='utf8')
+source_html=(ROOT/'sources/index.source.html').read_text(encoding='utf8')
 assert 'script-src \'self\' \'unsafe-inline\'' in html
 assert 'connect-src https://fiiitzfbdjzpmepzjsjw.supabase.co' in html
 assert 'https://cdnjs' not in html and 'https://fonts.googleapis.com' not in html
@@ -38,7 +40,9 @@ assert 'class="mobile-bottom-nav"' in html and 'data-page="dashboard"' in html
 assert 'safe-area-inset-bottom' in html and 'min-width:620px' in html
 assert 'openSelectedGift' in manager and 'saveSelectedGift' in manager
 
-assert 'await appendSalesOffers(c);' in html
+assert 'await appendSalesOffers(c);' in html and 'await appendSalesOffers(c);' in source_html
+assert 'Live sales offers' in manager and 'Live sales offers' in manager_source
+assert 'admin-offer-save' in manager_source and 'admin-offers' in manager_source
 assert 'admin-offer-save' in manager and 'admin-offers' in manager
 assert 'offerId' in (ROOT.parent/'supabase/functions/sura-card-transfer/index.ts').read_text(encoding='utf8')
 assert 'sura_sales_offers' in (ROOT.parent/'supabase/migrations/20261127100000_sura_live_sales_offers.sql').read_text(encoding='utf8')
