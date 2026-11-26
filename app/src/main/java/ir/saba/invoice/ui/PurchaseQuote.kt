@@ -7,7 +7,7 @@ internal data class PurchaseQuote(
     fun matches(plan:String,quantity:Long?)=kind==plan && units==quantity
     companion object {
         fun validate(kind:String,units:Long,subtotal:Long,vat:Long,total:Long,enabled:Boolean):PurchaseQuote {
-            require(kind=="single" && units in 1L..999999L || kind=="monthly" && units==20L)
+            require((kind=="single" || kind=="offer") && units in 1L..999999L || kind=="monthly" && units==20L)
             require(subtotal in 1L..1000000000000000L)
             require(vat==(subtotal*10+50)/100 && total==subtotal+vat)
             require(kind!="single" || subtotal%units==0L)
