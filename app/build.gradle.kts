@@ -19,8 +19,8 @@ android {
         minSdk = 23
         targetSdk = 35
         // Keep upgrade order above BOTH previously shipped variants (25 standard, 26 full).
-        versionCode = if (suraEmbeddedFull) 122 else 121
-        versionName = if (suraEmbeddedFull) "0.122.0" else "0.121.0"
+        versionCode = if (suraEmbeddedFull) 124 else 123
+        versionName = if (suraEmbeddedFull) "0.124.0" else "0.123.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing is opt-in and never uses the ephemeral Android debug key.
@@ -44,12 +44,18 @@ android {
     }
     buildTypes {
         getByName("release") {
+            // Harden only the distribution variant; debug diagnostics remain available.
+            isDebuggable = false
+            isMinifyEnabled = true
+            // Catalog/assets and dynamic resource lookups must remain intact.
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             // An unsigned release remains possible locally for development,
             // but the trusted release workflow refuses to publish it.
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("suraRelease")
         }
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     // Install-time catalog chunks are gzip already; do not compress them again in APK.
     androidResources { noCompress.add("gz") }
     compileOptions {

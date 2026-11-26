@@ -167,6 +167,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The official distribution signer is independent of taxpayers’ private keys.
+        if (!BuildConfig.DEBUG && !ir.saba.invoice.security.ReleaseIntegrity.isOfficial(this)) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("نسخه نامعتبر سورا")
+                .setMessage("امضای این نسخه با نسخه رسمی سورا مطابقت ندارد. نسخه معتبر را از مسیر رسمی دریافت کنید.")
+                .setCancelable(false)
+                .setPositiveButton("خروج") { _, _ -> finish() }
+                .show()
+            return
+        }
         protectScreen=deviceSettings.protectScreen
         playIntro=deviceSettings.playIntro
         applyScreenProtection()

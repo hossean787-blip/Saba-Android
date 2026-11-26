@@ -97,3 +97,6 @@ Direct-only production mode blocks all certificate-based readiness and historic 
 0.121.0 QA follow-up: exact identity at fit scale even after negative pan; Compose UI test exercises zoom controls and expanded view.
 
 Stabilization pass: fix experimental transformable API compile error; cancellable off-main PDF generation/rendering with per-document/page fresh state; cache invoice list lookup/count/filter and draft total. Keep fiscal transport, storage, payments, and credit unchanged. Rebuild and run regression tests.
+
+
+0.123.0 / 123 (full 124): SURA Security Shield, optimized R8 release minification, non-debuggable release, startup package/signer verification pinned to established signing certificate. No new key, no store publication; signed test APK only. Existing full test, lint and signer gates must pass. See SURA_SECURITY_SHIELD_2026-11-26.md.
