@@ -16,7 +16,6 @@ import android.os.ParcelFileDescriptor
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,7 +23,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import ir.saba.invoice.data.*
 import ir.saba.invoice.domain.InvoiceCalculator
@@ -42,7 +40,7 @@ object SuraInvoicePdf {
     private const val W = 842
     private const val H = 595
     private fun fmt(n: Long) = persianDigits(NumberFormat.getIntegerInstance(Locale.forLanguageTag("fa-IR")).format(n))
-    private fun persianDigits(value:String) = value.map { if(it in '0'..'9') '۰'+(it-'0') else it }.joinToString("")
+    private fun persianDigits(value:String) = invoicePdfDisplayDigits(value)
     private val navy = Color.rgb(12, 50, 78)
     private val ink = Color.rgb(22, 43, 55)
     private fun rect(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
@@ -67,6 +65,8 @@ object SuraInvoicePdf {
                      size: Float = 11f, bold: Boolean = false, color: Int = ink,
                      maxLines: Int = 3, includePad: Boolean = true, center: Boolean = false,
                      fonts: Pair<Typeface,Typeface>? = null, height: Float = Float.MAX_VALUE) {
+        // Normalize only painted text; stored values, tax identifiers and payloads stay untouched.
+        val display=invoicePdfDisplayDigits(value)
         val p=TextPaint(3).apply {
             this.color=color
             typeface=if(bold) fonts?.second ?: Typeface.create("sans-serif",Typeface.BOLD)
@@ -74,7 +74,7 @@ object SuraInvoicePdf {
         }
         fun build(fs:Float,ellipsize:Boolean):StaticLayout {
             p.textSize=fs
-            val builder=StaticLayout.Builder.obtain(value,0,value.length,p,width)
+            val builder=StaticLayout.Builder.obtain(display,0,display.length,p,width)
                 .setAlignment(if(center) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL)
                 .setTextDirection(android.text.TextDirectionHeuristics.RTL)
                 .setMaxLines(if(ellipsize) maxLines else Int.MAX_VALUE).setIncludePad(includePad)
@@ -222,7 +222,7 @@ object SuraInvoicePdf {
                 PdfRenderer(fd).use { renderer ->
                     require(pageIndex in 0 until renderer.pageCount) { "صفحه انتخاب‌شده موجود نیست." }
                     renderer.openPage(pageIndex).use { page ->
-                        val bmp = Bitmap.createBitmap(W * 2, H * 2, Bitmap.Config.ARGB_8888)
+                        val bmp = Bitmap.createBitmap(W * 3, H * 3, Bitmap.Config.ARGB_8888)
                         bmp.eraseColor(Color.WHITE)
                         page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                         return bmp
@@ -270,13 +270,12 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("پیش‌نمایش و خروجی صورتحساب", style = MaterialTheme.typography.headlineSmall)
         if(localPreview) Text("پیش‌نمایش محلی • ذخیره و ارسال نشده",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
-        if (preview != null) Image(preview.asImageBitmap(), "پیش‌نمایش واقعی PDF",
-            modifier = Modifier.fillMaxWidth().heightIn(max = 570.dp))
+        if (preview != null) ZoomableInvoicePdf(preview)
         else Text(if(profileError) "خواندن مشخصات طرفین ناموفق بود." else error ?: "در حال آماده‌سازی پیش‌نمایش PDF", color = MaterialTheme.colorScheme.error)
         if (preview != null && pageCount > 1) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(enabled = previewPage > 0, onClick = { previewPage-- }) { Text("صفحه قبل") }
-                Text("صفحه ${previewPage + 1} از ${pageCount}", style = MaterialTheme.typography.bodyMedium)
+                Text(invoicePdfDisplayDigits("صفحه ${previewPage + 1} از ${pageCount}"), style = MaterialTheme.typography.bodyMedium)
                 TextButton(enabled = previewPage < pageCount - 1, onClick = { previewPage++ }) { Text("صفحه بعد") }
             }
         }
