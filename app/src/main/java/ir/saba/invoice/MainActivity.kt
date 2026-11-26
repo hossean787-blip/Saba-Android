@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
     private var biometricEnabled by mutableStateOf(false)
     private var biometricBusy by mutableStateOf(false)
     private var biometricNotice by mutableStateOf<String?>(null)
+    private var biometricAutofill by mutableStateOf<StoredLoginCredentials?>(null)
 
     @android.annotation.TargetApi(Build.VERSION_CODES.P)
     private fun confirmBiometric(title: String, onSuccess: () -> Unit, onDismiss: () -> Unit) {
@@ -189,26 +190,44 @@ class MainActivity : ComponentActivity() {
         })[ir.saba.invoice.auth.OwnerAuthViewModel::class.java]
         biometricEnabled = biometricVault.isEnabled()
 
-        fun unlockWithBiometric() {
+        fun unlockWithBiometric(accountId: String) {
             if (auth.busy || biometricBusy || !biometricEnabled) return
             biometricBusy = true
-            confirmBiometric("ورود به سورا",
-                onSuccess = {
-                    biometricBusy = false
-                    try {
-                        val credentials = biometricVault.unlockAfterAuthentication()
-                        auth.login(credentials.email, credentials.password, fromBiometric = true) {
+            if (accountId == BiometricLoginVault.LEGACY_ACCOUNT_ID) {
+                confirmBiometric("بازکردن حساب ذخیره‌شده",
+                    onSuccess = {
+                        biometricBusy = false
+                        try { biometricAutofill = biometricVault.unlockAfterAuthentication() }
+                        catch (_: Exception) {
                             biometricVault.clear()
                             biometricEnabled = false
+                            biometricNotice = "اطلاعات ورود قبلی معتبر نیست؛ دوباره با رمز ثابت وارد شوید."
                         }
-                    } catch (_: Exception) {
-                        biometricVault.clear()
-                        biometricEnabled = false
-                        biometricNotice = "کلید ورود امن معتبر نیست؛ یک‌بار با رمز ثابت وارد شوید و اثر انگشت را دوباره فعال کنید."
-                    }
-                },
-                onDismiss = { biometricBusy = false }
-            )
+                    },
+                    onDismiss = { biometricBusy = false }
+                )
+                return
+            }
+            try {
+                val cipher = biometricVault.prepareUnlock(accountId)
+                showBiometricPrompt(cipher, "بازکردن حساب",
+                    onSuccess = { verified ->
+                        biometricBusy = false
+                        try { biometricAutofill = biometricVault.unlock(accountId, verified) }
+                        catch (_: Exception) {
+                            biometricVault.remove(accountId)
+                            biometricEnabled = biometricVault.isEnabled()
+                            biometricNotice = "اطلاعات این حساب در فضای امن معتبر نیست؛ دوباره با رمز ثابت وارد شوید."
+                        }
+                    },
+                    onDismiss = { biometricBusy = false }
+                )
+            } catch (_: Exception) {
+                biometricBusy = false
+                biometricVault.remove(accountId)
+                biometricEnabled = biometricVault.isEnabled()
+                biometricNotice = "کلید امن این حساب در دسترس نیست؛ دوباره با رمز ثابت وارد شوید."
+            }
         }
 
         fun enableBiometricLogin(credentials: StoredLoginCredentials) {
@@ -218,23 +237,28 @@ class MainActivity : ComponentActivity() {
                 return
             }
             biometricBusy = true
-            confirmBiometric("فعال‌سازی ورود با اثر انگشت",
-                onSuccess = {
-                    biometricBusy = false
-                    try {
-                        biometricVault.enrollAfterAuthentication(credentials)
-                        biometricEnabled = biometricVault.isEnabled()
-                        biometricNotice = if (biometricEnabled)
-                            "ورود با اثر انگشت فعال شد."
-                        else "فعال‌سازی اثر انگشت انجام نشد."
-                    } catch (_: Exception) {
-                        biometricVault.clear()
-                        biometricEnabled = false
-                        biometricNotice = "رمزنگاری گوشی با این روش سازگار نیست؛ ورود با رمز ثابت همچنان فعال است."
-                    } finally { auth.discardBiometricEnrollment() }
-                },
-                onDismiss = { biometricBusy = false; auth.discardBiometricEnrollment() }
-            )
+            try {
+                val cipher = biometricVault.prepareEnrollment(credentials.email)
+                showBiometricPrompt(cipher, "ذخیره امن حساب",
+                    onSuccess = { verified ->
+                        biometricBusy = false
+                        try {
+                            biometricVault.enroll(credentials.email, verified, credentials)
+                            biometricEnabled = biometricVault.isEnabled()
+                            biometricNotice = "حساب ${credentials.email} برای ورود با اثر انگشت ذخیره شد."
+                        } catch (_: Exception) {
+                            biometricVault.remove(credentials.email)
+                            biometricEnabled = biometricVault.isEnabled()
+                            biometricNotice = "ذخیره امن این حساب انجام نشد؛ ورود با رمز ثابت فعال است."
+                        } finally { auth.discardBiometricEnrollment() }
+                    },
+                    onDismiss = { biometricBusy = false; auth.discardBiometricEnrollment() }
+                )
+            } catch (_: Exception) {
+                biometricBusy = false
+                auth.discardBiometricEnrollment()
+                biometricNotice = "امکان آماده‌سازی کلید امن این حساب وجود ندارد."
+            }
         }
 
         setContent {
@@ -246,8 +270,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
             LaunchedEffect(auth.biometricEnrollment, auth.session, biometricEnabled) {
-                if (auth.session != null && auth.biometricEnrollment != null &&
-                    (!biometricVault.canOffer() || biometricEnabled)
+                val pending = auth.biometricEnrollment
+                if (auth.session != null && pending != null &&
+                    (!biometricVault.canOffer() || biometricVault.hasAccount(pending.email))
                 ) auth.discardBiometricEnrollment()
             }
             ir.saba.invoice.auth.AuthTheme {
@@ -284,12 +309,16 @@ class MainActivity : ComponentActivity() {
                             busy = auth.busy || biometricBusy,
                             error = auth.message,
                             biometricEnabled = biometricEnabled,
-                            onBiometricLogin = { unlockWithBiometric() }
+                            savedAccountEmails = biometricVault.savedAccounts(),
+                            autofillCredentials = biometricAutofill,
+                            onAutofillConsumed = { biometricAutofill = null },
+                            onBiometricLogin = { accountId -> unlockWithBiometric(accountId) }
                         )
                     }
                     if (!showStartupMotion && auth.session != null &&
                         auth.biometricEnrollment != null && !biometricBusy &&
-                        !biometricEnabled && biometricVault.canOffer()
+                        !biometricVault.hasAccount(auth.biometricEnrollment!!.email) &&
+                        biometricVault.canOffer()
                     ) {
                         val credentials = auth.biometricEnrollment
                         AlertDialog(
