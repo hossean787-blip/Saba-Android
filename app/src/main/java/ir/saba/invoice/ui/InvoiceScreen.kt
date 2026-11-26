@@ -745,7 +745,7 @@ private fun InvoiceScreenContent(
         }
     }
 
-    BackHandler(enabled = mode != "list") {
+    BackHandler(enabled = mode != "list" && mode != "excel") {
         if (!busy) {
             if (previewDialog && mode == "edit") previewDialog = false
             else if (mode == "edit") confirmation = "leave" else { backFromInvoice(); error = "" }
@@ -799,7 +799,7 @@ private fun InvoiceScreenContent(
             if (sendProgress.isNotBlank()) Text(sendProgress)
         }
         when (mode) {
-            "excel" -> InvoiceExcelImportScreen(db,account,companyId,accessToken,activeGateway, onBack={ mode="list";perform { refreshPaidBalance(); onChanged() } }, onChanged=onChanged)
+            "excel" -> InvoiceExcelImportScreen(db,account,companyId,accessToken,activeGateway, onBack={ mode="list";perform { pendingCreation=creation.pending(companyId); onChanged(); refreshPaidBalance(); promoRemaining=activeGateway.giftBalance(accessToken) } }, onChanged=onChanged)
             "event_open" -> { if (!busy) TextButton(onClick = { backFromInvoice() }) { Text("بازگشت به فاکتورها") } }
             "template" -> {
                 val loaded = details

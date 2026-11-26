@@ -66,7 +66,7 @@ internal class InvoiceExcelService(private val db: SabaDatabase, private val acc
         sheets[0].forEachIndexed { index, row ->
             try {
                 val number = InvoiceInput.number(row[0])
-                require(number.toLongOrNull()?.let { it in lower..upper } == true) { "شماره صورتحساب باید در بازه اصلی مؤدی باشد." }
+                require(number.matches(Regex("[0-9]{10}")) && number.toLongOrNull()?.let { it in lower..upper } == true) { "شماره صورتحساب باید در بازه اصلی مؤدی باشد." }
                 val date = InvoiceInput.date(row[1]); val buyer = digits(row[3])
                 require(digits(row[2]) == digits(c.nationalId)) { "شناسه مؤدی این ردیف با مؤدی فعال یکسان نیست." }
                 require(buyer.matches(Regex("[0-9]{10,14}"))) { "شناسه مشتری معتبر نیست." }

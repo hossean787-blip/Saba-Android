@@ -74,7 +74,7 @@ internal fun InvoiceExcelImportScreen(db:SabaDatabase, account:AccountScope, com
         }
     }
     fun launchPicker(action:()->Unit){try{action()}catch(e:Exception){error="فایل‌گیر در دسترس نیست: "+e.message.orEmpty()}}
-    androidx.activity.compose.BackHandler(enabled=busy || confirm){ if(confirm && !busy)confirm=false }
+    androidx.activity.compose.BackHandler(enabled=true){ if(confirm && !busy)confirm=false else if(!busy)onBack() }
     LazyColumn(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item {
             TextButton(enabled=!busy,onClick=onBack){Text("بازگشت به صورتحساب‌ها")}
