@@ -384,7 +384,7 @@ async function renderCardTransfers(c){
  if(!cardSelected){
   const d=await cardFetch('admin-list',{page:cardPage}),rows=d.requests||[];
   c.innerHTML='<div class="section-hero"><h2>رسیدهای کارت‌به‌کارت</h2><p>تنها پس از مشاهده واریز در گردش حساب بانکی تأیید کنید.</p></div>'+
-   rows.map(r=>'<div class="panel"><b>'+html(String(r.amount_rial))+' ریال</b><p>'+html(r.kind==='monthly'?'اشتراک ماهانه':'اعتبار تکی')+' | '+html(r.tracking)+'</p><p>'+html(r.owner_id)+'</p><button class="action-btn" onclick="cardOpen(\''+html(r.id)+'\')">بررسی رسید</button></div>').join('')+
+   rows.map(r=>'<div class="panel"><b>'+html(String(r.amount_rial))+' ریال</b><p>'+html(r.kind==='monthly'?'اشتراک ماهانه':r.kind==='offer'?(r.offer_title||'طرح فروش')+' • '+r.units+' صورتحساب':'اعتبار تکی')+' | '+html(r.tracking)+'</p><p>'+html(r.owner_id)+'</p><button class="action-btn" onclick="cardOpen(\''+html(r.id)+'\')">بررسی رسید</button></div>').join('')+
    (rows.length?'':'<div class="empty-note">درخواست در انتظار وجود ندارد.</div>')+
    '<button class="action-btn" '+(cardPage===1?'disabled':'')+' onclick="cardGo('+(cardPage-1)+')">قبلی</button> <button class="action-btn" '+(rows.length<30?'disabled':'')+' onclick="cardGo('+(cardPage+1)+')">بعدی</button>';
   return;
