@@ -87,10 +87,24 @@ internal object FinancialStorage {
     private fun open(file:File,password:ByteArray,flags:Int)=SQLiteDatabase.openDatabase(
         file.absolutePath,password,null,flags,preserve,null)
     private fun finishJournals(file:File) {
-        for(suffix in listOf("-wal","-shm","-journal")) {
-            val side=File(file.path+suffix)
-            check(!side.exists()||side.length()==0L) {"فایل جانبی بانک هنوز فعال است."}
-            if(side.exists())check(side.delete())
+        // Called only after a successful TRUNCATE checkpoint, DELETE journal mode,
+        // integrity check and closing the migration connection, before exposing the DB.
+        // Never discard nonempty WAL or a possibly hot rollback journal.
+        val wal=File(file.path+"-wal")
+        check(!wal.exists()||wal.length()==0L) {"WAL بانک هنوز داده دارد؛ مهاجرت متوقف شد."}
+        val journal=File(file.path+"-journal")
+        if(journal.exists()&&journal.length()>0L) {
+            // Android's older SQLite can leave a PERSIST journal with an invalidated
+            // all-zero header even after changing journal mode. No hot journal is removed.
+            val zeroHeader=journal.length()>=8L&&java.io.RandomAccessFile(journal,"r").use {input ->
+                val header=ByteArray(8);input.readFully(header);header.all {it==0.toByte()}
+            }
+            check(zeroHeader) {"rollback journal بانک ممکن است فعال باشد؛ مهاجرت متوقف شد."}
+        }
+        // SHM is a rebuildable WAL index, not a transaction log. It is safe to remove
+        // only after the WAL is empty and the exclusive migration connection is closed.
+        for(side in listOf(wal,File(file.path+"-shm"),journal)) {
+            if(side.exists())check(side.delete()) {"پاکسازی فایل جانبی غیرفعال انجام نشد."}
         }
     }
     private fun stageFile(file:File)=File(file.path+".sura-cipher-stage")
