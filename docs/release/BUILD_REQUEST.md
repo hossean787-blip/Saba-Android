@@ -1,2 +1,3 @@
-# Authorized test APK build — 2026-11-25
-User requested both APKs and direct admin gift entry. Existing signing credentials only. Standard app 0.47.0 / 47, manager 1.1.2-rc4 / 5. Build artifacts only; no store publication. No actual credit grant or payment during implementation. Existing audited admin adjust API reused. Main CI previous failure due to Robolectric dependency fetch. Do not claim delivery until signed APK artifacts exist.
+# Authorized SURA APK build — 2026-11-27
+
+Build the main SURA Android application from the current main branch, including the merged multi-account biometric login change (merge commit 8448f5b040858b6ff1761d45053f6fed5a31d9f3). Run the full debug regression tests, Android test compilation, lint, then build and verify the signed release APK using the existing official SURA release signing key. Verify package id, release version, signer fingerprint, APK integrity, and permissions. Upload the verified APK and checksums as a workflow artifact. Do not build or publish the manager app. Do not publish to any app store. Do not change signing credentials or grant credits.
