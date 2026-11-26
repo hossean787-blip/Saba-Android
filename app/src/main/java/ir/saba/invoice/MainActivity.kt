@@ -408,7 +408,6 @@ class MainActivity : ComponentActivity() {
         var selectedCompanyId by rememberSaveable(ownerSelectionKey) {
             mutableStateOf(preferences.getLong(ownerSelectionKey, -1L).takeIf { it > 0L })
         }
-        var protectedBalanceResult by remember(account,accessToken,selectedCompanyId) { mutableStateOf("هنوز بررسی نشده") }
         fun selectTaxpayer(id: Long) {
             if (selectedCompanyId != id) {
                 selectedCompanyId = id
@@ -921,34 +920,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onLogout={confirmLogout=true},
-                                    integrityResult=integrityResult,
-                                    protectedBalanceResult=protectedBalanceResult,
-                                    onProtectedBalanceCheck={
-                                        act {
-                                            val taxpayer=selectedCompanyId
-                                            protectedBalanceResult=when {
-                                                taxpayer==null || company==null || taxpayer in inactiveCompanyIds -> "ابتدا مؤدی فعال را در خانه انتخاب کنید."
-                                                BuildConfig.DEBUG -> "نسخه رسمی امضاشده لازم است."
-                                                Build.VERSION.SDK_INT < Build.VERSION_CODES.N -> "این دستگاه از مسیر محافظت‌شده پشتیبانی نمی‌کند."
-                                                else -> {
-                                                    protectedBalanceResult="در حال استعلام امن…"
-                                                    ir.saba.invoice.security.AppAttestationClient.protectedBalance(accessToken,taxpayer).displayText()
-                                                }
-                                            }
-                                        }
-                                    },
-                                    onIntegrityCheck={
-                                        act {
-                                            integrityResult=when {
-                                                BuildConfig.DEBUG -> "برای آزمون اصالت، نسخه رسمی امضاشده لازم است."
-                                                Build.VERSION.SDK_INT < Build.VERSION_CODES.N -> "این نسخه اندروید از آزمون فعلی پشتیبانی نمی‌کند."
-                                                else -> {
-                                                    integrityResult="در حال بررسی با سرور…"
-                                                    ir.saba.invoice.security.AppAttestationClient.observe(accessToken).displayText()
-                                                }
-                                            }
-                                        }
-                                    }
+
                                 )
                             )
                         }
