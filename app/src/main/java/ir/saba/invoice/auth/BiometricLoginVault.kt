@@ -54,8 +54,7 @@ class BiometricLoginVault(context: Context) {
     // Enrollment must not be marked as failed because of a temporary
     // BiometricManager availability result after an authenticated CryptoObject.
     fun isEnabled(): Boolean =
-        prefs.contains("encrypted") && prefs.contains("iv") &&
-            try { keystore().containsAlias(KEY_ALIAS) } catch (_: Exception) { false }
+        prefs.getStringSet(ACCOUNTS_KEY, emptySet()).orEmpty().isNotEmpty() || hasLegacyAccount()
 
     /** Call only immediately after a successful system biometric prompt. */
     fun enrollAfterAuthentication(credentials: StoredLoginCredentials) {
