@@ -21,4 +21,12 @@ output.mkdir(parents=True, exist_ok=True)
 (output / "junit-summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
 print("JUNIT_SUMMARY " + json.dumps({key: value for key, value in result.items() if key != "suites"}))
 if totals["failures"] or totals["errors"]:
+    # Publish failure detail from synthetic JVM fixtures, retaining the failing exit code.
+    for file in files:
+        root = ET.parse(file).getroot()
+        for case in root.iter("testcase"):
+            for tag in ("failure", "error"):
+                for defect in case.findall(tag):
+                    print("JUNIT_FAILURE", case.get("classname"), case.get("name"))
+                    print((defect.text or defect.get("message", ""))[:12000])
     raise SystemExit(1)

@@ -19,6 +19,8 @@ import org.junit.Assert.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.ExternalResource
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -27,8 +29,15 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class InvoiceScreenTest {
-    @get:Rule val compose = createComposeRule()
+    private val compose = createComposeRule()
     private lateinit var db: SabaDatabase
+    // Outer rule tears down only AFTER the Compose rule cancels its effects.
+    // Each test owns a fresh database; no fixture can leak Room work into the next test.
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(object : ExternalResource() {
+        override fun after() {
+            if (this@InvoiceScreenTest::db.isInitialized) db.close()
+        }
+    }).around(compose)
     private val creditGateway = object : InvoiceCreditGateway {
         var remaining = 10L
         val consumedKeys = mutableSetOf<String>()
@@ -60,9 +69,6 @@ class InvoiceScreenTest {
         QuotaRepository(db).initializeWallet(ownerId, 10)
         QuotaRepository(db).transferFromMaster(ownerId, company, 10, "seed")
     }
-    // The Compose test rule disposes its composition after @After hooks.
-    // Closing this in-memory DB in @After races with still-running LaunchedEffects.
-    // Its lifetime is limited to this fixture; no persistent file is created.
     @Composable private fun Screen() {
         MaterialTheme {
             InvoiceScreen(db, ownerId, company, listOf(Customer(id = customer, companyId = company, name = "خریدار")), invoices,
