@@ -25,111 +25,6 @@ class BiometricLoginVault(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences("sura_biometric_login_v1", Context.MODE_PRIVATE)
 
-    /** Public account identifiers are not secrets; passwords remain encrypted per account. */
-    fun savedAccounts(): List<String> =
-        prefs.getStringSet(ACCOUNTS_KEY, emptySet()).orEmpty().toList().sorted() +
-            if (hasLegacyAccount()) listOf(LEGACY_ACCOUNT_ID) else emptyList()
-
-    fun hasAccount(email: String): Boolean =
-        email.trim().lowercase() in prefs.getStringSet(ACCOUNTS_KEY, emptySet()).orEmpty()
-
-    fun hasLegacyAccount(): Boolean =
-        prefs.contains("encrypted") && prefs.contains("iv") &&
-            try { keystore().containsAlias(KEY_ALIAS) } catch (_: Exception) { false }
-
-    fun prepareEnrollment(email: String): Cipher {
-        require(RegistrationValidator.validEmail(email))
-        check(canOffer()) { "Biometric authentication unavailable" }
-        val alias = accountAlias(email)
-        val key = try { accountKey(alias) } catch (_: Exception) {
-            remove(email)
-            accountKey(alias)
-        }
-        return Cipher.getInstance(TRANSFORMATION).apply {
-            init(Cipher.ENCRYPT_MODE, key)
-            updateAAD(accountAad(email))
-        }
-    }
-
-    /** Only call with the exact cipher returned by the successful biometric CryptoObject. */
-    fun enroll(email: String, cipher: Cipher, credentials: StoredLoginCredentials) {
-        require(email.trim().equals(credentials.email.trim(), ignoreCase = true))
-        val plain = encodeCredentials(credentials)
-        try {
-            val encrypted = cipher.doFinal(plain)
-            check(cipher.iv.size in 12..16)
-            val hash = accountHash(email)
-            check(prefs.edit()
-                .putString("encrypted_$hash", Base64.encodeToString(encrypted, Base64.NO_WRAP))
-                .putString("iv_$hash", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-                .putStringSet(ACCOUNTS_KEY,
-                    prefs.getStringSet(ACCOUNTS_KEY, emptySet()).orEmpty().toMutableSet().apply {
-                        add(email.trim().lowercase())
-                    }).commit())
-            check(keystore().containsAlias(accountAlias(email)))
-        } finally { plain.fill(0) }
-    }
-
-    fun prepareUnlock(email: String): Cipher {
-        require(hasAccount(email)) { "Saved account not found" }
-        val hash = accountHash(email)
-        val iv = Base64.decode(prefs.getString("iv_$hash", "") ?: "", Base64.NO_WRAP)
-        require(iv.size in 12..16)
-        val key = keystore().getKey(accountAlias(email), null) as? SecretKey
-            ?: error("Biometric key missing")
-        return Cipher.getInstance(TRANSFORMATION).apply {
-            init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
-            updateAAD(accountAad(email))
-        }
-    }
-
-    fun unlock(email: String, cipher: Cipher): StoredLoginCredentials {
-        val hash = accountHash(email)
-        val encrypted = Base64.decode(prefs.getString("encrypted_$hash", "") ?: "", Base64.NO_WRAP)
-        val plain = cipher.doFinal(encrypted)
-        return try {
-            decodeCredentials(plain).also { require(it.email.equals(email, ignoreCase = true)) }
-        } finally { plain.fill(0) }
-    }
-
-    fun remove(email: String) {
-        val hash = accountHash(email)
-        prefs.edit().remove("encrypted_$hash").remove("iv_$hash")
-            .putStringSet(ACCOUNTS_KEY,
-                prefs.getStringSet(ACCOUNTS_KEY, emptySet()).orEmpty().toMutableSet().apply {
-                    remove(email.trim().lowercase())
-                }).commit()
-        try { keystore().deleteEntry(accountAlias(email)) } catch (_: Exception) { }
-    }
-
-    private fun accountKey(alias: String): SecretKey {
-        (keystore().getKey(alias, null) as? SecretKey)?.let { return it }
-        val spec = KeyGenParameterSpec.Builder(
-            alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-        ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setKeySize(256)
-            .setUserAuthenticationRequired(true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) spec.setInvalidatedByBiometricEnrollment(true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            spec.setUserAuthenticationParameters(30, KeyProperties.AUTH_BIOMETRIC_STRONG)
-        } else {
-            @Suppress("DEPRECATION")
-            spec.setUserAuthenticationValidityDurationSeconds(30)
-        }
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-            .apply { init(spec.build()) }.generateKey()
-    }
-
-    private fun accountHash(email: String): String =
-        java.security.MessageDigest.getInstance("SHA-256")
-            .digest(email.trim().lowercase().toByteArray(StandardCharsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
-
-    private fun accountAlias(email: String) = "sura_biometric_account_${accountHash(email)}"
-    private fun accountAad(email: String) =
-        "SURA biometric account v1:${email.trim().lowercase()}".toByteArray(StandardCharsets.UTF_8)
-
     fun canOffer(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
         return try {
@@ -159,7 +54,8 @@ class BiometricLoginVault(context: Context) {
     // Enrollment must not be marked as failed because of a temporary
     // BiometricManager availability result after an authenticated CryptoObject.
     fun isEnabled(): Boolean =
-        prefs.getStringSet(ACCOUNTS_KEY, emptySet()).orEmpty().isNotEmpty() || hasLegacyAccount()
+        prefs.contains("encrypted") && prefs.contains("iv") &&
+            try { keystore().containsAlias(KEY_ALIAS) } catch (_: Exception) { false }
 
     /** Call only immediately after a successful system biometric prompt. */
     fun enrollAfterAuthentication(credentials: StoredLoginCredentials) {
@@ -240,9 +136,6 @@ class BiometricLoginVault(context: Context) {
 
     /** Clears both encrypted credentials and the corresponding hardware-bound key. */
     fun clear() {
-        savedAccounts().filter { it != LEGACY_ACCOUNT_ID }.forEach {
-            try { keystore().deleteEntry(accountAlias(it)) } catch (_: Exception) { }
-        }
         prefs.edit().clear().commit()
         try { keystore().deleteEntry(KEY_ALIAS) } catch (_: Exception) { }
     }
@@ -273,8 +166,6 @@ class BiometricLoginVault(context: Context) {
     }
 
     companion object {
-        const val LEGACY_ACCOUNT_ID = "__sura_legacy_account__"
-        private const val ACCOUNTS_KEY = "saved_account_emails"
         private const val KEY_ALIAS = "sura_biometric_login_aes_v2"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private val AAD = "SURA biometric login v1".toByteArray(StandardCharsets.UTF_8)
