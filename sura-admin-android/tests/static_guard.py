@@ -37,7 +37,16 @@ assert 'versionCode = 8' in (ROOT/'app/build.gradle.kts').read_text()
 assert 'class="mobile-bottom-nav"' in html and 'data-page="dashboard"' in html
 assert 'safe-area-inset-bottom' in html and 'min-width:620px' in html
 assert 'openSelectedGift' in manager and 'saveSelectedGift' in manager
-print('PASS: isolated application, secure WebView, CSP, no private API key, file export')
+
+assert 'await appendSalesOffers(c);' in html
+assert 'admin-offer-save' in manager and 'admin-offers' in manager
+assert 'offerId' in (ROOT.parent/'supabase/functions/sura-card-transfer/index.ts').read_text(encoding='utf8')
+assert 'sura_sales_offers' in (ROOT.parent/'supabase/migrations/20261127100000_sura_live_sales_offers.sql').read_text(encoding='utf8')
+purchase=(ROOT.parent/'app/src/main/java/ir/saba/invoice/ui/CreditPurchaseScreen.kt').read_text(encoding='utf8')
+assert 'CardTransferApi.call(accessToken,"offers")' in purchase and 'طرح‌های فروش سورا' in purchase
+assert 'kind=="offer"' in (ROOT.parent/'app/src/main/java/ir/saba/invoice/ui/CardTransferPanel.kt').read_text(encoding='utf8')
+
+print('PASS: isolated application, secure WebView, CSP, live sales offers and file export')
 
 vault=(ROOT/'app/src/main/java/ir/sabagostar/suramanager/ManagerLoginVault.java').read_text(encoding='utf8')
 assert 'AndroidKeyStore' in vault and 'AES/GCM/NoPadding' in vault and 'setUserAuthenticationRequired(true)' in vault
