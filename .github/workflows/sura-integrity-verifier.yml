@@ -17,4 +17,4 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno test --no-check supabase/functions/sura-app-integrity/verifier_test.ts
+      - run: deno test --node-modules-dir=auto --no-check supabase/functions/sura-app-integrity/verifier_test.ts
