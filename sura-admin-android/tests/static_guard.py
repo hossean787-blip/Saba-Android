@@ -33,7 +33,9 @@ assert 'ACTION_CREATE_DOCUMENT' in java
 assert 'zipFiles' in js and 'makeXlsx' in js
 assert 'renderDirectory' in manager and 'managerFetch' in manager
 assert 'admin/manager.js' in java
-assert 'versionCode = 7' in (ROOT/'app/build.gradle.kts').read_text()
+assert 'versionCode = 8' in (ROOT/'app/build.gradle.kts').read_text()
+assert 'class="mobile-bottom-nav"' in html and 'data-page="dashboard"' in html
+assert 'safe-area-inset-bottom' in html and 'min-width:620px' in html
 assert 'openSelectedGift' in manager and 'saveSelectedGift' in manager
 print('PASS: isolated application, secure WebView, CSP, no private API key, file export')
 
