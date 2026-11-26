@@ -14,17 +14,13 @@ jobs:
   signed-apk:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          validate-wrappers: true
-          cache-read-only: true
       - name: Prepare Android SDK
         shell: bash
         run: |
@@ -37,10 +33,29 @@ jobs:
             yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
             "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;34.0.0"
           fi
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+          cache-read-only: true
       - name: Prepare cached Robolectric SDK jars
-        run: |
-          bash ./gradlew --no-daemon --no-build-cache clean
-          bash scripts/prepare-robolectric-sdks.sh
+        run: bash scripts/prepare-robolectric-sdks.sh
+      # Match the verified CI invocation, before the signing environment exists.
+      # Do not skip or retry away any failed tests.
+      - name: Run full debug regression and lint before signing
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
+      - name: Summarize executed JVM tests
+        if: always()
+        run: python3 scripts/summarize-tests.py
+      - name: Upload debug test and lint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sura-release-test-evidence
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: warn
       - name: Verify release signing secrets are configured
         shell: bash
         env:
@@ -75,12 +90,9 @@ jobs:
           export SURA_RELEASE_KEY_ALIAS
           # Fail early on invalid keystore credentials without exposing secret values.
           keytool -list -keystore "$SURA_RELEASE_STORE_FILE" -storepass "$SURA_RELEASE_STORE_PASSWORD" -alias "$SURA_RELEASE_KEY_ALIAS" >/dev/null
-          # Keep the standard Gradle dependency home, including the SDK cache.
-          # Disable build-cache reuse and clean project outputs to avoid stale KSP state.
-          # An isolated empty dependency home previously failed fetching Robolectric.
-          # Compile debug and release in separate Gradle sessions to prevent
-          # Room's exportSchema writer from racing across build variants.
-          bash ./gradlew --no-daemon --no-build-cache :app:testDebugUnitTest
+          # Full debug regression and lint already passed in the separate step
+          # above, without signing secrets. Release is still built and linted
+          # independently, with the established signer and all APK checks.
           find app/schemas -type f -name '*.json' -size 0 -print -delete
           bash ./gradlew --no-daemon --no-build-cache :app:assembleRelease :app:lintRelease
           APK="app/build/outputs/apk/release/app-release.apk"
