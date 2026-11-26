@@ -162,7 +162,8 @@ internal fun CopyInvoiceButton(id:Long,enabled:Boolean=true,onClick:()->Unit) {
 fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                  customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap(),
                  onOpenInvoice: (Long) -> Unit = { onInvoices() },
-                 onCopyInvoice: ((Long) -> Unit)? = null) {
+                 onCopyInvoice: ((Long) -> Unit)? = null,
+                 onQuickAction: ((Long,InvoiceQuickAction) -> Unit)? = null) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(SuraPalette.Canvas),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -171,7 +172,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("رویدادها", style = MaterialTheme.typography.titleMedium,
+                Text("فاکتورها", style = MaterialTheme.typography.titleMedium,
                     color = textNavy, fontWeight = FontWeight.ExtraBold)
                 TextButton(onClick = onInvoices) { Text("مشاهده همه", color = teal) }
             }
@@ -224,7 +225,7 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                             Text(invoiceEventTitle(invoice, customers), color = textNavy,
                                 fontWeight = FontWeight.Bold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
-                            Text("${invoice.issueDate} • شماره ${invoice.invoiceNumber}", color = SuraPalette.Muted,
+                            Text(invoicePdfDisplayDigits("${invoice.issueDate} • شماره ${invoice.invoiceNumber}"), color = SuraPalette.Muted,
                                 style = MaterialTheme.typography.labelSmall)
                             correctionLink(invoice,invoices,receipts)?.let { link ->
                                 Text(link.label,color=Color(0xFFAD792A),style=MaterialTheme.typography.labelSmall)
@@ -235,11 +236,14 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                             Text("${numberFormat.format(invoice.totalAmountRial)} ریال",
                                 color = textNavy, style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold)
+                            Text(InvoiceSubject.label(invoice.subject), color = invoiceSubjectColor(invoice.subject),fontWeight=FontWeight.Bold,style=MaterialTheme.typography.labelMedium)
                             Text(statusText, color = statusColor,
                                 style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                    if(onCopyInvoice!=null && canCopyAsNewInvoice(invoice)) {
+                    if(onQuickAction!=null) {
+                        InvoiceQuickActions(invoice,receipts[invoice.id],invoices,onAction={onQuickAction(invoice.id,it)})
+                    } else if(onCopyInvoice!=null && canCopyAsNewInvoice(invoice)) {
                         Box(Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=10.dp)) {
                             CopyInvoiceButton(invoice.id){onCopyInvoice(invoice.id)}
                         }

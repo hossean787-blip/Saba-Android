@@ -426,6 +426,7 @@ class MainActivity : ComponentActivity() {
         var openDraftsRequested by rememberSaveable { mutableStateOf(false) }
         var openEventInvoiceId by rememberSaveable(selectedCompanyId) { mutableStateOf<Long?>(null) }
         var copyEventInvoiceId by rememberSaveable(selectedCompanyId) { mutableStateOf<Long?>(null) }
+        var eventQuickAction by rememberSaveable(selectedCompanyId) { mutableStateOf("COPY") }
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         fun notify(message: String) { scope.launch { snackbar.showSnackbar(message, actionLabel = "بستن") } }
@@ -761,7 +762,7 @@ class MainActivity : ComponentActivity() {
                             Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES },
                                 customers = current?.customers.orEmpty(), receipts = current?.officialReceipts.orEmpty(),
                                 onOpenInvoice = { id -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { openEventInvoiceId = id; page = Page.INVOICES } },
-                                onCopyInvoice = { id -> if (!loading && !busy && current?.invoices?.any { it.id == id && canCopyAsNewInvoice(it) } == true) { copyEventInvoiceId=id; page=Page.INVOICES } })
+                                onQuickAction = { id, action -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { eventQuickAction=action.name;copyEventInvoiceId=id;page=Page.INVOICES } })
                             Page.COMPANIES -> MoadianScreen(db, account.ownerId, companies, onChanged = { refresh() }, onSelect = { selectTaxpayer(it) }, onNotice = ::notify, onEditing = { editing = it }, onOpenConnection = { selectTaxpayer(it); page = Page.TAX_CONNECTION }, account = account)
                             Page.TAX_KEYS -> TaxpayerKeysScreen(onNotice = ::notify, ownerId = account.ownerId)
                             Page.TAX_CONNECTION -> if (current != null) key(current.companyId) {
@@ -786,7 +787,7 @@ class MainActivity : ComponentActivity() {
                                 InvoiceScreen(db, account.ownerId, current.companyId, current.customers, current.invoices, onChanged = { refresh() }, onNotice = ::notify, onEditorActive = { editing = it }, availableCharge = 0, accessToken = accessToken, onNeedCharge = { page = Page.CREDIT_PURCHASE }, newInvoiceRequest = newInvoiceRequest, onNewInvoiceRequestHandled = { newInvoiceRequest = 0 }, onOpenOfficialSubmission = { page = Page.OFFICIAL_SUBMISSION }, openEventInvoiceId = openEventInvoiceId,
                                     onEventInvoiceHandled = { openEventInvoiceId = null }, onBackToEvents = { page = Page.EVENTS },
                                     openDraftsRequested=openDraftsRequested,onDraftsRequestHandled={openDraftsRequested=false},
-                                     copyEventInvoiceId=copyEventInvoiceId,onCopyEventHandled={copyEventInvoiceId=null})
+                                     copyEventInvoiceId=copyEventInvoiceId,onCopyEventHandled={copyEventInvoiceId=null},eventQuickAction=eventQuickAction)
                             } else CompanyPlaceholder(loading)
                             Page.CREDIT_PURCHASE -> CreditPurchaseScreen(account.ownerId,accessToken)
                             Page.QUOTA -> if (current != null && company != null) {

@@ -174,11 +174,12 @@ fun InvoiceScreen(
     openDraftsRequested:Boolean=false,
     onDraftsRequestHandled:()->Unit={},
     copyEventInvoiceId:Long?=null,
-    onCopyEventHandled:()->Unit={}
+    onCopyEventHandled:()->Unit={},
+    eventQuickAction:String="COPY"
 ) {
     val states = rememberSaveableStateHolder()
     states.SaveableStateProvider("${ir.saba.invoice.security.AccountScope.of(ownerId).storageKey}:$companyId") {
-        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents, openDraftsRequested, onDraftsRequestHandled,copyEventInvoiceId,onCopyEventHandled) }
+        key(ownerId, companyId) { InvoiceScreenContent(db, ownerId, companyId, customers, invoices, onChanged, onNotice, onEditorActive, availableCharge, accessToken, onNeedCharge, newInvoiceRequest, onNewInvoiceRequestHandled, onOpenOfficialSubmission, creditGateway, openEventInvoiceId, onEventInvoiceHandled, onBackToEvents, openDraftsRequested, onDraftsRequestHandled,copyEventInvoiceId,onCopyEventHandled,eventQuickAction) }
     }
 }
 
@@ -205,7 +206,8 @@ private fun InvoiceScreenContent(
     openDraftsRequested:Boolean=false,
     onDraftsRequestHandled:()->Unit={},
     copyEventInvoiceId:Long?=null,
-    onCopyEventHandled:()->Unit={}
+    onCopyEventHandled:()->Unit={},
+    eventQuickAction:String="COPY"
 ) {
     val account = remember(ownerId) { ir.saba.invoice.security.AccountScope.of(ownerId) }
     val activeGateway = remember(account,creditGateway) { creditGateway ?: ServerInvoiceCreditGateway(account) }
@@ -469,7 +471,7 @@ private fun InvoiceScreenContent(
             val receipt = db.officialSubmissionDao().forInvoice(inv.id)
             require(receipt == null || (receipt.ownerId == ownerId && receipt.companyId == companyId))
             if(draftOnly) {
-                require(pendingCreation==null) { "ابتدا درخواست صدور ناتمام را تکمیل کنید." }
+                require(creation.pending(companyId)==null) { "ابتدا درخواست صدور ناتمام را تکمیل کنید." }
                 require(inv.status=="DRAFT" && canEditInvoicePreview(inv,receipt)) { "وضعیت پیش‌نویس تغییر کرده است؛ ابتدا جزئیات را بررسی کنید." }
                 officialRecord=receipt
             }
@@ -533,12 +535,6 @@ private fun InvoiceScreenContent(
         }
     }
 
-    LaunchedEffect(copyEventInvoiceId) {
-        val id=copyEventInvoiceId ?: return@LaunchedEffect
-        onCopyEventHandled()
-        copyAsNew(id,returnToEvents=true)
-    }
-
     fun startCorrection(originalId: Long, targetSubject:String=InvoiceSubject.CORRECTION) {
         perform {
             val original=repository.detailsForCompany(companyId,originalId)
@@ -587,6 +583,28 @@ private fun InvoiceScreenContent(
                 .toJson(preserveInput=true)
             onNotice(if(targetSubject==InvoiceSubject.CANCELLATION) "پیش‌نویس ابطالی آماده شد؛ هنوز هیچ سندی ارسال نشده است." else "اصلاحیه آماده ویرایش است؛ اصل فاکتور بدون تغییر باقی ماند. اعتبار فقط هنگام ذخیره سند جدید مصرف می‌شود.")
         }
+    }
+
+    fun openQuickAction(id:Long,action:InvoiceQuickAction,returnToEvents:Boolean) {
+        if(busy) return
+        fromEvents=returnToEvents;unifiedPreview=true
+        when(action) {
+            InvoiceQuickAction.COPY->copyAsNew(id,returnToEvents)
+            InvoiceQuickAction.EDIT->editExistingById(id,draftOnly=true)
+            InvoiceQuickAction.CORRECT->startCorrection(id)
+            InvoiceQuickAction.CANCEL->{
+                // Open the existing confirmation dialog after authoritative details are loaded.
+                cancellationFromPreview=true;managementOpen=true
+                invoiceId=id;error="";mode="event_open"
+            }
+        }
+    }
+
+    LaunchedEffect(copyEventInvoiceId) {
+        val id=copyEventInvoiceId ?: return@LaunchedEffect
+        val action=InvoiceQuickAction.entries.firstOrNull{it.name==eventQuickAction}
+        onCopyEventHandled()
+        if(action!=null) openQuickAction(id,action,true)
     }
 
     fun requestOfficialSend(loaded: InvoiceDetails) {
@@ -1022,7 +1040,7 @@ private fun InvoiceScreenContent(
                                         Text("فاکتور ${invoice.invoiceNumber}",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted)
                                     }
                                     Surface(shape=RoundedCornerShape(10.dp),color=stateBackground){
-                                        Text(event.label,Modifier.padding(horizontal=8.dp,vertical=5.dp),color=stateColor,
+                                        Text(InvoiceSubject.label(invoice.subject)+" · "+event.label,Modifier.padding(horizontal=8.dp,vertical=5.dp),color=stateColor,
                                             fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.labelSmall)
                                     }
                                 }
@@ -1047,7 +1065,7 @@ private fun InvoiceScreenContent(
                                     colors=ButtonDefaults.outlinedButtonColors(contentColor=teal)) {
                                     Text("مشاهده جزئیات",style=MaterialTheme.typography.labelLarge)
                                 }
-                                if(canCopyAsNewInvoice(invoice)) CopyInvoiceButton(invoice.id,!busy){copyAsNew(invoice.id,false)}
+                                InvoiceQuickActions(invoice,receipt,localInvoices,enabled=!busy,onAction={openQuickAction(invoice.id,it,false)})
                             }
                         }
                         }
@@ -1780,7 +1798,7 @@ private fun LineEditor(ownerId: String, companyId: Long, initial: InvoiceLine?,
         modifier = Modifier.fillMaxWidth().testTag("invoiceInlineLineEditor"),
         color = androidx.compose.ui.graphics.Color(0xFFF2F8FA),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.SuraPalette.Edge)
+        border = androidx.compose.foundation.BorderStroke(1.dp, SuraPalette.Edge)
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)) {
