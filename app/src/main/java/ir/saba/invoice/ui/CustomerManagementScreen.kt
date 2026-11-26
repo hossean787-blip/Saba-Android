@@ -112,7 +112,7 @@ fun CustomerManagementScreen(db: SabaDatabase, companyId: Long,
                     val profile=profiles.firstOrNull{it.customerId==item.id}
                     val typeLabel=when(profile?.accountType){"LEGAL"->"حقوقی";"PARTNERSHIP"->"مشارکت مدنی";"FOREIGN"->"اتباع غیرایرانی";"OTHER"->"سایر";else->"حقیقی"}
                     Card(modifier=Modifier.fillMaxWidth().clickable(enabled=!busy){selectedId=item.id},
-                        colors=CardDefaults.cardColors(containerColor=if(chosen)SuraPalette.Softelse Color.White),
+                        colors=CardDefaults.cardColors(containerColor=if(chosen)SuraPalette.Soft else Color.White),
                         border=if(chosen)BorderStroke(1.dp,Color(0xFF2DA2B1))else null,
                         shape=RoundedCornerShape(19.dp),elevation=CardDefaults.cardElevation(defaultElevation=1.dp)){
                         Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){

@@ -107,3 +107,5 @@ Stabilization pass: fix experimental transformable API compile error; cancellabl
 0.127.0 / 127 (full 128): remote hardware attestation observation pilot only. No existing service enforcement. Existing test/lint/signing gates retained. Owner testing only.
 
 0.129.0: copy finalized original/correction from invoice event cards, list and PDF preview into NEW original editor; same or another active customer, new date/serial/request, all lines and pricing retained; no reference, receipt, payment tracking, buyer branch, schedule or attachments copied. Original remains unchanged; one credit only on explicit new save, no automatic tax submission. Added end-to-end local UI regression. Signed build requested.
+
+0.129.0 build prerequisite: fix pre-existing palette token/else whitespace syntax error in customer screen (previous CI 45800588919). No logic change. Re-run full build.
