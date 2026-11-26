@@ -19,8 +19,8 @@ android {
         minSdk = 23
         targetSdk = 35
         // Keep upgrade order above BOTH previously shipped variants (25 standard, 26 full).
-        versionCode = if (suraEmbeddedFull) 106 else 105
-        versionName = if (suraEmbeddedFull) "0.106.0" else "0.105.0"
+        versionCode = if (suraEmbeddedFull) 108 else 107
+        versionName = if (suraEmbeddedFull) "0.108.0" else "0.107.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing is opt-in and never uses the ephemeral Android debug key.

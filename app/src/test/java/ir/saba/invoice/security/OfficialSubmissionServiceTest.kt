@@ -688,6 +688,33 @@ class OfficialSubmissionServiceTest {
         assertEquals(0,api.posts)
     }
 
+    @Test fun cancellationOfAcceptedCorrectionUsesLatestReferenceAndDoesNotPostDuringPreparation()=runBlocking {
+        val parent=legacyReferralParent(true)
+        val correctedId=createReferredDocument("CORRECTION","2000000001",2L)
+        val next=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+86_400_000}
+        val correction=next.prepare(company,correctedId,"2026-11-04T12:00:00+03:30","164","LEGACY")
+        assertEquals(1,db.officialSubmissionDao().claim(correction.requestId))
+        assertEquals(1,db.officialSubmissionDao().resolve(correction.requestId,"SUBMITTED","correction-ref",null))
+        val corrected=db.invoiceDao().byId(correctedId)!!
+        val cancelId=db.invoiceDao().insert(corrected.copy(id=0,invoiceNumber="2000000002",
+            issueDate="1405/08/14",subject="CANCELLATION",referenceTaxId=correction.taxId,trackingCode=null))
+        db.invoiceLineDao().insertAll(db.invoiceLineDao().forInvoice(correctedId).map{it.copy(id=0,invoiceId=cancelId)})
+        val third=OfficialSubmissionService(db,account,credentials,api,sessionCheck={}){now+172_800_000}
+        reject{third.prepare(company,cancelId,"2026-11-05T12:00:00+03:30","","LEGACY")}
+        assertNull(db.officialSubmissionDao().forInvoice(cancelId))
+        assertEquals(1,db.officialSubmissionDao().resolve(correction.requestId,"ACCEPTED","correction-ref",OfficialReferenceEvidence.LEGACY_BOUND))
+        val abtal=third.prepare(company,cancelId,"2026-11-05T12:00:00+03:30","","LEGACY")
+        val payload=JSONObject(abtal.payload)
+        assertEquals(3,payload.getJSONObject("header").getInt("ins"))
+        assertEquals(correction.taxId,payload.getJSONObject("header").getString("irtaxid"))
+        assertEquals(0,payload.getJSONArray("body").length())
+        assertEquals(0,payload.getJSONArray("payments").length())
+        assertEquals("PREPARED",third.reviewPrepared(abtal.requestId).state)
+        assertEquals(parent,db.officialSubmissionDao().forInvoice(invoice))
+        assertEquals("ACCEPTED",db.officialSubmissionDao().forInvoice(correctedId)!!.state)
+        assertEquals(0,api.posts)
+    }
+
     @Test fun documentedLegacySuccessWithoutTaxIdCanBindExistingReference()=runBlocking {
         val parent=legacyReferralParent(false)
         assertFalse(OfficialReferenceEvidence.eligible(parent))
