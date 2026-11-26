@@ -36,12 +36,16 @@ fun OwnerLoginScreen(
         if (selectedSavedAccount !in savedAccountEmails) {
             selectedSavedAccount = savedAccountEmails.firstOrNull().orEmpty()
         }
-        autofillCredentials?.let {
-            selectedSavedAccount = it.email
-            email = it.email
-            password = it.password
+        autofillCredentials?.let { credentials ->
+            selectedSavedAccount = credentials.email
+            email = credentials.email
+            password = credentials.password
             visible = false
+            // A biometric unlock only decrypts the locally stored credential.
+            // Complete the normal server-side password login; never grant a local session.
             onAutofillConsumed()
+            onPasswordLogin(credentials.email.trim(), credentials.password)
+            password = ""
         } ?: run {
             if (email.isBlank()) {
                 email = selectedSavedAccount.takeUnless {
@@ -120,8 +124,8 @@ fun OwnerLoginScreen(
                     onClick = { if (selectedSavedAccount.isNotBlank()) onBiometricLogin(selectedSavedAccount) },
                     enabled = !busy && selectedSavedAccount.isNotBlank(),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) { Text("بازکردن رمز با اثر انگشت") }
-                Text("حساب را انتخاب کنید؛ پس از تأیید اثر انگشت، نام کاربری و رمز همان حساب خودکار تکمیل می‌شود.",
+                ) { Text("ورود با اثر انگشت") }
+                Text("حساب را انتخاب کنید؛ پس از تأیید اثر انگشت، ورود امن از طریق سرور انجام می‌شود.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
