@@ -26,6 +26,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare pinned SQLCipher dependency
+        run: bash scripts/prepare-sqlcipher.sh
       - name: Enable emulator acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
@@ -38,7 +40,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.FinancialStorageDeviceTest,ir.saba.invoice.data.ArchiveRecoveryDeviceTest,ir.saba.invoice.security.TaxpayerKeyVaultInstrumentedTest
+          script: bash ./gradlew --no-daemon --stacktrace --no-build-cache -PsuraSqlCipherRepository="$SURA_CIPHER_REPO" :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.FinancialStorageDeviceTest,ir.saba.invoice.data.ArchiveRecoveryDeviceTest,ir.saba.invoice.security.TaxpayerKeyVaultInstrumentedTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -57,5 +59,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare pinned SQLCipher dependency
+        run: bash scripts/prepare-sqlcipher.sh
       - name: Compile minified production candidate (unsigned, not distributed)
-        run: bash ./gradlew --no-daemon :app:assembleRelease :app:lintRelease
+        run: bash ./gradlew --no-daemon --stacktrace --no-build-cache -PsuraSqlCipherRepository="$SURA_CIPHER_REPO" :app:assembleRelease :app:lintRelease

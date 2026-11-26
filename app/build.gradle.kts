@@ -184,3 +184,17 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
 }
 
+
+val suraCipherCheck by configurations.creating { isCanBeConsumed = false; isTransitive = false }
+dependencies { add(suraCipherCheck.name, "net.zetetic:sqlcipher-android:4.16.0@aar") }
+tasks.register("resolveSuraCipher") {
+    doLast {
+        val aar = suraCipherCheck.singleFile
+        check(aar.isFile && aar.length() > 100_000) { "SQLCipher AAR missing or incomplete" }
+        ZipFile(aar).use { zip ->
+            check(zip.getEntry("classes.jar") != null)
+            check(zip.getEntry("jni/arm64-v8a/libsqlcipher.so") != null)
+        }
+        println("SQLCipher AAR verified for packaging: " + aar.name)
+    }
+}
