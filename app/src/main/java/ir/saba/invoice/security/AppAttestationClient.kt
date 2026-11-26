@@ -21,7 +21,7 @@ import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.util.UUID
 
-/** Observe only: never blocks existing services. */
+/** Observation and explicitly requested read-only protected balance pilot. */
 internal object AppAttestationClient {
     private const val BASE = "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-app-integrity"
     private fun encode(b: ByteArray) = Base64.encodeToString(b, Base64.NO_WRAP)
@@ -43,7 +43,30 @@ internal object AppAttestationClient {
     private fun perform(token: String): IntegrityOutcome {
         val challenge=post("/challenge",token,JSONObject())
         if(challenge.code!=200) return integrityHttpOutcome(challenge.code,"")
-        val raw = challenge.body.getString("nonce")
+        val result=post("/verify",token,proof(challenge.body.getString("nonce")))
+        return integrityHttpOutcome(result.code,result.body.optString("status"))
+    }
+
+    /** Each protected request uses its own challenge; never reuse the observation cache. */
+    suspend fun protectedBalance(token:String,taxpayerId:Long):ProtectedBalanceReport = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || token.isBlank())
+            return@withContext ProtectedBalanceReport(ProtectedBalanceOutcome.UNSUPPORTED)
+        require(taxpayerId in 1..9_007_199_254_740_991L)
+        lock.withLock {
+            try {
+                val challenge=post("/protected-challenge",token,JSONObject().put("taxpayerId",taxpayerId))
+                if(challenge.code!=200) return@withLock protectedBalanceResult(challenge.code,"",null,challenge.body.optString("error"))
+                require(challenge.body.optString("mode")=="enforce" &&
+                    challenge.body.optString("operation")=="invoice_balance")
+                val result=post("/protected-balance",token,proof(challenge.body.getString("nonce")).put("taxpayerId",taxpayerId))
+                protectedBalanceResult(result.code,result.body.optString("mode"),result.body.opt("remaining"),result.body.optString("error"))
+            } catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(_:Exception){ProtectedBalanceReport(ProtectedBalanceOutcome.UNAVAILABLE)}
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.N)
+    private fun proof(raw:String):JSONObject {
         val nonce = Base64.decode(raw, Base64.NO_WRAP)
         require(nonce.size == 32 && encode(nonce) == raw)
         val alias = "sura.integrity.ephemeral." + UUID.randomUUID()
@@ -63,13 +86,11 @@ internal object AppAttestationClient {
             }.sign()
             val certs = JSONArray()
             chain.forEach { certs.put(encode(it.encoded)) }
-            val result=post("/verify", token, JSONObject().put("nonce", raw).put("chain", certs)
-                .put("signature", encode(sig)))
-            return integrityHttpOutcome(result.code,result.body.optString("status"))
+            return JSONObject().put("nonce",raw).put("chain",certs).put("signature",encode(sig))
         } finally { runCatching { store.deleteEntry(alias) } }
     }
     private fun post(path: String, token: String, body: JSONObject): HttpResult {
-        require(path == "/challenge" || path == "/verify")
+        require(path in setOf("/challenge","/verify","/protected-challenge","/protected-balance"))
         val c = URL(BASE + path).openConnection() as HttpURLConnection
         try {
             c.instanceFollowRedirects = false

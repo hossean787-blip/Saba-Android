@@ -47,7 +47,8 @@ data class SettingsControls(
     val onProtectScreen:(Boolean)->Unit,val onPlayIntro:(Boolean)->Unit,val onBiometricSetup:()->Unit,
     val onNavigate:(SettingsDestination)->Unit,val onSystemSettings:()->Unit,
     val diagnosticResult:String,val onDiagnostic:()->Unit,val onResetAppearance:()->Unit,val onLogout:()->Unit,
-    val integrityResult:String="هنوز بررسی نشده",val onIntegrityCheck:(()->Unit)?=null
+    val integrityResult:String="هنوز بررسی نشده",val onIntegrityCheck:(()->Unit)?=null,
+    val protectedBalanceResult:String="هنوز بررسی نشده",val onProtectedBalanceCheck:(()->Unit)?=null
 )
 
 /** Device appearance and security settings. No financial or account data is cleared here. */
@@ -307,6 +308,17 @@ fun AppSettingsScreen(
                         Text("بررسی اصالت نسخه نصب‌شده")
                     }
                     Text("نتیجه معتبر اخیر تا ۳۰ ثانیه نمایش داده می‌شود. اختلال یا محدودیت زمانی به معنی جعلی بودن برنامه نیست. این بررسی فعلاً دسترسی حساب را مسدود نمی‌کند.",
+                        style=MaterialTheme.typography.labelSmall,color=settingsMuted)
+                }
+                controls.onProtectedBalanceCheck?.let { check ->
+                    HorizontalDivider(color=settingsBorder)
+                    Text("استعلام اعتبار محافظت‌شده",fontWeight=FontWeight.SemiBold,color=settingsInk)
+                    Text(controls.protectedBalanceResult,style=MaterialTheme.typography.bodySmall,color=settingsMuted,
+                        modifier=Modifier.testTag("settingsProtectedBalanceResult"))
+                    OutlinedButton(onClick=check,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("settingsProtectedBalanceCheck")) {
+                        Text("آزمون استعلام امن مؤدی فعال")
+                    }
+                    Text("آزمایشی و فقط خواندنی؛ بدون خرید، انتقال یا مصرف اعتبار. نتیجه این مسیر مستقل از بررسی اصالت معمولی است.",
                         style=MaterialTheme.typography.labelSmall,color=settingsMuted)
                 }
                 SettingsLink("اطلاعات حساب کاربری","مشخصات و گزینه‌های حساب",Icons.Default.Person,!busy) { controls.onNavigate(SettingsDestination.ACCOUNT) }
