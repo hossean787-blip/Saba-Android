@@ -464,7 +464,11 @@ private fun InvoiceScreenContent(
             val inv=current.invoice
             val receipt = db.officialSubmissionDao().forInvoice(inv.id)
             require(receipt == null || (receipt.ownerId == ownerId && receipt.companyId == companyId))
-            if(draftOnly) require(inv.status=="DRAFT" && canEditInvoicePreview(inv,receipt)) { "وضعیت پیش‌نویس تغییر کرده است؛ ابتدا جزئیات را بررسی کنید." }
+            if(draftOnly) {
+                require(pendingCreation==null) { "ابتدا درخواست صدور ناتمام را تکمیل کنید." }
+                require(inv.status=="DRAFT" && canEditInvoicePreview(inv,receipt)) { "وضعیت پیش‌نویس تغییر کرده است؛ ابتدا جزئیات را بررسی کنید." }
+                officialRecord=receipt
+            }
             when {
                 receipt?.state == "REJECTED" -> {
                     InvoiceRepository(db).reopenRejectedForEdit(companyId,inv.id,ownerId)

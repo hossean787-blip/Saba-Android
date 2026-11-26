@@ -92,6 +92,41 @@ class InvoiceScreenTest {
         }
     }
 
+    @Test fun draftDashboardEntryFiltersAndDirectEditPreservesIdentityAndCredit() {
+        val draft=runBlocking {
+            val repo=InvoiceRepository(db)
+            val line=listOf(InvoiceLine(invoiceId=0,description="خدمت",quantity=1,unitPriceRial=1000,taxRatePercent=10))
+            val draft=repo.saveDraft(company,customer,"1000000002","1405/08/12",line)
+            val finalized=repo.saveDraft(company,customer,"1000000003","1405/08/12",line)
+            repo.finalizeDraft(company,finalized)
+            invoices=db.invoiceDao().forCompany(company)
+            draft
+        }
+        val before=runBlocking{db.quotaDao().useForInvoice(draft)}
+        compose.setContent {
+            var open by remember { mutableStateOf(true) }
+            MaterialTheme {
+                InvoiceScreen(db,ownerId,company,listOf(Customer(id=customer,companyId=company,name="خریدار")),invoices,
+                    onChanged={invoices=db.invoiceDao().forCompany(company)},onNotice={surfacedNotices.add(it)},
+                    onEditorActive={},creditGateway=creditGateway,openDraftsRequested=open,onDraftsRequestHandled={open=false})
+            }
+        }
+        compose.waitUntil(15000){compose.onAllNodesWithTag("draftSummary").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("invoiceListScroll").performScrollToNode(hasTestTag("draftEdit_$draft"))
+        compose.onNodeWithTag("draftEdit_$draft").performClick()
+        compose.waitUntil(15000){compose.onAllNodesWithTag("invoiceProfessionalHeader").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("invoiceItemRow0").assertExists()
+        assertEquals(10L,creditGateway.remaining)
+        assertEquals(0,creditGateway.requestedKeys.size)
+        runBlocking{
+            assertEquals("1000000002",db.invoiceDao().byId(draft)!!.invoiceNumber)
+            assertEquals("DRAFT",db.invoiceDao().byId(draft)!!.status)
+            assertEquals(before,db.quotaDao().useForInvoice(draft))
+            assertEquals(2,db.invoiceDao().forCompany(company).size)
+            assertEquals(0,db.officialSubmissionDao().forCompany(company).size)
+        }
+    }
+
     @Test fun professionalInvoiceEditorKeepsSectionsAndSaveVisible() {
         compose.setContent { Screen() }
         openNew()
