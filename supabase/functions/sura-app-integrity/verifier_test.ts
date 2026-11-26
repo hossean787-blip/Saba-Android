@@ -34,10 +34,11 @@ function syntheticDescription(opts: {
  const app=seq(set(seq(oct(new TextEncoder().encode(opts.packageName??"ir.saba.invoice")),integer(opts.version??139))),set(oct(signer)));
  const appTag=tag(709,oct(new Uint8Array(app.toBER(false))));
  const root=seq(oct(new Uint8Array(32)),new asn1.Boolean({value:opts.locked??true}),enumeration(opts.boot??0),oct(new Uint8Array(32)));
- return new Uint8Array(seq(integer(3),enumeration(opts.hardware??1),integer(4),enumeration(opts.hardware??1),
-  oct(opts.nonce??new Uint8Array(32)),oct(new Uint8Array()),seq(appTag,...(opts.duplicateApp?[appTag]:[])),
-  seq(tag(704,root),tag(702,integer(0)),tag(2,integer(3)),tag(1,set(integer(2))),tag(5,set(integer(4)))).
-  toBER(false));
+ const software=seq(appTag,...(opts.duplicateApp?[appTag]:[]));
+ const hardware=seq(tag(704,root),tag(702,integer(0)),tag(2,integer(3)),tag(1,set(integer(2))),tag(5,set(integer(4))));
+ const description=seq(integer(3),enumeration(opts.hardware??1),integer(4),enumeration(opts.hardware??1),
+  oct(opts.nonce??new Uint8Array(32)),oct(new Uint8Array()),software,hardware);
+ return new Uint8Array(description.toBER(false));
 }
 Deno.test("synthetic metadata control: correct expected fields pass parser only",()=>{
  checkDescription(syntheticDescription(),new Uint8Array(32));
