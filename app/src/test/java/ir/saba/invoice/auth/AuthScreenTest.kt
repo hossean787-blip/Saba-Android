@@ -18,7 +18,7 @@ class AuthScreenTest {
         var submitted = false
         compose.setContent { AuthTheme { OwnerLoginScreen({ _, _ -> submitted = true }, {}, {}) } }
         compose.onNodeWithText("ورود با رمز ثابت").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("ایمیل").performTextInput("owner@example.com")
+        compose.onNodeWithTag("loginEmailField").performTextInput("owner@example.com")
         compose.onNodeWithText("رمز عبور ثابت").performTextInput("password123")
         compose.onNodeWithText("ورود با رمز ثابت").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(submitted) }
@@ -53,7 +53,7 @@ class AuthScreenTest {
                 )
             }
         }
-        compose.onNodeWithText("second@example.com").assertExists()
+        compose.onAllNodesWithText("second@example.com").assertCountEquals(2)
         compose.onNodeWithText("بازکردن رمز با اثر انگشت").assertExists()
         compose.onNodeWithText("نمایش").performScrollTo().performClick()
         compose.onNodeWithText("StrongPassword!123").assertExists()
@@ -63,7 +63,7 @@ class AuthScreenTest {
     @Test fun busyLoginDisablesNavigationAndSubmission() {
         compose.setContent { AuthTheme { OwnerLoginScreen({ _, _ -> }, {}, {}, busy = true) } }
         compose.onNodeWithText("ایجاد حساب کاربری").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("ایمیل").assertIsNotEnabled()
+        compose.onNodeWithTag("loginEmailField").assertIsNotEnabled()
     }
 
     private fun waitForField(label: String) {
