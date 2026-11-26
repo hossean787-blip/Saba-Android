@@ -556,12 +556,7 @@ class MainActivity : ComponentActivity() {
             if (!busy) page = if (page == Page.APP_SETTINGS) Page.SETTINGS else Page.DASHBOARD
         }
 
-        MaterialTheme(shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), colorScheme = lightColorScheme(
-            primary = Color(0xFF075F91), onPrimary = Color.White,
-            primaryContainer = Color(0xFFD9F1FF), onPrimaryContainer = Color(0xFF123C59),
-            background = Color(0xFFF2F9FF), surface = Color.White,
-            onBackground = Color(0xFF172C3D), onSurface = Color(0xFF172C3D)
-        )) {
+        SuraTheme {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl,
                 LocalDensity provides Density(density.density, density.fontScale * fontScale)) {
@@ -634,7 +629,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.imePadding(),
                     topBar = {
-                        Surface(shadowElevation = 5.dp, color = Color(0xFF06192C)) {
+                        Surface(shadowElevation = 2.dp, color = SuraPalette.Midnight) {
                             Row(Modifier.fillMaxWidth().statusBarsPadding()
                                     .padding(horizontal = 11.dp, vertical = 8.dp),
                                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -673,7 +668,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     bottomBar = {
-                        NavigationBar(containerColor = Color(0xFFE7F4FD), tonalElevation = 0.dp) {
+                        NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
                             listOf(
                                 Triple(Page.DASHBOARD, "خانه", Icons.Default.Home),
                                 Triple(Page.EVENTS, "فاکتورها", Icons.AutoMirrored.Filled.List),
@@ -688,10 +683,11 @@ class MainActivity : ComponentActivity() {
                                     selected = page == destination,
                                     enabled = !editing && !busy,
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = Color(0xFF115CC7),
-                                        selectedTextColor = Color(0xFF115CC7),
-                                        indicatorColor = if (isNewInvoice) Color(0xFFB5DDFF)
-                                            else MaterialTheme.colorScheme.primaryContainer),
+                                        selectedIconColor = SuraPalette.Teal,
+                                        selectedTextColor = SuraPalette.Teal,
+                                        indicatorColor = SuraPalette.Soft,
+                                        unselectedIconColor = SuraPalette.Muted,
+                                        unselectedTextColor = SuraPalette.Muted),
                                     onClick = {
                                         if (isNewInvoice) {
                                             if (selectedCompanyId == null) page = Page.COMPANIES
@@ -703,17 +699,17 @@ class MainActivity : ComponentActivity() {
                                     },
                                     icon = {
                                         if (isNewInvoice) {
-                                            Surface(shape = RoundedCornerShape(20.dp),
-                                                color = Color(0xFF276DEB),
-                                                modifier = Modifier.size(48.dp)) {
+                                            Surface(shape = RoundedCornerShape(14.dp),
+                                                color = SuraPalette.Teal,
+                                                modifier = Modifier.size(36.dp)) {
                                                 Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
                                                     Icon(icon, title, tint = Color.White,
-                                                        modifier = Modifier.size(29.dp))
+                                                        modifier = Modifier.size(24.dp))
                                                 }
                                             }
                                         } else Icon(icon, title)
                                     },
-                                    label = { Text(title, maxLines = 1,
+                                    label = { Text(if (isNewInvoice) "صدور" else title, maxLines = 1,
                                         style = MaterialTheme.typography.labelSmall) }
                                 )
                             }

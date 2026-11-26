@@ -19,37 +19,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AuthTheme(content: @Composable () -> Unit) {
-    val family = FontFamily(Font(R.font.vazirmatn_regular), Font(R.font.vazirmatn_bold, FontWeight.Bold))
-    val base = Typography()
-    MaterialTheme(
-        typography = base.copy(
-            displayLarge = base.displayLarge.copy(fontFamily = family),
-            displayMedium = base.displayMedium.copy(fontFamily = family),
-            displaySmall = base.displaySmall.copy(fontFamily = family),
-            headlineLarge = base.headlineLarge.copy(fontFamily = family),
-            headlineMedium = base.headlineMedium.copy(fontFamily = family),
-            headlineSmall = base.headlineSmall.copy(fontFamily = family),
-            titleLarge = base.titleLarge.copy(fontFamily = family),
-            titleMedium = base.titleMedium.copy(fontFamily = family),
-            titleSmall = base.titleSmall.copy(fontFamily = family),
-            bodyLarge = base.bodyLarge.copy(fontFamily = family),
-            bodyMedium = base.bodyMedium.copy(fontFamily = family),
-            bodySmall = base.bodySmall.copy(fontFamily = family),
-            labelLarge = base.labelLarge.copy(fontFamily = family),
-            labelMedium = base.labelMedium.copy(fontFamily = family),
-            labelSmall = base.labelSmall.copy(fontFamily = family)
-        ),
-        colorScheme = lightColorScheme(
-            primary = Color(0xFF075F91), onPrimary = Color.White,
-            primaryContainer = Color(0xFFD9F1FF), onPrimaryContainer = Color(0xFF123C59),
-            outline = Color(0xFF6B8EA5), outlineVariant = Color(0xFFD4E8F4),
-            secondary = Color(0xFF2378A3), background = Color(0xFFF2F9FF),
-            surface = Color.White, onSurface = Color(0xFF172C3D),
-            surfaceVariant = Color(0xFFE7F4FD), onSurfaceVariant = Color(0xFF456176)
-        ),
-        shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(28.dp)),
-        content = content
-    )
+    ir.saba.invoice.ui.SuraTheme(content = content)
 }
 
 @Composable

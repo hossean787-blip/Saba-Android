@@ -22,7 +22,7 @@ import ir.saba.invoice.R
 fun SuraBrandBanner(subtitle: String, compact: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(if (compact) 20.dp else 28.dp))
-            .background(Brush.horizontalGradient(listOf(Color(0xFF041A2C), Color(0xFF12455E), Color(0xFF061D33))))
+            .background(Brush.horizontalGradient(listOf(SuraPalette.Midnight, SuraPalette.Ocean, SuraPalette.Midnight)))
             .padding(horizontal = 16.dp, vertical = if (compact) 10.dp else 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -33,10 +33,10 @@ fun SuraBrandBanner(subtitle: String, compact: Boolean = false) {
             modifier = Modifier.size(if (compact) 48.dp else 72.dp).clip(RoundedCornerShape(15.dp))
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("SURA  |  سورا", color = Color(0xFFEFCF91),
+            Text("SURA  |  سورا", color = SuraPalette.Gold,
                 style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold)
-            Text(subtitle, color = Color(0xFFD2EDF3), style = MaterialTheme.typography.labelMedium)
+            Text(subtitle, color = SuraPalette.OnDark, style = MaterialTheme.typography.labelMedium)
         }
         if (!compact) Text("✦", color = Color(0xFF56D3E4), style = MaterialTheme.typography.headlineMedium)
     }
