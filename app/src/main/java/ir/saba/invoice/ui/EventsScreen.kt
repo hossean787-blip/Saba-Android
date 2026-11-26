@@ -159,9 +159,9 @@ internal fun CopyInvoiceButton(id:Long,enabled:Boolean=true,onClick:()->Unit) {
 }
 
 @Composable
-fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
+fun EventsScreen(invoices: List<Invoice>,
                  customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap(),
-                 onOpenInvoice: (Long) -> Unit = { onInvoices() },
+                 onOpenInvoice: (Long) -> Unit = {},
                  onCopyInvoice: ((Long) -> Unit)? = null,
                  onQuickAction: ((Long,InvoiceQuickAction) -> Unit)? = null) {
     LazyColumn(
@@ -170,12 +170,8 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("فاکتورها", style = MaterialTheme.typography.titleMedium,
-                    color = textNavy, fontWeight = FontWeight.ExtraBold)
-                TextButton(onClick = onInvoices) { Text("مشاهده همه", color = teal) }
-            }
+            Text("فاکتورها", style = MaterialTheme.typography.titleMedium,
+                color = textNavy, fontWeight = FontWeight.ExtraBold)
         }
         if (invoices.isEmpty()) {
             item {

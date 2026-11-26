@@ -746,8 +746,8 @@ class MainActivity : ComponentActivity() {
                                 onTaxpayerSelected = { selectTaxpayer(it) },
                                 onNewInvoice = { if (!loading && !busy) { if (company == null) page = Page.COMPANIES else { page = Page.INVOICES; newInvoiceRequest++ } } },
                                 onTaxKeys = { page = Page.TAX_KEYS },
-                                onInvoices = { page = Page.INVOICES },
-                                onDrafts = { if(!loading && !busy) { openDraftsRequested=true; page=Page.INVOICES } },
+                                onInvoices = { page = Page.EVENTS },
+                                onDrafts = { if(!loading && !busy) { page = Page.EVENTS } },
                                 onCharge = { page = Page.QUOTA },
                                 onIdentifiers = { page = Page.IDENTIFIERS }
                             )
@@ -760,7 +760,7 @@ class MainActivity : ComponentActivity() {
                                     onSelectTaxpayer = { page = Page.COMPANIES }
                                 )
                             }
-                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(), onInvoices = { page = Page.INVOICES },
+                            Page.EVENTS -> EventsScreen(current?.invoices.orEmpty(),
                                 customers = current?.customers.orEmpty(), receipts = current?.officialReceipts.orEmpty(),
                                 onOpenInvoice = { id -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { openEventInvoiceId = id; page = Page.INVOICES } },
                                 onQuickAction = { id, action -> if (!loading && !busy && current?.invoices?.any { it.id == id } == true) { eventQuickAction=action.name;copyEventInvoiceId=id;page=Page.INVOICES } })
