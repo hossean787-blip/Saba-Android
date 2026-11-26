@@ -284,8 +284,6 @@ private fun InvoiceScreenContent(
         catch(e:Exception){onNotice(SuraErrors.describe(e,"بازیابی وضعیت مشتریان انجام نشد. [CUSTOMER-STATUS]"))}
     }
     var lines by rememberSaveable(stateSaver = LinesSaver) { mutableStateOf(emptyList<InvoiceLine>()) }
-    var search by rememberSaveable { mutableStateOf("") }
-    var status by rememberSaveable { mutableStateOf("ALL") }
     var busy by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf("") }
     var details by remember { mutableStateOf<InvoiceDetails?>(null) }
