@@ -588,6 +588,7 @@ private fun InvoiceScreenContent(
     fun openQuickAction(id:Long,action:InvoiceQuickAction,returnToEvents:Boolean) {
         if(busy) return
         fromEvents=returnToEvents;unifiedPreview=true
+        managementOpen=false;cancellationFromPreview=false
         when(action) {
             InvoiceQuickAction.COPY->copyAsNew(id,returnToEvents)
             InvoiceQuickAction.EDIT->editExistingById(id,draftOnly=true)

@@ -92,6 +92,24 @@ class InvoiceEventStatusTest {
         assertTrue(cancellationLink(invoice,listOf(invoice,child),mapOf(1L to accepted,5L to childRow))!!.label.contains("کارپوشه"))
         assertEquals(InvoiceEventStatus.SUCCESS,invoiceEventStatus(invoice,accepted))
     }
+    @Test fun quickActionsRespectSubjectReceiptAndExistingReference() {
+        val accepted=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_BOUND)
+        assertEquals(listOf(InvoiceQuickAction.COPY,InvoiceQuickAction.CORRECT,InvoiceQuickAction.CANCEL),
+            availableInvoiceQuickActions(invoice,accepted,listOf(invoice)))
+        val corrected=invoice.copy(subject="CORRECTION")
+        assertEquals(listOf(InvoiceQuickAction.COPY,InvoiceQuickAction.CANCEL),
+            availableInvoiceQuickActions(corrected,accepted,listOf(corrected)))
+        val cancelled=invoice.copy(subject="CANCELLATION")
+        assertTrue(availableInvoiceQuickActions(cancelled,accepted,listOf(cancelled)).isEmpty())
+        val child=invoice.copy(id=5,subject="CORRECTION",referenceTaxId=accepted.taxId)
+        assertEquals(listOf(InvoiceQuickAction.COPY),availableInvoiceQuickActions(invoice,accepted,listOf(invoice,child)))
+        assertEquals(listOf(InvoiceQuickAction.COPY),availableInvoiceQuickActions(invoice,accepted.copy(state="SUBMITTED"),listOf(invoice)))
+        assertEquals(listOf(InvoiceQuickAction.COPY),availableInvoiceQuickActions(invoice,accepted.copy(companyId=99),listOf(invoice)))
+        val draft=invoice.copy(status="DRAFT")
+        assertEquals(listOf(InvoiceQuickAction.EDIT),availableInvoiceQuickActions(draft,null,listOf(draft)))
+        assertEquals(listOf(InvoiceQuickAction.EDIT),availableInvoiceQuickActions(draft,receipt.copy(state="RESERVED"),listOf(draft)))
+        assertTrue(availableInvoiceQuickActions(draft,receipt.copy(state="SUBMITTED"),listOf(draft)).isEmpty())
+    }
     @Test fun titleUsesOnlyMatchingCustomer() {
         assertEquals("صورتحساب مشتری آزمایشی",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=2,name="مشتری آزمایشی"))))
         assertEquals("صورتحساب مشتری نامشخص",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=99,name="نام دیگر"))))

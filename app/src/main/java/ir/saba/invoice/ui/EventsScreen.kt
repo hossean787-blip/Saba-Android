@@ -228,7 +228,10 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                             Text(invoicePdfDisplayDigits("${invoice.issueDate} • شماره ${invoice.invoiceNumber}"), color = SuraPalette.Muted,
                                 style = MaterialTheme.typography.labelSmall)
                             correctionLink(invoice,invoices,receipts)?.let { link ->
-                                Text(link.label,color=Color(0xFFAD792A),style=MaterialTheme.typography.labelSmall)
+                                Text(link.label,color=Color(0xFF805A1B),style=MaterialTheme.typography.labelSmall)
+                            }
+                            cancellationLink(invoice,invoices,receipts)?.let { link ->
+                                Text(link.label,color=Color(0xFF805A1B),style=MaterialTheme.typography.labelSmall)
                             }
                         }
                         Column(horizontalAlignment = Alignment.End,
