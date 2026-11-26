@@ -1,4 +1,5 @@
 import { b64 } from "./encoding.ts";
+import { protectedBalance } from "./protected_balance.ts";
 const root=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
 async function hash(x:string|Uint8Array){const b=typeof x==="string"?new TextEncoder().encode(x):x;return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",b)),n=>n.toString(16).padStart(2,"0")).join("");}
@@ -15,7 +16,9 @@ async function read(req:Request){
 }
 Deno.serve(async(req)=>{
  if(req.method!=="POST")return reply({error:"method_not_allowed"},405);
- const path=new URL(req.url).pathname;if(!path.endsWith("/challenge")&&!path.endsWith("/verify"))return reply({error:"not_found"},404);
+ const path=new URL(req.url).pathname;
+ const protectedAction=path.endsWith("/protected-challenge")?"challenge":path.endsWith("/protected-balance")?"balance":null;
+ if(!protectedAction&&!path.endsWith("/challenge")&&!path.endsWith("/verify"))return reply({error:"not_found"},404);
  if(!root||!anon||!service)return reply({error:"server_not_configured"},503);
  const auth=req.headers.get("authorization")??"";if(!/^Bearer [A-Za-z0-9._-]{20,16000}$/.test(auth))return reply({error:"unauthorized"},401);
  try{
@@ -23,6 +26,25 @@ Deno.serve(async(req)=>{
   if(!r.ok)return reply({error:"unauthorized"},401);
   const user=await r.json();if(typeof user.id!=="string"||!/^[0-9a-f-]{36}$/i.test(user.id))return reply({error:"unauthorized"},401);
   const session=await hash(auth);
+  if(protectedAction){
+   if(!user.email_confirmed_at)return reply({error:"unverified_account"},403);
+   let body:unknown;try{body=await read(req);}catch{return reply({error:"invalid_request"},400);}
+   return await protectedBalance(protectedAction,session,body,{
+    issue:(scope,nonceHash)=>rpc("sura_integrity_issue",{p_owner:user.id,p_session:scope,p_nonce:nonceHash}),
+    consume:(scope,nonceHash)=>rpc("sura_integrity_consume",{p_owner:user.id,p_session:scope,p_nonce:nonceHash}),
+    verify:async(chain,signature,nonce)=>{
+     let verifier:typeof import("./verifier.ts");
+     try{verifier=await import("./verifier.ts");}catch{throw Error("trust_unavailable");}
+     await verifier.verifyAttestation(chain,signature,nonce);
+    },
+    balance:async(taxpayer)=>{
+     const result=await fetch(root+"/rest/v1/rpc/sura_invoice_entitlement_balance",{method:"POST",redirect:"error",signal:AbortSignal.timeout(7000),headers:{apikey:service!,authorization:"Bearer "+service,"content-type":"application/json"},body:JSON.stringify({p_owner:user.id,p_taxpayer:taxpayer})});
+     if(!result.ok)throw Error("balance_unavailable");
+     return await result.json();
+    },
+    random:()=>crypto.getRandomValues(new Uint8Array(32))
+   });
+  }
   if(path.endsWith("/challenge")){
    const nonce=crypto.getRandomValues(new Uint8Array(32));
    if(!await rpc("sura_integrity_issue",{p_owner:user.id,p_session:session,p_nonce:await hash(nonce)}))return reply({error:"rate_limited"},429);
