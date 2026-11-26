@@ -45,7 +45,7 @@ assert 'Live sales offers' in manager and 'Live sales offers' in manager_source
 assert 'admin-offer-save' in manager_source and 'admin-offers' in manager_source
 assert 'admin-offer-save' in manager and 'admin-offers' in manager
 assert 'offerId' in (ROOT.parent/'supabase/functions/sura-card-transfer/index.ts').read_text(encoding='utf8')
-assert 'sura_sales_offers' in (ROOT.parent/'supabase/migrations/20261127100000_sura_live_sales_offers.sql').read_text(encoding='utf8')
+assert 'sura_sales_offers' in (ROOT.parent/'supabase/migrations/20261126225201_sura_live_sales_offers.sql').read_text(encoding='utf8')
 purchase=(ROOT.parent/'app/src/main/java/ir/saba/invoice/ui/CreditPurchaseScreen.kt').read_text(encoding='utf8')
 assert 'CardTransferApi.call(accessToken,"offers")' in purchase and 'طرح‌های فروش سورا' in purchase
 assert 'kind=="offer"' in (ROOT.parent/'app/src/main/java/ir/saba/invoice/ui/CardTransferPanel.kt').read_text(encoding='utf8')
