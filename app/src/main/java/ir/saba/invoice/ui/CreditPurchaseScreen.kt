@@ -181,7 +181,10 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 OutlinedButton(onClick={payAction{refreshOrders()}},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بررسی وضعیت سفارش‌های قبلی")}
             }
             if(offersLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
-            if(salesOffers.isNotEmpty())Text("طرح‌های ویژه سورا",fontWeight=FontWeight.Bold,color=deepBlue,style=MaterialTheme.typography.titleMedium)
+            if(salesOffers.isNotEmpty()||!offersLoading)Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){
+                Text("طرح‌های فروش سورا",fontWeight=FontWeight.Bold,color=deepBlue,style=MaterialTheme.typography.titleMedium)
+                TextButton(enabled=!offersLoading&&!checkoutBusy,onClick={offersLoading=true;scope.launch{try{val response=CardTransferApi.call(accessToken,"offers");salesOffers=SalesOffer.parseAll(response.getJSONArray("offers"));if(selectedOfferId!=null&&salesOffers.none{it.id==selectedOfferId})selectedOfferId=null;paymentMessage="طرح‌های فروش به‌روز شد."}catch(e:Exception){paymentMessage=SuraErrors.describe(e,"به‌روزرسانی طرح‌ها ناموفق بود.")}finally{offersLoading=false}}}){Text("به‌روزرسانی")}
+            }
             salesOffers.forEach{offer->
                 val selected=selectedOfferId==offer.id
                 Card(onClick={freeSelected=false;selectedOfferId=offer.id;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),
