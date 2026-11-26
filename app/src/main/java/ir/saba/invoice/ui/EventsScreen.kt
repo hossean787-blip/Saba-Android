@@ -161,7 +161,7 @@ internal fun CopyInvoiceButton(id:Long,enabled:Boolean=true,onClick:()->Unit) {
 @Composable
 fun EventsScreen(invoices: List<Invoice>,
                  customers: List<Customer> = emptyList(), receipts: Map<Long, OfficialSubmission> = emptyMap(),
-                 onOpenInvoice: (Long) -> Unit = { onInvoices() },
+                 onOpenInvoice: (Long) -> Unit = {},
                  onCopyInvoice: ((Long) -> Unit)? = null,
                  onQuickAction: ((Long,InvoiceQuickAction) -> Unit)? = null) {
     LazyColumn(
