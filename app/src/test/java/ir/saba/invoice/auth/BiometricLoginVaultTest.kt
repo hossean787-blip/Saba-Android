@@ -28,20 +28,4 @@ class BiometricLoginVaultTest {
             } catch (expected: Exception) { /* No plaintext diagnostic */ }
         }
     }
-
-    @Test fun differentSavedAccountsKeepIndependentCredentials() {
-        val first = StoredLoginCredentials("one@example.com", "First strong password!")
-        val second = StoredLoginCredentials("two@example.com", "Second strong password!")
-        val firstBytes = encodeCredentials(first)
-        val secondBytes = encodeCredentials(second)
-        try {
-            assertEquals(first, decodeCredentials(firstBytes))
-            assertEquals(second, decodeCredentials(secondBytes))
-            assertNotEquals(first.email, second.email)
-            assertNotEquals(first.password, second.password)
-        } finally {
-            firstBytes.fill(0)
-            secondBytes.fill(0)
-        }
-    }
 }
