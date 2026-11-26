@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
@@ -62,7 +63,7 @@ fun OwnerLoginScreen(
     AuthLayout("ورود به سورا", "با ایمیل و رمز عبور خود وارد حساب شوید.") {
         OutlinedTextField(
             value = email, onValueChange = { email = it.take(254) }, enabled = !busy,
-            modifier = Modifier.fillMaxWidth(), label = { Text("نام کاربری / ایمیل") },
+            modifier = Modifier.fillMaxWidth().testTag("loginEmailField"), label = { Text("ایمیل") },
             textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             singleLine = true, isError = email.isNotEmpty() && !RegistrationValidator.validEmail(email),
@@ -71,7 +72,7 @@ fun OwnerLoginScreen(
         )
         OutlinedTextField(
             value = password, onValueChange = { password = it.take(128) }, enabled = !busy,
-            modifier = Modifier.fillMaxWidth(), label = { Text("رمز عبور ثابت") },
+            modifier = Modifier.fillMaxWidth().testTag("loginPasswordField"), label = { Text("رمز عبور ثابت") },
             textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = { TextButton(onClick = { visible = !visible }, enabled = !busy) {
