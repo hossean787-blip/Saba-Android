@@ -819,9 +819,11 @@ private fun InvoiceScreenContent(
                         } else null,
                         onDetails = if(directPreview) { { mode = "details" } } else null,
                         onCorrection = if(canStartCorrection(loaded.invoice,officialRecord) &&
-                            correctionLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded.invoice.id) } } else null,
+                            correctionLink(loaded.invoice,invoices,officialByInvoice)==null &&
+                            cancellationLink(loaded.invoice,invoices,officialByInvoice)==null) { { startCorrection(loaded.invoice.id) } } else null,
                         correction = correctionLink(loaded.invoice,invoices,officialByInvoice),
                         onOpenCorrection = { id -> invoiceId=id;mode="event_open" },
+                        cancellation = cancellationLink(loaded.invoice,invoices,officialByInvoice),
                         onManage = { cancellationFromPreview=false; managementOpen=true },
                         onCancellation = if(canDraftOriginalCancellation(loaded.invoice,officialRecord,invoices)) {
                             { cancellationFromPreview=true; managementOpen=true }
@@ -1058,10 +1060,14 @@ private fun InvoiceScreenContent(
                             Text(linkedCorrection.label,style=MaterialTheme.typography.bodySmall)
                             OutlinedButton(enabled=!busy,onClick={invoiceId=linkedCorrection.invoice.id;mode="event_open"},
                                 modifier=Modifier.fillMaxWidth()) { Text("مشاهده اصلاحیه") }
-                        } else if(canStartCorrection(invoice,officialRecord)) {
+                        } else if(canStartCorrection(invoice,officialRecord) && cancellationLink(invoice,invoices,officialByInvoice)==null) {
                             OutlinedButton(enabled=!busy,onClick={startCorrection(loaded.invoice.id)},modifier=Modifier.fillMaxWidth()) {
                                 Text("صورتحساب اصلاحی")
                             }
+                        }
+                        cancellationLink(invoice,invoices,officialByInvoice)?.let{linked->
+                            Text(linked.label,style=MaterialTheme.typography.bodySmall)
+                            OutlinedButton(enabled=!busy,onClick={invoiceId=linked.invoice.id;mode="event_open"},modifier=Modifier.fillMaxWidth()) { Text("مشاهده ابطالی") }
                         }
                         Text(invoiceTaxStatus(officialRecord),
                             style = MaterialTheme.typography.bodySmall,
@@ -1206,16 +1212,16 @@ private fun InvoiceScreenContent(
                     Row(Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = subject == InvoiceSubject.ORIGINAL,
-                            enabled = !busy && !editorLocked,
+                            enabled = !busy && !editorLocked && subject != InvoiceSubject.CANCELLATION,
                             onClick = { subject = InvoiceSubject.ORIGINAL;referenceTaxId = "" },
                             label = { Text("اصلی") })
                         FilterChip(selected = subject == InvoiceSubject.CORRECTION,
-                            enabled = !busy && !editorLocked && invoiceId == null,
+                            enabled = !busy && !editorLocked && invoiceId == null && subject != InvoiceSubject.CANCELLATION,
                             onClick = { correctionPicker = true },
                             modifier = Modifier.testTag("chooseCorrectionReference"),
                             label = { Text("اصلاحی") })
                         FilterChip(selected = subject == InvoiceSubject.RETURN,
-                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty(),
+                            enabled = !busy && !editorLocked && acceptedOriginals.isNotEmpty() && subject != InvoiceSubject.CANCELLATION,
                             onClick = { subject = InvoiceSubject.RETURN; referenceTaxId = ""; lines = emptyList() },
                             label = { Text("برگشت از فروش (آزمایشی)") })
                         FilterChip(selected = subject == InvoiceSubject.CANCELLATION,
@@ -1234,7 +1240,7 @@ private fun InvoiceScreenContent(
                         var expandedReference by remember { mutableStateOf(false) }
                         val matches = acceptedOriginals.filter { it.second == customerId }
                         Box {
-                            OutlinedButton(enabled = !busy && !editorLocked && matches.isNotEmpty(),
+                            OutlinedButton(enabled = !busy && !editorLocked && matches.isNotEmpty() && subject != InvoiceSubject.CANCELLATION,
                                 modifier = Modifier.fillMaxWidth(), onClick = { expandedReference = true }) {
                                 Text("شناسه مالیاتی مرجع: " +
                                     referenceTaxId.ifBlank { "انتخاب از صورتحساب‌های پذیرفته‌شده" })
@@ -1248,7 +1254,7 @@ private fun InvoiceScreenContent(
                                 }
                             }
                         }
-                        if (matches.isEmpty()) Text("برای این مشتری صورتحساب اصلی پذیرفته‌شده‌ای وجود ندارد.",
+                        if (matches.isEmpty() && subject != InvoiceSubject.CANCELLATION) Text("برای این مشتری صورتحساب اصلی پذیرفته‌شده‌ای وجود ندارد.",
                             style = MaterialTheme.typography.bodySmall)
                         if (referenceTaxId.isNotBlank() && lines.isEmpty()) {
                             OutlinedButton(enabled = !busy && !editorLocked,

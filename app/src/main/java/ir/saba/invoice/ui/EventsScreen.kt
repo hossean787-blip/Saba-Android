@@ -94,6 +94,23 @@ internal fun correctionLink(original:Invoice, invoices:List<Invoice>, receipts:M
     return CorrectionLink(child,label)
 }
 
+internal fun cancellationLink(original:Invoice,invoices:List<Invoice>,receipts:Map<Long,OfficialSubmission>):CorrectionLink? {
+    val parent=receipts[original.id]?.takeIf{it.invoiceId==original.id && it.companyId==original.companyId &&
+        it.state=="ACCEPTED" && it.taxId.isNotBlank()} ?: return null
+    val child=invoices.firstOrNull{it.id!=original.id && it.companyId==original.companyId &&
+        it.customerId==original.customerId && it.subject=="CANCELLATION" &&
+        it.referenceTaxId==parent.taxId && it.status!="CANCELLED"} ?: return null
+    val row=receipts[child.id]?.takeIf{it.invoiceId==child.id && it.companyId==child.companyId &&
+        it.ownerId==parent.ownerId && it.fiscalId==parent.fiscalId}
+    val label=when(invoiceEventStatus(child,row)){
+        InvoiceEventStatus.SUCCESS->"ابطالی ثبت شده؛ وضعیت نهایی مرجع و واکنش خریدار را در کارپوشه بررسی کنید"
+        InvoiceEventStatus.REJECTED->"ابطالی ناموفق؛ مرجع تغییر نکرده"
+        InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK->"ابطالی در انتظار نتیجه؛ ابطال قطعی نیست"
+        else->"ابطالی ارسال نشده؛ مرجع تغییر نکرده"
+    }
+    return CorrectionLink(child,label)
+}
+
 /** Only never-posted documents or a definitively rejected attempt may enter editing. */
 /** A correction is a NEW referred invoice, not an edit or resend of the original. */
 internal fun canStartCorrection(invoice:Invoice, receipt:OfficialSubmission?):Boolean =

@@ -241,7 +241,7 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
                           busy:Boolean = false, onEdit:(() -> Unit)? = null, onDetails:(() -> Unit)? = null,
                           onCorrection:(() -> Unit)? = null, correction:CorrectionLink? = null,
                           onOpenCorrection:(Long)->Unit = {}, localPreview:Boolean = false,
-                          onManage:(()->Unit)?=null, onCancellation:(()->Unit)?=null) {
+                          onManage:(()->Unit)?=null, onCancellation:(()->Unit)?=null, cancellation:CorrectionLink?=null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var profiles by remember(db,company.id,customer.id) { mutableStateOf<Pair<MoadianDetails?,CustomerProfile?>?>(null) }
     var profileError by remember(db,company.id,customer.id) { mutableStateOf(false) }
@@ -330,6 +330,12 @@ fun InvoiceTemplateScreen(company: Company, customer: Customer, invoice: Invoice
         if(onCorrection!=null) OutlinedButton(enabled=!busy,onClick=onCorrection,modifier=Modifier.fillMaxWidth().testTag("startInvoiceCorrection"),
             shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
             Text("صورتحساب اصلاحی")
+        }
+        if(cancellation!=null) OutlinedCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                Text(cancellation.label,style=MaterialTheme.typography.bodySmall)
+                TextButton(enabled=!busy,onClick={onOpenCorrection(cancellation.invoice.id)}) { Text("مشاهده ابطالی "+cancellation.invoice.invoiceNumber) }
+            }
         }
         if(onCancellation!=null) OutlinedButton(enabled=!busy,onClick=onCancellation,
             modifier=Modifier.fillMaxWidth().testTag("startInvoiceCancellation"),

@@ -79,6 +79,19 @@ class InvoiceEventStatusTest {
         assertNull(correctionLink(invoice,listOf(invoice,child.copy(referenceTaxId="wrong")),mapOf(1L to parent)))
         assertEquals(InvoiceEventStatus.SUCCESS,invoiceEventStatus(invoice,parent))
     }
+    @Test fun cancellationEligibilityAndLinkedStatusNeverInventFinalLegalAbtal() {
+        val accepted=receipt.copy(state="ACCEPTED",referenceNumber="ref",lastError=OfficialReferenceEvidence.LEGACY_BOUND)
+        assertTrue(canDraftOriginalCancellation(invoice,accepted,listOf(invoice)))
+        assertTrue(canDraftOriginalCancellation(invoice.copy(subject="CORRECTION"),accepted,listOf(invoice)))
+        assertFalse(canDraftOriginalCancellation(invoice.copy(subject="CANCELLATION"),accepted,listOf(invoice)))
+        assertFalse(canDraftOriginalCancellation(invoice,accepted.copy(state="SUBMITTED"),listOf(invoice)))
+        val child=invoice.copy(id=5,subject="CANCELLATION",referenceTaxId=accepted.taxId,invoiceNumber="2000000002")
+        val childRow=accepted.copy(invoiceId=5,requestId="child",taxId="childTax",referenceNumber="childRef")
+        assertFalse(canDraftOriginalCancellation(invoice,accepted,listOf(invoice,child)))
+        assertEquals("ابطالی در انتظار نتیجه؛ ابطال قطعی نیست",cancellationLink(invoice,listOf(invoice,child),mapOf(1L to accepted,5L to childRow.copy(state="SUBMITTED")))?.label)
+        assertTrue(cancellationLink(invoice,listOf(invoice,child),mapOf(1L to accepted,5L to childRow))!!.label.contains("کارپوشه"))
+        assertEquals(InvoiceEventStatus.SUCCESS,invoiceEventStatus(invoice,accepted))
+    }
     @Test fun titleUsesOnlyMatchingCustomer() {
         assertEquals("صورتحساب مشتری آزمایشی",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=2,name="مشتری آزمایشی"))))
         assertEquals("صورتحساب مشتری نامشخص",invoiceEventTitle(invoice,listOf(Customer(id=3,companyId=99,name="نام دیگر"))))
