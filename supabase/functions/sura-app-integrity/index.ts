@@ -33,7 +33,7 @@ Deno.serve(async(req)=>{
   if(financeAction){
    if(!user.email_confirmed_at)return reply({error:"unverified_account"},403);
    // Live debit/transfer remains disabled until the owner-test client and rollout gate are verified.
-   if(!financeProbe&&Deno.env.get("SURA_FINANCE_INTEGRITY_EXECUTE")!=="enabled")return reply({error:"integrity_pilot_only"},503);
+   if(!financeProbe&&(Deno.env.get("SURA_FINANCE_INTEGRITY_EXECUTE")!=="enabled"||user.app_metadata?.sura_finance_integrity_required!==true))return reply({error:"integrity_pilot_only"},503);
    let body:unknown;try{body=await read(req);}catch{return reply({error:"invalid_request"},400);}
    return await protectedFinance(financeAction,session,body,{
     issue:(scope,nonceHash)=>rpc("sura_integrity_issue",{p_owner:user.id,p_session:scope,p_nonce:nonceHash}),

@@ -65,6 +65,25 @@ internal object AppAttestationClient {
         }
     }
 
+    /** Called only after an explicit pre-mutation integrity_required response.
+     * Never fall back after an ambiguous financial response. Reuse the same original request ID. */
+    suspend fun financialRequest(token:String,operation:JSONObject):JSONObject = withContext(Dispatchers.IO) {
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
+            throw ir.saba.invoice.ui.CreditHttpException(403,"integrity_unsupported")
+        lock.withLock {
+            val challenge=post("/finance-challenge",token,operation)
+            if(challenge.code!=200) throw ir.saba.invoice.ui.CreditHttpException(challenge.code,challenge.body.optString("error"))
+            require(challenge.body.optString("mode")=="enforce" &&
+                challenge.body.optString("operation")==operation.getString("operation") && challenge.body.opt("probe")==false)
+            val payload=proof(challenge.body.getString("nonce"))
+            operation.keys().forEach { key -> payload.put(key,operation.get(key)) }
+            val result=post("/finance-execute",token,payload)
+            if(result.code !in 200..299 || result.body.has("error"))
+                throw ir.saba.invoice.ui.CreditHttpException(result.code,result.body.optString("error"))
+            result.body
+        }
+    }
+
     @TargetApi(Build.VERSION_CODES.N)
     private fun proof(raw:String):JSONObject {
         val nonce = Base64.decode(raw, Base64.NO_WRAP)
@@ -90,7 +109,7 @@ internal object AppAttestationClient {
         } finally { runCatching { store.deleteEntry(alias) } }
     }
     private fun post(path: String, token: String, body: JSONObject): HttpResult {
-        require(path in setOf("/challenge","/verify","/protected-challenge","/protected-balance"))
+        require(path in setOf("/challenge","/verify","/protected-challenge","/protected-balance","/finance-challenge","/finance-execute"))
         val c = URL(BASE + path).openConnection() as HttpURLConnection
         try {
             c.instanceFollowRedirects = false

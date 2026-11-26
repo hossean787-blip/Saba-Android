@@ -34,5 +34,8 @@ internal object FreeCreditClient {
         http.post(token,JSONObject(),"/status"),"remaining",Int.MAX_VALUE.toLong()).toInt()
 
     suspend fun consume(token: String, invoiceKey: String): Int = CreditServerResponse.consumed(
-        http.post(token,JSONObject().put("invoiceKey",invoiceKey),"/consume"),Int.MAX_VALUE.toLong()).toInt()
+        financialIntegrityRoute(
+            legacy={http.post(token,JSONObject().put("invoiceKey",invoiceKey),"/consume")},
+            protected={ir.saba.invoice.security.AppAttestationClient.financialRequest(token,JSONObject().put("operation","consume_gift").put("invoiceKey",invoiceKey))}
+        ),Int.MAX_VALUE.toLong()).toInt()
 }

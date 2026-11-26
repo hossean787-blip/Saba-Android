@@ -22,6 +22,8 @@ Deno.serve(async(req)=>{
   const taxpayer=Number(body?.taxpayerId);
   if(!Number.isSafeInteger(taxpayer)||taxpayer<=0)return reply({error:"invalid_taxpayer"},400);
   const operation=String(body?.operation??"balance");
+  if(["consume","consume_invoice","transfer"].includes(operation)&&Deno.env.get("SURA_FINANCE_INTEGRITY_EXECUTE")==="enabled"&&user.app_metadata?.sura_finance_integrity_required===true)
+    return reply({error:"integrity_required"},403);
   if(operation==="balance"){
    const owner=await rest("sura_owner_wallets?select=credits&owner_id=eq."+encodeURIComponent(user.id));
    const target=await rest("sura_taxpayer_wallets?select=credits&owner_id=eq."+encodeURIComponent(user.id)+"&local_taxpayer_id=eq."+taxpayer);

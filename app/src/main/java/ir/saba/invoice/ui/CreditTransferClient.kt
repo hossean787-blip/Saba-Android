@@ -5,6 +5,14 @@ import java.util.UUID
 
 internal object CreditTransferClient {
     private val http = CreditHttpTransport(CreditEndpoint.PAID)
+    private suspend fun mutation(token:String,body:JSONObject):JSONObject = financialIntegrityRoute(
+        legacy={http.post(token,body)},
+        protected={
+            val operation=JSONObject(body.toString())
+            if(operation.optString("operation")=="consume")operation.put("operation","consume_paid")
+            ir.saba.invoice.security.AppAttestationClient.financialRequest(token,operation)
+        }
+    )
     private fun validateRequestId(value: String) {
         val id = UUID.fromString(value)
         require(id.toString() == value.lowercase(java.util.Locale.ROOT) && id.version() in 1..8 && id.variant() == 2)
@@ -16,12 +24,12 @@ internal object CreditTransferClient {
     suspend fun consumeInvoice(token:String,taxpayerId:Long,invoiceKey:String):Long {
         require(taxpayerId in 1..CreditServerResponse.MAX_SAFE_CREDITS)
         validateRequestId(invoiceKey)
-        return CreditServerResponse.consumed(http.post(token,JSONObject().put("operation","consume_invoice").put("taxpayerId",taxpayerId).put("invoiceKey",invoiceKey)))
+        return CreditServerResponse.consumed(mutation(token,JSONObject().put("operation","consume_invoice").put("taxpayerId",taxpayerId).put("invoiceKey",invoiceKey)))
     }
     suspend fun consume(token: String, taxpayerId: Long, invoiceKey: String): JSONObject {
         require(taxpayerId in 1..CreditServerResponse.MAX_SAFE_CREDITS)
         validateRequestId(invoiceKey)
-        return http.post(token,JSONObject().put("operation","consume").put("taxpayerId",taxpayerId).put("invoiceKey",invoiceKey))
+        return mutation(token,JSONObject().put("operation","consume").put("taxpayerId",taxpayerId).put("invoiceKey",invoiceKey))
             .also { CreditServerResponse.consumed(it) }
     }
     suspend fun receipt(token: String, taxpayerId: Long, requestId: String): JSONObject {
@@ -37,6 +45,6 @@ internal object CreditTransferClient {
             validateRequestId(requireNotNull(requestId))
             body.put("operation","transfer").put("credits",amount).put("requestId",requestId)
         } else body.put("operation","balance")
-        return http.post(token,body)
+        return if(amount!=null) mutation(token,body) else http.post(token,body)
     }
 }

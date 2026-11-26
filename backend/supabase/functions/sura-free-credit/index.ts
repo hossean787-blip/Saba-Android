@@ -21,6 +21,8 @@ Deno.serve(async req=>{
  if(!user?.id||!user?.email_confirmed_at)return reply({error:"unverified_account"},403);
  let body:any;try{body=await req.json()}catch{return reply({error:"invalid_json"},400)}
  if(new URL(req.url).pathname.endsWith("/consume")) {
+ if(Deno.env.get("SURA_FINANCE_INTEGRITY_EXECUTE")==="enabled"&&user.app_metadata?.sura_finance_integrity_required===true)
+  return reply({error:"integrity_required"},403);
  const key=String(body?.invoiceKey??"");
  if(!/^[0-9a-f-]{36}$/i.test(key)) return reply({error:"invalid_invoice_key"},400);
  const use=await fetch(base+"/rest/v1/rpc/sura_consume_promo_credit",{method:"POST",headers:{"apikey":service,"authorization":"Bearer "+service,"content-type":"application/json"},body:JSON.stringify({p_account:user.id,p_invoice_key:key})});
