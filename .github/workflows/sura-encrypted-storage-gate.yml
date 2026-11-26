@@ -1,0 +1,65 @@
+name: SURA encrypted financial storage candidate gate
+on:
+  push:
+    branches: ['security/encrypted-financial-storage']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  device:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 23
+            arch: x86
+          - api: 29
+            arch: x86_64
+          - api: 36
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare pinned SQLCipher dependency
+        run: bash scripts/prepare-sqlcipher.sh
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Verify actual production SQLCipher path
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: ${{ matrix.arch }}
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash ./gradlew --no-daemon --stacktrace --no-build-cache -PsuraSqlCipherRepository="$SURA_CIPHER_REPO" :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.FinancialStorageDeviceTest,ir.saba.invoice.data.ArchiveRecoveryDeviceTest,ir.saba.invoice.security.TaxpayerKeyVaultInstrumentedTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sura-encrypted-storage-api${{ matrix.api }}
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
+  release-compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare pinned SQLCipher dependency
+        run: bash scripts/prepare-sqlcipher.sh
+      - name: Compile minified production candidate (unsigned, not distributed)
+        run: bash ./gradlew --no-daemon --stacktrace --no-build-cache -PsuraSqlCipherRepository="$SURA_CIPHER_REPO" :app:assembleRelease :app:lintRelease

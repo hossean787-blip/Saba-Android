@@ -42,7 +42,7 @@ jobs:
       # Match the verified CI invocation, before the signing environment exists.
       # Do not skip or retry away any failed tests.
       - name: Run full debug regression and lint before signing
-        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest -PsuraPlaintextJvmFixtures=true :app:compileDebugAndroidTestKotlin :app:lintDebug
       - name: Summarize executed JVM tests
         if: always()
         run: python3 scripts/summarize-tests.py

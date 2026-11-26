@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          bash ./gradlew --no-daemon :app:testDebugUnitTest -PsuraPlaintextJvmFixtures=true :app:lintDebug :app:assembleRelease
       - name: Verify release signature and package metadata
         shell: bash
         run: |

@@ -19,8 +19,9 @@ android {
         minSdk = 23
         targetSdk = 35
         // Keep upgrade order above BOTH previously shipped variants (25 standard, 26 full).
-        versionCode = if (suraEmbeddedFull) 140 else 139
-        versionName = if (suraEmbeddedFull) "0.140.0" else "0.139.0"
+        versionCode = if (suraEmbeddedFull) 142 else 141
+        versionName = if (suraEmbeddedFull) "0.142.0" else "0.141.0"
+        buildConfigField("boolean", "SURA_PLAINTEXT_JVM_FIXTURES", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing is opt-in and never uses the ephemeral Android debug key.
@@ -43,6 +44,9 @@ android {
         }
     }
     buildTypes {
+        getByName("debug") {
+            buildConfigField("boolean", "SURA_PLAINTEXT_JVM_FIXTURES", (providers.gradleProperty("suraPlaintextJvmFixtures").orNull == "true").toString())
+        }
         getByName("release") {
             // Harden only the distribution variant; debug diagnostics remain available.
             isDebuggable = false
@@ -165,6 +169,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+    // Explicit AAR and its published POM runtime dependency (Maven Central 4.16.0).
+    implementation("net.zetetic:sqlcipher-android:4.16.0@aar") { isTransitive = false }
+    implementation("androidx.sqlite:sqlite:2.6.2")
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -179,3 +186,17 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
 }
 
+
+val suraCipherCheck by configurations.creating { isCanBeConsumed = false; isTransitive = false }
+dependencies { add(suraCipherCheck.name, "net.zetetic:sqlcipher-android:4.16.0@aar") }
+tasks.register("resolveSuraCipher") {
+    doLast {
+        val aar = suraCipherCheck.singleFile
+        check(aar.isFile && aar.length() > 100_000) { "SQLCipher AAR missing or incomplete" }
+        ZipFile(aar).use { zip ->
+            check(zip.getEntry("classes.jar") != null)
+            check(zip.getEntry("jni/arm64-v8a/libsqlcipher.so") != null)
+        }
+        println("SQLCipher AAR verified for packaging: " + aar.name)
+    }
+}

@@ -73,7 +73,7 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$SURA_RELEASE_STORE_FILE"
           keytool -list -keystore "$SURA_RELEASE_STORE_FILE" -storepass "$SURA_RELEASE_STORE_PASSWORD" -alias "$SURA_RELEASE_KEY_ALIAS" >/dev/null
           export GRADLE_USER_HOME="$RUNNER_TEMP/sura-full-gradle-home"
-          bash ./gradlew --no-daemon --no-build-cache clean :app:testDebugUnitTest -PsuraEmbeddedFull=true
+          bash ./gradlew --no-daemon --no-build-cache clean :app:testDebugUnitTest -PsuraPlaintextJvmFixtures=true -PsuraEmbeddedFull=true
           find app/schemas -type f -name '*.json' -size 0 -print -delete
           bash ./gradlew --no-daemon --no-build-cache :app:assembleRelease -PsuraEmbeddedFull=true
           APK="app/build/outputs/apk/release/app-release.apk"
