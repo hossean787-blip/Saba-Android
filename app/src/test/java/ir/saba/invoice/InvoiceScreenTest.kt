@@ -198,6 +198,9 @@ class InvoiceScreenTest {
     }
 
     @Test fun invoicesSectionDisplaysPreviouslySavedInvoices() {
+        // EventsScreen contains a LazyColumn and the test environment may have
+        // ongoing Compose frames; freeze the test clock so Espresso can settle.
+        compose.mainClock.autoAdvance = false
         runBlocking {
             InvoiceRepository(db).saveDraft(company, customer, "SAVED", "1405/08/20",
                 listOf(InvoiceLine(invoiceId = 0, description = "خدمت ثبت‌شده", quantity = 1,
