@@ -381,6 +381,7 @@ private fun InvoiceScreenContent(
         }
         invoiceId=null;number=suggestedNumber
         date=JalaliCalendar.fromGregorian(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tehran")))
+        localDetailsJson = InvoiceLocalDetails(paymentDate = date).toJson(preserveInput = true)
         inactiveBuyers=db.customerProfileDao().forCompany(companyId).filter{!it.active}.map{it.customerId}.toSet()
         customerId=customers.firstOrNull{it.id !in inactiveBuyers}?.id
         settlementMode=InvoiceSettlement.CASH;cashPortionInput=""
@@ -517,7 +518,7 @@ private fun InvoiceScreenContent(
             InvoiceCalculator.calculate(copied)
             val metadata=InvoiceLocalDetails.fromJson(source.invoice.localDetailsJson).copy(
                 documents=emptyList(),sendLaterDate="",sendLaterTime="",paymentSwitchNumber="",
-                paymentTrackingNumber="",paymentDate="",buyerBranchCode=""
+                paymentTrackingNumber="",paymentDate=JalaliCalendar.fromGregorian(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tehran"))),buyerBranchCode=""
             ).toJson(preserveInput=true)
             beginInvoice()
             if(pendingCreation!=null) return@perform
@@ -579,7 +580,8 @@ private fun InvoiceScreenContent(
             settlementMode=original.invoice.settlementMode
             cashPortionInput=if(settlementMode==InvoiceSettlement.MIXED) original.invoice.cashPaidRial?.toString().orEmpty() else ""
             localDetailsJson=InvoiceLocalDetails.fromJson(original.invoice.localDetailsJson)
-                .copy(documents=emptyList(),sendLaterDate="",sendLaterTime="",paymentTrackingNumber="",paymentDate="")
+                .copy(documents=emptyList(),sendLaterDate="",sendLaterTime="",paymentTrackingNumber="",
+                    paymentDate=JalaliCalendar.fromGregorian(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tehran"))))
                 .toJson(preserveInput=true)
             onNotice(if(targetSubject==InvoiceSubject.CANCELLATION) "پیش‌نویس ابطالی آماده شد؛ هنوز هیچ سندی ارسال نشده است." else "اصلاحیه آماده ویرایش است؛ اصل فاکتور بدون تغییر باقی ماند. اعتبار فقط هنگام ذخیره سند جدید مصرف می‌شود.")
         }
@@ -907,168 +909,47 @@ private fun InvoiceScreenContent(
                 } else Text("در حال بارگذاری اطلاعات الگو…")
             }
             "list" -> {
-                val customerById=remember(customers,companyId){customers.filter{it.companyId==companyId}.associateBy{it.id}}
-                val localInvoices=remember(invoices,companyId){invoices.filter{it.companyId==companyId}}
-                val statusCounts=remember(localInvoices){localInvoices.groupingBy{it.status}.eachCount()}
-                val managementIds=remember(localInvoices,officialByInvoice){
-                    localInvoices.filter{needsSubmissionManagement(it,officialByInvoice[it.id])}.map{it.id}.toSet()
-                }
-                val drafts=remember(localInvoices){localInvoices.filter{it.status=="DRAFT"}}
-                val displayed=remember(localInvoices,status,search,customerById,managementIds){
-                    val query=search.trim()
-                    val needle=InvoiceInput.digits(query)
-                    val filtered=localInvoices.filter{invoice->
-                        (status=="ALL" || if(status=="MANAGEMENT") invoice.id in managementIds else invoice.status==status) &&
-                            (query.isEmpty() || InvoiceInput.digits(invoice.invoiceNumber).contains(needle,true) ||
-                                customerById[invoice.customerId]?.name?.contains(query,true)==true)
-                    }
-                    if(status=="DRAFT") filtered.sortedByDescending{it.id} else filtered
-                }
-                val navy=SuraPalette.Navy
-                val teal=SuraPalette.Teal
-                LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("invoiceListScroll"),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)) {
-                    item(key="invoiceHeader") {
-                        Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
-                            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
-                                horizontalArrangement=Arrangement.SpaceBetween) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(if(status=="DRAFT") "پیش‌نویس‌ها" else "فاکتورهای شرکت",style=MaterialTheme.typography.titleLarge,
-                                        fontWeight=FontWeight.ExtraBold,color=navy)
-                                    Text(if(status=="DRAFT") "پیش‌نویس‌های محفوظ مودی فعال" else "${invoices.size} صورتحساب ثبت‌شده",style=MaterialTheme.typography.labelSmall,
-                                        color=SuraPalette.Muted)
-                                }
-                                IconButton(enabled=!busy,onClick={perform { onChanged() }}) {
-                                    Icon(Icons.Default.Refresh,contentDescription="تازه‌کردن فهرست",tint=teal)
-                                }
-                            }
-                            if(status=="DRAFT") DraftsSummary(drafts,displayed.size)
-                            else Card(shape=RoundedCornerShape(17.dp),modifier=Modifier.fillMaxWidth()) {
-                                Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(navy,SuraPalette.Ocean)))
-                                    .padding(horizontal=12.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                                    Text("اعتبار صدور صورتحساب",color=SuraPalette.OnDark,style=MaterialTheme.typography.labelSmall)
+                Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, SuraPalette.Edge)) {
+                        Column(Modifier.fillMaxWidth().padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("ثبت صورتحساب جدید", style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold, color = SuraPalette.Navy)
+                            Text("در این بخش فقط صورتحساب جدید ثبت یا از فایل اکسل وارد می‌شود. برای مشاهده، جستجو و مدیریت فاکتورهای ثبت‌شده از بخش «فاکتورها» استفاده کنید.",
+                                style = MaterialTheme.typography.bodyMedium, color = SuraPalette.Muted)
+                            Card(shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = SuraPalette.Navy)) {
+                                Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                    Text("اعتبار صدور صورتحساب", color = SuraPalette.OnDark,
+                                        style = MaterialTheme.typography.labelSmall)
                                     Text("اعتبار مودی: $paidRemaining | اعتبار هدیه: $promoRemaining",
-                                        color=Color.White,fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.bodyMedium)
+                                        color = Color.White, fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
-                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                Button(enabled=!busy,onClick={unifiedPreview=false;fromEvents=false;perform { beginInvoice() }},
-                                    modifier=Modifier.weight(1f),shape=RoundedCornerShape(14.dp),
-                                    contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp),
-                                    colors=ButtonDefaults.buttonColors(containerColor=teal)) {
-                                    Text("صدور فاکتور جدید",maxLines=1,style=MaterialTheme.typography.labelMedium)
-                                }
-                                OutlinedButton(enabled=!busy,onClick={mode="excel"},
-                                    modifier=Modifier.weight(1f).testTag("invoiceExcelEntry"),shape=RoundedCornerShape(14.dp),
-                                    contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp)) {
-                                    Text("ثبت با اکسل",maxLines=1,style=MaterialTheme.typography.labelMedium)
-                                }
+                            if (pendingCreation != null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.",
+                                color = Color(0xFF8F5C23), style = MaterialTheme.typography.bodySmall)
+                            if (customers.isEmpty()) Text("هنوز مشتری ثبت نشده است؛ برای ذخیره صورتحساب ابتدا مشتری ثبت کنید.",
+                                style = MaterialTheme.typography.bodySmall)
+                            if (usableCharge <= 0 && !promoLoading && !paidLoading) Text("برای ذخیره فاکتور جدید به اعتبار تأییدشده نیاز است؛ تکمیل فرم بدون مصرف اعتبار ممکن است.",
+                                style = MaterialTheme.typography.bodySmall, color = Color(0xFF8F5C23))
+                            Button(enabled = !busy,
+                                onClick = { unifiedPreview = false; fromEvents = false; perform { beginInvoice() } },
+                                modifier = Modifier.fillMaxWidth().testTag("invoiceNewEntry"),
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(vertical = 12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = SuraPalette.Teal)) {
+                                Text("صدور فاکتور جدید", fontWeight = FontWeight.Bold)
                             }
-                            if(pendingCreation!=null) Text("یک درخواست ایجاد صورتحساب ناتمام محفوظ است؛ با همان اطلاعات ادامه دهید.",
-                                color=Color(0xFF8F5C23),style=MaterialTheme.typography.bodySmall)
-                            if(customers.isEmpty()) Text("فعلاً مشتری ثبت نشده است؛ می‌توانید اسکلت فاکتور را آماده کنید، اما برای ذخیره باید مشتری داشته باشید.",
-                                style=MaterialTheme.typography.bodySmall)
-                            if(usableCharge<=0 && !promoLoading && !paidLoading) Text("برای ذخیره فاکتور جدید به اعتبار تأییدشده نیاز است؛ تکمیل فرم بدون مصرف اعتبار ممکن است.",
-                                style=MaterialTheme.typography.bodySmall,color=Color(0xFF8F5C23))
-                            OutlinedTextField(search,{search=it},singleLine=true,
-                                modifier=Modifier.fillMaxWidth().testTag("invoiceListSearch"),
-                                shape=RoundedCornerShape(16.dp),
-                                placeholder={Text("جستجوی شماره فاکتور یا مشتری",style=MaterialTheme.typography.bodyMedium)},
-                                leadingIcon={Icon(Icons.Default.Search,contentDescription=null,tint=teal)},
-                                trailingIcon={if(search.isNotBlank()) IconButton(onClick={search=""}){
-                                    Icon(Icons.Default.Close,contentDescription="پاک کردن جستجو")
-                                }},
-                                colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=teal,unfocusedBorderColor=SuraPalette.Edge,
-                                    focusedContainerColor=Color.White,unfocusedContainerColor=Color.White,cursorColor=teal))
-                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                                listOf("ALL" to "همه","DRAFT" to "پیش‌نویس","FINALIZED" to "نهایی").forEach { (value,title) ->
-                                    val count=if(value=="ALL") localInvoices.size else statusCounts[value]?:0
-                                    FilterChip(selected=status==value,onClick={status=value},modifier=Modifier.weight(1f),
-                                        label={Text("$title · $count",maxLines=1,style=MaterialTheme.typography.labelSmall)},
-                                        colors=FilterChipDefaults.filterChipColors(selectedContainerColor=navy,selectedLabelColor=Color.White,
-                                            containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
-                                }
+                            OutlinedButton(enabled = !busy, onClick = { mode = "excel" },
+                                modifier = Modifier.fillMaxWidth().testTag("invoiceExcelEntry"),
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(vertical = 11.dp)) {
+                                Text("ثبت صورتحساب با اکسل")
                             }
-                            FilterChip(selected=status=="MANAGEMENT",onClick={status="MANAGEMENT"},
-                                modifier=Modifier.fillMaxWidth().testTag("needsSubmissionManagement"),
-                                label={Text("نیازمند تعیین تکلیف · "+managementIds.size)},
-                                colors=FilterChipDefaults.filterChipColors(selectedContainerColor=navy,selectedLabelColor=Color.White,
-                                    containerColor=Color.White,labelColor=navy),shape=RoundedCornerShape(12.dp))
-                        }
-                    }
-                    if(displayed.isEmpty()) item(key="emptyInvoices") {
-                        if(status=="DRAFT") DraftsEmpty(search.isNotBlank(),onClear={search=""},onNew={unifiedPreview=false;fromEvents=false;perform{beginInvoice()}},busy=busy)
-                        else Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(16.dp)) {
-                            Text(if(invoices.isEmpty()) "هنوز فاکتوری ثبت نشده است." else "فاکتوری مطابق جستجو پیدا نشد.",
-                                modifier=Modifier.fillMaxWidth().padding(16.dp),color=navy)
-                        }
-                    }
-                    items(displayed,key={it.id}) { invoice ->
-                        val receipt=officialByInvoice[invoice.id]
-                        if(invoice.status=="DRAFT") {
-                            DraftInvoiceCard(invoice,customerById[invoice.customerId]?.name,
-                                receipt,busy,
-                                onEdit={fromEvents=false;unifiedPreview=true;editExistingById(invoice.id,draftOnly=true)},
-                                onPreview={fromEvents=false;unifiedPreview=true;invoiceId=invoice.id;error="";mode="event_open"})
-                        } else {
-                        val event=invoiceEventStatus(invoice,receipt)
-                        val stateColor=when(event){
-                            InvoiceEventStatus.SUCCESS -> Color(0xFF127A55)
-                            InvoiceEventStatus.REJECTED,InvoiceEventStatus.CANCELLED -> Color(0xFFAA343D)
-                            InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK -> Color(0xFF986217)
-                            else -> Color(0xFF526C80)
-                        }
-                        val stateBackground=when(event){
-                            InvoiceEventStatus.SUCCESS -> Color(0xFFE4F5EB)
-                            InvoiceEventStatus.REJECTED,InvoiceEventStatus.CANCELLED -> Color(0xFFFCE8E9)
-                            InvoiceEventStatus.PENDING,InvoiceEventStatus.CHECK -> Color(0xFFFFF2D9)
-                            else -> Color(0xFFEAF1F6)
-                        }
-                        Card(Modifier.fillMaxWidth().testTag("invoiceListCard_${invoice.id}"),
-                            shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Color.White),
-                            border=BorderStroke(1.dp,SuraPalette.Edge)) {
-                            Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
-                                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)){
-                                    Surface(shape=RoundedCornerShape(12.dp),color=SuraPalette.Soft){
-                                        Icon(Icons.AutoMirrored.Filled.List,contentDescription=null,tint=teal,
-                                            modifier=Modifier.padding(9.dp).size(21.dp))
-                                    }
-                                    Column(Modifier.weight(1f)){
-                                        Text(customerById[invoice.customerId]?.name
-                                            ?: "مشتری نامشخص",fontWeight=FontWeight.Bold,color=navy,
-                                            maxLines=2,overflow=TextOverflow.Ellipsis)
-                                        Text("فاکتور ${invoice.invoiceNumber}",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted)
-                                    }
-                                    Surface(shape=RoundedCornerShape(10.dp),color=stateBackground){
-                                        Text(InvoiceSubject.label(invoice.subject)+" · "+event.label,Modifier.padding(horizontal=8.dp,vertical=5.dp),color=stateColor,
-                                            fontWeight=FontWeight.SemiBold,style=MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                                HorizontalDivider(color=Color(0xFFEDF2F5))
-                                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
-                                    horizontalArrangement=Arrangement.SpaceBetween){
-                                    Text(invoice.issueDate,style=MaterialTheme.typography.bodySmall,color=SuraPalette.Muted)
-                                    Text(rial(invoice.totalAmountRial),fontWeight=FontWeight.Bold,
-                                        style=MaterialTheme.typography.titleSmall,color=teal)
-                                }
-                                receipt?.taxId?.let { Text("شماره مالیاتی: $it",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted) }
-                                receipt?.referenceNumber?.let { Text("شماره پیگیری: $it",style=MaterialTheme.typography.labelSmall,color=SuraPalette.Muted) }
-                                correctionLink(invoice,invoices,officialByInvoice)?.let { link ->
-                                    Text(link.label,color=Color(0xFF986217),style=MaterialTheme.typography.labelSmall)
-                                    TextButton(enabled=!busy,onClick={invoiceId=link.invoice.id;mode="event_open"}) {
-                                        Text("مشاهده اصلاحیه ${link.invoice.invoiceNumber}")
-                                    }
-                                }
-                                OutlinedButton(enabled=!busy,onClick={fromEvents=false;unifiedPreview=true;invoiceId=invoice.id;error="";mode="event_open"},
-                                    modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),
-                                    border=BorderStroke(1.dp,Color(0xFFBBD7DF)),
-                                    colors=ButtonDefaults.outlinedButtonColors(contentColor=teal)) {
-                                    Text("مشاهده جزئیات",style=MaterialTheme.typography.labelLarge)
-                                }
-                                InvoiceQuickActions(invoice,receipt,localInvoices,enabled=!busy,onAction={openQuickAction(invoice.id,it,false)})
-                            }
-                        }
                         }
                     }
                 }
