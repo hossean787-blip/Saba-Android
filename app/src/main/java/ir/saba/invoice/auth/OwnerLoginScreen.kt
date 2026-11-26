@@ -25,6 +25,14 @@ fun OwnerLoginScreen(
     // Passwords must never enter Activity saved-instance state.
     var password by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(autofillCredentials) {
+        autofillCredentials?.let {
+            email = it.email
+            password = it.password
+            visible = false
+            onAutofillConsumed()
+        }
+    }
     val valid = RegistrationValidator.validEmail(email) && password.isNotBlank() && password.length <= 128
     fun submit() {
         if (!busy && valid) { onPasswordLogin(email.trim(), password); password = ""; visible = false }
