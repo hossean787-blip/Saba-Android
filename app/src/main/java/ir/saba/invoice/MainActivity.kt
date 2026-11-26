@@ -345,24 +345,26 @@ class MainActivity : ComponentActivity() {
             return
         }
         // Do not expose account workflows until every existing private financial database is migrated.
-        var storageReady by remember(account) { mutableStateOf(false) }
+        var storageDb by remember(account) { mutableStateOf<SabaDatabase?>(null) }
         var storageFailed by remember(account) { mutableStateOf(false) }
         var storageRetry by remember(account) { mutableIntStateOf(0) }
         LaunchedEffect(account,storageRetry) {
-            storageReady=false;storageFailed=false
+            storageDb=null;storageFailed=false
+            var opened:SabaDatabase?=null
             try {
                 withContext(Dispatchers.IO) {
                     FinancialStorage.prepareExisting(applicationContext)
-                    val opened=SabaDatabase.openAccount(applicationContext,account)
-                    try {
-                        opened.openHelper.writableDatabase.query("SELECT count(*) FROM companies").use { check(it.moveToFirst()) }
-                    } finally {opened.close()}
+                    opened=SabaDatabase.openAccount(applicationContext,account)
+                    requireNotNull(opened).openHelper.writableDatabase.query("SELECT count(*) FROM companies").use {check(it.moveToFirst())}
                 }
-                storageReady=true
+                storageDb=requireNotNull(opened)
+                kotlinx.coroutines.awaitCancellation()
             } catch(e:CancellationException) { throw e }
-            catch(_:Exception) { storageFailed=true }
+            catch(_:Exception) { storageDb=null;storageFailed=true }
+            finally {opened?.close()}
         }
-        if(!storageReady) {
+        val readyDb=storageDb
+        if(readyDb==null) {
             Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center) {
                 Text(if(storageFailed) "بانک اطلاعات مالی قابل بازکردن نیست. اطلاعات قبلی حذف یا بازنشانی نمی‌شود."
                     else "در حال آماده‌سازی امن اطلاعات مالی…")
@@ -377,7 +379,7 @@ class MainActivity : ComponentActivity() {
         val accountStates = rememberSaveableStateHolder()
         accountStates.SaveableStateProvider(account.storageKey) {
             key(account.ownerId) {
-                SabaAccountApp(account, onLogout, ownerName, ownerEmail, accessToken, biometricEnabled, onDisableBiometrics)
+                SabaAccountApp(account, readyDb, onLogout, ownerName, ownerEmail, accessToken, biometricEnabled, onDisableBiometrics)
             }
         }
     }
@@ -385,6 +387,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SabaAccountApp(
         account: AccountScope,
+        db:SabaDatabase,
         onLogout: () -> Unit,
         ownerName: String?,
         ownerEmail: String?,
@@ -392,8 +395,6 @@ class MainActivity : ComponentActivity() {
         biometricEnabled: Boolean,
         onDisableBiometrics: () -> Unit
     ) {
-        val db = remember(account) { SabaDatabase.openAccount(applicationContext, account) }
-        DisposableEffect(db) { onDispose { db.close() } }
         var confirmLogout by remember { mutableStateOf(false) }
         var diagnosticResult by remember(account) { mutableStateOf("هنوز بررسی نشده") }
         var integrityResult by remember(account,accessToken) { mutableStateOf("هنوز بررسی نشده") }

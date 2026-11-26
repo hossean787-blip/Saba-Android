@@ -152,11 +152,11 @@ internal object FinancialStorage {
         val vault=FinancialDatabaseKey(context,name)
         val hasFile=file.exists()
         val plaintext=hasFile&&isPlain(file)
-        check(hasFile||!vault.isEstablished()) {"بانک اطلاعات حذف یا مفقود شده؛ بازیابی لازم است."}
+        check(hasFile||(!vault.expectsDatabase()&&!stageFile(file).exists()&&listOf("-wal","-shm","-journal").none {File(file.path+it).exists()})) {"بانک اطلاعات حذف یا مفقود شده؛ بازیابی لازم است."}
         check(!plaintext||!vault.isEstablished()) {"بازگشت به بانک بدون رمزگذاری مجاز نیست."}
         val key=vault.openOrCreate(hasFile&&!plaintext)
         try {
-            if(plaintext)convert(file,key,beforeReplace)
+            if(plaintext){vault.markMigrationStarted();convert(file,key,beforeReplace)}
             if(hasFile) {
                 open(file,key,SQLiteDatabase.OPEN_READONLY).use {db ->
                     db.query("SELECT count(*) FROM sqlite_master").use {check(it.moveToFirst())}

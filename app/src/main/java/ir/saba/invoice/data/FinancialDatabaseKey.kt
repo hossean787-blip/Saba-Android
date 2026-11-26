@@ -22,11 +22,14 @@ internal class FinancialDatabaseKey(context:Context,private val name:String) {
     private val dir=File(context.noBackupFilesDir,"financial-db-keys-v1")
     private val envelope=AtomicFile(File(dir,id+".wrapped"))
     private val ready=AtomicFile(File(dir,id+".ready"))
+    private val migrating=AtomicFile(File(dir,id+".migrating"))
     private val alias="sura.financial.db.v1."+id
     private val aad=("SURA:financial-db:v1:"+name).toByteArray(Charsets.UTF_8)
     private fun store()=KeyStore.getInstance("AndroidKeyStore").apply {load(null)}
     private fun exists(file:AtomicFile)=file.baseFile.exists()||File(file.baseFile.path+".bak").exists()
     fun isEstablished()=exists(ready)
+    fun expectsDatabase()=isEstablished()||exists(migrating)
+    fun markMigrationStarted(){if(!exists(migrating))persist(migrating,byteArrayOf(1))}
     private fun persist(file:AtomicFile,bytes:ByteArray) {
         check(dir.mkdirs()||dir.isDirectory)
         val out=file.startWrite()
@@ -34,8 +37,12 @@ internal class FinancialDatabaseKey(context:Context,private val name:String) {
         catch(e:Exception) {file.failWrite(out);throw e}
         file.openRead().use {check(MessageDigest.isEqual(it.readBytes(),bytes))}
         FinancialStorage.syncDirectory(dir)
+        FinancialStorage.syncDirectory(requireNotNull(dir.parentFile))
     }
-    fun markEstablished() {if(!isEstablished())persist(ready,byteArrayOf(1))}
+    fun markEstablished() {
+        if(!isEstablished())persist(ready,byteArrayOf(1))
+        if(exists(migrating)){migrating.delete();check(!exists(migrating));FinancialStorage.syncDirectory(dir)}
+    }
     private fun unwrap(key:SecretKey):ByteArray {
         val bytes=envelope.openRead().use {
             val result=ByteArray(61)

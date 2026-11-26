@@ -33,7 +33,7 @@ class FinancialStorageDeviceTest {
     private fun cleanup(name:String) {
         ctx.deleteDatabase(name)
         val base=File(ctx.noBackupFilesDir,"financial-db-keys-v1/"+hash(name))
-        for(suffix in listOf(".wrapped",".wrapped.bak",".wrapped.new",".ready",".ready.bak",".ready.new"))
+        for(suffix in listOf(".wrapped",".wrapped.bak",".wrapped.new",".ready",".ready.bak",".ready.new",".migrating",".migrating.bak",".migrating.new"))
             File(base.path+suffix).delete()
         KeyStore.getInstance("AndroidKeyStore").apply{load(null);deleteEntry("sura.financial.db.v1."+hash(name))}
     }
