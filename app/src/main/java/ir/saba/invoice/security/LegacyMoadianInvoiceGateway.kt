@@ -160,6 +160,10 @@ internal object LegacyMoadianEncryption {
     }
 }
 
+/** Original sales keep normal routing; both referenced subjects use the same permission gate. */
+internal fun prefersFastReferredQueue(subject:Int,token:String):Boolean =
+    subject in setOf(2,3) && permitsFastSelfTsp(token)
+
 /** Routing hint from fresh HTTPS-issued token; authority still enforces permissions. */
 internal fun permitsFastSelfTsp(token:String):Boolean = runCatching {
     val parts=token.split('.')
@@ -268,7 +272,7 @@ internal class LegacyMoadianInvoiceGateway(
         val envelope = JSONObject().put("packets", JSONArray().put(row))
             .put("signature", signature).put("signatureKeyId", JSONObject.NULL)
         require(envelope.toString().length <= 4_000_000)
-        LegacyPreparedInvoice(envelope.toString(), hs, subject == 2 && permitsFastSelfTsp(auth))
+        LegacyPreparedInvoice(envelope.toString(), hs, prefersFastReferredQueue(subject, auth))
         }
     }
 

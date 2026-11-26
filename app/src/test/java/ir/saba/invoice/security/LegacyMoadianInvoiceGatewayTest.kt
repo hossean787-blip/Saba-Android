@@ -157,6 +157,15 @@ class LegacyMoadianInvoiceGatewayTest {
         assertFalse(permitsFastSelfTsp(token("tsp.async.fast-enqueue")))
         assertFalse(permitsFastSelfTsp(token("self-tsp.async.normal-enqueue")))
         assertFalse(permitsFastSelfTsp("opaque"))
+        val allowed=token("self-tsp.async.fast-enqueue")
+        assertFalse(prefersFastReferredQueue(1,allowed))
+        for(subject in listOf(2,3)) {
+            assertTrue(prefersFastReferredQueue(subject,allowed))
+            assertFalse(prefersFastReferredQueue(subject,token("tsp.async.fast-enqueue")))
+            assertFalse(prefersFastReferredQueue(subject,token("self-tsp.async.normal-enqueue")))
+            assertFalse(prefersFastReferredQueue(subject,"opaque"))
+        }
+        assertFalse(prefersFastReferredQueue(4,allowed))
     }
     @org.junit.Test fun taxErrorRenderingRetainsActualCodesAndDescriptions() {
         val errors=org.json.JSONArray().put(org.json.JSONObject().put("code","E123").put("message","شناسه کالا نامعتبر است"))
