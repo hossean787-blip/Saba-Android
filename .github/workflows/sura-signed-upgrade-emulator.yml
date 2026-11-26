@@ -11,12 +11,13 @@ on:
       current_run_id:
         description: 'Successful standard signed APK candidate run ID'
         required: true
-        default: '45817843347'
+        default: '45821631984'
         type: string
-  workflow_run:
-    workflows: ['SURA signed APK (manual)']
+  push:
     branches: [main]
-    types: [completed]
+    paths:
+      - '.github/workflows/sura-signed-upgrade-emulator.yml'
+      - 'scripts/verify-signed-upgrade.sh'
 
 permissions:
   contents: read
@@ -24,8 +25,8 @@ permissions:
 
 jobs:
   signed-upgrade:
-    # Automatically validate this authorized 0.133 candidate once. Future pairs are manual.
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.id == 45817843347 && github.event.workflow_run.conclusion == 'success')
+    # Validate the explicitly chosen, successful 0.131 -> 0.137 signed pair.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
@@ -39,7 +40,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIOUS_RUN_ID: ${{ inputs.previous_run_id || '45813818399' }}
-          CURRENT_RUN_ID: ${{ inputs.current_run_id || github.event.workflow_run.id }}
+          CURRENT_RUN_ID: ${{ inputs.current_run_id || '45821631984' }}
         run: |
           set -euo pipefail
           mkdir -p app/build/upgrade/previous app/build/upgrade/current
