@@ -462,3 +462,64 @@ async function saveSelectedGift(owner){return submitBusy(async()=>{
   selectedGift=null;toast('اعتبار هدیه ثبت شد: '+r.receipt,'success');openManagerUser(owner);
  }catch(e){toast('نتیجه تأیید نشد؛ همان درخواست را بررسی کنید. '+parseError(e),'error');}
 });}
+
+
+/* Live sales offers — changes are server-side and immediately visible to app clients. */
+let salesOffersSnapshot=[];
+async function appendSalesOffers(c){
+ if(ADMIN_ROLE!=='admin'){
+  const note=document.createElement('div');note.className='empty-note';note.textContent='مدیریت طرح‌های فروش فقط در دسترس مدیرکل است.';c.appendChild(note);return;
+ }
+ try{
+  const d=await cardFetch('admin-offers',{});salesOffersSnapshot=Array.isArray(d.offers)?d.offers:[];
+  const box=document.createElement('div');box.className='panel';
+  box.innerHTML='<div class="panel-head"><h3>طرح‌های فروش زنده</h3><button class="btn btn-accent" onclick="openSalesOffer()">افزودن طرح جدید</button></div>'+
+   '<div class="empty-note">طرح‌های فعال بدون انتشار نسخه جدید اپ صورتحساب، پس از استعلام مجدد در خرید اعتبار کاربران نمایش داده می‌شوند. قیمت هر طرح مبلغ پایه است و مالیات ۱۰٪ هنگام استعلام سرور محاسبه می‌شود.</div>'+
+   '<div class="tbl-wrap"><table><thead><tr><th>عنوان</th><th>اعتبار</th><th>قیمت پایه</th><th>وضعیت</th><th>ترتیب</th><th>عملیات</th></tr></thead><tbody>'+
+   (salesOffersSnapshot.map(o=>'<tr><td><b>'+html(o.title)+'</b><div class="muted">'+html(o.description||'')+'</div></td><td>'+fmtNum(o.credits)+'</td><td>'+fmtRial(o.price_rial)+'</td><td>'+managerPill(o.active?'فعال':'غیرفعال',o.active?'green':'gray')+(o.featured?' '+managerPill('ویژه','blue'):'')+'</td><td>'+fmtNum(o.sort_order)+'</td><td><button class="action-btn" onclick="openSalesOffer(\''+html(o.id)+'\')">ویرایش</button> '+(o.active?'<button class="action-btn" onclick="deactivateSalesOffer(\''+html(o.id)+'\')">توقف فروش</button>':'')+'</td></tr>').join('')||'<tr><td colspan="6">هنوز طرحی تعریف نشده است.</td></tr>')+
+   '</tbody></table></div>';
+  c.appendChild(box);
+  const audit=document.createElement('div');audit.className='panel';
+  audit.innerHTML='<div class="panel-head"><h3>تاریخچه تغییر طرح‌ها</h3><span>'+fmtNum((d.audit||[]).length)+' تغییر اخیر</span></div>'+
+   '<div class="tbl-wrap"><table><thead><tr><th>طرح</th><th>اعتبار</th><th>قیمت</th><th>وضعیت</th><th>دلیل تغییر</th><th>زمان</th></tr></thead><tbody>'+
+   (d.audit||[]).map(a=>'<tr><td>'+html(a.title)+'</td><td>'+fmtNum(a.credits)+'</td><td>'+fmtRial(a.price_rial)+'</td><td>'+html(a.active?'فعال':'غیرفعال')+'</td><td>'+html(a.reason)+'</td><td>'+fmtDate(a.created_at)+'</td></tr>').join('')||'<tr><td colspan="6">تغییری ثبت نشده است.</td></tr>')+'</tbody></table></div>';
+  c.appendChild(audit);
+ }catch(e){const note=document.createElement('div');note.className='empty-note';note.textContent='دریافت طرح‌های فروش انجام نشد: '+parseError(e);c.appendChild(note);}
+}
+function openSalesOffer(id){
+ if(ADMIN_ROLE!=='admin')return toast('دسترسی مدیرکل لازم است','error');
+ const o=id?salesOffersSnapshot.find(x=>x.id===id):null;
+ if(id&&!o)return toast('طرح انتخابی پیدا نشد؛ صفحه را تازه کنید.','error');
+ const v=o||{id:newUUID(),revision:0,title:'',description:'',credits:10,price_rial:900000,active:false,featured:false,sort_order:100};
+ openModal(o?'ویرایش طرح فروش':'ایجاد طرح فروش',
+  '<div class="field-row"><label>نام طرح</label><input id="offer-title" maxlength="80" value="'+html(v.title)+'" placeholder="مثلاً بسته اقتصادی"></div>'+
+  '<div class="field-row"><label>توضیحات کوتاه</label><textarea id="offer-description" maxlength="240">'+html(v.description||'')+'</textarea></div>'+
+  '<div class="field-row"><label>تعداد صورتحساب</label><input id="offer-credits" type="number" min="1" max="999999" step="1" value="'+Number(v.credits)+'"></div>'+
+  '<div class="field-row"><label>قیمت پایه به ریال (بدون مالیات)</label><input id="offer-price" type="number" min="1" max="1000000000000" step="1" value="'+Number(v.price_rial)+'"></div>'+
+  '<div class="field-row"><label>ترتیب نمایش</label><input id="offer-sort" type="number" min="0" max="10000" step="1" value="'+Number(v.sort_order)+'"></div>'+
+  '<label><input id="offer-active" type="checkbox" '+(v.active?'checked':'')+'> نمایش و فروش فعال</label> '+
+  '<label><input id="offer-featured" type="checkbox" '+(v.featured?'checked':'')+'> طرح ویژه</label>'+
+  '<div class="field-row"><label>دلیل ثبت یا تغییر (الزامی)</label><textarea id="offer-reason" maxlength="500" placeholder="علت تغییر قیمت یا مشخصات طرح"></textarea></div>'+
+  '<div class="empty-note">قیمت نهایی با ۱۰٪ مالیات توسط سرور محاسبه می‌شود. سفارش‌های قبلی تغییر نمی‌کنند.</div>',
+  '<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button id="modal-submit" class="btn btn-accent" onclick="saveSalesOffer()">ذخیره طرح</button>');
+ const m=document.getElementById('modal');m.dataset.offerId=v.id;m.dataset.offerExpected=String(v.revision);m.dataset.offerRequest=newUUID();
+}
+async function saveSalesOffer(){return submitBusy(async()=>{
+ const m=document.getElementById('modal');
+ const body={id:m.dataset.offerId,expected:Number(m.dataset.offerExpected),request:m.dataset.offerRequest,
+  title:document.getElementById('offer-title').value.trim(),description:document.getElementById('offer-description').value.trim(),
+  credits:Number(document.getElementById('offer-credits').value),price:Number(document.getElementById('offer-price').value),
+  sort:Number(document.getElementById('offer-sort').value),active:document.getElementById('offer-active').checked,
+  featured:document.getElementById('offer-featured').checked,reason:document.getElementById('offer-reason').value.trim()};
+ if(body.title.length<2||body.title.length>80||body.description.length>240||!Number.isSafeInteger(body.credits)||body.credits<1||body.credits>999999||!Number.isSafeInteger(body.price)||body.price<1||body.price>1000000000000||!Number.isSafeInteger(body.sort)||body.sort<0||body.sort>10000||body.reason.length<5||body.reason.length>500)return toast('اطلاعات طرح یا دلیل تغییر معتبر نیست.','error');
+ if(!confirm((body.active?'فعال‌سازی':'ذخیره')+' طرح «'+body.title+'» با '+fmtNum(body.credits)+' اعتبار و قیمت پایه '+fmtRial(body.price)+' ثبت شود؟'))return;
+ try{const r=await cardFetch('admin-offer-save',body);if(!r.receipt)throw Error('missing_receipt');toast('طرح ذخیره شد؛ رسید '+r.receipt,'success');closeModal();showPage('packages');}
+ catch(e){toast('طرح ذخیره نشد: '+parseError(e),'error');}
+});}
+async function deactivateSalesOffer(id){
+ const o=salesOffersSnapshot.find(x=>x.id===id);if(!o||ADMIN_ROLE!=='admin')return;
+ if(!confirm('فروش طرح «'+o.title+'» متوقف شود؟ سوابق سفارش‌های قبلی حفظ می‌شود.'))return;
+ const body={id:o.id,expected:Number(o.revision),request:newUUID(),title:o.title,description:o.description||'',credits:Number(o.credits),price:Number(o.price_rial),sort:Number(o.sort_order),active:false,featured:!!o.featured,reason:'توقف فروش طرح توسط مدیرکل'};
+ try{const r=await cardFetch('admin-offer-save',body);if(!r.receipt)throw Error('missing_receipt');toast('فروش طرح متوقف شد','success');showPage('packages');}
+ catch(e){toast('توقف فروش تأیید نشد: '+parseError(e),'error');}
+}
