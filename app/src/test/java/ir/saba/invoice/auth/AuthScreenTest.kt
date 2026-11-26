@@ -33,17 +33,21 @@ class AuthScreenTest {
                     onBiometricLogin = { taps++ })
             }
         }
-        compose.onNodeWithText("بازکردن رمز با اثر انگشت").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithText("ورود با اثر انگشت").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, taps) }
     }
 
-
-    @Test fun savedAccountsAreSelectableAndBiometricUnlockAutofillsLoginFields() {
+    @Test fun biometricUnlockAutomaticallySubmitsCredentialsToNormalLoginHandler() {
         var consumed = false
+        var submittedEmail: String? = null
+        var submittedPassword: String? = null
         compose.setContent {
             AuthTheme {
                 OwnerLoginScreen(
-                    onPasswordLogin = { _, _ -> },
+                    onPasswordLogin = { email, password ->
+                        submittedEmail = email
+                        submittedPassword = password
+                    },
                     onSmsLogin = {},
                     onRegister = {},
                     biometricEnabled = true,
@@ -53,11 +57,11 @@ class AuthScreenTest {
                 )
             }
         }
-        compose.onAllNodesWithText("second@example.com").assertCountEquals(2)
-        compose.onNodeWithText("بازکردن رمز با اثر انگشت").assertExists()
-        compose.onNodeWithText("نمایش").performScrollTo().performClick()
-        compose.onNodeWithText("StrongPassword!123").assertExists()
-        compose.runOnIdle { assertTrue(consumed) }
+        compose.runOnIdle {
+            assertTrue(consumed)
+            assertEquals("second@example.com", submittedEmail)
+            assertEquals("StrongPassword!123", submittedPassword)
+        }
     }
 
     @Test fun busyLoginDisablesNavigationAndSubmission() {
