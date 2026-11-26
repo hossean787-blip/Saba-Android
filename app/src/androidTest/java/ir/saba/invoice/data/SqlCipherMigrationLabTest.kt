@@ -1,7 +1,7 @@
 package ir.saba.invoice.data
 
 import android.content.Context
-import android.util.Base64
+import ir.saba.invoice.security.AccountScope
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.test.core.app.ApplicationProvider
@@ -12,7 +12,6 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.security.SecureRandom
 import java.util.UUID
 
 /** Isolated migration laboratory: synthetic files only, no production account access. */
@@ -26,10 +25,10 @@ class SqlCipherMigrationLabTest {
         val targetName=prefix+"_cipher.db"
         val sourceFile=ctx.getDatabasePath(sourceName)
         val targetFile=ctx.getDatabasePath(targetName)
-        val owner="11111111-1111-4111-8111-111111111111"
-        val random=ByteArray(32).also { SecureRandom().nextBytes(it) }
-        val password=Base64.encode(random,Base64.NO_WRAP)
-        random.fill(0)
+        val scope=AccountScope.of(UUID.randomUUID().toString())
+        val owner=scope.ownerId
+        val key=LabDatabaseKey(ctx,scope)
+        val password=key.openOrCreate(false)
         try {
             val source=Room.databaseBuilder(ctx,SabaDatabase::class.java,sourceName)
                 .setJournalMode(RoomDatabase.JournalMode.TRUNCATE).build()
@@ -61,8 +60,10 @@ class SqlCipherMigrationLabTest {
             val header=ByteArray(16).also { bytes -> java.io.DataInputStream(targetFile.inputStream()).use { it.readFully(bytes) } }
             assertFalse(header.contentEquals("SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)))
             assertFalse(String(targetFile.readBytes(),Charsets.ISO_8859_1).contains("Synthetic confidentiality fixture"))
+            val reopenedPassword=LabDatabaseKey(ctx,scope).openOrCreate(true)
+            assertArrayEquals(password,reopenedPassword)
             val encrypted=Room.databaseBuilder(ctx,SabaDatabase::class.java,targetName)
-                .openHelperFactory(SupportOpenHelperFactory(password))
+                .openHelperFactory(SupportOpenHelperFactory(reopenedPassword))
                 .setJournalMode(RoomDatabase.JournalMode.TRUNCATE).build()
             try {
                 assertEquals("Synthetic confidentiality fixture",encrypted.companyDao().byId(7)?.name)
@@ -72,7 +73,7 @@ class SqlCipherMigrationLabTest {
                 assertEquals("Synthetic line",encrypted.invoiceLineDao().forInvoice(invoice).single().description)
                 assertEquals(60L,encrypted.quotaDao().wallet(owner)?.available)
                 encrypted.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use {assertFalse(it.moveToFirst())}
-            } finally {encrypted.close()}
+            } finally {encrypted.close();reopenedPassword.fill(0)}
             // Do not touch the actual cipher file with a default corruption handler.
             val wrongKeyCopy=ctx.getDatabasePath(prefix+"_wrong.db")
             try {
@@ -85,6 +86,7 @@ class SqlCipherMigrationLabTest {
             } finally {ctx.deleteDatabase(wrongKeyCopy.name)}
         } finally {
             password.fill(0)
+            key.cleanupSyntheticFixture()
             ctx.deleteDatabase(sourceName)
             ctx.deleteDatabase(targetName)
         }

@@ -33,7 +33,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.SqlCipherMigrationLabTest
+          script: bash ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.saba.invoice.data.SqlCipherMigrationLabTest,ir.saba.invoice.data.LabDatabaseKeyDeviceTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:
