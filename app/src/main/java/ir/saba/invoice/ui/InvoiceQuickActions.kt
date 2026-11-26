@@ -47,37 +47,34 @@ internal fun availableInvoiceQuickActions(invoice:Invoice,receipt:OfficialSubmis
 
 @Composable
 internal fun InvoiceQuickActions(invoice:Invoice,receipt:OfficialSubmission?,invoices:List<Invoice>,
-                                 enabled:Boolean=true,onAction:(InvoiceQuickAction)->Unit) {
+                                 enabled:Boolean=true,inline:Boolean=false,onAction:(InvoiceQuickAction)->Unit) {
     val actions=availableInvoiceQuickActions(invoice,receipt,invoices)
     if(actions.isEmpty()) return
-    HorizontalDivider(Modifier.padding(horizontal=12.dp),color=SuraPalette.Edge)
-    Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=2.dp),
-        horizontalArrangement=Arrangement.spacedBy(3.dp),verticalAlignment=Alignment.CenterVertically) {
+    if(!inline) HorizontalDivider(Modifier.padding(horizontal=12.dp),color=SuraPalette.Edge)
+    Row(if(inline) Modifier else Modifier.fillMaxWidth(),
+        horizontalArrangement=Arrangement.spacedBy(0.dp),verticalAlignment=Alignment.CenterVertically) {
         actions.forEach { action ->
             val tint=when(action) {
                 InvoiceQuickAction.CANCEL->Color(0xFFAA343D)
                 InvoiceQuickAction.CORRECT->Color(0xFF805A1B)
                 else->SuraPalette.Teal
             }
-            TextButton(onClick={onAction(action)},enabled=enabled,
-                modifier=Modifier.heightIn(min=48.dp).testTag("invoiceQuick_${action.name}_${invoice.id}"),
-                contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp),
-                colors=ButtonDefaults.textButtonColors(contentColor=tint)) {
+            IconButton(onClick={onAction(action)},enabled=enabled,
+                modifier=Modifier.size(48.dp).testTag("invoiceQuick_${action.name}_${invoice.id}")
+                    .semantics{contentDescription=action.label}) {
                 if(action==InvoiceQuickAction.COPY) {
-                    Canvas(Modifier.size(19.dp).semantics{contentDescription="کپی فاکتور"}) {
+                    Canvas(Modifier.size(19.dp)) {
                         val w=size.width;val h=size.height;val line=Stroke(1.6.dp.toPx())
-                        drawRoundRect(tint,Offset(w*.10f,h*.06f),Size(w*.60f,h*.66f),CornerRadius(2.dp.toPx()),style=line)
-                        drawRoundRect(tint,Offset(w*.31f,h*.29f),Size(w*.59f,h*.65f),CornerRadius(2.dp.toPx()),style=line)
+                        drawRoundRect(if(enabled)tint else tint.copy(alpha=.38f),Offset(w*.10f,h*.06f),Size(w*.60f,h*.66f),CornerRadius(2.dp.toPx()),style=line)
+                        drawRoundRect(if(enabled)tint else tint.copy(alpha=.38f),Offset(w*.31f,h*.29f),Size(w*.59f,h*.65f),CornerRadius(2.dp.toPx()),style=line)
                     }
                 } else {
                     Icon(when(action) {
                         InvoiceQuickAction.CORRECT->Icons.Default.Refresh
                         InvoiceQuickAction.CANCEL->Icons.Default.Close
                         else->Icons.Default.Edit
-                    },contentDescription=null,modifier=Modifier.size(19.dp))
+                    },contentDescription=null,tint=if(enabled)tint else tint.copy(alpha=.38f),modifier=Modifier.size(19.dp))
                 }
-                Spacer(Modifier.width(4.dp))
-                Text(action.label,style=MaterialTheme.typography.labelMedium,maxLines=1)
             }
         }
     }

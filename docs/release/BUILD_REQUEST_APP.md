@@ -111,3 +111,5 @@ Stabilization pass: fix experimental transformable API compile error; cancellabl
 0.129.0 build prerequisite: fix pre-existing palette token/else whitespace syntax error in customer screen (previous CI 45800588919). No logic change. Re-run full build.
 
 0.131.0: compact labeled copy/correction/cancellation/edit icons in invoice event cards, registered-list shortcuts, separate subject and submission status, Persian display dates/serials on events. Existing correction and cancellation confirmation/ownership rules preserved. No automatic fiscal submission. Fixed inherited invalid qualified palette reference. Added action eligibility regression for subjects, pending, draft and existing referred documents. Signed build requested.
+
+0.131.0 compact list refinement: icon-only accessible 48dp touch targets, reduced card padding, combined subject/status, invoice number/date share same row as actions. No new workflow or submission changes. Rebuild requested.

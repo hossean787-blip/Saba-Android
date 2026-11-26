@@ -215,18 +215,19 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(Modifier.fillMaxWidth().clickable { onOpenInvoice(invoice.id) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.size(43.dp).clip(RoundedCornerShape(14.dp))
+                    Row(Modifier.fillMaxWidth().clickable { onOpenInvoice(invoice.id) }.padding(horizontal=12.dp,vertical=6.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp))
                             .background(SuraPalette.Soft), contentAlignment = Alignment.Center) {
                             Icon(Icons.AutoMirrored.Filled.List, null, tint = teal)
                         }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(invoiceEventTitle(invoice, customers), color = textNavy,
                                 fontWeight = FontWeight.Bold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
-                            Text(invoicePdfDisplayDigits("${invoice.issueDate} • شماره ${invoice.invoiceNumber}"), color = SuraPalette.Muted,
-                                style = MaterialTheme.typography.labelSmall)
+                            if(onQuickAction==null || availableInvoiceQuickActions(invoice,receipts[invoice.id],invoices).isEmpty()) {
+                                Text(invoicePdfDisplayDigits("${invoice.issueDate} • شماره ${invoice.invoiceNumber}"),color=SuraPalette.Muted,style=MaterialTheme.typography.labelSmall)
+                            }
                             correctionLink(invoice,invoices,receipts)?.let { link ->
                                 Text(link.label,color=Color(0xFF805A1B),style=MaterialTheme.typography.labelSmall)
                             }
@@ -235,18 +236,23 @@ fun EventsScreen(invoices: List<Invoice>, onInvoices: () -> Unit,
                             }
                         }
                         Column(horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("${numberFormat.format(invoice.totalAmountRial)} ریال",
                                 color = textNavy, style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold)
-                            Text(InvoiceSubject.label(invoice.subject), color = invoiceSubjectColor(invoice.subject),fontWeight=FontWeight.Bold,style=MaterialTheme.typography.labelMedium)
-                            Text(statusText, color = statusColor,
-                                style = MaterialTheme.typography.labelSmall)
+                            Text(InvoiceSubject.label(invoice.subject)+" · "+statusText,color=statusColor,
+                                fontWeight=FontWeight.Medium,style=MaterialTheme.typography.labelSmall)
                         }
                     }
-                    if(onQuickAction!=null) {
-                        InvoiceQuickActions(invoice,receipts[invoice.id],invoices,onAction={onQuickAction(invoice.id,it)})
-                    } else if(onCopyInvoice!=null && canCopyAsNewInvoice(invoice)) {
+                    if(onQuickAction!=null && availableInvoiceQuickActions(invoice,receipts[invoice.id],invoices).isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth().padding(start=12.dp,end=4.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(invoicePdfDisplayDigits("شماره ${invoice.invoiceNumber}"),color=SuraPalette.Muted,style=MaterialTheme.typography.labelSmall)
+                                Text(invoicePdfDisplayDigits(invoice.issueDate),color=SuraPalette.Muted,style=MaterialTheme.typography.labelSmall)
+                            }
+                            InvoiceQuickActions(invoice,receipts[invoice.id],invoices,inline=true,onAction={onQuickAction(invoice.id,it)})
+                        }
+                    } else if(onQuickAction==null && onCopyInvoice!=null && canCopyAsNewInvoice(invoice)) {
                         Box(Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=10.dp)) {
                             CopyInvoiceButton(invoice.id){onCopyInvoice(invoice.id)}
                         }
