@@ -60,6 +60,22 @@ class AccountScreenTest {
         compose.onNodeWithTag("purchaseCharge").assertDoesNotExist()
     }
 
+    @Test fun mobileNumberIsSavedToAuthenticatedProfileWithoutOtp() {
+        var savedMobile = ""
+        compose.setContent { MaterialTheme {
+            AccountScreen(
+                "11111111-1111-4111-8111-111111111111", 0, 0, false,
+                "مالک آزمایشی", "owner@example.com", {}, {},
+                onSaveMobile = { savedMobile = it }
+            )
+        } }
+        compose.onNodeWithTag("personalInfo").performScrollTo().performClick()
+        compose.onNodeWithTag("profileMobileInput").performTextInput("09121234567")
+        compose.onNodeWithTag("profileSaveMobile").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals("09121234567", savedMobile) }
+    }
+
     @Test fun applicationSettingsRemainAccessibleAsSeparateScreen() {
         var returns = 0
         var scaleChanges = 0
