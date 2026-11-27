@@ -10,7 +10,7 @@ async function fetchMock(url,opts={}){
  const u=new URL(url);upstream.push({path:u.pathname,method:opts.method||'GET',query:u.searchParams,body:opts.body&&JSON.parse(opts.body)});
  if(u.pathname==='/auth/v1/user')return ok({id:actor,email:actorEmail,email_confirmed_at:'2026-11-09T08:00:00Z'});
  if(u.pathname==='/auth/v1/admin/users')return ok({users:[{id:uid,email:'client@example.com',email_confirmed_at:'2026-11-09T00:00:00Z',created_at:'2026-11-09T00:00:00Z',user_metadata:{first_name:'علی',last_name:'رضایی',mobile:'09121234567'}}]});
- if(u.pathname==='/auth/v1/admin/users/'+uid)return ok({id:uid,email:'client@example.com',email_confirmed_at:'2026-11-09T00:00:00Z',user_metadata:{first_name:'علی',last_name:'رضایی'}});
+ if(u.pathname==='/auth/v1/admin/users/'+uid)return ok({id:uid,email:'client@example.com',email_confirmed_at:'2026-11-09T00:00:00Z',user_metadata:{first_name:'علی',last_name:'رضایی',mobile:'09121234567'}});
  if(u.pathname==='/rest/v1/sura_admin_roles'){
   return u.searchParams.has('user_id')?ok([{role}]):ok([{user_id:actor,role:'admin',updated_at:'2026-11-09T00:00:00Z'}]);
  }
