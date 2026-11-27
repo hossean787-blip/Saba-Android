@@ -5,7 +5,7 @@ const src=path.join(base,'sources'),dist=path.join(base,'app/src/main/assets/adm
 const options={allowJs:true,target:ts.ScriptTarget.ES2017,module:ts.ModuleKind.None,newLine:ts.NewLineKind.LineFeed};
 function transpile(text,filename){
  const result=ts.transpileModule(text,{fileName:filename,compilerOptions:options,reportDiagnostics:true});
- if((result.diagnostics||[]).some(d=>d.category===ts.DiagnosticCategory.Error))throw new Error('TypeScript transpilation failed '+filename+JSON.stringify(result.diagnostics));
+ const errors=(result.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error);if(errors.length)throw new Error('TypeScript transpilation failed '+filename+' '+errors.map(d=>ts.flattenDiagnosticMessageText(d.messageText,' ')).join('; '));
  return result.outputText;
 }
 let source=fs.readFileSync(path.join(src,'index.source.html'),'utf8');
