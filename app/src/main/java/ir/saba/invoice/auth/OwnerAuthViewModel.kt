@@ -19,6 +19,10 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
         private set
     var message by mutableStateOf<String?>(null)
         private set
+    var profileReminder by mutableStateOf(false)
+        private set
+
+    fun dismissProfileReminder() { profileReminder = false }
 
     // Verified-session profile snapshot. Never cached on disk or derived from
     // taxpayer/company data (which belongs to a separate identity).
@@ -78,6 +82,7 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
             val registered = gateway.registerWithPassword(input)
             session = registered
             if (registered != null) {
+                profileReminder = true
                 ownerEmail = input.email.trim()
                 ownerName = listOf(input.firstName.trim(), input.lastName.trim())
                     .filter { it.isNotBlank() }.joinToString(" ")
