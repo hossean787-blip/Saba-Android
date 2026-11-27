@@ -15,6 +15,7 @@ interface OwnerAuthService {
     suspend fun registerWithPassword(input: RegistrationInput): AuthGatewayClient.Session?
     suspend fun loginWithPassword(identifier: String, password: String): AuthGatewayClient.Session
     suspend fun logout(accessToken: String)
+    suspend fun readMobile(accessToken: String): String = ""
 }
 
 class AuthGatewayClient(
@@ -88,6 +89,12 @@ class AuthGatewayClient(
         session(post("/v1/auth/login/otp/verify", JSONObject()
             .put("challengeId", challengeId)
             .put("code", RegistrationValidator.normalizeDigits(code))))
+
+    override suspend fun readMobile(accessToken: String): String {
+        require(accessToken.isNotBlank())
+        return post("/v1/profile/mobile", JSONObject().put("accessToken", accessToken))
+            .optString("mobile", "").trim()
+    }
 
     suspend fun updateMobile(accessToken: String, mobile: String): String {
         require(accessToken.isNotBlank())
