@@ -89,6 +89,16 @@ class AuthGatewayClient(
             .put("challengeId", challengeId)
             .put("code", RegistrationValidator.normalizeDigits(code))))
 
+    suspend fun updateMobile(accessToken: String, mobile: String): String {
+        require(accessToken.isNotBlank())
+        val normalized = RegistrationValidator.normalizeDigits(mobile).filter(Char::isDigit)
+        require(Regex("09[0-9]{9}").matches(normalized))
+        val response = post("/v1/profile/mobile", JSONObject()
+            .put("accessToken", accessToken)
+            .put("mobile", normalized))
+        return response.getString("mobile")
+    }
+
     override suspend fun logout(accessToken: String) {
         require(accessToken.isNotBlank())
         post("/v1/auth/logout", JSONObject().put("accessToken", accessToken))
