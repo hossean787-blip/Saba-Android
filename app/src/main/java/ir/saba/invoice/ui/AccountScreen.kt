@@ -136,7 +136,7 @@ private fun AccountContent(
                 Modifier.weight(1f), !busy, "changePassword") { selected = AccountAction.PASSWORD }
             AccountActionTile("تغییر شماره موبایل", "",
                 Icons.Default.AccountCircle, SuraPalette.Soft, SuraPalette.Teal,
-                Modifier.weight(1f), !busy, "changeMobile") { selected = AccountAction.MOBILE }
+                Modifier.weight(1f), !busy, "changeMobile") { openProfile() }
         }
         Row(Modifier.fillMaxWidth()) {
             AccountActionTile("انتقال شارژ به مودیان", "",
@@ -276,7 +276,7 @@ private fun AccountContent(
                     AccountAction.PASSWORD ->
                         Text("برای تغییر ایمن رمز، سرویس احراز هویت باید رمز فعلی را بررسی و تغییر رمز جدید را در سرور ثبت کند. این خدمت هنوز در سرور متصل نشده است؛ رمز فعلی شما تغییر نکرده است.")
                     AccountAction.MOBILE ->
-                        Text("تغییر شماره همراه باید با تأیید هویت و کد یک‌بارمصرف انجام شود. این خدمت هنوز در سرور فعال نیست و شماره‌ای در این دستگاه تغییر داده نمی‌شود.")
+                        Text("شماره موبایل را از بخش اطلاعات شخصی وارد و ذخیره کنید؛ کد تأیید پیامکی نیاز نیست.")
                     AccountAction.PURCHASE ->
                         Text("خرید شارژ آنلاین نیازمند درگاه پرداخت، ثبت تراکنش و تأیید سهمیه از سرور است. فعلاً خرید واقعی فعال نیست و هیچ وجهی دریافت نمی‌شود.")
                 }
