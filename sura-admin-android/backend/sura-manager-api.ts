@@ -63,7 +63,7 @@ function safeUser(u:any){
  const first=String(meta.first_name||meta.firstName||'').trim();
  const last=String(meta.last_name||meta.lastName||'').trim();
  const name=String(meta.full_name||meta.name||[first,last].filter(Boolean).join(' ')||'').trim().slice(0,200);
- return {id:u.id,name,email:String(u.email||''),verified:!!u.email_confirmed_at,created_at:u.created_at||null,last_sign_in_at:u.last_sign_in_at||null,banned_until:u.banned_until||null};
+ return {id:u.id,name,email:String(u.email||''),mobile:String(meta.mobile||meta.phone||'').trim().slice(0,20),verified:!!u.email_confirmed_at,created_at:u.created_at||null,last_sign_in_at:u.last_sign_in_at||null,banned_until:u.banned_until||null};
 }
 async function mapLimited<T,R>(list:T[],limit:number,fn:(item:T)=>Promise<R>):Promise<R[]>{
  const output:R[]=[];for(let start=0;start<list.length;start+=limit){const part=await Promise.all(list.slice(start,start+limit).map(fn));output.push(...part);}return output;
