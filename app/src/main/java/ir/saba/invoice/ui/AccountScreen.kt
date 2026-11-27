@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,17 +52,21 @@ fun AccountScreen(
     ownerEmail: String?,
     onTransferCharge: () -> Unit,
     onLogout: () -> Unit,
-    onExcelAction: (String, String) -> Unit = { _, _ -> }
+    onExcelAction: (String, String) -> Unit = { _, _ -> },
+    onSaveMobile: suspend (String) -> Unit = {}
 ) {
-    key(ownerId) { AccountContent(ownerId,taxpayerCharge,ownerCharge,busy,ownerName,ownerEmail,onTransferCharge,onLogout,onExcelAction) }
+    key(ownerId) { AccountContent(ownerId,taxpayerCharge,ownerCharge,busy,ownerName,ownerEmail,onTransferCharge,onLogout,onExcelAction,onSaveMobile) }
 }
 
 @Composable
 private fun AccountContent(
     ownerId: String, taxpayerCharge: Long?, ownerCharge: Long?, busy: Boolean,
     ownerName: String?, ownerEmail: String?, onTransferCharge: () -> Unit, onLogout: () -> Unit,
-    onExcelAction: (String, String) -> Unit
+    onExcelAction: (String, String) -> Unit,
+    onSaveMobile: suspend (String) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    var savingMobile by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<AccountAction?>(null) }
     var excelAction by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -217,27 +222,34 @@ private fun AccountContent(
                     } }.filter(Char::isDigit).take(11).joinToString("")
                 }, label = { Text("شماره موبایل") }, singleLine = true)
                 Text("ایمیل ورود: " + ownerEmail.orEmpty(), style = MaterialTheme.typography.bodySmall)
-                Text("تغییرات فقط روی همین گوشی ذخیره می‌شوند؛ شماره تأییدشده سرور تغییر نمی‌کند.",
+                Text("شماره موبایل بدون کد تأیید در حساب شما ثبت می‌شود و در بانک اطلاعات سورا مدیر نمایش داده خواهد شد.",
                     style = MaterialTheme.typography.bodySmall)
                 if (profileError.isNotBlank()) Text(profileError, color = MaterialTheme.colorScheme.error)
             }
         },
-        confirmButton = { TextButton(onClick = {
+        confirmButton = { TextButton(enabled = !savingMobile, onClick = {
             val key = profileKey
             if (key == null) profileError = "ابتدا وارد حساب شوید."
             else if (editName.isBlank()) profileError = "نام را وارد کنید."
             else if (editMobile.isNotBlank() && !Regex("09[0-9]{9}").matches(editMobile))
                 profileError = "شماره موبایل باید ۱۱ رقم و با ۰۹ آغاز شود."
-            else if (!profilePrefs.edit().putString("name_$key", editName.trim())
-                    .putString("mobile_$key", editMobile).commit())
-                profileError = "ذخیره در دستگاه انجام نشد."
             else {
-                localName = editName.trim()
-                localMobile = editMobile
-                editingProfile = false
+                savingMobile = true
+                scope.launch {
+                    try {
+                        if (!profilePrefs.edit().putString("name_$key", editName.trim()).commit())
+                            error("ذخیره نام انجام نشد.")
+                        if (editMobile.isNotBlank()) onSaveMobile(editMobile)
+                        localName = editName.trim()
+                        localMobile = editMobile
+                        editingProfile = false
+                    } catch (e: Exception) {
+                        profileError = e.message ?: "ثبت شماره در حساب انجام نشد؛ دوباره تلاش کنید."
+                    } finally { savingMobile = false }
+                }
             }
-        }) { Text("ذخیره در دستگاه") } },
-        dismissButton = { TextButton(onClick = { editingProfile = false }) { Text("انصراف") } }
+        }) { Text(if (savingMobile) "در حال ثبت…" else "ذخیره اطلاعات") } },
+        dismissButton = { TextButton(enabled = !savingMobile, onClick = { editingProfile = false }) { Text("انصراف") } }
     )
 
     selected?.let { action ->
