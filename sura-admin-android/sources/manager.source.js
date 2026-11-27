@@ -5,6 +5,8 @@ let directoryPage=1, auditPage=1, auditKind='credit', orderPage=1, orderState=''
 let orderOwner='',orderFrom='',orderTo='';
 let lastAuditRows=[],lastAuditKind='';
 let directoryRows=[];
+let giftOwnerMatches=[];
+let selectedGiftOwner=null;
 const MANAGER_STATE_LABEL={created:'ثبت اولیه',requested:'منتظر پرداخت',verified:'پرداخت تأییدشده',failed:'ناموفق'};
 const MANAGER_ROLE_LABEL={admin:'مدیر ارشد',editor:'ویرایشگر',viewer:'ناظر'};
 
@@ -27,6 +29,7 @@ function managerRoles(){
 }
 function safeJSString(value){return html(JSON.stringify(String(value)));}
 function managerUserLink(id){return `<button class="action-btn" onclick="openManagerUser('${html(id)}')">جزئیات حساب</button>`;}
+function managerDisplayName(u){return String(u&&u.name||'').trim()||'نام ثبت نشده';}
 function managerPill(label,variant='blue'){return `<span class="badge ${variant}">${html(label)}</span>`;}
 function managerGuid(id){return `<span class="technical-id" dir="ltr" title="${html(id)}">${html(String(id).slice(0,12))}…</span>`;}
 function safeTime(value){return value?fmtDate(value):'—';}
@@ -35,22 +38,22 @@ async function renderDirectory(c){
  if(ADMIN_ROLE==='viewer'){c.innerHTML='<div class="config-notice">فهرست کاربران فقط برای مدیر و ویرایشگر قابل مشاهده است.</div>';return;}
  const payload=await managerFetch('users',{page:directoryPage,perPage:30});
  directoryRows=payload.users||[];
- c.innerHTML=`<div class="section-hero"><span class="eyebrow">ACCOUNT DIRECTORY</span><h2>حساب‌های ثبت‌نام‌شده</h2>
- <p>فهرست واقعی کاربران از سرویس احراز هویت. حساب‌هایی که هنوز کیف‌پول ندارند نیز نمایش داده می‌شوند.</p></div>
- <div class="panel"><div class="panel-head"><h3>مدیریت حساب‌ها</h3>${managerPill('صفحه '+fmtNum(directoryPage))}</div>
- <div class="filters"><input id="directory-search" class="search-input" placeholder="جست‌وجوی ایمیل یا شناسه در همین صفحه" oninput="filterManagerDirectory(this.value)" aria-label="جست‌وجوی کاربران">
- <button class="action-btn" onclick="openManagerUserLookup()">بازکردن با شناسه UUID</button></div>
- <div class="tbl-wrap"><table id="directory-table"><thead><tr><th>ایمیل حساب</th><th>تأیید</th><th>نقش مدیریت</th><th>ثبت‌نام</th><th>آخرین ورود</th><th>عملیات</th></tr></thead><tbody>
- ${directoryRows.map(u=>`<tr data-q="${html((u.email||'')+' '+u.id).toLowerCase()}"><td><strong>${html(u.email||'بدون ایمیل')}</strong><div class="technical-id" dir="ltr">${html(u.id)}</div></td>
+ c.innerHTML=`<div class="section-hero"><span class="eyebrow">ACCOUNT DIRECTORY</span><h2>مودیان و مالکان</h2>
+ <p>نام و ایمیل ثبت‌شده مالک هر حساب، همراه با وضعیت تأیید و سطح دسترسی نمایش داده می‌شود.</p></div>
+ <div class="panel"><div class="panel-head"><h3>فهرست مالکان حساب</h3>${managerPill('صفحه '+fmtNum(directoryPage))}</div>
+ <div class="filters"><input id="directory-search" class="search-input" placeholder="جست‌وجوی نام، ایمیل یا شناسه" oninput="filterManagerDirectory(this.value)" aria-label="جست‌وجوی کاربران">
+ <button class="action-btn" onclick="openSelectedGift()">شارژ حساب با نام یا ایمیل</button></div>
+ <div class="tbl-wrap"><table id="directory-table"><thead><tr><th>نام و نام خانوادگی</th><th>ایمیل مالک</th><th>تأیید</th><th>نقش مدیریت</th><th>ثبت‌نام</th><th>عملیات</th></tr></thead><tbody>
+ ${directoryRows.map(u=>`<tr data-q="${html((u.name||'')+' '+(u.email||'')+' '+u.id).toLowerCase()}"><td><strong>${html(managerDisplayName(u))}</strong><div class="technical-id" dir="ltr">${html(u.id)}</div></td><td dir="ltr">${html(u.email||'بدون ایمیل')}</td>
  <td>${managerPill(u.verified?'تأییدشده':'تأییدنشده',u.verified?'green':'yellow')}</td>
  <td>${managerPill(MANAGER_ROLE_LABEL[u.role]||'کاربر عادی',u.role==='admin'?'red':'gray')}</td>
- <td>${safeTime(u.created_at)}</td><td>${safeTime(u.last_sign_in_at)}</td><td>${managerUserLink(u.id)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-note">کاربری در این صفحه ثبت نشده است.</td></tr>'}
+ <td>${safeTime(u.created_at)}</td><td>${managerUserLink(u.id)} <button class="action-btn" onclick="openSelectedGift('${html(u.id)}',${safeJSString(u.name||'')},${safeJSString(u.email||'')})">شارژ</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty-note">کاربری در این صفحه ثبت نشده است.</td></tr>'}
  </tbody></table></div><div class="pagination manager-pagination">
  <span>جست‌وجو در همین صفحه انجام می‌شود؛ برای مشاهده سایر حساب‌ها صفحه را تغییر دهید.</span>
  <button class="action-btn" ${directoryPage===1?'disabled':''} onclick="setManagerDirectory(${directoryPage-1})">قبلی</button>
  <strong>${fmtNum(directoryPage)}</strong><button class="action-btn" ${!payload.nextPage?'disabled':''} onclick="setManagerDirectory(${directoryPage+1})">بعدی</button></div></div>`;
 }
-function filterManagerDirectory(v){document.querySelectorAll('#directory-table tbody tr').forEach(tr=>{tr.style.display=(tr.dataset.q||'').includes(String(v||'').toLowerCase())?'':'none';});}
+function filterManagerDirectory(v){document.querySelectorAll('#directory-table tbody tr').forEach(tr=>{tr.style.display=(tr.dataset.q||'').includes(String(v||'').trim().toLowerCase())?'':'none';});}
 function setManagerDirectory(v){directoryPage=Math.max(1,v);showPage('directory');}
 function openManagerUserLookup(){openModal('مشاهده حساب با شناسه',`<div class="field-row"><label>شناسه کامل UUID</label><input dir="ltr" id="lookup-uuid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>`,
  `<button class="btn btn-ghost" onclick="closeModal()">انصراف</button><button class="btn btn-accent" onclick="lookupManagerUser()">مشاهده</button>`);}
@@ -61,14 +64,14 @@ async function openManagerUser(id){
  try{
   const d=await managerFetch('user',{id}); const u=d.user;
   const emailsafe=html(u.email||'—'); const role=MANAGER_ROLE_LABEL[u.role]||'کاربر عادی';
-  document.getElementById('modal-body').innerHTML=`<div class="detail-person"><strong>${emailsafe}</strong><small dir="ltr">${html(u.id)}</small>
+  document.getElementById('modal-body').innerHTML=`<div class="detail-person"><strong>${html(managerDisplayName(u))}</strong><span dir="ltr">${emailsafe}</span><small dir="ltr">${html(u.id)}</small>
   <span>${managerPill(role,u.role==='admin'?'red':'blue')} ${managerPill(u.verified?'ایمیل تأییدشده':'ایمیل تأییدنشده',u.verified?'green':'yellow')}</span></div>
   <div class="manager-facts"><div><small>ثبت‌نام</small><strong>${safeTime(u.created_at)}</strong></div><div><small>آخرین ورود</small><strong>${safeTime(u.last_sign_in_at)}</strong></div>
   <div><small>اعتبار مالک</small><strong>${fmtNum(d.wallet?.credits||0)} واحد</strong></div><div><small>مودیان دارای اعتبار</small><strong>${fmtNum((d.taxpayers||[]).length)}</strong></div></div>
 ${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openSelectedGift(\''+html(u.id)+'\')">اعطای اعتبار رایگان</button>':''}
 ${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openManagerConsent(\''+html(u.id)+'\')">سابقه پذیرش قوانین</button>':''}
-  <h4>اعتبار مؤدیان</h4><div class="tbl-wrap"><table><thead><tr><th>شناسه محلی مؤدی</th><th>موجودی</th></tr></thead><tbody>
-  ${(d.taxpayers||[]).map(t=>`<tr><td>${fmtNum(t.local_taxpayer_id)}</td><td>${fmtNum(t.credits)}</td></tr>`).join('')||'<tr><td colspan="2">مودی دارای موجودی ثبت نشده است.</td></tr>'}</tbody></table></div>
+  <h4>مودیان متصل به این مالک</h4><div class="tbl-wrap"><table><thead><tr><th>نام مالک حساب</th><th>ایمیل مالک</th><th>شناسه محلی مودی</th><th>موجودی</th></tr></thead><tbody>
+  ${(d.taxpayers||[]).map(t=>`<tr><td>${html(managerDisplayName(u))}</td><td dir="ltr">${html(u.email||'—')}</td><td>${fmtNum(t.local_taxpayer_id)}</td><td>${fmtNum(t.credits)}</td></tr>`).join('')||'<tr><td colspan="4">مودی دارای موجودی ثبت نشده است.</td></tr>'}</tbody></table></div>
   ${d.taxpayers_truncated?'<div class="empty-note">فهرست مؤدیان تا ۱۰۰ مورد نمایش داده شده است.</div>':''}
   <h4>آخرین تراکنش‌ها</h4><div class="tbl-wrap"><table><thead><tr><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody>
   ${(d.orders||[]).map(o=>`<tr><td>${fmtRial(o.amount_rial)}</td><td>${html(MANAGER_STATE_LABEL[o.state]||o.state)}</td><td>${safeTime(o.created_at)}</td></tr>`).join('')||'<tr><td colspan="3">تراکنشی ثبت نشده است.</td></tr>'}</tbody></table></div>`;
@@ -408,21 +411,34 @@ async function saveMonthlyPrice(){return submitBusy(async()=>{
 
 /* Direct gift entry from selected account. Freeze the confirmed request across transport retries. */
 let selectedGift=null;
-function openSelectedGift(owner){
- if(ADMIN_ROLE!=='admin'||!CAN.adjustWallet()||!validUUID(owner))return toast('دسترسی مدیرکل لازم است','error');
- selectedGift=null;
- openModal('هدیه اعتبار به کاربر','<div class="empty-note">اعتبار رایگان به کیف‌پول مالک اضافه می‌شود؛ هیچ سفارش پرداختی ساخته نمی‌شود.</div><p dir="ltr">'+html(owner)+'</p><div class="field-row"><label>تعداد اعتبار هدیه</label><input type="number" id="selected-gift-units" min="1" max="1000000000" step="1"></div><div class="field-row"><label>دلیل هدیه</label><textarea id="selected-gift-reason" maxlength="490"></textarea></div>','<button class="btn btn-ghost" onclick="closeModal()">بستن</button><button class="btn btn-accent" id="modal-submit" onclick="saveSelectedGift(\''+html(owner)+'\')">ثبت هدیه</button>');
+function openSelectedGift(owner,name,email){
+ if(ADMIN_ROLE!=='admin'||!CAN.adjustWallet())return toast('دسترسی مدیرکل لازم است','error');
+ selectedGift=null;selectedGiftOwner=validUUID(owner)?{id:owner,name:name||'',email:email||''}:null;giftOwnerMatches=[];
+ const selected=selectedGiftOwner?'<div class="empty-note" id="gift-owner-selected">حساب انتخاب‌شده: <b>'+html(name||'نام ثبت نشده')+'</b><br><span dir="ltr">'+html(email||'ایمیل ثبت نشده')+'</span></div>':'<div class="field-row"><label>جست‌وجوی مالک با نام یا ایمیل</label><div style="display:flex;gap:8px"><input id="gift-owner-query" style="flex:1;min-width:0" placeholder="نام یا ایمیل مالک"><button class="btn btn-accent" type="button" onclick="searchGiftOwners()">جست‌وجو</button></div></div><div id="gift-owner-results" aria-live="polite"></div>';
+ openModal('شارژ حساب مالک','<div class="empty-note">حساب را با نام و ایمیل پیدا کن؛ شناسه فنی مالک نمایش داده نمی‌شود. اعتبار به کیف‌پول مالک افزوده می‌شود و سفارش پرداختی ایجاد نمی‌کند.</div>'+selected+'<div class="field-row"><label>تعداد اعتبار</label><input type="number" id="selected-gift-units" min="1" max="1000000000" step="1" '+(selectedGiftOwner?'':'disabled')+'></div><div class="field-row"><label>دلیل شارژ</label><textarea id="selected-gift-reason" maxlength="490" '+(selectedGiftOwner?'':'disabled')+'></textarea></div>','<button class="btn btn-ghost" onclick="closeModal()">بستن</button><button class="btn btn-accent" id="modal-submit" '+(selectedGiftOwner?'':'disabled')+' onclick="saveSelectedGift()">ثبت شارژ</button>');
+}
+async function searchGiftOwners(){
+ const q=(document.getElementById('gift-owner-query').value||'').trim();if(q.length<2||q.length>120)return toast('حداقل دو نویسه از نام یا ایمیل وارد کن','error');
+ const box=document.getElementById('gift-owner-results');box.innerHTML='<div class="empty-note">در حال جست‌وجو…</div>';
+ try{const d=await managerFetch('owner-search',{query:q});giftOwnerMatches=d.matches||[];
+  box.innerHTML=giftOwnerMatches.map(u=>'<button type="button" class="owner-result" onclick="selectGiftOwner(\\''+html(u.id)+'\\')"><b>'+html(managerDisplayName(u))+'</b><small dir="ltr">'+html(u.email||'بدون ایمیل')+'</small></button>').join('')||'<div class="empty-note">حسابی با این نام یا ایمیل پیدا نشد.</div>';
+ }catch(e){box.textContent='جست‌وجوی حساب ناموفق بود: '+parseError(e);}
+}
+function selectGiftOwner(id){const u=giftOwnerMatches.find(x=>x.id===id);if(!u)return;selectedGiftOwner={id:u.id,name:u.name||'',email:u.email||''};selectedGift=null;
+ const box=document.getElementById('gift-owner-results');box.innerHTML='<div class="empty-note">حساب انتخاب‌شده: <b>'+html(managerDisplayName(u))+'</b><br><span dir="ltr">'+html(u.email||'ایمیل ثبت نشده')+'</span></div>';
+ document.getElementById('selected-gift-units').disabled=false;document.getElementById('selected-gift-reason').disabled=false;document.getElementById('modal-submit').disabled=false;
 }
 async function saveSelectedGift(owner){return submitBusy(async()=>{
- if(ADMIN_ROLE!=='admin'||!CAN.adjustWallet()||!validUUID(owner))return;
+ owner=owner||(selectedGiftOwner||{}).id;if(ADMIN_ROLE!=='admin'||!CAN.adjustWallet()||!validUUID(owner))return;
+ if(!selectedGiftOwner||selectedGiftOwner.id!==owner)selectedGiftOwner={id:owner,name:'',email:''};
  try{
   if(!selectedGift){
    const units=Number(document.getElementById('selected-gift-units').value),reason=document.getElementById('selected-gift-reason').value.trim();
-   if(!Number.isSafeInteger(units)||units<1||units>1000000000||reason.length<5||reason.length>490)return toast('تعداد یا دلیل هدیه معتبر نیست','error');
+   if(!Number.isSafeInteger(units)||units<1||units>1000000000||reason.length<5||reason.length>490)return toast('تعداد یا دلیل شارژ معتبر نیست','error');
    const w=await adminFetch('wallet',{owner}),expected=Number(w.credits),balance=expected+units;
    if(!Number.isSafeInteger(expected)||expected<0||!Number.isSafeInteger(balance)||balance>1000000000)throw Error('invalid_balance');
-   if(!confirm('اعطای '+fmtNum(units)+' اعتبار رایگان؛ موجودی جدید '+fmtNum(balance)+' واحد. تأیید می‌کنید؟'))return;
-   selectedGift={owner,taxpayer:null,expected,balance,reason:'هدیه: '+reason,request:newUUID()};
+   if(!confirm('شارژ '+fmtNum(units)+' اعتبار برای '+(selectedGiftOwner.email||selectedGiftOwner.name)+'؛ موجودی جدید '+fmtNum(balance)+' واحد. تأیید می‌کنی؟'))return;
+   selectedGift={owner,taxpayer:null,expected,balance,reason:'شارژ مدیریتی: '+reason,request:newUUID()};
    document.getElementById('selected-gift-units').disabled=true;
    document.getElementById('selected-gift-reason').disabled=true;
    document.getElementById('modal-submit').textContent='بررسی همان درخواست';
@@ -430,8 +446,8 @@ async function saveSelectedGift(owner){return submitBusy(async()=>{
   if(selectedGift.owner!==owner)throw Error('owner_changed');
   const r=await adminFetch('adjust',selectedGift);
   if(r.error||!r.receipt)throw Error(r.error||'missing_receipt');
-  selectedGift=null;toast('اعتبار هدیه ثبت شد: '+r.receipt,'success');openManagerUser(owner);
- }catch(e){toast('نتیجه تأیید نشد؛ همان درخواست را بررسی کنید. '+parseError(e),'error');}
+  selectedGift=null;toast('شارژ حساب ثبت شد: '+r.receipt,'success');openManagerUser(owner);
+ }catch(e){toast('نتیجه تأیید نشد؛ همان درخواست را بررسی کن. '+parseError(e),'error');}
 });}
 
 /* Live sales offers — changes are server-side and immediately visible to app clients. */
