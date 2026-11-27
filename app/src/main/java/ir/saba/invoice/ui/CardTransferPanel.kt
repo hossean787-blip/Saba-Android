@@ -37,7 +37,7 @@ import java.net.URL
 
 internal object CardTransferApi {
     suspend fun call(token:String,route:String,body:JSONObject=JSONObject()):JSONObject=withContext(Dispatchers.IO){
-        require(route in setOf("quote","reserve","mine","submit","cancel") && token.isNotBlank())
+        require(route in setOf("offers","quote","reserve","mine","submit","cancel") && token.isNotBlank())
         val c=URL("https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/sura-card-transfer/$route").openConnection() as HttpURLConnection
         try {
             c.requestMethod="POST";c.instanceFollowRedirects=false;c.useCaches=false;c.doOutput=true
@@ -72,10 +72,13 @@ private suspend fun cardReceipt(context:android.content.Context,uri:Uri):String=
         error("حجم تصویر زیاد است.")
     }finally{bitmap.recycle()}
 }
-internal suspend fun cardPurchaseQuote(token:String,kind:String,units:Long):PurchaseQuote {
-    val q=CardTransferApi.call(token,"quote",JSONObject().put("kind",kind).put("units",units).put("checkoutVersion",2))
+internal suspend fun cardPurchaseQuote(token:String,kind:String,units:Long,offerId:String?=null):PurchaseQuote {
+    val body=JSONObject().put("kind",kind).put("units",units).put("checkoutVersion",2)
+    if(kind=="offer")body.put("offerId",requireNotNull(offerId))
+    val q=CardTransferApi.call(token,"quote",body)
     require(q.optString("kind")==kind && q.optLong("quantity",-1)==units &&
         q.optString("currency")=="IRR" && q.optLong("vat_rate_percent")==10L && q.opt("enabled") is Boolean)
+    if(kind=="offer")require(q.optString("offer_title").isNotBlank())
     val quote=PurchaseQuote.validate(kind,units,q.getLong("subtotal_rial"),q.getLong("vat_rial"),q.getLong("total_rial"),q.getBoolean("enabled"))
     require(kind!="single" || q.optLong("unit_price_rial")==quote.subtotal/units)
     return quote
@@ -143,7 +146,7 @@ internal fun CardTransferPanel(token:String,order:JSONObject,onRefresh:suspend (
         Card(shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(2.dp)){
             Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 Text("خلاصه سفارش",fontWeight=FontWeight.Bold,color=bankNavy,style=MaterialTheme.typography.titleMedium)
-                Text(if(order.optString("kind")=="monthly")"اشتراک ۳۰ روزه • ۲۰ صورتحساب" else "${order.optLong("units")} اعتبار تکی",color=bankMuted)
+                Text(when(order.optString("kind")){"monthly"->"اشتراک ۳۰ روزه • ۲۰ صورتحساب";"offer"->(order.optString("offer_title").ifBlank{"طرح فروش"})+" • "+order.optLong("units")+" صورتحساب";else->"${order.optLong("units")} اعتبار تکی"},color=bankMuted)
                 Text("مبلغ دقیق واریز",style=MaterialTheme.typography.labelMedium,color=bankMuted)
                 Text(cardMoney(order.getLong("amount_rial"))+" ریال",color=bankNavy,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.headlineSmall)
                 TextButton(onClick={clipboard.setText(AnnotatedString(order.getLong("amount_rial").toString()));message="مبلغ کپی شد.";isError=false},enabled=!busy){Text("کپی مبلغ",color=bankBlue)}

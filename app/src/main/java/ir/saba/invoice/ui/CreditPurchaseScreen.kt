@@ -45,10 +45,14 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var promoMessage by remember { mutableStateOf("") }
     var promoGranted by remember { mutableStateOf(false) }
     var quantity by remember { mutableStateOf("1") }
+    var salesOffers by remember { mutableStateOf<List<SalesOffer>>(emptyList()) }
+    var offersLoading by remember { mutableStateOf(true) }
+    var selectedOfferId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedOffer=salesOffers.firstOrNull{it.id==selectedOfferId}
 
     var freeSelected by rememberSaveable { mutableStateOf(false) }
-    val plan=if(freeSelected)"free" else "single"
-    val selectedQuantity=quantity.toLongOrNull()?.takeIf{it in 1L..999999L}
+    val plan=if(freeSelected)"free" else if(selectedOffer!=null)"offer" else "single"
+    val selectedQuantity=if(selectedOffer!=null)selectedOffer.credits else quantity.toLongOrNull()?.takeIf{it in 1L..999999L}
     var quote by remember { mutableStateOf<PurchaseQuote?>(null) }
     var quoteError by remember { mutableStateOf("") }
     var quoteBusy by remember { mutableStateOf(false) }
@@ -85,15 +89,21 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         }
     }
     LaunchedEffect(accessToken){
-        try{refreshOrders()}catch(e:kotlinx.coroutines.CancellationException){throw e}
-        catch(e:Exception){paymentMessage=SuraErrors.describe(e,"بازیابی سفارش‌های قبلی ناموفق بود. [CHECKOUT-RECOVERY]")}
+        try{
+            refreshOrders()
+            val response=CardTransferApi.call(accessToken,"offers")
+            salesOffers=SalesOffer.parseAll(response.getJSONArray("offers"))
+            if(selectedOfferId!=null&&salesOffers.none{it.id==selectedOfferId})selectedOfferId=null
+        }catch(e:kotlinx.coroutines.CancellationException){throw e}
+        catch(e:Exception){paymentMessage=SuraErrors.describe(e,"دریافت طرح‌های فروش انجام نشد؛ برای تازه‌سازی دوباره تلاش کنید. [OFFERS-LOAD]")}
+        finally{offersLoading=false}
     }
-    LaunchedEffect(accessToken,plan,selectedQuantity,quoteAttempt){
+    LaunchedEffect(accessToken,plan,selectedQuantity,selectedOfferId,selectedOffer?.priceRial,quoteAttempt){
         quote=null;quoteError="";quoteBusy=false
         if(plan=="free")return@LaunchedEffect
         val units=selectedQuantity?:return@LaunchedEffect
         quoteBusy=true
-        try{quote=cardPurchaseQuote(accessToken,plan,units)}
+        try{quote=cardPurchaseQuote(accessToken,plan,units,selectedOfferId)}
         catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(e:Exception){quoteError=SuraErrors.describe(e,"استعلام مبلغ تأیید نشد. [QUOTE-ERROR]")}
         finally{quoteBusy=false}
@@ -110,7 +120,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
                     Text("انتخاب روش پرداخت",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleLarge)
-                    Text("${q.units} اعتبار تکی",color=deepBlue)
+                    Text(if(q.kind=="offer")((selectedOffer?.title ?: "طرح فروش")+" • ${q.units} صورتحساب") else "${q.units} اعتبار تکی",color=deepBlue)
                     Text("مبلغ قابل پرداخت: ${money(q.total)} ریال",fontWeight=FontWeight.Bold,color=deepBlue)
                     Card(shape=RoundedCornerShape(16.dp),border=androidx.compose.foundation.BorderStroke(2.dp,SuraPalette.Teal),colors=CardDefaults.cardColors(containerColor=SuraPalette.Soft)){
                         Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
@@ -128,7 +138,9 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                         if(prior!=null){orderId=prior.getString("id");checkout=false;return@payAction}
                         if(pendingOnlineId!=null){checkout=false;paymentMessage="ابتدا سفارش پرداخت قبلی را تعیین تکلیف کنید.";return@payAction}
                         try{
-                            val result=CardTransferApi.call(accessToken,"reserve",org.json.JSONObject().put("kind",q.kind).put("units",q.units).put("total",q.total).put("checkoutVersion",2))
+                            val reserveBody=org.json.JSONObject().put("kind",q.kind).put("units",q.units).put("total",q.total).put("checkoutVersion",2)
+                            if(q.kind=="offer")reserveBody.put("offerId",requireNotNull(selectedOfferId))
+                            val result=CardTransferApi.call(accessToken,"reserve",reserveBody)
                             val id=result.getString("id")
                             refreshHistory()
                             require(history.any{it.optString("id")==id})
@@ -169,40 +181,72 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
             if(!historyReady||!onlineReady){
                 OutlinedButton(onClick={payAction{refreshOrders()}},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بررسی وضعیت سفارش‌های قبلی")}
             }
-            Card(onClick={freeSelected=false;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),shape=cardShape,
-                border=androidx.compose.foundation.BorderStroke(if(!freeSelected)2.dp else 1.dp,if(!freeSelected)SuraPalette.Teal else SuraPalette.Edge),
-                colors=CardDefaults.cardColors(containerColor=if(!freeSelected)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+            if(offersLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(salesOffers.isNotEmpty()||!offersLoading)Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){
+                Text("طرح‌های فروش سورا",fontWeight=FontWeight.Bold,color=deepBlue,style=MaterialTheme.typography.titleMedium)
+                TextButton(enabled=!offersLoading&&!checkoutBusy,onClick={offersLoading=true;scope.launch{try{val response=CardTransferApi.call(accessToken,"offers");salesOffers=SalesOffer.parseAll(response.getJSONArray("offers"));if(selectedOfferId!=null&&salesOffers.none{it.id==selectedOfferId})selectedOfferId=null;paymentMessage="طرح‌های فروش به‌روز شد."}catch(e:Exception){paymentMessage=SuraErrors.describe(e,"به‌روزرسانی طرح‌ها ناموفق بود.")}finally{offersLoading=false}}}){Text("به‌روزرسانی")}
+            }
+            salesOffers.forEach{offer->
+                val selected=selectedOfferId==offer.id
+                Card(onClick={freeSelected=false;selectedOfferId=offer.id;checkout=false;quote=null;quoteError=""},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),
+                    shape=cardShape,border=androidx.compose.foundation.BorderStroke(if(selected)2.dp else 1.dp,if(selected)SuraPalette.Teal else SuraPalette.Edge),
+                    colors=CardDefaults.cardColors(containerColor=if(selected)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(2.dp)){
+                    Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            RadioButton(selected=selected,onClick=null)
+                            Text(offer.title,color=deepBlue,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f))
+                            if(offer.featured)Text("پیشنهاد ویژه",color=violet,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
+                        }
+                        if(offer.description.isNotBlank())Text(offer.description,color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
+                        Text("${offer.credits} صورتحساب",color=deepBlue,fontWeight=FontWeight.SemiBold)
+                        Text("قیمت پایه: ${money(offer.priceRial)} ریال",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            Card(onClick={freeSelected=false;selectedOfferId=null;checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),shape=cardShape,
+                border=androidx.compose.foundation.BorderStroke(if(!freeSelected&&selectedOfferId==null)2.dp else 1.dp,if(!freeSelected&&selectedOfferId==null)SuraPalette.Teal else SuraPalette.Edge),
+                colors=CardDefaults.cardColors(containerColor=if(!freeSelected&&selectedOfferId==null)SuraPalette.Soft else Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-                    RadioButton(selected=!freeSelected,onClick=null)
+                    RadioButton(selected=plan=="single",onClick=null)
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)){
                         Text("اعتبار تکی",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleMedium)
                         Text("هر صورتحساب یک اعتبار • خرید به تعداد دلخواه",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
                     }
                 }
             }
-            if(plan!="free")Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+            if(plan=="single")Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
                 Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
                     Text("تعداد اعتبار موردنیاز",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=deepBlue)
                     Text("قیمت هر اعتبار: ${money(q?.let{it.subtotal/it.units})} ریال",color=SuraPalette.Muted,style=MaterialTheme.typography.bodySmall)
-                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                            OutlinedButton(onClick={quantity=((quantity.toIntOrNull()?:1)-1).coerceAtLeast(1).toString()}){Text("−")}
-                            OutlinedTextField(quantity,{quantity=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{c->c in '0'..'9'}.take(6)},modifier=Modifier.weight(1f),singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),label={Text("تعداد اعتبار")},shape=RoundedCornerShape(14.dp))
-                            Button(onClick={quantity=((quantity.toIntOrNull()?:0)+1).coerceAtMost(999999).toString()}){Text("+")}
-                        }
+                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        OutlinedButton(onClick={quantity=((quantity.toIntOrNull()?:1)-1).coerceAtLeast(1).toString()}){Text("−")}
+                        OutlinedTextField(quantity,{quantity=ir.saba.invoice.data.identifiers.SuraIdentifierStore.normalize(it).filter{ch->ch in '0'..'9'}.take(6)},modifier=Modifier.weight(1f),singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),label={Text("تعداد اعتبار")},shape=RoundedCornerShape(14.dp))
+                        Button(onClick={quantity=((quantity.toIntOrNull()?:0)+1).coerceAtMost(999999).toString()}){Text("+")}
+                    }
                     Text("مبلغ پایه: ${money(q?.subtotal)} ریال",color=deepBlue)
                     Text("مالیات ارزش افزوده (۱۰٪): ${money(q?.vat)} ریال",color=deepBlue)
                     Text("مبلغ نهایی قابل پرداخت: ${money(q?.total)} ریال",color=deepBlue,fontWeight=FontWeight.Bold)
                     if(quoteBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if(quoteError.isNotBlank()){
-                        Text(quoteError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
-                        OutlinedButton(onClick={quoteAttempt++},modifier=Modifier.fillMaxWidth()){Text("استعلام دوباره")}
-                    }
+                    if(quoteError.isNotBlank()){Text(quoteError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={quoteAttempt++},modifier=Modifier.fillMaxWidth()){Text("استعلام دوباره")}}
                     if(q!=null&&!q.enabled)Text("فروش این پلن فعلاً فعال نیست.",color=MaterialTheme.colorScheme.error)
                     Button(onClick={checkout=true},enabled=q?.enabled==true&&canPurchase&&!quoteBusy,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("ادامه خرید")}
                 }
             }
+            if(plan=="offer"&&selectedOffer!=null)Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
+                Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+                    Text("خلاصه طرح انتخابی",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=deepBlue)
+                    Text(selectedOffer.title,color=deepBlue,fontWeight=FontWeight.ExtraBold)
+                    Text("${selectedOffer.credits} صورتحساب • ${money(q?.subtotal)} ریال مبلغ پایه",color=deepBlue)
+                    Text("مالیات ارزش افزوده (۱۰٪): ${money(q?.vat)} ریال",color=deepBlue)
+                    Text("مبلغ نهایی قابل پرداخت: ${money(q?.total)} ریال",color=deepBlue,fontWeight=FontWeight.Bold)
+                    if(quoteBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if(quoteError.isNotBlank()){Text(quoteError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={quoteAttempt++},modifier=Modifier.fillMaxWidth()){Text("استعلام دوباره")}}
+                    if(q!=null&&!q.enabled)Text("فروش این طرح فعلاً فعال نیست.",color=MaterialTheme.colorScheme.error)
+                    Button(onClick={checkout=true},enabled=q?.enabled==true&&canPurchase&&!quoteBusy,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("خرید این طرح")}
+                }
+            }
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Card(onClick = { freeSelected=true;checkout=false }, modifier = Modifier.fillMaxWidth(),
+            Card(onClick = { freeSelected=true;selectedOfferId=null;checkout=false }, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     if (plan == "free") 2.dp else 1.dp, Color(0xFF359985)),

@@ -79,7 +79,12 @@ jobs:
           test -s "$apk"
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           test -n "$apksigner"
-          "$apksigner" verify --verbose --print-certs "$apk"
+          "$apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/sura-release-signature.txt"
+          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          test -n "$aapt"
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/sura-release-badging.txt"
+          sed -n '1p' "$RUNNER_TEMP/sura-release-badging.txt" | tee "$RUNNER_TEMP/sura-release-package.txt"
+          grep -q "package: name='ir.saba.invoice' versionCode='147' versionName='0.147.0'" "$RUNNER_TEMP/sura-release-package.txt"
           unzip -t "$apk" >/dev/null
           sha256sum "$apk" | tee "$RUNNER_TEMP/sura-release-sha256.txt"
       - name: Upload verified signed Release APK
@@ -88,6 +93,9 @@ jobs:
           name: sura-signed-release-apk
           path: |
             app/build/outputs/apk/release/app-release.apk
+            ${{ runner.temp }}/sura-release-signature.txt
+            ${{ runner.temp }}/sura-release-package.txt
+            ${{ runner.temp }}/sura-release-sha256.txt
           if-no-files-found: error
           retention-days: 14
       - name: Remove temporary keystore

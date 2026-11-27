@@ -8,7 +8,7 @@ const safeNum=(v:unknown):v is number=>typeof v==="number"&&Number.isSafeInteger
 const sh={apikey:service,authorization:"Bearer "+service,"content-type":"application/json"};
 async function rest(path:string,method="GET",body?:unknown){const r=await fetch(base+"/rest/v1/"+path,{method,headers:sh,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error("database_failed");return r.json();}
 async function rpc(name:string,body:unknown){return rest("rpc/"+name,"POST",body);}
-const fields="id,owner_id,kind,units,amount_rial,state,tracking,transfer_date,created_at,submitted_at,review_reason,reviewed_at,cancelled_at";
+const fields="id,owner_id,kind,units,amount_rial,state,tracking,transfer_date,created_at,submitted_at,review_reason,reviewed_at,cancelled_at,offer_id,offer_title";
 async function bounded(req:Request){const reader=req.body?.getReader();if(!reader)throw Error("invalid_request");let total=0;const dec=new TextDecoder();let raw="";try{while(true){const r=await reader.read();if(r.done)break;total+=r.value.byteLength;if(total>680000){await reader.cancel();throw Error("too_large");}raw+=dec.decode(r.value,{stream:true});}return JSON.parse(raw+dec.decode());}finally{reader.releaseLock();}}
 async function handler(req:Request){
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
@@ -22,11 +22,16 @@ async function handler(req:Request){
  let b:any;try{b=await bounded(req);}catch{return reply({error:"invalid_request"},400);}
  if(!b||typeof b!=="object"||Array.isArray(b))return reply({error:"invalid_request"},400);
  const route=new URL(req.url).pathname.split("/").pop();
+ if(route==="offers"){
+  const rows=await rest("sura_sales_offers?select=id,title,description,credits,price_rial,featured,sort_order,revision&active=eq.true&order=sort_order.asc,created_at.desc");
+  return reply({offers:rows});
+ }
  if(route==="quote"||route==="reserve"){
-  if(!["single","monthly"].includes(b.kind)||!safeNum(b.units)||b.units>999999)return reply({error:"invalid_plan"},400);
+  if(!["single","monthly","offer"].includes(b.kind)||!safeNum(b.units)||b.units>999999||
+    (b.kind==="offer"&&!uuid(b.offerId))||(b.kind!=="offer"&&b.offerId!==undefined))return reply({error:"invalid_plan"},400);
   if(b.kind==="monthly"&&b.checkoutVersion!==2)return reply({error:"monthly_upgrade_required"},409);
   if(route==="reserve"&&!safeNum(b.total))return reply({error:"invalid_total"},400);
-  const r=route==="quote"?await rpc("sura_card_quote",{p_kind:b.kind,p_units:b.units}):await rpc("sura_card_reserve",{p_owner:u.id,p_kind:b.kind,p_units:b.units,p_total:b.total});
+  const r=route==="quote"?await rpc("sura_card_quote",{p_kind:b.kind,p_units:b.units,p_offer_id:b.offerId??null}):await rpc("sura_card_reserve",{p_owner:u.id,p_kind:b.kind,p_units:b.units,p_total:b.total,p_offer_id:b.offerId??null});
   return reply(r,r.error?409:200);
  }
  if(route==="mine"){
@@ -43,10 +48,26 @@ async function handler(req:Request){
   const r=await rpc("sura_card_submit",{p_owner:u.id,p_id:b.id,p_tracking:b.tracking,p_date:b.date,p_receipt:b.receipt});
   return reply(r,r.error?409:200);
  }
- if(!["admin-list","admin-detail","admin-review","admin-monthly-price","admin-monthly-save"].includes(route??""))return reply({error:"not_found"},404);
+ if(!["admin-list","admin-detail","admin-review","admin-monthly-price","admin-monthly-save","admin-offers","admin-offer-save"].includes(route??""))return reply({error:"not_found"},404);
  if(u.id!==admin||String(u.email).toLowerCase()!==email)return reply({error:"forbidden"},403);
  const roles=await rest("sura_admin_roles?select=role&user_id=eq."+admin+"&limit=1");
  if(roles[0]?.role!=="admin")return reply({error:"forbidden"},403);
+ if(route==="admin-offers"){
+  const rows=await rest("sura_sales_offers?select=id,title,description,credits,price_rial,active,featured,sort_order,revision,created_at,updated_at&order=sort_order.asc,created_at.desc");
+  const audit=await rest("sura_sales_offer_audit?select=request_id,offer_id,revision,title,credits,price_rial,active,reason,created_at&order=created_at.desc&limit=30");
+  return reply({offers:rows,audit});
+ }
+ if(route==="admin-offer-save"){
+  if(!uuid(b.request)||!uuid(b.id)||!Number.isSafeInteger(b.expected)||b.expected<0||
+   typeof b.title!=="string"||b.title.trim().length<2||b.title.trim().length>80||
+   typeof b.description!=="string"||b.description.length>240||
+   !safeNum(b.credits)||b.credits>999999||!safeNum(b.price)||b.price>1000000000000||
+   typeof b.active!=="boolean"||typeof b.featured!=="boolean"||
+   !Number.isSafeInteger(b.sort)||b.sort<0||b.sort>10000||
+   typeof b.reason!=="string"||b.reason.trim().length<5||b.reason.length>500)return reply({error:"invalid_request"},400);
+  const result=await rpc("sura_manager_save_sales_offer",{p_actor:u.id,p_request:b.request,p_id:b.id,p_expected:b.expected,p_title:b.title.trim(),p_description:b.description.trim(),p_credits:b.credits,p_price:b.price,p_active:b.active,p_featured:b.featured,p_sort:b.sort,p_reason:b.reason.trim()});
+  return reply(result,result.error?409:200);
+ }
  if(route==="admin-monthly-price"){
   const rows=await rest("sura_monthly_plan?select=price_rial,enabled,revision&id=eq.1&limit=1");
   const history=await rest("sura_monthly_price_audit?select=request_id,old_price,new_price,created_at,reason&order=new_revision.desc&limit=10");
