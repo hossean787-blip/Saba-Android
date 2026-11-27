@@ -10,14 +10,15 @@ Deno.serve(async(req)=>{
  try { body=await req.json(); } catch { return respond({error:"invalid_json"},400); }
  if(path.endsWith("/v1/profile/mobile")) {
    const token=String(body.accessToken??"");
-   const mobile=String(body.mobile??"").replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
-   if(!/^09\\d{9}$/.test(mobile)) return respond({error:"invalid_mobile"},400);
    if(!token) return respond({error:"missing_token"},400);
    const authHeaders={"apikey":anon,"authorization":"Bearer "+token};
    const who=await fetch(root+"/auth/v1/user",{headers:authHeaders});
    if(!who.ok) return respond({error:"unauthorized"},401);
    const current=await who.json();
    const metadata=current.user_metadata&&typeof current.user_metadata==="object"?current.user_metadata:{};
+   if(body.mobile===undefined) return respond({mobile:String(metadata.mobile||metadata.phone||"")});
+   const mobile=String(body.mobile??"").replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+   if(!/^09\\d{9}$/.test(mobile)) return respond({error:"invalid_mobile"},400);
    const updated=await fetch(root+"/auth/v1/user",{method:"PUT",headers:{...authHeaders,"content-type":"application/json"},body:JSON.stringify({data:{...metadata,mobile}})});
    if(!updated.ok) return respond({error:"profile_update_failed"},502);
    return respond({mobile});
