@@ -62,7 +62,7 @@ vault=(ROOT/'app/src/main/java/ir/sabagostar/suramanager/ManagerLoginVault.java'
 assert 'AndroidKeyStore' in vault and 'AES/GCM/NoPadding' in vault and 'setUserAuthenticationRequired(true)' in vault
 assert 'setUserAuthenticationParameters(0,KeyProperties.AUTH_BIOMETRIC_STRONG)' in vault and 'BiometricPrompt.CryptoObject' in vault
 assert 'setInvalidatedByBiometricEnrollment(true)' in vault
-assert 'saveVerifiedLogin(email,pass,me,fromBio,rememberEmail,rememberBio)' in html
+assert 'saveVerifiedLogin(email,password,me,fromBio,rememberEmail,rememberBio)' in html
 assert 'if(nativeVault())return;' in html and 'setSavePassword(false)' in java
 assert 'id="bio-login"' in html and 'id="forget-login"' in html
 print('PASS: biometric vault source guards and native session restore isolation')
