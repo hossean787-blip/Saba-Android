@@ -3,7 +3,12 @@ package ir.saba.invoice.ui
 import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
 class SalesOfferTest {
     @Test fun parsesPublishedOffers() {
         val rows=SalesOffer.parseAll(JSONArray("""[{"id":"offer-1","title":"بسته اقتصادی","description":"برای شروع","credits":10,"price_rial":850000,"featured":true}]"""))
