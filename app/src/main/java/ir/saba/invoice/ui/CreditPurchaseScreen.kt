@@ -66,6 +66,9 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     var paymentMessage by remember { mutableStateOf("") }
     var pendingOnlineId by remember { mutableStateOf<String?>(null) }
     var onlineReady by remember { mutableStateOf(false) }
+    var onlinePaymentEnabled by remember { mutableStateOf(false) }
+    var onlinePaymentLoading by remember { mutableStateOf(false) }
+    var paymentMethod by rememberSaveable { mutableStateOf("card") }
     val active=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
     val displayedOrder=history.firstOrNull{it.optString("id")==orderId}
     fun money(value:Long?)=value?.let{java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it)} ?: "—"
@@ -109,6 +112,24 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         finally{quoteBusy=false}
     }
     val q=quote?.takeIf{it.matches(plan,selectedQuantity)}
+    LaunchedEffect(accessToken,checkout,q?.kind,q?.units,q?.subtotal,q?.vat,q?.total){
+        onlinePaymentEnabled=false
+        if(!checkout||q?.kind!="single"){
+            onlinePaymentLoading=false
+            if(q?.kind!="single")paymentMethod="card"
+        }else{
+            onlinePaymentLoading=true
+            try{
+                val serverQuote=CreditQuoteClient.quote(accessToken,q.units)
+                onlinePaymentEnabled=serverQuote.optBoolean("payment_enabled")&&
+                    serverQuote.optLong("subtotal_rial",-1L)==q.subtotal&&
+                    serverQuote.optLong("vat_rial",-1L)==q.vat&&
+                    serverQuote.optLong("total_rial",-1L)==q.total
+            }catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(_:Exception){onlinePaymentEnabled=false}
+            finally{onlinePaymentLoading=false}
+        }
+    }
     val canPurchase=historyReady&&onlineReady&&active==null&&pendingOnlineId==null&&!checkoutBusy
     val cardShape=RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxSize().background(SuraPalette.Canvas).verticalScroll(rememberScrollState())
@@ -122,21 +143,55 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                     Text("انتخاب روش پرداخت",color=deepBlue,fontWeight=FontWeight.ExtraBold,style=MaterialTheme.typography.titleLarge)
                     Text(if(q.kind=="offer")((selectedOffer?.title ?: "طرح فروش")+" • ${q.units} صورتحساب") else "${q.units} اعتبار تکی",color=deepBlue)
                     Text("مبلغ قابل پرداخت: ${money(q.total)} ریال",fontWeight=FontWeight.Bold,color=deepBlue)
-                    Card(shape=RoundedCornerShape(16.dp),border=androidx.compose.foundation.BorderStroke(2.dp,SuraPalette.Teal),colors=CardDefaults.cardColors(containerColor=SuraPalette.Soft)){
+                    if(q.kind=="single"){
+                        Card(onClick={if(onlinePaymentEnabled)paymentMethod="zarinpal"},enabled=onlinePaymentEnabled,
+                            shape=RoundedCornerShape(16.dp),
+                            border=androidx.compose.foundation.BorderStroke(if(paymentMethod=="zarinpal"&&onlinePaymentEnabled)2.dp else 1.dp,if(paymentMethod=="zarinpal"&&onlinePaymentEnabled)SuraPalette.Teal else SuraPalette.Edge),
+                            colors=CardDefaults.cardColors(containerColor=if(paymentMethod=="zarinpal"&&onlinePaymentEnabled)SuraPalette.Soft else Color.White)){
+                            Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
+                                RadioButton(selected=paymentMethod=="zarinpal",onClick={paymentMethod="zarinpal"},enabled=onlinePaymentEnabled)
+                                Column(Modifier.padding(start=8.dp)){
+                                    Text("پرداخت آنلاین زرین‌پال",fontWeight=FontWeight.Bold,color=deepBlue)
+                                    Text(when{onlinePaymentLoading->"در حال بررسی آمادگی درگاه…";onlinePaymentEnabled->"تأیید پرداخت و شارژ خودکار اعتبار";else->"پس از تنظیم پذیرنده و IP ثابت فعال می‌شود."},style=MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                    Card(onClick={paymentMethod="card"},shape=RoundedCornerShape(16.dp),
+                        border=androidx.compose.foundation.BorderStroke(if(paymentMethod=="card")2.dp else 1.dp,if(paymentMethod=="card")SuraPalette.Teal else SuraPalette.Edge),
+                        colors=CardDefaults.cardColors(containerColor=if(paymentMethod=="card")SuraPalette.Soft else Color.White)){
                         Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
-                            RadioButton(selected=true,onClick=null)
+                            RadioButton(selected=paymentMethod=="card",onClick={paymentMethod="card"})
                             Column(Modifier.padding(start=8.dp)){
                                 Text("کارت‌به‌کارت",fontWeight=FontWeight.Bold,color=deepBlue)
                                 Text("ارسال رسید و تأیید توسط مدیرکل",style=MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
-                    Button(enabled=canPurchase&&q.enabled,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),onClick={payAction{
-                        // Recheck both histories before reserving. An existing order is resumed, not overwritten.
+                    Button(enabled=canPurchase&&q.enabled&&(paymentMethod!="zarinpal"||onlinePaymentEnabled)&&!onlinePaymentLoading,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),onClick={payAction{
+                        // Recheck both histories before starting any checkout. Never create a second live order.
                         refreshOrders()
                         val prior=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
                         if(prior!=null){orderId=prior.getString("id");checkout=false;return@payAction}
                         if(pendingOnlineId!=null){checkout=false;paymentMessage="ابتدا سفارش پرداخت قبلی را تعیین تکلیف کنید.";return@payAction}
+                        if(paymentMethod=="zarinpal"){
+                            val serverQuote=CreditQuoteClient.quote(accessToken,q.units)
+                            require(serverQuote.optBoolean("payment_enabled")&&
+                                serverQuote.optLong("subtotal_rial",-1L)==q.subtotal&&
+                                serverQuote.optLong("vat_rial",-1L)==q.vat&&
+                                serverQuote.optLong("total_rial",-1L)==q.total){"قیمت یا آمادگی درگاه تغییر کرده است؛ دوباره استعلام بگیرید."}
+                            val result=ZarinPalPurchaseClient.create(accessToken,q.units)
+                            val id=result.getString("orderId")
+                            require(id.matches(Regex("[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")))
+                            require(result.optLong("credits",-1L)==q.units&&result.optLong("amountRial",-1L)==q.total){"مبلغ سفارش با پیش‌فاکتور برابر نیست؛ پرداخت را آغاز نکنید."}
+                            val paymentUrl=result.getString("paymentUrl")
+                            require(paymentUrl.startsWith("https://www.zarinpal.com/pg/StartPay/"))
+                            pendingOnlineId=id
+                            checkout=false
+                            context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(paymentUrl)))
+                            paymentMessage="سفارش پرداخت ثبت شد؛ پس از بازگشت از درگاه، وضعیت را استعلام کنید."
+                            return@payAction
+                        }
                         try{
                             val reserveBody=org.json.JSONObject().put("kind",q.kind).put("units",q.units).put("total",q.total).put("checkoutVersion",2)
                             if(q.kind=="offer")reserveBody.put("offerId",requireNotNull(selectedOfferId))
@@ -153,7 +208,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                             quoteAttempt++
                             throw e
                         }
-                    }}){Text(if(checkoutBusy)"در حال ثبت سفارش…" else "ادامه پرداخت")}
+                    }}){Text(if(checkoutBusy)"در حال ثبت سفارش…" else if(paymentMethod=="zarinpal")"پرداخت آنلاین" else "ادامه پرداخت")}
                     OutlinedButton(onClick={checkout=false},enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth()){Text("بازگشت به انتخاب پلن")}
                 }
             }
@@ -174,7 +229,8 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                 OutlinedButton(enabled=!checkoutBusy,modifier=Modifier.fillMaxWidth(),onClick={payAction{
                     val id=pendingOnlineId?:return@payAction
                     val result=ZarinPalPurchaseClient.status(accessToken,id)
-                    if(result.optString("state") in setOf("verified","failed")){refreshOrders();paymentMessage="وضعیت سفارش قبلی به‌روزرسانی شد."}
+                    if(result.optString("state")=="verified"){refreshOrders();paymentMessage="پرداخت تأیید شد و اعتبار به کیف پول مالک اضافه شد."}
+                    else if(result.optString("state")=="failed"){refreshOrders();paymentMessage="پرداخت تأیید نشد و اعتباری اضافه نشد."}
                     else paymentMessage="سفارش قبلی هنوز تعیین تکلیف نشده است؛ دوباره پرداخت نکنید."
                 }}){Text("استعلام سفارش قبلی")}
             }
