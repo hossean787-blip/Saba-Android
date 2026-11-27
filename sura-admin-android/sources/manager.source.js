@@ -38,16 +38,16 @@ async function renderDirectory(c){
  if(ADMIN_ROLE==='viewer'){c.innerHTML='<div class="config-notice">فهرست کاربران فقط برای مدیر و ویرایشگر قابل مشاهده است.</div>';return;}
  const payload=await managerFetch('users',{page:directoryPage,perPage:30});
  directoryRows=payload.users||[];
- c.innerHTML=`<div class="section-hero"><span class="eyebrow">ACCOUNT DIRECTORY</span><h2>مودیان و مالکان</h2>
- <p>نام و ایمیل ثبت‌شده مالک هر حساب، همراه با وضعیت تأیید و سطح دسترسی نمایش داده می‌شود.</p></div>
- <div class="panel"><div class="panel-head"><h3>فهرست مالکان حساب</h3>${managerPill('صفحه '+fmtNum(directoryPage))}</div>
- <div class="filters"><input id="directory-search" class="search-input" placeholder="جست‌وجوی نام، ایمیل یا شناسه" oninput="filterManagerDirectory(this.value)" aria-label="جست‌وجوی کاربران">
+ c.innerHTML=`<div class="section-hero"><span class="eyebrow">ACCOUNT DIRECTORY</span><h2>بانک اطلاعات کاربران</h2>
+ <p>نام، ایمیل و شماره موبایل ثبت‌شده هر حساب در این بخش نمایش داده می‌شود.</p></div>
+ <div class="panel"><div class="panel-head"><h3>بانک اطلاعات کاربران</h3>${managerPill('صفحه '+fmtNum(directoryPage))}</div>
+ <div class="filters"><input id="directory-search" class="search-input" placeholder="جست‌وجوی نام، ایمیل، موبایل یا شناسه" oninput="filterManagerDirectory(this.value)" aria-label="جست‌وجوی کاربران">
  <button class="action-btn" onclick="openSelectedGift()">شارژ حساب با نام یا ایمیل</button></div>
- <div class="tbl-wrap"><table id="directory-table"><thead><tr><th>نام و نام خانوادگی</th><th>ایمیل مالک</th><th>تأیید</th><th>نقش مدیریت</th><th>ثبت‌نام</th><th>عملیات</th></tr></thead><tbody>
- ${directoryRows.map(u=>`<tr data-q="${html((u.name||'')+' '+(u.email||'')+' '+u.id).toLowerCase()}"><td><strong>${html(managerDisplayName(u))}</strong><div class="technical-id" dir="ltr">${html(u.id)}</div></td><td dir="ltr">${html(u.email||'بدون ایمیل')}</td>
+ <div class="tbl-wrap"><table id="directory-table"><thead><tr><th>نام و نام خانوادگی</th><th>ایمیل مالک</th><th>شماره موبایل</th><th>تأیید</th><th>نقش مدیریت</th><th>ثبت‌نام</th><th>عملیات</th></tr></thead><tbody>
+ ${directoryRows.map(u=>`<tr data-q="${html((u.name||'')+' '+(u.email||'')+' '+(u.mobile||'')+' '+u.id).toLowerCase()}"><td><strong>${html(managerDisplayName(u))}</strong><div class="technical-id" dir="ltr">${html(u.id)}</div></td><td dir="ltr">${html(u.email||'بدون ایمیل')}</td><td dir="ltr">${html(u.mobile||'ثبت نشده')}</td>
  <td>${managerPill(u.verified?'تأییدشده':'تأییدنشده',u.verified?'green':'yellow')}</td>
  <td>${managerPill(MANAGER_ROLE_LABEL[u.role]||'کاربر عادی',u.role==='admin'?'red':'gray')}</td>
- <td>${safeTime(u.created_at)}</td><td>${managerUserLink(u.id)} <button class="action-btn" onclick="openSelectedGift('${html(u.id)}',${safeJSString(u.name||'')},${safeJSString(u.email||'')})">شارژ</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty-note">کاربری در این صفحه ثبت نشده است.</td></tr>'}
+ <td>${safeTime(u.created_at)}</td><td>${managerUserLink(u.id)} <button class="action-btn" onclick="openSelectedGift('${html(u.id)}',${safeJSString(u.name||'')},${safeJSString(u.email||'')})">شارژ</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty-note">کاربری در این صفحه ثبت نشده است.</td></tr>'}
  </tbody></table></div><div class="pagination manager-pagination">
  <span>جست‌وجو در همین صفحه انجام می‌شود؛ برای مشاهده سایر حساب‌ها صفحه را تغییر دهید.</span>
  <button class="action-btn" ${directoryPage===1?'disabled':''} onclick="setManagerDirectory(${directoryPage-1})">قبلی</button>
@@ -64,7 +64,7 @@ async function openManagerUser(id){
  try{
   const d=await managerFetch('user',{id}); const u=d.user;
   const emailsafe=html(u.email||'—'); const role=MANAGER_ROLE_LABEL[u.role]||'کاربر عادی';
-  document.getElementById('modal-body').innerHTML=`<div class="detail-person"><strong>${html(managerDisplayName(u))}</strong><span dir="ltr">${emailsafe}</span><small dir="ltr">${html(u.id)}</small>
+  document.getElementById('modal-body').innerHTML=`<div class="detail-person"><strong>${html(managerDisplayName(u))}</strong><span dir="ltr">${emailsafe}</span><span dir="ltr">${html(u.mobile||'شماره موبایل ثبت نشده')}</span><small dir="ltr">${html(u.id)}</small>
   <span>${managerPill(role,u.role==='admin'?'red':'blue')} ${managerPill(u.verified?'ایمیل تأییدشده':'ایمیل تأییدنشده',u.verified?'green':'yellow')}</span></div>
   <div class="manager-facts"><div><small>ثبت‌نام</small><strong>${safeTime(u.created_at)}</strong></div><div><small>آخرین ورود</small><strong>${safeTime(u.last_sign_in_at)}</strong></div>
   <div><small>اعتبار مالک</small><strong>${fmtNum(d.wallet?.credits||0)} واحد</strong></div><div><small>مودیان دارای اعتبار</small><strong>${fmtNum((d.taxpayers||[]).length)}</strong></div></div>
