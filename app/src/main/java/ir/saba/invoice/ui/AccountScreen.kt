@@ -220,7 +220,7 @@ private fun AccountContent(
                         in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar()
                         else -> ch
                     } }.filter(Char::isDigit).take(11).joinToString("")
-                }, label = { Text("شماره موبایل") }, singleLine = true)
+                }, label = { Text("شماره موبایل") }, singleLine = true, modifier = Modifier.testTag("profileMobileInput"))
                 Text("ایمیل ورود: " + ownerEmail.orEmpty(), style = MaterialTheme.typography.bodySmall)
                 Text("شماره موبایل بدون کد تأیید در حساب شما ثبت می‌شود و در بانک اطلاعات سورا مدیر نمایش داده خواهد شد.",
                     style = MaterialTheme.typography.bodySmall)
@@ -248,7 +248,7 @@ private fun AccountContent(
                     } finally { savingMobile = false }
                 }
             }
-        }) { Text(if (savingMobile) "در حال ثبت…" else "ذخیره اطلاعات") } },
+        }, modifier = Modifier.testTag("profileSaveMobile")) { Text(if (savingMobile) "در حال ثبت…" else "ذخیره اطلاعات") } },
         dismissButton = { TextButton(enabled = !savingMobile, onClick = { editingProfile = false }) { Text("انصراف") } }
     )
 
