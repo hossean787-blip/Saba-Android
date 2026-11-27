@@ -1,9 +1,5 @@
 # Authorized SURA Manager APK release — 2026-11-27
 
-Build the current main-branch SURA Manager app version 1.1.8 (versionCode 11; preserve applicationId ir.sabagostar.suramanager). Include the live sales-plan administration merged in PR #24. Keep the existing official SURA signing identity; do not create a duplicate app, change package ID, change signing credentials, publish to an app store, or grant credits.
+Build current main as SURA Manager 1.1.9 (versionCode 12; applicationId ir.sabagostar.suramanager), preserving the established official SURA signing identity. Include the new protected «بانک اطلاعات» page, showing each user's name, email and saved mobile number. Mobile numbers are sourced from authenticated user metadata; do not infer or fabricate missing values.
 
-Run static guards, backend route and manager tests, assemble the signed Release APK, run lint, and verify package ID, version code/name, APK archive integrity, APK signature and certificate fingerprint. Upload the verified APK, signature report, package metadata and SHA-256 checksum as a GitHub Actions artifact. If required signing secrets are unavailable or the signing certificate cannot be verified, fail safely and report the exact blocker; never substitute a debug key.
-
-Release update: manager version 1.1.8 / versionCode 11 includes the Android navigation-bar inset correction, owner directory name/email display, and account lookup for wallet charging.
-
-Final signed build request: compile the latest main sources, regenerate the WebView assets and manager API bundle, run all manager checks, then publish the official signed APK artifact.
+Regenerate WebView assets and compiled manager API from sources. Run static guards, backend route and manager tests, assemble the signed Release APK, run lint, and verify package ID, version code/name, APK archive integrity, signature and certificate fingerprint. Upload APK, signature report, package metadata and SHA-256 checksum as a GitHub Actions artifact. Do not change package ID or signing credentials, publish to an app store, or grant credits. If any gate or signing prerequisite fails, report the exact failure and never substitute a debug key.
