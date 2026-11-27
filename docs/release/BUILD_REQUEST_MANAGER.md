@@ -4,4 +4,4 @@ Build the current main-branch SURA Manager app version 1.1.8 (versionCode 11; pr
 
 Run static guards, backend route and manager tests, assemble the signed Release APK, run lint, and verify package ID, version code/name, APK archive integrity, APK signature and certificate fingerprint. Upload the verified APK, signature report, package metadata and SHA-256 checksum as a GitHub Actions artifact. If required signing secrets are unavailable or the signing certificate cannot be verified, fail safely and report the exact blocker; never substitute a debug key.
 
-Retry note: the version assertion in static_guard.py was corrected to versionCode 10; run the complete release validation again against current main.
+Release update: manager version 1.1.8 / versionCode 11 includes the Android navigation-bar inset correction, owner directory name/email display, and account lookup for wallet charging.
