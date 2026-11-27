@@ -40,6 +40,7 @@ public final class AdminActivity extends Activity {
     private WebView web;
     private byte[] pendingBytes;
     private ManagerLoginVault loginVault;
+    private int systemBottomInset;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -86,7 +87,11 @@ public final class AdminActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 35) {
             web.setOnApplyWindowInsetsListener((view, insets) -> {
                 android.graphics.Insets bar = insets.getInsets(WindowInsets.Type.systemBars());
-                view.setPadding(bar.left, bar.top, bar.right, bar.bottom);
+                systemBottomInset = Math.max(0, bar.bottom);
+                // Keep the WebView edge-to-edge; move the HTML bottom navigation above
+                // the real Android navigation bar using a measured native inset.
+                view.setPadding(bar.left, bar.top, bar.right, 0);
+                applySystemBottomInset();
                 return insets;
             });
         }
@@ -117,6 +122,7 @@ public final class AdminActivity extends Activity {
         }
         @Override public void onPageFinished(WebView view, String url) {
             if (!ENTRY.equals(url)) return;
+            applySystemBottomInset();
             // A safe UI health probe for emulator QA; never log account details or tokens.
             if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                 view.evaluateJavascript("(function(){return !!document.getElementById('inp-email') && !!document.getElementById('login-screen') && !!window.SuraReports && typeof SuraReports.makeXlsx==='function' && typeof managerFetch==='function' && typeof renderDirectory==='function';})()",
@@ -142,6 +148,11 @@ public final class AdminActivity extends Activity {
 
     private boolean trustedPage() { return web != null && !isFinishing() && ENTRY.equals(web.getUrl()); }
     private void localScript(String script) { if (trustedPage()) web.evaluateJavascript(script, null); }
+    private void applySystemBottomInset() {
+        if (web != null && !isFinishing()) {
+            web.evaluateJavascript("document.documentElement.style.setProperty('--sura-system-bottom-inset','" + systemBottomInset + "px')", null);
+        }
+    }
     public final class ExportBridge {
         @JavascriptInterface public void loginState() { runOnUiThread(() -> { if (trustedPage()) loginVault.state(); }); }
         @JavascriptInterface public void rememberEmail(String email) { runOnUiThread(() -> { if (trustedPage()) loginVault.rememberEmail(email); }); }
