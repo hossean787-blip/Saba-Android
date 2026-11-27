@@ -88,7 +88,7 @@ jobs:
           test -n "$aapt"
           "$aapt" dump badging "$apk" > "$RUNNER_TEMP/sura-release-badging.txt"
           sed -n '1p' "$RUNNER_TEMP/sura-release-badging.txt" | tee "$RUNNER_TEMP/sura-release-package.txt"
-          grep -q "package: name='ir.saba.invoice' versionCode='147' versionName='0.147.0'" "$RUNNER_TEMP/sura-release-package.txt"
+          grep -q "package: name='ir.saba.invoice' versionCode='148' versionName='0.148.0'" "$RUNNER_TEMP/sura-release-package.txt"
           unzip -t "$apk" >/dev/null
           sha256sum "$apk" | tee "$RUNNER_TEMP/sura-release-sha256.txt"
       - name: Upload verified signed Release APK
