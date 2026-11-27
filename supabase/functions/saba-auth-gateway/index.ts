@@ -8,6 +8,20 @@ Deno.serve(async(req)=>{
  if(!root||!anon) return respond({error:"server_not_configured"},503);
  let body:Record<string,unknown>;
  try { body=await req.json(); } catch { return respond({error:"invalid_json"},400); }
+ if(path.endsWith("/v1/profile/mobile")) {
+   const token=String(body.accessToken??"");
+   const mobile=String(body.mobile??"").replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+   if(!/^09\\d{9}$/.test(mobile)) return respond({error:"invalid_mobile"},400);
+   if(!token) return respond({error:"missing_token"},400);
+   const authHeaders={"apikey":anon,"authorization":"Bearer "+token};
+   const who=await fetch(root+"/auth/v1/user",{headers:authHeaders});
+   if(!who.ok) return respond({error:"unauthorized"},401);
+   const current=await who.json();
+   const metadata=current.user_metadata&&typeof current.user_metadata==="object"?current.user_metadata:{};
+   const updated=await fetch(root+"/auth/v1/user",{method:"PUT",headers:{...authHeaders,"content-type":"application/json"},body:JSON.stringify({data:{...metadata,mobile}})});
+   if(!updated.ok) return respond({error:"profile_update_failed"},502);
+   return respond({mobile});
+ }
  const endpoint=path.endsWith("/v1/auth/registration/start")?"signup":path.endsWith("/v1/auth/login/password")?"token?grant_type=password":path.endsWith("/v1/auth/logout")?"logout":null;
  if(!endpoint) return respond({error:"unsupported_auth_operation"},404);
  if(endpoint==="signup"){
