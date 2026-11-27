@@ -1,5 +1,5 @@
-# Authorized SURA APK build — 2026-11-27
+# Authorized SURA invoice APK release — 2026-11-27
 
-Build the main SURA Android application version 0.144.0 from main. The invoice registration page must contain only new invoice creation and Excel import; saved invoices must appear only in the dedicated «فاکتورها» section. Keep advertising integrations absent and preserve the restored pre-PR19 single-account biometric login flow.
+Build the current main-branch SURA invoice app version 0.147.0 (versionCode 147; preserve applicationId ir.saba.invoice). Include the merged live sales plans and server-quoted purchase flow from PR #24. Keep the existing official signing identity; do not create a second installable app, change package ID, change signing credentials, publish to an app store, or grant credits.
 
-Run JVM tests, Android test compilation and lint before building the signed release APK. Verify package id, version code/name, APK integrity, official signing certificate fingerprint and permissions. Upload the verified APK and checksums as workflow artifacts. Use the existing official SURA release signing key only. Do not build or publish the manager app. Do not publish to any app store. Do not change signing credentials or grant credits.
+Run JVM tests and lint, assemble the signed Release APK, and verify package ID, version code/name, APK archive integrity, APK signature and certificate fingerprint. Upload the verified APK, signature report, package metadata and SHA-256 checksum as a GitHub Actions artifact. If required signing secrets are unavailable or the signing certificate cannot be verified, fail safely and report the exact blocker; never substitute a debug key.
