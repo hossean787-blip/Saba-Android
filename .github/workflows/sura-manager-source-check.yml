@@ -17,6 +17,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: npm --prefix sura-admin-android install --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix sura-admin-android run web:build
+      - run: node sura-admin-android/tools/build-manager-api.cjs
       - run: |
           python3 sura-admin-android/tests/static_guard.py
           node --check sura-admin-android/app/src/main/assets/admin/manager.js
