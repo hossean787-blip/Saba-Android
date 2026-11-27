@@ -68,7 +68,7 @@ async function openManagerUser(id){
   <span>${managerPill(role,u.role==='admin'?'red':'blue')} ${managerPill(u.verified?'ایمیل تأییدشده':'ایمیل تأییدنشده',u.verified?'green':'yellow')}</span></div>
   <div class="manager-facts"><div><small>ثبت‌نام</small><strong>${safeTime(u.created_at)}</strong></div><div><small>آخرین ورود</small><strong>${safeTime(u.last_sign_in_at)}</strong></div>
   <div><small>اعتبار مالک</small><strong>${fmtNum(d.wallet?.credits||0)} واحد</strong></div><div><small>مودیان دارای اعتبار</small><strong>${fmtNum((d.taxpayers||[]).length)}</strong></div></div>
-${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openSelectedGift(\\''+html(u.id)+'\\',\\''+html(u.name||'')+'\\',\\''+html(u.email||'')+'\\')">شارژ حساب</button>':''}
+${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openSelectedGift(\\''+html(u.id)+'\\','+safeJSString(u.name||'')+','+safeJSString(u.email||'')+')">شارژ حساب</button>':''}
 ${ADMIN_ROLE==='admin'?'<button class="action-btn" onclick="openManagerConsent(\''+html(u.id)+'\')">سابقه پذیرش قوانین</button>':''}
   <h4>مودیان متصل به این مالک</h4><div class="tbl-wrap"><table><thead><tr><th>نام مالک حساب</th><th>ایمیل مالک</th><th>شناسه محلی مودی</th><th>موجودی</th></tr></thead><tbody>
   ${(d.taxpayers||[]).map(t=>`<tr><td>${html(managerDisplayName(u))}</td><td dir="ltr">${html(u.email||'—')}</td><td>${fmtNum(t.local_taxpayer_id)}</td><td>${fmtNum(t.credits)}</td></tr>`).join('')||'<tr><td colspan="4">مودی دارای موجودی ثبت نشده است.</td></tr>'}</tbody></table></div>
