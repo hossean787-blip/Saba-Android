@@ -82,7 +82,8 @@ jobs:
           "$apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/sura-release-signature.txt"
           aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
           test -n "$aapt"
-          "$aapt" dump badging "$apk" | head -n 1 | tee "$RUNNER_TEMP/sura-release-package.txt"
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/sura-release-badging.txt"
+          sed -n '1p' "$RUNNER_TEMP/sura-release-badging.txt" | tee "$RUNNER_TEMP/sura-release-package.txt"
           grep -q "package: name='ir.saba.invoice' versionCode='147' versionName='0.147.0'" "$RUNNER_TEMP/sura-release-package.txt"
           unzip -t "$apk" >/dev/null
           sha256sum "$apk" | tee "$RUNNER_TEMP/sura-release-sha256.txt"
