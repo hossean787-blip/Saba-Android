@@ -14,6 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +42,7 @@ fun CreditPurchaseScreen(ownerId: String, accessToken: String) {
 @Composable
 private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var promoCode by remember { mutableStateOf("") }
     var promoBusy by remember { mutableStateOf(false) }
@@ -100,6 +104,26 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         }catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(e:Exception){paymentMessage=SuraErrors.describe(e,"دریافت طرح‌های فروش انجام نشد؛ برای تازه‌سازی دوباره تلاش کنید. [OFFERS-LOAD]")}
         finally{offersLoading=false}
+    }
+    DisposableEffect(lifecycleOwner,accessToken,pendingOnlineId,checkoutBusy){
+        val id=pendingOnlineId
+        if(id==null)return@DisposableEffect onDispose{}
+        val observer=LifecycleEventObserver{_,event->
+            if(event==Lifecycle.Event.ON_RESUME&&!checkoutBusy){
+                scope.launch{
+                    try{
+                        val status=ZarinPalPurchaseClient.status(accessToken,id)
+                        when(status.optString("state")){
+                            "verified"->{refreshOrders();paymentMessage="پرداخت تأیید شد و اعتبار به کیف پول مالک اضافه شد."}
+                            "failed"->{refreshOrders();paymentMessage="پرداخت تأیید نشد و اعتباری اضافه نشد."}
+                        }
+                    }catch(e:kotlinx.coroutines.CancellationException){throw e}
+                    catch(_:Exception){/* Keep the order recoverable; the manual status action remains available. */}
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose{lifecycleOwner.lifecycle.removeObserver(observer)}
     }
     LaunchedEffect(accessToken,plan,selectedQuantity,selectedOfferId,selectedOffer?.priceRial,quoteAttempt){
         quote=null;quoteError="";quoteBusy=false
