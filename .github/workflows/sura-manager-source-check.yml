@@ -1,4 +1,5 @@
 name: SURA Manager source verification
+# Build generated assets from source before validating and exercising the manager app.
 on:
   push:
     branches: [main]
