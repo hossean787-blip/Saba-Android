@@ -287,6 +287,16 @@ class MainActivity : ComponentActivity() {
                             onBiometricLogin = { unlockWithBiometric() }
                         )
                     }
+                    if (!showStartupMotion && auth.session != null && auth.profileReminder) {
+                        AlertDialog(
+                            onDismissRequest = auth::dismissProfileReminder,
+                            title = { Text("تکمیل اطلاعات حساب") },
+                            text = { Text("ثبت‌نام شما با موفقیت انجام شد. لطفاً از بخش «حساب کاربری» شماره موبایل خود را وارد و ذخیره کنید. نیازی به تأیید پیامکی نیست.") },
+                            confirmButton = {
+                                TextButton(onClick = auth::dismissProfileReminder) { Text("متوجه شدم") }
+                            }
+                        )
+                    }
                     if (!showStartupMotion && auth.session != null &&
                         auth.biometricEnrollment != null && !biometricBusy &&
                         !biometricEnabled && biometricVault.canOffer()
