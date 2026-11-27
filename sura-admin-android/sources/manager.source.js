@@ -421,7 +421,7 @@ async function searchGiftOwners(){
  const q=(document.getElementById('gift-owner-query').value||'').trim();if(q.length<2||q.length>120)return toast('حداقل دو نویسه از نام یا ایمیل وارد کن','error');
  const box=document.getElementById('gift-owner-results');box.innerHTML='<div class="empty-note">در حال جست‌وجو…</div>';
  try{const d=await managerFetch('owner-search',{query:q});giftOwnerMatches=d.matches||[];
-  box.innerHTML=giftOwnerMatches.map(u=>'<button type="button" class="owner-result" onclick="selectGiftOwner(\\''+html(u.id)+'\\')"><b>'+html(managerDisplayName(u))+'</b><small dir="ltr">'+html(u.email||'بدون ایمیل')+'</small></button>').join('')||'<div class="empty-note">حسابی با این نام یا ایمیل پیدا نشد.</div>';
+  box.innerHTML=giftOwnerMatches.map(u=>'<button type="button" class="owner-result" onclick="selectGiftOwner(\''+html(u.id)+'\')"><b>'+html(managerDisplayName(u))+'</b><small dir="ltr">'+html(u.email||'بدون ایمیل')+'</small></button>').join('')||'<div class="empty-note">حسابی با این نام یا ایمیل پیدا نشد.</div>';
  }catch(e){box.textContent='جست‌وجوی حساب ناموفق بود: '+parseError(e);}
 }
 function selectGiftOwner(id){const u=giftOwnerMatches.find(x=>x.id===id);if(!u)return;selectedGiftOwner={id:u.id,name:u.name||'',email:u.email||''};selectedGift=null;
