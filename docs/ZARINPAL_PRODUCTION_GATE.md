@@ -28,3 +28,15 @@ The 0.39.0 app uses server-side checkout; it must never issue credits from the b
 **Still not verified:** whether `ZARINPAL_MERCHANT_ID` is set and valid on the live project; real gateway handshake/payment/verification, user device checkout, and invoice receipt details. No production transaction was initiated during these checks.
 
 **Security and merchant setup:** add merchant UUID only as Supabase Edge Function secret `ZARINPAL_MERCHANT_ID`. The Android app must not embed that ID or a service-role key. Enable real charging only after a merchant-authorized small payment has completed server verification and one-credit idempotent settlement tests.
+
+
+## وضعیت اجرایی بازبینی‌شده — 2026-11-27
+
+- تابع مستقر sura-zarinpal در پروژه فعال saba-auth نسخه 14 است.
+- بررسی زنده endpoint سلامت: merchant_configured=true، static_egress_configured=false و checkout_enabled=false. شناسه پذیرنده روی سرور وجود دارد؛ مسیر خروجی IP ثابت هنوز آماده نیست.
+- رابط خرید اندروید در main به مسیر زرین‌پال متصل شد: گزینه پرداخت آنلاین فقط برای اعتبار تکی و فقط وقتی پیش‌فاکتور سرور با مبلغ نمایش‌داده‌شده برابر و payment_enabled=true باشد فعال می‌شود. طرح‌های فروش و خریدهای غیرتکی فعلاً از مسیر کارت‌به‌کارت استفاده می‌کنند.
+- پس از بازگشت از درگاه، دکمه استعلام سفارش، تابع سرور را وادار به verify مجدد می‌کند. callback نیز مستقلاً verify می‌کند؛ پاسخ مرورگر به‌تنهایی اعتبار نمی‌سازد.
+- تابع تسویه زنده در پایگاه داده با قفل ردیف، سفارش را verified می‌کند، grant یکتا می‌سازد و اعتبار را به sura_owner_wallets می‌افزاید؛ اجرای مجدد همان سفارش grant دوم نمی‌سازد.
+- قیمت فعلی خوانده‌شده از دیتابیس برای یک اعتبار: پایه 750,000 ریال، مالیات 75,000 ریال، جمع 825,000 ریال. این فقط مقدار پیکربندی فعلی سرور است و در کد ثابت نشده است.
+- مانع فعال‌سازی پرداخت عمومی: VPS دارای IPv4 ثابت و دامنه HTTPS برای proxy خروجی زرین‌پال، به‌همراه تنظیم SURA_PAYMENT_EGRESS_URL و SURA_PAYMENT_EGRESS_SECRET در secrets پروژه. خرید VPS یا ایجاد هزینه بدون تأیید مالک انجام نمی‌شود.
+- پرداخت واقعی، callback واقعی و صدور APK نهایی این تغییر هنوز آزموده نشده‌اند.
