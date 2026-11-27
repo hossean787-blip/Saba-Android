@@ -6,3 +6,5 @@ Regenerate WebView assets and compiled manager API from sources. Run static guar
 
 
 Rebuild requested after bank-directory mobile display and updated release guards.
+
+Rebuild after latest QA correction on main.
