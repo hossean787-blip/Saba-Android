@@ -35,14 +35,16 @@ assert 'ACTION_CREATE_DOCUMENT' in java
 assert 'zipFiles' in js and 'makeXlsx' in js
 assert 'renderDirectory' in manager and 'managerFetch' in manager
 assert 'admin/manager.js' in java
-assert 'versionCode = 11' in (ROOT/'app/build.gradle.kts').read_text()
+assert 'versionCode = 12' in (ROOT/'app/build.gradle.kts').read_text()
 assert 'class="mobile-bottom-nav"' in html and 'data-page="dashboard"' in html
 assert 'safe-area-inset-bottom' in html and 'min-width:620px' in html
 assert 'openSelectedGift' in manager and 'saveSelectedGift' in manager
 assert 'owner-search' in (ROOT/'backend/sura-manager-api.ts').read_text(encoding='utf8')
 assert 'user_metadata' in (ROOT/'backend/sura-manager-api.ts').read_text(encoding='utf8')
 assert 'searchGiftOwners' in manager_source and 'searchGiftOwners' in manager
-assert 'نام و نام خانوادگی' in manager_source and 'ایمیل مالک' in manager_source
+assert 'نام و نام خانوادگی' in manager_source and 'ایمیل مالک' in manager_source and 'شماره موبایل' in manager_source
+assert 'بانک اطلاعات کاربران' in manager_source and 'بانک اطلاعات' in source_html
+assert "meta.mobile||meta.phone" in (ROOT/'backend/sura-manager-api.ts').read_text(encoding='utf8')
 assert '--sura-system-bottom-inset' in source_html and '--sura-system-bottom-inset' in html
 assert 'applySystemBottomInset' in java and 'view.setPadding(bar.left, bar.top, bar.right, 0)' in java
 
