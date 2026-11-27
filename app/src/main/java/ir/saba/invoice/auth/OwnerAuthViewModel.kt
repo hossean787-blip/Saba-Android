@@ -60,6 +60,10 @@ class OwnerAuthViewModel(private val gateway: OwnerAuthService) : ViewModel() {
                 if (fromBiometric && e.httpStatus in listOf(401, 403)) onInvalidBiometric()
                 throw e
             }
+            val mobileMissing = runCatching {
+                gateway.readMobile(verifiedSession.accessToken).isBlank()
+            }.getOrDefault(true)
+            profileReminder = mobileMissing
             biometricEnrollment = if (fromBiometric) null
                 else StoredLoginCredentials(email.trim(), password)
             ownerEmail = email.trim()
