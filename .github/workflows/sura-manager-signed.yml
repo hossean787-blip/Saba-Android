@@ -58,6 +58,11 @@ jobs:
           printf '%s' "$SURA_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$file"
           test -s "$file"
           echo "SURA_RELEASE_STORE_FILE=$file" >> "$GITHUB_ENV"
+      - name: Build manager WebView assets and compiled API
+        run: |
+          npm --prefix sura-admin-android install --ignore-scripts --no-audit --no-fund
+          npm --prefix sura-admin-android run web:build
+          node sura-admin-android/tools/build-manager-api.cjs
       - name: Verify manager filters and exports
         run: |
           python3 sura-admin-android/tests/static_guard.py
