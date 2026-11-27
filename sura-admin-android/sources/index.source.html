@@ -653,6 +653,17 @@ button{touch-action:manipulation}
 
 /* Older Android WebView fallbacks and narrow-screen toolbar fit */
 @media(max-width:640px){.main{padding-bottom:68px;padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}.mobile-bottom-nav{padding:7px;padding-bottom:calc(7px + env(safe-area-inset-bottom,0px))}.topbar>button:nth-of-type(3){font-size:0;width:36px;justify-content:center}.topbar>button:nth-of-type(3) svg{width:17px;height:17px}}
+
+/* Android 15+ edge-to-edge navigation-bar clearance */
+:root{--sura-system-bottom-inset:0px}
+@media(max-width:640px){
+ .mobile-bottom-nav{bottom:var(--sura-system-bottom-inset,0px)!important;padding:7px!important}
+ .main{padding-bottom:calc(68px + var(--sura-system-bottom-inset,0px))!important}
+ .toast-wrap{bottom:calc(78px + var(--sura-system-bottom-inset,0px))!important}
+}
+.owner-result{display:flex;flex-direction:column;align-items:flex-start;gap:5px;width:100%;padding:12px 14px;margin:5px 0;background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:10px;text-align:right;font:inherit;cursor:pointer}
+.owner-result:hover,.owner-result:focus-visible{border-color:var(--accent);background:var(--accent-bg)}
+.owner-result small{color:var(--fg2);font-size:.75rem}
 </style>
 </head>
 <body>
