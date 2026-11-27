@@ -6,3 +6,5 @@ Run JVM regression tests and lint, assemble the signed Release APK, and verify p
 
 
 Rebuild requested after mobile-profile integration and regression test additions.
+
+Rebuild after latest QA correction on main.
