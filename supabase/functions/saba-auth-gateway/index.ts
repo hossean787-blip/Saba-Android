@@ -18,7 +18,7 @@ Deno.serve(async(req)=>{
    const metadata=current.user_metadata&&typeof current.user_metadata==="object"?current.user_metadata:{};
    if(body.mobile===undefined) return respond({mobile:String(metadata.mobile||metadata.phone||"")});
    const mobile=String(body.mobile??"").replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
-   if(!/^09\\d{9}$/.test(mobile)) return respond({error:"invalid_mobile"},400);
+   if(!/^09\d{9}$/.test(mobile)) return respond({error:"invalid_mobile"},400);
    const updated=await fetch(root+"/auth/v1/user",{method:"PUT",headers:{...authHeaders,"content-type":"application/json"},body:JSON.stringify({data:{...metadata,mobile}})});
    if(!updated.ok) return respond({error:"profile_update_failed"},502);
    return respond({mobile});
