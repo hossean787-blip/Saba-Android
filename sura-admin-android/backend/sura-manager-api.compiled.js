@@ -1,4 +1,4 @@
-// source-sha256:aa8e2cf9e21ad49b8eb780139c5eba3d1a12ecb03a36fba9b59c06f9e1962cbf
+// source-sha256:8a4f1a1a107932f366f8646892b19a9b28ef91e389abd9484962de2b246b5c20
 /** SURA Manager API v1. Privileged operations happen ONLY here, never in APK. */
 const BASE = Deno.env.get('SUPABASE_URL') || '';
 const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
