@@ -136,11 +136,11 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
         finally{quoteBusy=false}
     }
     val q=quote?.takeIf{it.matches(plan,selectedQuantity)}
-    LaunchedEffect(accessToken,checkout,q?.kind,q?.units,q?.subtotal,q?.vat,q?.total){
+    LaunchedEffect(accessToken,q?.kind,q?.units,q?.subtotal,q?.vat,q?.total){
         onlinePaymentEnabled=false
-        if(!checkout||q?.kind!="single"){
+        if(q?.kind!="single"){
             onlinePaymentLoading=false
-            if(q?.kind!="single")paymentMethod="card"
+            paymentMethod="card"
         }else{
             onlinePaymentLoading=true
             try{
@@ -309,7 +309,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                     if(quoteBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
                     if(quoteError.isNotBlank()){Text(quoteError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={quoteAttempt++},modifier=Modifier.fillMaxWidth()){Text("استعلام دوباره")}}
                     if(q!=null&&!q.enabled)Text("فروش این پلن فعلاً فعال نیست.",color=MaterialTheme.colorScheme.error)
-                    Button(onClick={checkout=true},enabled=q?.enabled==true&&canPurchase&&!quoteBusy,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("ادامه خرید")}
+                    Button(onClick={checkout=true},enabled=(q?.enabled==true||onlinePaymentEnabled)&&canPurchase&&!quoteBusy&&!onlinePaymentLoading,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("ادامه خرید")}
                 }
             }
             if(plan=="offer"&&selectedOffer!=null)Card(shape=cardShape,colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(3.dp)){
