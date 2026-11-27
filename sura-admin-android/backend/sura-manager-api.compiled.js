@@ -1,4 +1,4 @@
-// source-sha256:ee2d2d5ebe9f64045eed4419b2a4c4bafc6b025a34d835c8c7babd2785b37fb3
+// source-sha256:aa8e2cf9e21ad49b8eb780139c5eba3d1a12ecb03a36fba9b59c06f9e1962cbf
 /** SURA Manager API v1. Privileged operations happen ONLY here, never in APK. */
 const BASE = Deno.env.get('SUPABASE_URL') || '';
 const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
@@ -72,7 +72,11 @@ async function authUser(id) {
 function safeUser(u) {
     if (!validId(u?.id))
         return null;
-    return { id: u.id, email: String(u.email || ''), verified: !!u.email_confirmed_at, created_at: u.created_at || null, last_sign_in_at: u.last_sign_in_at || null, banned_until: u.banned_until || null };
+    const meta = object(u.user_metadata) ? u.user_metadata : {};
+    const first = String(meta.first_name || meta.firstName || '').trim();
+    const last = String(meta.last_name || meta.lastName || '').trim();
+    const name = String(meta.full_name || meta.name || [first, last].filter(Boolean).join(' ') || '').trim().slice(0, 200);
+    return { id: u.id, name, email: String(u.email || ''), verified: !!u.email_confirmed_at, created_at: u.created_at || null, last_sign_in_at: u.last_sign_in_at || null, banned_until: u.banned_until || null };
 }
 async function mapLimited(list, limit, fn) {
     const output = [];
@@ -126,6 +130,33 @@ async function handler(req) {
         const rows = (Array.isArray(result?.users) ? result.users : []).map(safeUser).filter(Boolean);
         const roles = await rolesMap();
         return send({ page, perPage, users: rows.map((u) => ({ ...u, role: roles.get(u.id) || null })), nextPage: rows.length === perPage ? page + 1 : null });
+    }
+    if (end === 'owner-search') {
+        if (!admin)
+            return send({ error: 'insufficient_role' }, 403);
+        const query = String(body.query || '').trim().toLowerCase();
+        if (query.length < 2 || query.length > 120)
+            return send({ error: 'invalid_search_query' }, 400);
+        const matches = [];
+        const perPage = 50;
+        for (let page = 1; page <= 200; page++) {
+            const response = await request(`${BASE}/auth/v1/admin/users?${params({ page, per_page: perPage })}`);
+            if (!response.ok)
+                throw new Error('users_unavailable');
+            const result = await jsonFrom(response);
+            const rows = (Array.isArray(result?.users) ? result.users : []).map(safeUser).filter(Boolean);
+            for (const u of rows) {
+                const email = String(u.email || '').toLowerCase(), name = String(u.name || '').toLowerCase();
+                if (email.includes(query) || name.includes(query)) {
+                    const score = email === query ? 0 : name === query ? 1 : email.startsWith(query) ? 2 : name.startsWith(query) ? 3 : 4;
+                    matches.push({ ...u, match_score: score });
+                }
+            }
+            if (matches.length >= 20 || rows.length < perPage)
+                break;
+        }
+        matches.sort((a, b) => a.match_score - b.match_score || String(a.name || '').localeCompare(String(b.name || '')));
+        return send({ matches: matches.slice(0, 12).map(({ match_score, ...u }) => u) });
     }
     if (end === 'user') {
         if (!staff)
