@@ -168,7 +168,7 @@ private fun CreditPurchaseContent(ownerId: String, accessToken: String) {
                             }
                         }
                     }
-                    Button(enabled=canPurchase&&q.enabled&&(paymentMethod!="zarinpal"||onlinePaymentEnabled)&&!onlinePaymentLoading,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),onClick={payAction{
+                    Button(enabled=canPurchase&&(if(paymentMethod=="zarinpal")onlinePaymentEnabled else q.enabled)&&!onlinePaymentLoading,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),onClick={payAction{
                         // Recheck both histories before starting any checkout. Never create a second live order.
                         refreshOrders()
                         val prior=history.firstOrNull{it.optString("state") in setOf("draft","pending")}
