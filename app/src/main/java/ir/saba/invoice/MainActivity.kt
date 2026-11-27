@@ -839,7 +839,13 @@ class MainActivity : ComponentActivity() {
                                     } else page = Page.QUOTA
                                 },
                                 onLogout = { confirmLogout = true },
-                                onExcelAction = { action, target -> handleExcelAction(action, target) }
+                                onExcelAction = { action, target -> handleExcelAction(action, target) },
+                                onSaveMobile = { mobile ->
+                                    ir.saba.invoice.auth.AuthGatewayClient(
+                                        "https://fiiitzfbdjzpmepzjsjw.supabase.co/functions/v1/saba-auth-gateway"
+                                    ).updateMobile(accessToken, mobile)
+                                    notify("شماره موبایل در حساب شما ثبت شد.")
+                                }
                             )
                             }
                             Page.BACKUP, Page.RESTORE -> key(page) {
