@@ -52,6 +52,16 @@ class AuthGatewayClientTest {
             fail("Malformed response accepted")
         } catch (expected: java.io.IOException) { assertTrue(c.closed) }
     }
+    @Test fun readsSavedMobileFromCentralProfile() = runBlocking {
+        val c = Connection("""{"mobile":"09121234567"}""")
+        assertEquals("09121234567", client(c).readMobile("access"))
+        val body = JSONObject(c.sent.toString("UTF-8"))
+        assertEquals("access", body.getString("accessToken"))
+        assertFalse(body.has("mobile"))
+        assertFalse(body.has("otp"))
+        assertTrue(c.closed)
+    }
+
     @Test fun mobileProfileUpdateUsesAuthenticatedSessionWithoutOtp() = runBlocking {
         val c = Connection("""{"mobile":"09121234567"}""")
         assertEquals("09121234567", client(c).updateMobile("access", "۰۹۱۲۱۲۳۴۵۶۷"))
