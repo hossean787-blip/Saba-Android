@@ -141,68 +141,123 @@ fun HomeDashboard(
 }
 
 /**
- * SURA-owned promotional placement. This first release is bundled and advertises
- * SURA itself; it does not load third-party ads or transmit user data.
+ * Compact SURA-owned promotion, placed directly after the product/service identifier action.
+ * The banner is self-contained, offline, and sized for the home-screen ad slot.
  */
 @Composable
 private fun SuraOwnPromotion(onNewInvoice: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = midnight),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF171A59)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF202943), Color(0xFF37315F), Color(0xFF51448A))
+                        listOf(Color(0xFF111B58), Color(0xFF29207D), Color(0xFF542BD0))
                     )
                 )
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
+            Box(
+                Modifier.align(Alignment.TopEnd).size(150.dp)
+                    .offset(x = 42.dp, y = (-54).dp)
+                    .clip(CircleShape)
+                    .background(Color(0x332F8BFF))
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 158.dp)
+                    .padding(horizontal = 14.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Color(0x33FFFFFF)
+                Column(
+                    modifier = Modifier.weight(1.55f),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
                     Text(
-                        "معرفی امکانات سورا",
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-                        color = Color(0xFFE5DFFF),
-                        style = MaterialTheme.typography.labelSmall,
+                        "SURA  |  سورا",
+                        color = Color(0xFFEBCB90),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        "صورتحساب الکترونیک",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "سریع، مطمئن، حرفه‌ای",
+                        color = Color(0xFFE3DFFF),
+                        style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
                     )
-                }
-                Text(
-                    "مدیریت صورتحساب، ساده‌تر از همیشه",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    "ثبت، مدیریت و پیگیری صورتحساب‌های کسب‌وکارت را یک‌جا با سورا انجام بده.",
-                    color = Color(0xFFD8D8E8),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text("✓", color = Color(0xFF5DE0C1), fontWeight = FontWeight.Black)
+                        Text("اتصال به سامانه مؤدیان", color = Color.White,
+                            style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
                     Button(
                         onClick = onNewInvoice,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(11.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE7C987),
-                            contentColor = Color(0xFF25233B)
+                            containerColor = Color(0xFFEBCB90),
+                            contentColor = Color(0xFF17264A)
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 9.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                        modifier = Modifier.heightIn(min = 38.dp)
                     ) {
-                        Text("ثبت صورتحساب جدید", fontWeight = FontWeight.Bold)
+                        Text("همین حالا استفاده کنید", fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(0.88f).height(116.dp)
+                            .offset(x = (-4).dp, y = (-5).dp),
+                        shape = RoundedCornerShape(13.dp),
+                        color = Color(0xFFF8F8FF),
+                        shadowElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(9.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Text("سورا", color = Color(0xFF3926A5),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold)
+                            repeat(4) { index ->
+                                Box(
+                                    Modifier.fillMaxWidth(if (index == 3) 0.58f else 0.92f)
+                                        .height(5.dp).clip(RoundedCornerShape(5.dp))
+                                        .background(Color(0xFFD8D7F2))
+                                )
+                            }
+                        }
+                    }
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomEnd).size(58.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF4B35C8),
+                        shadowElevation = 9.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("✓", color = Color.White,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Black)
+                        }
                     }
                 }
             }
